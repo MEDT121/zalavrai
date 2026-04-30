@@ -662,6 +662,7 @@ window.NAV = {
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'teacher_comm',i:'💬',l:'Communication co-titulaire'},
       {s:'Infos'},
+      {id:'messages',i:'✉️',l:'Messages'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
     ],
@@ -669,7 +670,7 @@ window.NAV = {
       {id:'dashboard',i:'📊',l:'Accueil'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
       {id:'devoirs',i:'📚',l:'Devoirs'},
-      {id:'cahier_texte',i:'📖',l:'Cahier'},
+      {id:'messages',i:'✉️',l:'Messages'},
       {id:'notifications',i:'🔔',l:'Notifs'},
     ]
   },
@@ -704,6 +705,7 @@ window.NAV = {
       {s:'Gestion'},
       {id:'authorized',i:'🔑',l:'Personnes autorisées'},
       {id:'absences',i:'📄',l:'Justifier absence'},
+      {id:'messages',i:'✉️',l:'Messages'},
       {s:'Infos'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
@@ -711,8 +713,8 @@ window.NAV = {
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
       {id:'children',i:'👶',l:'Enfants'},
-      {id:'devoirs_parent',i:'📚',l:'Devoirs'},
-      {id:'palmares_parent',i:'🏆',l:'Palmarès'},
+      {id:'absences',i:'📄',l:'Absences'},
+      {id:'messages',i:'✉️',l:'Messages'},
       {id:'notifications',i:'🔔',l:'Notifs'},
     ]
   },
@@ -899,7 +901,7 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a => a.status === 'pending').length + DB.absences.filter(a => a.status === 'pending').length + DB.daily_reports.filter(r => r.status === 'pending').length;
+window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length;
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -911,7 +913,7 @@ window.PT = {
   attendance:'Présences', payments:'Paiements', palmares:'Palmarès',
   messages:'Messages', calendar:'Calendrier', notifications:'Notifications',
   scanner:'Scanner Entrée', scanner_exit:'Scanner Sortie', scan_log:'Historique Scans',
-  children:'Mes Enfants', authorized:'Personnes Autorisées', absences:'Justifier Absence',
+  children:'Mes Enfants', authorized:'Personnes Autorisées', absences:'📄 Justifier Absence', messages:'✉️ Messages', classes:'🏫 Classes',
   lockdown:'🚨 LOCKDOWN', settings:'⚙️ Paramètres', cards:'🪪 Cartes',
   approbations:'✅ Approbations', devoirs:'📚 Devoirs', matieres:'📐 Matières',
   cahier_texte:'📖 Cahier de texte', teacher_comm:'💬 Communication',
@@ -2257,7 +2259,8 @@ R.approbations = () => {
   const pabs = DB.absences.filter(a=>a.status==='pending');
   const apr = DB.approbations.filter(a=>a.status==='pending');
   const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
-  const total = pabs.length + apr.length + pendingReports.length;
+  const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -2286,11 +2289,19 @@ R.approbations = () => {
       return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.reason}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div></div>`;
     }).join('')}</div>`:''}
+  ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
+    ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
+  </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}`;
 };
 window.validateAbs = (id, status) => {
   const a = DB.absences.find(x=>x.id===id); if (!a) return;
   a.status = status;
+  const s=DB.students.find(x=>x.id===a.sid);
+  if(a.pid){
+    const notif={id:'n'+Date.now(),uid:a.pid,msg:`${status==='approved'?'✅':'❌'} Justification ${status==='approved'?'approuvée':'refusée'} — ${s?s.name:'?'} · ${a.dates} · ${a.motif}`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+  }
   toast(status==='approved'?'✅ Approuvée':'❌ Refusée', status==='approved'?'success':'info');
   saveToCrypt(); render();
 };
@@ -3651,11 +3662,98 @@ R.authorized = () => {
   </div>
   ${aps.length?`<div class="ww-grid">${aps.map(a=>`<div class="ww-card"><div class="ww-card-body"><div style="font-weight:700">${a.name}</div><div style="font-size:12px;color:var(--text-secondary)">${a.relation||'Tuteur'}</div></div></div>`).join('')}</div>`:'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucune personne autorisée</div>'}`;
 };
-R.absences = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)">
-  <div style="font-size:72px;margin-bottom:16px">📄</div>
-  <h2 style="font-size:22px;font-weight:800;margin-bottom:8px">Justifier absence</h2>
-  <p style="color:var(--text-secondary);font-size:14px;max-width:400px;margin:0 auto">Soumettre une justification avec approbation Direction — Partie 8.</p>
-</div>`;
+// ── ÉTAPE 5 — JUSTIFICATION D'ABSENCE ──
+R.absences = () => {
+  const role = S.user.role;
+  // Direction: voir toutes les justifications
+  if (role === 'direction' || role === 'direction2') {
+    const all = DB.absences.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📄</div>Aucune justification soumise</div>`;
+    const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
+    const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+    return `
+    <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📄 Justifications (${all.length})</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      ${['','pending','approved','refused'].map(s=>`<button class="pill ${(window._absFilter||'')===(s)?'pill-blue':''}" onclick="window._absFilter='${s}';render()" style="cursor:pointer;border:none">${s===''?'Toutes':statusLabel[s]}</button>`).join('')}
+    </div>
+    <div class="premium-section">
+      ${all.filter(a=>!(window._absFilter)||a.status===(window._absFilter||'')).map(a=>{
+        const s=DB.students.find(x=>x.id===a.sid);
+        const p=gu(a.pid);
+        return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+          <div class="pi-icon" style="background:#fef3c7">📄</div>
+          <div style="flex:1;min-width:150px">
+            <div class="pi-title">${s?s.name:'?'}</div>
+            <div class="pi-sub">${a.dates} · ${a.motif}</div>
+            ${a.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${a.note}</div>`:''}
+            <div style="font-size:11px;color:var(--text-muted)">Soumis par ${p?p.name:'?'} le ${a.submitted}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
+            ${a.status==='pending'&&role==='direction'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  // Parent: soumettre justification
+  const kids = DB.students.filter(s=>s.pid===S.user.id);
+  const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>b.submitted.localeCompare(a.submitted));
+  const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
+  const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+  return `
+  <div class="premium-section">
+    <div class="premium-section-title">📄 Soumettre une justification</div>
+    ${!kids.length?`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à votre compte.</div>`:`
+    <div class="form-group" style="margin-top:12px"><label class="form-label">Enfant concerné *</label>
+      <select class="form-select" id="abs_sid">${kids.map(k=>`<option value="${k.id}">${k.name}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Date(s) d'absence *</label>
+      <input class="form-input" id="abs_dates" placeholder="Ex: 28/04/2025 ou du 28 au 30/04/2025">
+    </div>
+    <div class="form-group"><label class="form-label">Motif *</label>
+      <select class="form-select" id="abs_motif">
+        <option value="Maladie">🤒 Maladie</option>
+        <option value="Décès familial">🕊️ Décès familial</option>
+        <option value="Raison médicale">🏥 Raison médicale</option>
+        <option value="Voyage">✈️ Voyage</option>
+        <option value="Autre">📝 Autre</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Précisions (optionnel)</label>
+      <input class="form-input" id="abs_note" placeholder="Ex: Certificat médical disponible">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:14px" onclick="submitAbsence()">📤 Soumettre la justification</button>`}
+  </div>
+  ${myAbs.length?`<div class="premium-section"><div class="premium-section-title">📋 Mes justifications</div>
+    ${myAbs.map(a=>{
+      const s=DB.students.find(x=>x.id===a.sid);
+      return `<div class="premium-item">
+        <div class="pi-icon" style="background:#fef3c7">📄</div>
+        <div style="flex:1"><div class="pi-title">${s?s.name:'?'} — ${a.dates}</div><div class="pi-sub">${a.motif}${a.note?' · '+a.note:''}</div><div style="font-size:11px;color:var(--text-muted)">${a.submitted}</div></div>
+        <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
+};
+
+window._absFilter = '';
+window.submitAbsence = () => {
+  const sid=$('abs_sid').value;
+  const dates=($('abs_dates').value||'').trim();
+  const motif=$('abs_motif').value;
+  if(!dates){toast('Entrez les dates d\'absence','error');return;}
+  const note=($('abs_note').value||'').trim();
+  const abs={id:'ab'+Date.now(),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today()};
+  DB.absences.push(abs);
+  // Notifier Direction
+  DB.users.filter(u=>u.role==='direction').forEach(u=>{
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`📄 Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+  });
+  toast('✅ Justification soumise — en attente de validation','success');
+  saveToCrypt(); render();
+};
 
 // ── DIRECTION 3 — CAISSE ──
 const PAYMENT_TYPES = [
@@ -3828,7 +3926,143 @@ R.caisse_rapport = () => {
 };
 
 // ── DIRECTION: autres pages ──
-R.messages = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">✉️</div><h2>Messages</h2><p style="color:var(--text-secondary)">Avec approbation Direction + WhatsApp — Partie 7.</p></div>`;
+// ── ÉTAPE 6 — MESSAGES INTERNES ──
+R.messages = () => {
+  const role = S.user.role;
+  const uid = S.user.id;
+  const received = DB.messages.filter(m=>m.to===uid||(m.to_role&&m.to_role===role)).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const sent = DB.messages.filter(m=>m.from===uid).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const pending = role==='direction' ? DB.messages.filter(m=>m.status==='pending') : [];
+  const tab = window._msgTab||'inbox';
+  const unread = received.filter(m=>!m.read).length;
+
+  const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444',sent:'#3b82f6'};
+  const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvé',refused:'❌ Refusé',sent:'📤 Envoyé'};
+
+  const msgItem = (m, showActions=false) => {
+    const from=gu(m.from); const toUser=m.to?gu(m.to):null;
+    return `<div class="premium-item" style="${!m.read&&m.to===uid?'background:var(--bg)':''}">
+      <div class="pi-icon" style="background:#dbeafe">✉️</div>
+      <div style="flex:1;min-width:0">
+        <div class="pi-title">${m.subject||'(Sans objet)'} ${!m.read&&m.to===uid?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;margin-left:4px">NEW</span>':''}</div>
+        <div class="pi-sub">${m.body}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
+          De : ${from?from.name:'?'} → ${toUser?toUser.name:m.to_role?'Tous les '+m.to_role+'s':'?'} · ${m.date} ${m.time}
+        </div>
+        ${m.whatsapp?`<a href="https://wa.me/${m.whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(m.body)}" target="_blank" style="font-size:12px;color:#25d366;display:inline-flex;align-items:center;gap:4px;margin-top:4px">📱 Ouvrir sur WhatsApp</a>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        <span class="pill" style="background:${statusColor[m.status]||'#e2e8f0'}22;color:${statusColor[m.status]||'#64748b'};white-space:nowrap">${statusLabel[m.status]||m.status}</span>
+        ${showActions&&m.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div>`:''}
+        ${m.to===uid&&!m.read?`<button class="btn btn-outline btn-sm" onclick="markMsgRead('${m.id}')">Lire</button>`:''}
+      </div>
+    </div>`;
+  };
+
+  return `
+  <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px">
+    <button onclick="window._msgTab='inbox';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='inbox'?'var(--primary)':'var(--bg)'};color:${tab==='inbox'?'#fff':'var(--text-secondary)'}">📥 Reçus ${unread>0?`(${unread} non lus)`:''}</button>
+    <button onclick="window._msgTab='sent';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='sent'?'var(--primary)':'var(--bg)'};color:${tab==='sent'?'#fff':'var(--text-secondary)'}">📤 Envoyés (${sent.length})</button>
+    ${role==='direction'?`<button onclick="window._msgTab='pending';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='pending'?'var(--primary)':'var(--bg)'};color:${tab==='pending'?'#fff':'var(--text-secondary)'}">⏳ À approuver (${pending.length})</button>`:''}
+  </div>
+  <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="openComposeMsg()">✉️ Nouveau message</button>
+  ${tab==='inbox'?`<div class="premium-section">${received.length?received.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message reçu</div>'}</div>`:''}
+  ${tab==='sent'?`<div class="premium-section">${sent.length?sent.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message envoyé</div>'}</div>`:''}
+  ${tab==='pending'&&role==='direction'?`<div class="premium-section">${pending.length?pending.map(m=>msgItem(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message en attente d\'approbation</div>'}</div>`:''}`;
+};
+
+window._msgTab = 'inbox';
+
+window.openComposeMsg = () => {
+  const role = S.user.role;
+  const needsApproval = role==='enseignant';
+  const recipients = DB.users.filter(u=>u.id!==S.user.id&&u.role!=='direction3');
+  const parentPhone = S.user.phone||'';
+  openM('✉️ Nouveau message',`
+<div class="form-group"><label class="form-label">Destinataire *</label>
+  <select class="form-select" id="msg_to">
+    <option value="">— Choisir un destinataire —</option>
+    <optgroup label="Individuel">
+      ${recipients.map(u=>`<option value="uid:${u.id}">${u.name} (${u.role})</option>`).join('')}
+    </optgroup>
+    <optgroup label="Groupe">
+      <option value="role:parent">👨‍👩‍👧 Tous les parents</option>
+      <option value="role:enseignant">👨‍🏫 Tous les enseignants</option>
+      <option value="role:gardien">🛡️ Tous les gardiens</option>
+    </optgroup>
+  </select>
+</div>
+<div class="form-group"><label class="form-label">Objet *</label>
+  <input class="form-input" id="msg_subject" placeholder="Ex: Réunion parents ce vendredi">
+</div>
+<div class="form-group"><label class="form-label">Message *</label>
+  <textarea class="form-input" id="msg_body" rows="4" placeholder="Votre message..." style="resize:vertical"></textarea>
+</div>
+<div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
+  <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
+</div>
+${needsApproval?`<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:13px;color:#78350f;margin-top:6px">⏳ Votre message sera soumis à l'approbation de la Direction avant envoi.</div>`:''}`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="sendMsg()">${needsApproval?'📤 Soumettre pour approbation':'📤 Envoyer'}</button>`);
+};
+
+window.sendMsg = () => {
+  const toVal=($('msg_to').value||'').trim();
+  const subject=($('msg_subject').value||'').trim();
+  const body=($('msg_body').value||'').trim();
+  if(!toVal){toast('Sélectionnez un destinataire','error');return;}
+  if(!subject){toast('Entrez un objet','error');return;}
+  if(!body){toast('Entrez un message','error');return;}
+  const role=S.user.role;
+  const needsApproval=role==='enseignant';
+  const isRole=toVal.startsWith('role:');
+  const toId=isRole?null:toVal.replace('uid:','');
+  const toRole=isRole?toVal.replace('role:',''):null;
+  const wa=($('msg_wa').value||'').trim()||null;
+  const msg={id:'msg'+Date.now(),from:S.user.id,to:toId,to_role:toRole,subject,body,whatsapp:wa,date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
+  DB.messages.push(msg);
+  if(!needsApproval){
+    // Notifier destinataires
+    const targets=toId?[DB.users.find(u=>u.id===toId)].filter(Boolean):DB.users.filter(u=>u.role===toRole);
+    targets.forEach(u=>{
+      const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
+      DB.notifs.unshift(notif);
+    });
+    toast('✅ Message envoyé','success');
+  } else {
+    DB.users.filter(u=>u.role==='direction').forEach(u=>{
+      const notif={id:'n'+Date.now(),uid:u.id,msg:`⏳ Message en attente d'approbation de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(notif);
+    });
+    toast('📤 Message soumis — en attente d\'approbation Direction','info');
+  }
+  closeModal(); saveToCrypt(); render();
+};
+
+window.approveMsg = (mid, status) => {
+  const m=DB.messages.find(x=>x.id===mid); if(!m) return;
+  m.status=status;
+  if(status==='approved'){
+    const targets=m.to?[DB.users.find(u=>u.id===m.to)].filter(Boolean):DB.users.filter(u=>u.role===m.to_role);
+    targets.forEach(u=>{
+      const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
+      DB.notifs.unshift(notif);
+    });
+    // Notifier expéditeur
+    const senderNotif={id:'n'+Date.now(),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(senderNotif);
+    toast('✅ Message approuvé et envoyé','success');
+  } else {
+    const senderNotif={id:'n'+Date.now(),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(senderNotif);
+    toast('❌ Message refusé','info');
+  }
+  saveToCrypt(); render();
+};
+
+window.markMsgRead = (mid) => {
+  const m=DB.messages.find(x=>x.id===mid); if(!m) return;
+  m.read=true; saveToCrypt(); render();
+};
 R.teacher_activity = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">👁️</div><h2>Activité Profs</h2><p style="color:var(--text-secondary)">Tableau de bord de l'activité de chaque enseignant — Partie 6.</p></div>`;
 R.year_mgmt = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📆</div><h2>Année Scolaire</h2><p style="color:var(--text-secondary)">Clôture + passage de classe automatique — Partie 7.</p></div>`;
 R.export = () => S.user.role==='direction2' ? `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">L'export financier est réservé à la Direction 1.</p></div>` : `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📤</div><h2>Export Données</h2><p style="color:var(--text-secondary)">Export PDF + Excel — Partie 7.</p></div>`;
