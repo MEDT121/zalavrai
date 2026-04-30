@@ -357,6 +357,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       <div style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">Comptes de test</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">
         <button type="button" onclick="quickLogin('Admin','123456')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">🏢 Direction</button>
+        <button type="button" onclick="quickLogin('Direction2','555555')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">🏫 Direction 2</button>
+        <button type="button" onclick="quickLogin('Caisse','666666')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">💵 Caisse</button>
         <button type="button" onclick="quickLogin('Kabongo','111111')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">👨‍🏫 Enseignant</button>
         <button type="button" onclick="quickLogin('Mbuyi','333333')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">🛡️ Gardien</button>
         <button type="button" onclick="quickLogin('Lomela','444444')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:10px 8px;border-radius:10px;font-size:11px;cursor:pointer;font-family:inherit">👨‍👩‍👧 Parent</button>
@@ -469,6 +471,8 @@ window.DB = {
     { id:'u3', name:'Okonkwo', role:'enseignant', pin:'222222', initials:'OK', phone:'+243 978 222 222', class_id:'c4', lang:'en' },
     { id:'u4', name:'Mbuyi', role:'gardien', pin:'333333', initials:'MB', phone:'+243 978 333 333' },
     { id:'u5', name:'Lomela', role:'parent', pin:'444444', initials:'LO', phone:'+243 978 444 444' },
+    { id:'u6', name:'Direction2', role:'direction2', pin:'555555', initials:'D2', phone:'+243 816 000 002' },
+    { id:'u7', name:'Caisse', role:'direction3', pin:'666666', initials:'CA', phone:'+243 816 000 003' },
   ],
   classes: [
     { id:'c1', name:'Petite Section',  cycle:'maternelle', teacher_id:null, teacher_id_en:null },
@@ -493,7 +497,9 @@ window.DB = {
     { id:'s5', mat:'STU-0005', name:'Tshilombo Ruth', cid:'c4', pid:null, photo:null,
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther' },
   ],
-  aps:[], payments:[
+  aps:[],
+  daily_records:[], daily_expenses:[], daily_reports:[],
+  payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
     { sid:'s3', t:'T1', paid:true },{ sid:'s3', t:'T2', paid:false },{ sid:'s3', t:'T3', paid:false },
@@ -708,6 +714,58 @@ window.NAV = {
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
       {id:'notifications',i:'🔔',l:'Notifs'},
     ]
+  },
+  direction2: {
+    label:'Direction 2',
+    nav:[
+      {s:'Principal'},
+      {id:'dashboard',i:'📊',l:'Tableau de bord'},
+      {id:'approbations',i:'✅',l:'Approbations',badge:true},
+      {id:'lockdown',i:'🚨',l:'LOCKDOWN'},
+      {s:'Personnes'},
+      {id:'students',i:'🎓',l:'Élèves'},
+      {id:'teachers',i:'👨‍🏫',l:'Enseignants'},
+      {id:'guardians',i:'🛡️',l:'Gardiens'},
+      {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
+      {id:'authorized',i:'🔑',l:'Autorisés'},
+      {s:'Scolarité'},
+      {id:'palmares',i:'🏆',l:'Palmarès'},
+      {id:'attendance',i:'📋',l:'Présences'},
+      {id:'cards',i:'🪪',l:"Cartes d'élèves"},
+      {s:'Communication'},
+      {id:'messages',i:'✉️',l:'Messages'},
+      {id:'calendar',i:'📅',l:'Calendrier'},
+      {id:'notifications',i:'🔔',l:'Notifications'},
+      {s:'Système'},
+      {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
+      {id:'settings',i:'⚙️',l:'Paramètres'},
+    ],
+    bn:[
+      {id:'dashboard',i:'📊',l:'Accueil'},
+      {id:'approbations',i:'✅',l:'Approuver',badge:true},
+      {id:'students',i:'🎓',l:'Élèves'},
+      {id:'attendance',i:'📋',l:'Présences'},
+      {id:'settings',i:'⚙️',l:'Système'},
+    ]
+  },
+  direction3: {
+    label:'Caisse',
+    nav:[
+      {s:'Caisse du jour'},
+      {id:'dashboard',i:'📊',l:'Tableau de bord'},
+      {id:'caisse_paiement',i:'💵',l:'Enregistrer paiement'},
+      {id:'caisse_depense',i:'💸',l:'Enregistrer dépense'},
+      {id:'caisse_rapport',i:'📋',l:'Rapport du jour'},
+      {s:'Infos'},
+      {id:'notifications',i:'🔔',l:'Notifications'},
+    ],
+    bn:[
+      {id:'dashboard',i:'📊',l:'Accueil'},
+      {id:'caisse_paiement',i:'💵',l:'Paiement'},
+      {id:'caisse_depense',i:'💸',l:'Dépense'},
+      {id:'caisse_rapport',i:'📋',l:'Rapport'},
+      {id:'notifications',i:'🔔',l:'Notifs'},
+    ]
   }
 };
 
@@ -840,7 +898,7 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a => a.status === 'pending').length + DB.absences.filter(a => a.status === 'pending').length;
+window.getPendingCount = () => DB.approbations.filter(a => a.status === 'pending').length + DB.absences.filter(a => a.status === 'pending').length + DB.daily_reports.filter(r => r.status === 'pending').length;
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -859,6 +917,8 @@ window.PT = {
   teacher_activity:'👁️ Activité Profs', year_mgmt:'📆 Année Scolaire',
   export:'📤 Export', alert_urgent:'🚨 Alerte Urgence',
   devoirs_parent:'📚 Devoirs', palmares_parent:'🏆 Palmarès',
+  caisse_paiement:'💵 Enregistrer Paiement', caisse_depense:'💸 Enregistrer Dépense',
+  caisse_rapport:'📋 Rapport du Jour',
 };
 
 // ── RENDERERS ──
@@ -997,6 +1057,8 @@ window.saveProfile = () => {
 R.dashboard = () => {
   const u = S.user, r = u.role;
   if (r === 'direction') return dashboardDirection();
+  if (r === 'direction2') return dashboardDirection2();
+  if (r === 'direction3') return dashboardDirection3();
   if (r === 'enseignant') return dashboardEnseignant();
   if (r === 'gardien') return dashboardGardien();
   if (r === 'parent') return dashboardParent();
@@ -1104,6 +1166,80 @@ function dashboardEnseignant() {
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
   </div>`;
+}
+
+function dashboardDirection2() {
+  const ts = DB.students.length;
+  const te = DB.users.filter(u=>u.role==='enseignant').length;
+  const todayAtt = DB.attendance.filter(a=>a.date===today());
+  const present = todayAtt.filter(a=>a.status==='ontime').length;
+  const pending = getPendingCount();
+  const todayRep = DB.daily_reports.filter(r=>r.date===today()&&r.status==='pending');
+  return `
+  <div class="hero-premium">
+    <div class="hero-school">The Wise School International</div>
+    <div class="hero-title">Direction 2</div>
+    <div class="hero-sub">Gestion scolaire — sans accès finances</div>
+    <div class="hero-bar"></div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num">${ts}</div><div class="hero-stat-lbl">Élèves</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${te}</div><div class="hero-stat-lbl">Profs</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${present}</div><div class="hero-stat-lbl">Présents</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${pending}</div><div class="hero-stat-lbl">En attente</div></div>
+    </div>
+  </div>
+  <div class="action-grid">
+    <button class="action-card" onclick="go('students')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">🎓</span><span class="ac-label">Élèves</span></button>
+    <button class="action-card" onclick="go('approbations')" style="background:linear-gradient(135deg,#c9a030,#a68520);position:relative"><span class="ac-icon">✅</span><span class="ac-label">Approuver</span>${pending>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px">${pending}</span>`:''}</button>
+    <button class="action-card" onclick="go('attendance')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📋</span><span class="ac-label">Présences</span></button>
+  </div>
+  <div class="premium-section" style="background:#fef3c7;border-left:4px solid #f59e0b">
+    <div class="premium-section-title">🔒 Accès Finance</div>
+    <div style="font-size:13px;color:#78350f;margin-top:6px">Les pages de paiement, reçus et statistiques financières sont réservées à la Direction 1.</div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">⚡ Actions rapides</div>
+    <div class="quick-grid">
+      ${[['students','🎓','Élèves'],['teachers','👨‍🏫','Profs'],['attendance','📋','Présences'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['approbations','✅','Approuver'],['lockdown','🚨','Urgence'],['settings','⚙️','Système']]
+      .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function dashboardDirection3() {
+  const recs = DB.daily_records.filter(r=>r.date===today()&&!r.validated);
+  const exps = DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
+  const totalIn = recs.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalOut = exps.reduce((s,e)=>s+Number(e.amount||0),0);
+  const now = new Date();
+  const hm = now.getHours()*60+now.getMinutes();
+  const minutesTo16 = 16*60 - hm;
+  const timeMsg = minutesTo16>0 ? `Rapport dans ${Math.floor(minutesTo16/60)}h${minutesTo16%60<10?'0':''}${minutesTo16%60}` : `Rapport envoyé à Direction 1`;
+  return `
+  <div class="hero-premium" style="background:linear-gradient(160deg,#064e3b,#065f46,#10b981bb)">
+    <div class="hero-school">The Wise School International</div>
+    <div class="hero-title">💵 Caisse du jour</div>
+    <div class="hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div class="hero-bar" style="background:linear-gradient(90deg,#10b981,#34d399)"></div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num">${recs.length}</div><div class="hero-stat-lbl">Paiements</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${exps.length}</div><div class="hero-stat-lbl">Dépenses</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${totalIn}</div><div class="hero-stat-lbl">$ Encaissé</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${totalOut}</div><div class="hero-stat-lbl">$ Dépensé</div></div>
+    </div>
+  </div>
+  <div class="action-grid">
+    <button class="action-card" onclick="go('caisse_paiement')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">💵</span><span class="ac-label">Paiement</span></button>
+    <button class="action-card" onclick="go('caisse_depense')" style="background:linear-gradient(135deg,#dc2626,#b91c1c)"><span class="ac-icon">💸</span><span class="ac-label">Dépense</span></button>
+    <button class="action-card" onclick="go('caisse_rapport')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)"><span class="ac-icon">📋</span><span class="ac-label">Rapport</span></button>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #10b981">
+    <div class="premium-section-title">⏰ ${timeMsg}</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">Le rapport est envoyé automatiquement à 16h00 à la Direction 1. Vous ne verrez plus les données de ce jour après validation.</div>
+  </div>
+  ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Derniers paiements</div>
+    ${recs.slice(-4).reverse().map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
+  </div>`:''}`;
 }
 
 function dashboardGardien() {
@@ -1851,12 +1987,30 @@ R.parents = () => _simpleList('parent','👨‍👩‍👧','linear-gradient(90d
 R.approbations = () => {
   const pabs = DB.absences.filter(a=>a.status==='pending');
   const apr = DB.approbations.filter(a=>a.status==='pending');
-  const total = pabs.length + apr.length;
+  const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
+  const total = pabs.length + apr.length + pendingReports.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
     <div class="premium-section-title">⏳ ${total} en attente</div>
   </div>
+  ${pendingReports.length?`<div class="premium-section"><div class="premium-section-title">📊 Rapports journaliers (${pendingReports.length})</div>
+    ${pendingReports.map(rep=>{
+      const sender=DB.users.find(u=>u.id===rep.by);
+      const totalIn=rep.records?rep.records.reduce((s,r)=>s+Number(r.amount||0),0):0;
+      const totalOut=rep.expenses?rep.expenses.reduce((s,e)=>s+Number(e.amount||0),0):0;
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+        <div class="pi-icon" style="background:#d1fae5">📊</div>
+        <div style="flex:1;min-width:150px">
+          <div class="pi-title">${sender?sender.name:'?'} — ${rep.date}</div>
+          <div class="pi-sub">${rep.records?rep.records.length:0} paiements · ${rep.expenses?rep.expenses.length:0} dépenses · Solde: $${totalIn-totalOut}</div>
+        </div>
+        <div style="display:flex;gap:6px;width:100%">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="viewDailyReport('${rep.id}')">👁️ Voir</button>
+          <button class="btn btn-success btn-sm" style="flex:1" onclick="validateDailyReport('${rep.id}')">✅ Valider</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`:''}
   ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
@@ -1872,8 +2026,95 @@ window.validateAbs = (id, status) => {
   saveToCrypt(); render();
 };
 
+window.validateDailyReport = (rid) => {
+  const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
+  rep.status = 'validated';
+  rep.validatedAt = nowTime();
+  // Mark all associated records and expenses as validated so direction3 can no longer see them
+  (rep.records||[]).forEach(rec=>{ const r=DB.daily_records.find(x=>x.id===rec.id); if(r) r.validated=true; });
+  (rep.expenses||[]).forEach(exp=>{ const e=DB.daily_expenses.find(x=>x.id===exp.id); if(e) e.validated=true; });
+  // Notify the sender
+  const sender=DB.users.find(u=>u.id===rep.by);
+  if(sender){
+    const notif={id:'n'+Date.now(),uid:sender.id,msg:`✅ Votre rapport du ${rep.date} a été validé par la Direction 1.`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+  }
+  toast('✅ Rapport validé — données archivées','success');
+  saveToCrypt(); render();
+};
+
+window.viewDailyReport = (rid) => {
+  const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
+  const sender=DB.users.find(u=>u.id===rep.by);
+  const totalIn=(rep.records||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalOut=(rep.expenses||[]).reduce((s,e)=>s+Number(e.amount||0),0);
+  const body=`
+    <div style="margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:10px">
+      <div style="font-weight:700">${sender?sender.name:'?'} — ${rep.date} à ${rep.time}</div>
+      <div style="font-size:13px;color:#065f46;margin-top:4px">💵 Encaissé: $${totalIn} &nbsp;|&nbsp; 💸 Dépensé: $${totalOut} &nbsp;|&nbsp; Solde: $${totalIn-totalOut}</div>
+    </div>
+    ${rep.records&&rep.records.length?`<div style="font-weight:700;margin-bottom:6px">Paiements (${rep.records.length})</div>
+    ${rep.records.map(r=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${r.student_name} — ${r.type_label}${r.note?' ('+r.note+')':''}: <strong>$${r.amount}</strong> à ${r.time}</div>`).join('')}`:''}
+    ${rep.expenses&&rep.expenses.length?`<div style="font-weight:700;margin:10px 0 6px">Dépenses (${rep.expenses.length})</div>
+    ${rep.expenses.map(e=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${e.motif}: <strong>$${e.amount}</strong> à ${e.time}</div>`).join('')}`:''}`;
+  openM(`Rapport du ${rep.date}`, body, `<button class="btn btn-success" onclick="validateDailyReport('${rep.id}');closeModal()">✅ Valider</button><button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+};
+
+// ── AUTO-REPORT 16h00 ──
+window._autoReportSent = {};
+setInterval(() => {
+  if (!S.user) return;
+  const now = new Date();
+  const hh = now.getHours(), mm = now.getMinutes();
+  if (hh !== 16 || mm !== 0) return;
+  const dateKey = today();
+  const role = S.user.role;
+  // Direction 3 auto-report
+  if (role === 'direction3') {
+    const sentKey = 'd3_' + dateKey;
+    if (window._autoReportSent[sentKey]) return;
+    const recs = DB.daily_records.filter(r=>r.date===dateKey&&!r.validated);
+    const exps = DB.daily_expenses.filter(e=>e.date===dateKey&&!e.validated);
+    if (!recs.length && !exps.length) return;
+    const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id);
+    if (already) { window._autoReportSent[sentKey]=true; return; }
+    const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
+    const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
+    const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[...recs],expenses:[...exps]};
+    DB.daily_reports.unshift(rep);
+    window._autoReportSent[sentKey]=true;
+    // Notify all direction1 users
+    DB.users.filter(u=>u.role==='direction').forEach(u=>{
+      const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: $${totalIn} · Dépensé: $${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
+      DB.notifs.unshift(notif);
+    });
+    toast('📊 Rapport du jour envoyé automatiquement à Direction 1','success');
+    saveToCrypt(); render();
+  }
+  // Direction 2 auto-report
+  if (role === 'direction2') {
+    const sentKey = 'd2_' + dateKey;
+    if (window._autoReportSent[sentKey]) return;
+    const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id);
+    if (already) { window._autoReportSent[sentKey]=true; return; }
+    const todayAtt=DB.attendance.filter(a=>a.date===dateKey);
+    const present=todayAtt.filter(a=>a.status==='ontime').length;
+    const absent=todayAtt.filter(a=>a.status==='absent').length;
+    const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[],expenses:[],summary:{students:DB.students.length,present,absent}};
+    DB.daily_reports.unshift(rep);
+    window._autoReportSent[sentKey]=true;
+    DB.users.filter(u=>u.role==='direction').forEach(u=>{
+      const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Direction 2 du ${dateKey} — ${present} présent(s) · ${absent} absent(s) sur ${DB.students.length} élèves`,time:nowTime(),date:dateKey,read:false,type:'report'};
+      DB.notifs.unshift(notif);
+    });
+    toast('📊 Rapport Direction 2 envoyé automatiquement à Direction 1','success');
+    saveToCrypt(); render();
+  }
+}, 60000);
+
 // ── PAYMENTS (Direction) ──
 R.payments = () => {
+  if (S.user.role === 'direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">Les pages de paiement sont réservées à la Direction 1.</p></div>`;
   if (S.user.role === 'parent') {
     const kids = DB.students.filter(s=>s.pid===S.user.id);
     if (!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun enfant lié</div>`;
@@ -3052,11 +3293,181 @@ R.absences = () => `<div style="text-align:center;padding:40px 20px;background:v
   <p style="color:var(--text-secondary);font-size:14px;max-width:400px;margin:0 auto">Soumettre une justification avec approbation Direction — Partie 8.</p>
 </div>`;
 
+// ── DIRECTION 3 — CAISSE ──
+const PAYMENT_TYPES = [
+  {id:'frais_scolaires', label:'Frais scolaires'},
+  {id:'uniforme', label:'Uniforme'},
+  {id:'sortie', label:'Sortie scolaire'},
+  {id:'accompagnement', label:'Accompagnement à domicile'},
+  {id:'activite', label:'Activité'},
+  {id:'autre', label:'Autre'},
+];
+
+R.caisse_paiement = () => `
+<div class="premium-section">
+  <div class="premium-section-title">🔍 Rechercher un élève</div>
+  <div class="ww-toolbar" style="margin-top:10px">
+    <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+      <input id="caisse_search" placeholder="Nom ou matricule..." oninput="caisseSearch()" autocomplete="off">
+    </div>
+  </div>
+  <div id="caisse_results" style="margin-top:8px"></div>
+</div>
+<div id="caisse_form" style="display:none">
+  <div class="premium-section">
+    <div class="premium-section-title">💵 Enregistrer le paiement</div>
+    <div id="caisse_student_info" style="margin-bottom:14px"></div>
+    <div class="form-group">
+      <label class="form-label">Type de paiement</label>
+      <select id="caisse_type" class="form-select">
+        ${PAYMENT_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Montant reçu ($)</label>
+      <input class="form-input" id="caisse_amount" type="number" min="0" step="0.5" placeholder="Ex: 50">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observation (optionnel)</label>
+      <input class="form-input" id="caisse_note" placeholder="Ex: T1 2025-2026">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
+      <button class="btn btn-primary" style="flex:1;padding:14px" onclick="caisseSavePaiement()">✅ Enregistrer + Envoyer reçu</button>
+    </div>
+  </div>
+</div>`;
+
+window._caisseStudent = null;
+window.caisseSearch = () => {
+  const q = ($('caisse_search').value||'').trim().toLowerCase();
+  const res = $('caisse_results'); if(!res) return;
+  if(!q){res.innerHTML='';return;}
+  const found = DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).slice(0,6);
+  if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé</div>`;return;}
+  res.innerHTML=found.map(s=>{
+    const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+    return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
+      <div class="pi-icon" style="background:${cbg};color:${cc}">${ini(s.name)}</div>
+      <div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat} · ${cl?cl.name:'?'}</div></div>
+      <span class="premium-badge" style="background:#d1fae5;color:#065f46">Sélectionner</span>
+    </div>`;
+  }).join('');
+};
+window.caisseSelectStudent = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  window._caisseStudent=s;
+  const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+  $('caisse_form').style.display='';
+  $('caisse_results').innerHTML='';
+  $('caisse_search').value='';
+  $('caisse_student_info').innerHTML=`
+    <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33">
+      <div class="pi-icon" style="background:${cbg};color:${cc}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
+      <div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat} · ${cl?cl.name:'?'}</div></div>
+    </div>`;
+};
+window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
+window.caisseSavePaiement = async () => {
+  const s=window._caisseStudent; if(!s){toast('Sélectionnez un élève','error');return;}
+  const amount=parseFloat($('caisse_amount').value||'0');
+  if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
+  const typeId=$('caisse_type').value;
+  const typeLbl=PAYMENT_TYPES.find(t=>t.id===typeId)?.label||typeId;
+  const note=($('caisse_note').value||'').trim();
+  const rec={
+    id:'dr'+Date.now(), sid:s.id, student_name:s.name, mat:s.mat,
+    type:typeId, type_label:typeLbl, amount, note,
+    date:today(), time:nowTime(), by:S.user.id, validated:false
+  };
+  DB.daily_records.push(rec);
+  // Envoyer reçu au parent
+  if(s.pid) await sendCaisseReceipt(s, rec);
+  toast(`✅ ${s.name} — ${typeLbl} $${amount} enregistré · Reçu envoyé au parent`,'success');
+  saveToCrypt();
+  caisseCancel();
+  render();
+};
+
+window.sendCaisseReceipt = async (student, rec) => {
+  const cl=gc(student.cid);
+  const receiptNum='REC-'+Date.now().toString().slice(-6);
+  const msg=`🧾 REÇU #${receiptNum}\n━━━━━━━━━━━━━━\n🏫 THE WISE SCHOOL INTERNATIONAL\nFormer – Réformer – Exceller\n━━━━━━━━━━━━━━\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}\n👶 Élève : ${student.name}\n🎓 Classe : ${cl?cl.name:'?'} · ${student.mat}\n💰 Type : ${rec.type_label}\n💵 Montant reçu : $${rec.amount}${rec.note?' ('+rec.note+')':''}\n━━━━━━━━━━━━━━\nEnregistré par : ${S.user.name}\nSchoolSafe — The Wise School`;
+  const notif={id:'n'+Date.now(),uid:student.pid,msg,time:rec.time,date:today(),read:false,type:'receipt',receipt:{num:receiptNum,student:student.name,classe:cl?cl.name:'',type_label:rec.type_label,amount:rec.amount,note:rec.note,by:S.user.name}};
+  DB.notifs.unshift(notif);
+  await pushNotif(student.pid, msg);
+};
+
+R.caisse_depense = () => `
+<div class="premium-section">
+  <div class="premium-section-title">💸 Enregistrer une dépense</div>
+  <div class="form-group" style="margin-top:14px">
+    <label class="form-label">Montant ($)</label>
+    <input class="form-input" id="dep_amount" type="number" min="0" step="0.5" placeholder="Ex: 25">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Motif de la dépense</label>
+    <input class="form-input" id="dep_motif" placeholder="Ex: Achat craies, Réparation porte...">
+  </div>
+  <button class="btn btn-danger" style="width:100%;padding:14px;margin-top:6px" onclick="saveDepense()">💸 Enregistrer la dépense</button>
+</div>
+${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).length?`
+<div class="premium-section">
+  <div class="premium-section-title">📋 Dépenses du jour</div>
+  ${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).map(e=>`
+    <div class="premium-item">
+      <div class="pi-icon" style="background:#fee2e2">💸</div>
+      <div style="flex:1"><div class="pi-title">${e.motif}</div><div class="pi-sub">${e.time}</div></div>
+      <span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span>
+    </div>`).join('')}
+</div>`:''}`;
+
+window.saveDepense = () => {
+  const amount=parseFloat($('dep_amount').value||'0');
+  const motif=($('dep_motif').value||'').trim();
+  if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
+  if(!motif){toast('Entrez le motif','error');return;}
+  DB.daily_expenses.push({id:'de'+Date.now(),amount,motif,date:today(),time:nowTime(),by:S.user.id,validated:false});
+  toast(`💸 Dépense $${amount} enregistrée`,'success');
+  saveToCrypt(); render();
+};
+
+R.caisse_rapport = () => {
+  const recs=DB.daily_records.filter(r=>r.date===today()&&!r.validated);
+  const exps=DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
+  const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
+  const solde=totalIn-totalOut;
+  const sentToday=DB.daily_reports.some(r=>r.date===today()&&r.by===S.user.id);
+  if(!recs.length&&!exps.length&&!sentToday){
+    return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div><div style="font-weight:700">Aucun enregistrement aujourd'hui</div><div style="font-size:13px;margin-top:8px">Commencez par enregistrer des paiements ou des dépenses.</div></div>`;
+  }
+  const pastReps=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated');
+  return `
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">💵</div><div class="ww-stat-val">${totalIn}$</div><div class="ww-stat-label">Encaissé</div></div>
+    <div class="ww-stat" style="border-left-color:#ef4444"><div class="ww-stat-icon">💸</div><div class="ww-stat-val">${totalOut}$</div><div class="ww-stat-label">Dépensé</div></div>
+    <div class="ww-stat" style="border-left-color:${solde>=0?'#059669':'#ef4444'}"><div class="ww-stat-icon">📊</div><div class="ww-stat-val">${solde}$</div><div class="ww-stat-label">Solde</div></div>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #3b82f6">
+    <div class="premium-section-title">⏰ Rapport automatique</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">Le rapport est envoyé automatiquement à <strong>16h00</strong> à la Direction 1. Après validation, vous ne verrez plus ces données.</div>
+    ${sentToday?`<div style="margin-top:8px;font-weight:700;color:#059669">✅ Rapport du jour envoyé — en attente de validation Direction 1</div>`:''}
+  </div>
+  ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Paiements (${recs.length})</div>
+    ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label}${r.note?' · '+r.note:''} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
+  </div>`:''}
+  ${exps.length?`<div class="premium-section"><div class="premium-section-title">💸 Dépenses (${exps.length})</div>
+    ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${e.motif}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
+  </div>`:''}
+  ${pastReps.length?`<div class="premium-section" style="opacity:.5"><div class="premium-section-title">🔒 Rapports précédents (validés)</div><div style="font-size:13px;color:var(--text-secondary)">${pastReps.length} rapport(s) validé(s) — données archivées par Direction 1.</div></div>`:''}`;
+};
+
 // ── DIRECTION: autres pages ──
 R.messages = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">✉️</div><h2>Messages</h2><p style="color:var(--text-secondary)">Avec approbation Direction + WhatsApp — Partie 7.</p></div>`;
 R.teacher_activity = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">👁️</div><h2>Activité Profs</h2><p style="color:var(--text-secondary)">Tableau de bord de l'activité de chaque enseignant — Partie 6.</p></div>`;
 R.year_mgmt = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📆</div><h2>Année Scolaire</h2><p style="color:var(--text-secondary)">Clôture + passage de classe automatique — Partie 7.</p></div>`;
-R.export = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📤</div><h2>Export Données</h2><p style="color:var(--text-secondary)">Export PDF + Excel — Partie 7.</p></div>`;
+R.export = () => S.user.role==='direction2' ? `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">L'export financier est réservé à la Direction 1.</p></div>` : `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📤</div><h2>Export Données</h2><p style="color:var(--text-secondary)">Export PDF + Excel — Partie 7.</p></div>`;
 
 // ── SETTINGS ──
 R.settings = () => `
