@@ -621,6 +621,7 @@ window.NAV = {
       {id:'lockdown',i:'🚨',l:'LOCKDOWN'},
       {s:'Personnes'},
       {id:'students',i:'🎓',l:'Élèves'},
+      {id:'classes',i:'🏫',l:'Classes'},
       {id:'teachers',i:'👨‍🏫',l:'Enseignants'},
       {id:'guardians',i:'🛡️',l:'Gardiens'},
       {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
@@ -2172,6 +2173,85 @@ R.teachers = () => _simpleList('enseignant','👨‍🏫','linear-gradient(90deg
 R.guardians = () => _simpleList('gardien','🛡️','linear-gradient(90deg,#f97316,#ea580c)');
 R.parents = () => _simpleList('parent','👨‍👩‍👧','linear-gradient(90deg,#8b5cf6,#7c3aed)');
 
+// ── CLASSES CRUD ──
+R.classes = () => {
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🏫 Classes (${DB.classes.length})</span>
+    <button class="btn btn-primary" onclick="openClassForm()">➕ Créer</button>
+  </div>
+  <div class="ww-grid">
+    ${DB.classes.map((c,i)=>{
+      const studs=DB.students.filter(s=>s.cid===c.id);
+      const tf=DB.users.find(u=>u.id===c.teacher_id);
+      const te=DB.users.find(u=>u.id===c.teacher_id_en);
+      const [cc,cbg]=clsColor(c.name);
+      return `<div class="ww-card" style="animation-delay:${i*.04}s">
+        <div class="ww-card-stripe" style="background:${cc}"></div>
+        <div class="ww-card-body">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${classDot(c.name)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:16px">${c.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary);text-transform:capitalize">${c.cycle||'—'}</div>
+            </div>
+            <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="flex:1" onclick="openClassForm('${c.id}')">✏️ Modifier</button>
+            <button class="btn btn-outline btn-sm" onclick="go('students');window._studentCF='${c.id}';render()">🎓 Élèves</button>
+            ${!studs.length?`<button class="btn btn-danger btn-sm" onclick="deleteClass('${c.id}')">🗑️</button>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+};
+
+window.openClassForm = (cid) => {
+  const c = cid ? DB.classes.find(x=>x.id===cid) : null;
+  const teacherOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id===u.id?'selected':''}>${u.name}</option>`).join('');
+  const teacherEnOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id_en===u.id?'selected':''}>${u.name}</option>`).join('');
+  openM(c?`✏️ Modifier — ${c.name}`:'➕ Créer une classe',`
+<input type="hidden" id="cls_id" value="${c?c.id:''}">
+<div class="form-row">
+  <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
+  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle"><option value="primaire" ${c&&c.cycle==='primaire'?'selected':''}>Primaire</option><option value="maternelle" ${c&&c.cycle==='maternelle'?'selected':''}>Maternelle</option></select></div>
+</div>
+<div class="form-group"><label class="form-label">🇫🇷 Titulaire Français</label><select class="form-select" id="cls_tf">${teacherOpts}</select></div>
+<div class="form-group"><label class="form-label">🇬🇧 Titulaire Anglais</label><select class="form-select" id="cls_te">${teacherEnOpts}</select></div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClass()">💾 ${c?'Mettre à jour':'Créer'}</button>`);
+};
+
+window.saveClass = () => {
+  const name=($('cls_name').value||'').trim();
+  if(!name){toast('Entrez le nom de la classe','error');return;}
+  const cid=$('cls_id').value;
+  const data={name,cycle:$('cls_cycle').value,teacher_id:$('cls_tf').value||null,teacher_id_en:$('cls_te').value||null};
+  if(cid){
+    const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
+    toast(`✅ ${name} mis à jour`,'success');
+  } else {
+    if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
+    DB.classes.push({id:'c'+Date.now(),...data});
+    toast(`🎉 Classe ${name} créée`,'success');
+  }
+  closeModal(); saveToCrypt(); render();
+};
+
+window.deleteClass = (cid) => {
+  const c=DB.classes.find(x=>x.id===cid); if(!c) return;
+  const cnt=DB.students.filter(s=>s.cid===cid).length;
+  if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
+  showC(`Supprimer la classe ${c.name} ?`,'Cette action est irréversible.',()=>{
+    DB.classes=DB.classes.filter(x=>x.id!==cid);
+    toast(`🗑️ ${c.name} supprimée`,'info');
+    saveToCrypt(); render();
+  });
+};
+
 // ── APPROBATIONS ──
 R.approbations = () => {
   const pabs = DB.absences.filter(a=>a.status==='pending');
@@ -2302,58 +2382,153 @@ setInterval(() => {
 }, 60000);
 
 // ── PAYMENTS (Direction) ──
+// ── Fees config helper ──
+window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0};
+window.getStudentBalance = (sid) => {
+  const fees=getFees();
+  const pays=DB.payments.filter(p=>p.sid===sid);
+  const paid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+  const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  return {paid,total,debt:total-paid};
+};
+
 R.payments = () => {
   if (S.user.role === 'direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">Les pages de paiement sont réservées à la Direction 1.</p></div>`;
   if (S.user.role === 'parent') {
-    const kids = DB.students.filter(s=>s.pid===S.user.id);
-    if (!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun enfant lié</div>`;
+    const kids=DB.students.filter(s=>s.pid===S.user.id);
+    if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun enfant lié</div>`;
+    const fees=getFees();
     return kids.map(s=>{
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id);
+      const {paid,total,debt}=getStudentBalance(s.id);
       const [cc,cbg]=clsColor(c?c.name:'');
       return `<div class="ww-section" style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:12px;padding:18px 20px">
-          <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700">${ini(s.name)}</div>
-          <div><div style="font-size:16px;font-weight:700">${s.name}</div><div style="font-size:13px;color:var(--text-secondary)">${c?c.name:''}</div></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border-light)">
+          <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
+          <div style="flex:1"><div style="font-size:16px;font-weight:700">${s.name}</div><div style="font-size:13px;color:var(--text-secondary)">${c?c.name:''}</div></div>
+          ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'✅ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">sur $${total}</div></div>`:''}
         </div>
-        ${pays.map(p=>`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d1fae5':'#fee2e2'}">${p.paid?'✅':'❌'}</div><div class="ww-item-content"><div class="ww-item-title">Trimestre ${p.t}</div><div class="ww-item-sub">${p.paid?'Réglé':'Non réglé'}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`).join('')}
+        ${pays.map(p=>`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d1fae5':'#fee2e2'}">${p.paid?'✅':'❌'}</div><div class="ww-item-content"><div class="ww-item-title">Trimestre ${p.t}</div><div class="ww-item-sub">${p.paid?'Réglé — $'+(fees[p.t]||'?'):'À payer — $'+(fees[p.t]||'?')}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`).join('')}
       </div>`;
     }).join('');
   }
-  // Direction
+  // ── DIRECTION: vue avancée ──
+  const fees=getFees();
+  const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
   const pd=DB.payments.filter(p=>p.paid).length, tt=DB.payments.length, pct=tt?Math.round(pd/tt*100):0;
+  const totalEncaisse=DB.daily_records.filter(r=>r.validated).reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalDette=DB.students.reduce((s,st)=>s+getStudentBalance(st.id).debt,0);
+  const cf=window._payFilterClass||'';
+  const pf=window._payFilterStatus||'';
+  let studs=DB.students;
+  if(cf) studs=studs.filter(s=>s.cid===cf);
+  if(pf==='paid') studs=studs.filter(s=>DB.payments.filter(p=>p.sid===s.id).every(p=>p.paid));
+  if(pf==='partial') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>p.paid)&&pays.some(p=>!p.paid);});
+  if(pf==='unpaid') studs=studs.filter(s=>DB.payments.filter(p=>p.sid===s.id).every(p=>!p.paid));
   return `
   <div class="ww-stats">
-    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${pd}</div><div class="ww-stat-label">Payés</div></div>
-    <div class="ww-stat" style="border-left-color:#ef4444"><div class="ww-stat-icon">❌</div><div class="ww-stat-val">${tt-pd}</div><div class="ww-stat-label">Non payés</div></div>
-    <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon">📊</div><div class="ww-stat-val">${pct}%</div><div class="ww-stat-label">Taux</div></div>
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${pd}</div><div class="ww-stat-label">Trimestres payés</div></div>
+    <div class="ww-stat" style="border-left-color:#ef4444"><div class="ww-stat-icon">💳</div><div class="ww-stat-val">$${totalDette}</div><div class="ww-stat-label">Dette totale</div></div>
+    <div class="ww-stat" style="border-left-color:#10b981"><div class="ww-stat-icon">💵</div><div class="ww-stat-val">$${totalEncaisse}</div><div class="ww-stat-label">Caisse encaissé</div></div>
+    <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon">📊</div><div class="ww-stat-val">${pct}%</div><div class="ww-stat-label">Taux paiement</div></div>
   </div>
-  <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Cliquez sur T1/T2/T3 pour activer/désactiver l'accès</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+    <button class="btn btn-outline btn-sm" onclick="openFeesConfig()">⚙️ Configurer frais</button>
+    <span style="font-size:12px;color:var(--text-muted)">T1:$${fees.T1||'?'} · T2:$${fees.T2||'?'} · T3:$${fees.T3||'?'} · Total/élève: $${totalFees}</span>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="pill ${cf===''&&pf===''?'pill-blue':''}" onclick="window._payFilterClass='';window._payFilterStatus='';render()" style="cursor:pointer;border:none">Tous</button>
+    <button class="pill ${pf==='paid'?'pill-green':''}" onclick="window._payFilterStatus='paid';window._payFilterClass='';render()" style="cursor:pointer;border:none">✅ Soldés</button>
+    <button class="pill ${pf==='partial'?'pill-blue':''}" onclick="window._payFilterStatus='partial';window._payFilterClass='';render()" style="cursor:pointer;border:none">⚠️ Partiels</button>
+    <button class="pill ${pf==='unpaid'?'pill-red':''}" onclick="window._payFilterStatus='unpaid';window._payFilterClass='';render()" style="cursor:pointer;border:none">❌ Non payés</button>
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._payFilterClass='${c.id}';window._payFilterStatus='';render()" style="cursor:pointer;border:none">${c.name}</button>`).join('')}
+  </div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${studs.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
-    ${DB.students.map((s,i)=>{
+    ${studs.map((s,i)=>{
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
+      const {debt}=getStudentBalance(s.id);
       const [cc,cbg]=clsColor(c?c.name:'');
-      const barColor = paidC===3?'#10b981':paidC>0?'#f59e0b':'#ef4444';
-      return `<div class="ww-card" style="animation-delay:${i*.04}s">
+      const barColor=paidC===3?'#10b981':paidC>0?'#f59e0b':'#ef4444';
+      return `<div class="ww-card" style="animation-delay:${i*.03}s">
         <div class="ww-card-stripe" style="background:${barColor}"></div>
         <div class="ww-card-body">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700">${ini(s.name)}</div>
-            <div><div style="font-weight:700">${s.name}</div><div style="font-size:12px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?c.name:''}</div></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
+            <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?c.name:''}</div></div>
+            ${totalFees>0?`<div style="font-weight:700;font-size:13px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'✅'}</div>`:''}
           </div>
-          <div style="display:flex;gap:6px;margin-bottom:10px">
-            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" class="pill ${p.paid?'pill-green':'pill-red'}" style="border:none;cursor:pointer">${p.t} ${p.paid?'✅':'❌'}</button>`).join('')}
+          <div style="display:flex;gap:5px;margin-bottom:8px">
+            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" class="pill ${p.paid?'pill-green':'pill-red'}" style="border:none;cursor:pointer;flex:1">${p.t} ${p.paid?'✅':'❌'}</button>`).join('')}
           </div>
           <div class="ww-bar-wrap"><div class="ww-bar" style="width:${paidC/3*100}%;background:${barColor}"></div></div>
+          ${debt>0?`<button class="btn btn-outline btn-sm" style="width:100%;margin-top:8px" onclick="openAssignCaissePayment('${s.id}')">💵 Affecter paiement caisse</button>`:''}
         </div>
       </div>`;
     }).join('')}
   </div>`;
 };
+
+window._payFilterClass='';
+window._payFilterStatus='';
+
 window.togglePay = (sid, t) => {
-  const p = DB.payments.find(x=>x.sid===sid && x.t===t); if (!p) return;
-  p.paid = !p.paid;
-  toast(p.paid?'Accès activé ✅':'Accès désactivé ❌', p.paid?'success':'info');
+  const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
+  p.paid=!p.paid;
+  toast(p.paid?`T${t} activé ✅`:`T${t} désactivé ❌`, p.paid?'success':'info');
   saveToCrypt(); render();
+};
+
+window.openFeesConfig = () => {
+  const f=getFees();
+  openM('⚙️ Configurer les frais scolaires',`
+<p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Définissez le montant attendu par trimestre (en $). Ces montants servent à calculer la dette de chaque élève.</p>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">Trimestre 1 ($)</label><input class="form-input" id="fee_t1" type="number" min="0" value="${f.T1||0}"></div>
+  <div class="form-group"><label class="form-label">Trimestre 2 ($)</label><input class="form-input" id="fee_t2" type="number" min="0" value="${f.T2||0}"></div>
+  <div class="form-group"><label class="form-label">Trimestre 3 ($)</label><input class="form-input" id="fee_t3" type="number" min="0" value="${f.T3||0}"></div>
+</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveFeesConfig()">💾 Sauvegarder</button>`);
+};
+
+window.saveFeesConfig = () => {
+  if(!DB.settings.fees) DB.settings.fees={};
+  DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
+  DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
+  DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
+  toast('✅ Frais scolaires mis à jour','success');
+  closeModal(); saveToCrypt(); render();
+};
+
+window.openAssignCaissePayment = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const pays=DB.payments.filter(p=>p.sid===sid&&!p.paid);
+  const unvalidated=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
+  const unassigned=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
+  if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
+  openM(`💵 Affecter paiement — ${s.name}`,`
+<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez le trimestre à marquer comme payé grâce aux paiements enregistrés par la caisse.</p>
+${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary)">Paiements caisse validés disponibles :</div>${unassigned.map(r=>`<div class="premium-item" style="padding:8px 12px"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.type_label} — $${r.amount}</div><div class="pi-sub">${r.date} à ${r.time}</div></div></div>`).join('')}</div>`:'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Aucun paiement caisse non affecté pour cet élève.</div>'}
+<div class="form-group"><label class="form-label">Marquer comme payé :</label><select class="form-select" id="assign_t">${pays.map(p=>`<option value="${p.t}">Trimestre ${p.t}</option>`).join('')}</select></div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="assignTrimestre('${sid}')">✅ Affecter</button>`);
+};
+
+window.assignTrimestre = (sid) => {
+  const t=$('assign_t').value;
+  const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
+  p.paid=true;
+  // Mark one unassigned record as assigned
+  const rec=DB.daily_records.find(r=>r.sid===sid&&r.validated&&!r.assigned);
+  if(rec) rec.assigned=true;
+  const s=DB.students.find(x=>x.id===sid);
+  toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
+  // Notify parent
+  if(s&&s.pid){
+    const fees=getFees();
+    const notif={id:'n'+Date.now(),uid:s.pid,msg:`✅ Paiement validé — ${s.name} · Trimestre ${t} réglé ($${fees[t]||'?'}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+  }
+  closeModal(); saveToCrypt(); render();
 };
 
 // ── PARENT: MES ENFANTS ──
