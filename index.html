@@ -789,33 +789,47 @@ window.loadFromSupabase = async () => {
     const ping = await _get('users','select=id&limit=1');
     if (!ping) throw new Error('no response');
     window.DB_ONLINE = true;
-    const [users,classes,students,payments,attendance,scan_log,conduct,grades,absences,notifs,events,messages,aps] = await Promise.all([
-      _get('users','select=*'),_get('classes','select=*'),_get('students','select=*'),
-      _get('payments','select=*'),_get('attendance','select=*'),
+    const [users,classes,students,payments,attendance,scan_log,conduct,grades,
+           absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
+           devoirs,cahier_texte,matieres] = await Promise.all([
+      _get('users','select=*'),
+      _get('classes','select=*'),
+      _get('students','select=*'),
+      _get('payments','select=*'),
+      _get('attendance','select=*&order=date.desc&limit=1000'),
       _get('scan_log','select=*&order=time.desc&limit=500'),
-      _get('conduct','select=*'),_get('grades','select=*'),
+      _get('conduct','select=*'),
+      _get('grades','select=*'),
       _get('absences','select=*&order=date.desc'),
       _get('notifs','select=*&order=time.desc&limit=100'),
       _get('events','select=*&order=date.asc'),
-      _get('messages','select=*&order=date.desc'),
+      _get('messages','select=*&order=date.desc&limit=200'),
       _get('aps','select=*'),
+      _get('daily_records','select=*&order=date.desc&limit=500'),
+      _get('daily_expenses','select=*&order=date.desc&limit=500'),
+      _get('daily_reports','select=*&order=date.desc&limit=100'),
+      _get('devoirs','select=*&order=date.desc&limit=200'),
+      _get('cahier_texte','select=*&order=date.desc&limit=200'),
+      _get('matieres','select=*'),
     ]);
-    const safe = r => r || [];
-    const fd = arr => arr.map(x => ({...x, date:x.date?.slice(0,10)||x.date}));
-    DB.users = safe(users); DB.classes = safe(classes); DB.students = safe(students);
-    DB.payments = safe(payments); DB.attendance = fd(safe(attendance));
-    DB.scan_log = fd(safe(scan_log)); DB.conduct = fd(safe(conduct));
-    DB.grades = safe(grades); DB.absences = fd(safe(absences));
-    DB.notifs = safe(notifs); DB.events = fd(safe(events));
-    DB.messages = fd(safe(messages)); DB.aps = safe(aps);
-    // Recalculate IDs
-    const uids = DB.users.filter(u=>u.id.startsWith('u')).map(u=>parseInt(u.id.slice(1))).filter(n=>!isNaN(n));
-    DB._uid = uids.length ? Math.max(...uids)+1 : 2;
-    const sids = DB.students.filter(s=>s.id.startsWith('s')).map(s=>parseInt(s.id.slice(1))).filter(n=>!isNaN(n));
-    DB._sid = sids.length ? Math.max(...sids)+1 : 1;
-    const apids = DB.aps.filter(a=>a.id.startsWith('ap')).map(a=>parseInt(a.id.slice(2))).filter(n=>!isNaN(n));
-    DB._apid = apids.length ? Math.max(...apids)+1 : 1;
-    console.log('[SB] ✅', DB.students.length, 'élèves', DB.users.length, 'users');
+    const safe = r => Array.isArray(r) ? r : [];
+    const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
+    DB.users=safe(users); DB.classes=safe(classes); DB.students=safe(students);
+    DB.payments=safe(payments); DB.attendance=fd(attendance);
+    DB.scan_log=fd(scan_log); DB.conduct=fd(conduct);
+    DB.grades=safe(grades); DB.absences=fd(absences);
+    DB.notifs=safe(notifs); DB.events=fd(events);
+    DB.messages=fd(messages); DB.aps=safe(aps);
+    DB.daily_records=fd(daily_records); DB.daily_expenses=fd(daily_expenses);
+    DB.daily_reports=fd(daily_reports);
+    if(safe(devoirs).length) DB.devoirs=fd(devoirs);
+    if(safe(cahier_texte).length) DB.cahier_texte=fd(cahier_texte);
+    if(safe(matieres).length) DB.matieres=safe(matieres);
+    const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
+    DB._uid=(uids.length?Math.max(...uids):1)+1;
+    const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
+    DB._sid=(sids.length?Math.max(...sids):0)+1;
+    console.log('[SB] ✅',DB.students.length,'élèves',DB.users.length,'users');
     saveToCrypt();
     return true;
   } catch(e) {
@@ -826,6 +840,54 @@ window.loadFromSupabase = async () => {
   }
 };
 
+// ── SYNC HELPER — pousse vers Supabase ou met en file d'attente ──
+window.pushSync = async (table, op, data, query='') => {
+  if (!DB_ONLINE) { syncQueue.add(table, op, query?{query,body:data}:data); return; }
+  let ok = false;
+  try {
+    if (op==='upsert') ok = await _upsert(table, data);
+    else if (op==='post') ok = await _post(table, data);
+    else if (op==='patch') ok = await _patch(table, query, data);
+    else if (op==='delete') ok = await _del(table, query);
+  } catch(e) { ok=false; }
+  if (!ok) syncQueue.add(table, op, query?{query,body:data}:data);
+};
+
+// ── SYNC MANUAL ──
+window.forceSyncNow = async () => {
+  if (!DB_ONLINE) { toast('🔴 Hors ligne — impossible de synchroniser','error'); return; }
+  toast('🔄 Synchronisation en cours…','info');
+  // Re-push all current data to Supabase
+  const tables = [
+    {t:'students', d:DB.students},
+    {t:'users', d:DB.users},
+    {t:'classes', d:DB.classes},
+    {t:'payments', d:DB.payments},
+    {t:'grades', d:DB.grades},
+    {t:'absences', d:DB.absences},
+    {t:'messages', d:DB.messages},
+    {t:'events', d:DB.events},
+    {t:'notifs', d:DB.notifs.slice(0,50)},
+    {t:'daily_records', d:DB.daily_records},
+    {t:'daily_expenses', d:DB.daily_expenses},
+    {t:'daily_reports', d:DB.daily_reports},
+    {t:'devoirs', d:DB.devoirs},
+    {t:'cahier_texte', d:DB.cahier_texte},
+    {t:'matieres', d:DB.matieres},
+    {t:'aps', d:DB.aps},
+  ];
+  let ok=0, fail=0;
+  for (const {t,d} of tables) {
+    if (!d.length) continue;
+    const res = await _upsert(t, d);
+    res ? ok++ : fail++;
+  }
+  // Flush queue
+  const flushed = await syncQueue.flush();
+  toast(`✅ ${ok} tables synchronisées${flushed?' · '+flushed+' opérations en attente envoyées':''}${fail?' · ⚠️ '+fail+' erreur(s)':''}`, fail?'info':'success');
+  saveToCrypt();
+};
+
 // ── ENCRYPTED LOCAL STORAGE ──
 const CRYPT_KEY = 'SchoolSafe2026!TWSI';
 const CRYPT_STORE = 'schoolsafe_db_v3';
@@ -833,13 +895,18 @@ function _xorEncrypt(data, key) { const e = encodeURIComponent(JSON.stringify(da
 function _xorDecrypt(enc, key) { try { const d = atob(enc); let r = ''; for (let i=0;i<d.length;i++) r += String.fromCharCode(d.charCodeAt(i)^key.charCodeAt(i%key.length)); return JSON.parse(decodeURIComponent(r)); } catch(e) { return null; } }
 window.saveToCrypt = () => {
   try {
-    const snap = { users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
-      attendance:DB.attendance.slice(0,200), scan_log:DB.scan_log.slice(0,200),
-      conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,100),
-      notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,50),
+    const snap = {
+      users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
+      attendance:DB.attendance.slice(0,300), scan_log:DB.scan_log.slice(0,200),
+      conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,200),
+      notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,100),
       aps:DB.aps, devoirs:DB.devoirs, cahier_texte:DB.cahier_texte, matieres:DB.matieres,
       approbations:DB.approbations, teacher_notes:DB.teacher_notes, settings:DB.settings,
-      _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now() };
+      daily_records:DB.daily_records.slice(0,500),
+      daily_expenses:DB.daily_expenses.slice(0,500),
+      daily_reports:DB.daily_reports.slice(0,100),
+      _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
+    };
     localStorage.setItem(CRYPT_STORE, _xorEncrypt(snap, CRYPT_KEY));
     localStorage.setItem('schoolsafe_db_ts', Date.now().toString());
   } catch(e) { console.warn('[CRYPT]', e.message); }
@@ -2048,12 +2115,16 @@ window.saveStudent = () => {
   const data={name,mat,cid,pid:$('stu_pid').value||null,dob:$('stu_dob').value||null,adresse:($('stu_adresse').value||'').trim()||null,nom_papa:($('stu_papa').value||'').trim()||null,nom_maman:($('stu_maman').value||'').trim()||null,photo};
   if(sid){
     const s=DB.students.find(x=>x.id===sid); if(s) Object.assign(s,data);
+    pushSync('students','upsert',{id:sid,...data});
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
     const ns={id:'s'+Date.now(),...data};
     DB.students.push(ns);
-    ['T1','T2','T3'].forEach(t=>DB.payments.push({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
+    const newPays=['T1','T2','T3'].map(t=>({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
+    newPays.forEach(p=>DB.payments.push(p));
+    pushSync('students','upsert',ns);
+    pushSync('payments','upsert',newPays);
     toast(`🎉 ${name} inscrit — ${mat}`,'success');
     launchConfetti(30);
   }
@@ -2066,6 +2137,8 @@ window.deleteStudent = (sid) => {
     DB.students=DB.students.filter(x=>x.id!==sid);
     DB.payments=DB.payments.filter(x=>x.sid!==sid);
     DB.attendance=DB.attendance.filter(x=>x.sid!==sid);
+    pushSync('students','delete',{},'id=eq.'+sid);
+    pushSync('payments','delete',{},'sid=eq.'+sid);
     toast(`🗑️ ${s.name} supprimé`,'info');
     saveToCrypt(); render();
   });
@@ -2142,18 +2215,20 @@ window.saveUser = () => {
   const data={name,pin,role,initials,phone:($('usr_phone').value||'').trim()||null};
   if(uid){
     const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
-    // Update class assignments for teachers
     if(role==='enseignant'){
       document.querySelectorAll('[data-cid]').forEach(cb=>{
         const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
         if(cb.checked){if(c.teacher_id!==uid&&c.teacher_id_en!==uid) c.teacher_id=uid;}
         else{if(c.teacher_id===uid) c.teacher_id=null; if(c.teacher_id_en===uid) c.teacher_id_en=null;}
       });
+      DB.classes.forEach(c=>pushSync('classes','upsert',c));
     }
+    pushSync('users','upsert',{id:uid,...data});
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     const ns={id:'u'+Date.now(),...data};
     DB.users.push(ns);
+    pushSync('users','upsert',ns);
     toast(`🎉 ${name} ajouté`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -2163,9 +2238,10 @@ window.deleteUser = (uid) => {
   const u=DB.users.find(x=>x.id===uid); if(!u) return;
   const linked=DB.students.filter(s=>s.pid===uid);
   showC(`Supprimer ${u.name} ?`,linked.length?`⚠️ ${linked.length} élève(s) lié(s) — le lien parent sera retiré.`:'Cette action est irréversible.',()=>{
-    linked.forEach(s=>s.pid=null);
-    DB.classes.forEach(c=>{if(c.teacher_id===uid)c.teacher_id=null;if(c.teacher_id_en===uid)c.teacher_id_en=null;});
+    linked.forEach(s=>{s.pid=null;pushSync('students','patch',{pid:null},'id=eq.'+s.id);});
+    DB.classes.forEach(c=>{if(c.teacher_id===uid){c.teacher_id=null;pushSync('classes','patch',{teacher_id:null},'id=eq.'+c.id);}if(c.teacher_id_en===uid){c.teacher_id_en=null;pushSync('classes','patch',{teacher_id_en:null},'id=eq.'+c.id);}});
     DB.users=DB.users.filter(x=>x.id!==uid);
+    pushSync('users','delete',{},'id=eq.'+uid);
     toast(`🗑️ ${u.name} supprimé`,'info');
     saveToCrypt(); render();
   });
@@ -2234,10 +2310,13 @@ window.saveClass = () => {
   const data={name,cycle:$('cls_cycle').value,teacher_id:$('cls_tf').value||null,teacher_id_en:$('cls_te').value||null};
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
+    pushSync('classes','upsert',{id:cid,...data});
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
-    DB.classes.push({id:'c'+Date.now(),...data});
+    const nc={id:'c'+Date.now(),...data};
+    DB.classes.push(nc);
+    pushSync('classes','upsert',nc);
     toast(`🎉 Classe ${name} créée`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -2249,6 +2328,7 @@ window.deleteClass = (cid) => {
   if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
   showC(`Supprimer la classe ${c.name} ?`,'Cette action est irréversible.',()=>{
     DB.classes=DB.classes.filter(x=>x.id!==cid);
+    pushSync('classes','delete',{},'id=eq.'+cid);
     toast(`🗑️ ${c.name} supprimée`,'info');
     saveToCrypt(); render();
   });
@@ -2297,10 +2377,12 @@ R.approbations = () => {
 window.validateAbs = (id, status) => {
   const a = DB.absences.find(x=>x.id===id); if (!a) return;
   a.status = status;
+  pushSync('absences','patch',{status},'id=eq.'+id);
   const s=DB.students.find(x=>x.id===a.sid);
   if(a.pid){
     const notif={id:'n'+Date.now(),uid:a.pid,msg:`${status==='approved'?'✅':'❌'} Justification ${status==='approved'?'approuvée':'refusée'} — ${s?s.name:'?'} · ${a.dates} · ${a.motif}`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
   }
   toast(status==='approved'?'✅ Approuvée':'❌ Refusée', status==='approved'?'success':'info');
   saveToCrypt(); render();
@@ -2486,6 +2568,7 @@ window._payFilterStatus='';
 window.togglePay = (sid, t) => {
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=!p.paid;
+  pushSync('payments','patch',{paid:p.paid},'sid=eq.'+sid+'&t=eq.'+t);
   toast(p.paid?`T${t} activé ✅`:`T${t} désactivé ❌`, p.paid?'success':'info');
   saveToCrypt(); render();
 };
@@ -2528,16 +2611,16 @@ window.assignTrimestre = (sid) => {
   const t=$('assign_t').value;
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
-  // Mark one unassigned record as assigned
+  pushSync('payments','patch',{paid:true},'sid=eq.'+sid+'&t=eq.'+t);
   const rec=DB.daily_records.find(r=>r.sid===sid&&r.validated&&!r.assigned);
-  if(rec) rec.assigned=true;
+  if(rec){rec.assigned=true;pushSync('daily_records','patch',{assigned:true},'id=eq.'+rec.id);}
   const s=DB.students.find(x=>x.id===sid);
   toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
-  // Notify parent
   if(s&&s.pid){
     const fees=getFees();
     const notif={id:'n'+Date.now(),uid:s.pid,msg:`✅ Paiement validé — ${s.name} · Trimestre ${t} réglé ($${fees[t]||'?'}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
   }
   closeModal(); saveToCrypt(); render();
 };
@@ -3746,10 +3829,11 @@ window.submitAbsence = () => {
   const note=($('abs_note').value||'').trim();
   const abs={id:'ab'+Date.now(),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today()};
   DB.absences.push(abs);
-  // Notifier Direction
+  pushSync('absences','post',abs);
   DB.users.filter(u=>u.role==='direction').forEach(u=>{
     const notif={id:'n'+Date.now(),uid:u.id,msg:`📄 Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
   });
   toast('✅ Justification soumise — en attente de validation','success');
   saveToCrypt(); render();
@@ -3837,18 +3921,12 @@ window.caisseSavePaiement = async () => {
   const typeId=$('caisse_type').value;
   const typeLbl=PAYMENT_TYPES.find(t=>t.id===typeId)?.label||typeId;
   const note=($('caisse_note').value||'').trim();
-  const rec={
-    id:'dr'+Date.now(), sid:s.id, student_name:s.name, mat:s.mat,
-    type:typeId, type_label:typeLbl, amount, note,
-    date:today(), time:nowTime(), by:S.user.id, validated:false
-  };
+  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,type:typeId,type_label:typeLbl,amount,note,date:today(),time:nowTime(),by:S.user.id,validated:false};
   DB.daily_records.push(rec);
-  // Envoyer reçu au parent
+  pushSync('daily_records','post',rec);
   if(s.pid) await sendCaisseReceipt(s, rec);
   toast(`✅ ${s.name} — ${typeLbl} $${amount} enregistré · Reçu envoyé au parent`,'success');
-  saveToCrypt();
-  caisseCancel();
-  render();
+  saveToCrypt(); caisseCancel(); render();
 };
 
 window.sendCaisseReceipt = async (student, rec) => {
@@ -3889,7 +3967,9 @@ window.saveDepense = () => {
   const motif=($('dep_motif').value||'').trim();
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
   if(!motif){toast('Entrez le motif','error');return;}
-  DB.daily_expenses.push({id:'de'+Date.now(),amount,motif,date:today(),time:nowTime(),by:S.user.id,validated:false});
+  const exp={id:'de'+Date.now(),amount,motif,date:today(),time:nowTime(),by:S.user.id,validated:false};
+  DB.daily_expenses.push(exp);
+  pushSync('daily_expenses','post',exp);
   toast(`💸 Dépense $${amount} enregistrée`,'success');
   saveToCrypt(); render();
 };
@@ -4020,18 +4100,18 @@ window.sendMsg = () => {
   const wa=($('msg_wa').value||'').trim()||null;
   const msg={id:'msg'+Date.now(),from:S.user.id,to:toId,to_role:toRole,subject,body,whatsapp:wa,date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
   DB.messages.push(msg);
+  pushSync('messages','post',msg);
   if(!needsApproval){
-    // Notifier destinataires
     const targets=toId?[DB.users.find(u=>u.id===toId)].filter(Boolean):DB.users.filter(u=>u.role===toRole);
     targets.forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
-      DB.notifs.unshift(notif);
+      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     });
     toast('✅ Message envoyé','success');
   } else {
     DB.users.filter(u=>u.role==='direction').forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,msg:`⏳ Message en attente d'approbation de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(notif);
+      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     });
     toast('📤 Message soumis — en attente d\'approbation Direction','info');
   }
@@ -4358,7 +4438,8 @@ R.settings = () => `
   <div class="premium-section-title">💾 Données</div>
   <div class="premium-item"><div class="pi-icon" style="background:#dbeafe">☁️</div><div style="flex:1"><div class="pi-title">Supabase</div><div class="pi-sub">${DB_ONLINE?'🟢 Connecté':'🔴 Hors ligne'}</div></div></div>
   <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💽</div><div style="flex:1"><div class="pi-title">Stockage local crypté</div><div class="pi-sub">${localStorage.getItem('schoolsafe_db_ts')?'Dernière: '+new Date(parseInt(localStorage.getItem('schoolsafe_db_ts'))).toLocaleString('fr-FR'):'Aucune sauvegarde'}</div></div></div>
-  <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">🔄</div><div style="flex:1"><div class="pi-title">File de synchro</div><div class="pi-sub">${syncQueue.count()} changements en attente</div></div></div>
+  <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">🔄</div><div style="flex:1"><div class="pi-title">File de synchro</div><div class="pi-sub">${syncQueue.count()} changements en attente</div></div>${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>toast('✅ '+n+' envoyés','success'))">Vider</button>`:''}</div>
+  <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">☁️</div><div style="flex:1"><div class="pi-title">Forcer synchronisation</div><div class="pi-sub">Pousse toutes les données vers Supabase</div></div><button class="btn btn-primary btn-sm" onclick="forceSyncNow()">🔄 Sync</button></div>
 </div>
 <div class="premium-section">
   <div class="premium-section-title">🪪 Templates cartes</div>
