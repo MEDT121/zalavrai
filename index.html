@@ -1922,63 +1922,252 @@ R.notifications = () => {
 // ═══════════════════════════════════════════
 //  DIRECTION — ÉLÈVES (liste basique)
 // ═══════════════════════════════════════════
+window._studentQ = '';
+window._studentCF = '';
+
+window.genMat = () => {
+  const nums = DB.students.map(s=>parseInt((s.mat||'').replace('STU-',''))||0);
+  return 'STU-' + String((nums.length?Math.max(...nums):0)+1).padStart(4,'0');
+};
+
 R.students = () => {
-  if (!DB.students.length) {
-    return `<div style="text-align:center;padding:60px;color:var(--text-muted)">
-      <div style="font-size:60px;margin-bottom:16px">🎓</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Aucun élève inscrit</div>
-      <div style="font-size:13px;margin-bottom:20px">La gestion complète des élèves sera dans la Partie 5.</div>
-      <button class="btn btn-primary" onclick="toast('Gestion élèves — Partie 5','info')">➕ Inscrire (Partie 5)</button>
-    </div>`;
-  }
+  const q = (window._studentQ||'').toLowerCase();
+  const cf = window._studentCF||'';
+  let list = DB.students;
+  if (q) list = list.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q));
+  if (cf) list = list.filter(s=>s.cid===cf);
   return `
   <div class="ww-toolbar">
-    <div class="ww-search"><span style="color:var(--text-muted);margin-right:8px">🔍</span><input placeholder="Rechercher..."></div>
-    <button class="btn btn-primary" onclick="toast('Gestion élèves — Partie 5','info')">➕ Inscrire</button>
+    <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+      <input id="stu_q" placeholder="Nom ou matricule..." value="${window._studentQ||''}" oninput="window._studentQ=this.value;render()">
+    </div>
+    <button class="btn btn-primary" onclick="openStudentForm()">➕ Inscrire</button>
   </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="pill ${cf===''?'pill-blue':''}" onclick="window._studentCF='';render()" style="cursor:pointer;border:none">Tous (${DB.students.length})</button>
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${c.name} (${DB.students.filter(s=>s.cid===c.id).length})</button>`).join('')}
+  </div>
+  ${!list.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🎓</div>${q?'Aucun résultat pour "'+q+'"':'Aucun élève inscrit'}</div>`:`
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${list.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
-    ${DB.students.map((s,i)=>{
+    ${list.map((s,i)=>{
       const c=gc(s.cid),p=gu(s.pid);
       const [cc,cbg]=clsColor(c?c.name:'');
       const pays=DB.payments.filter(x=>x.sid===s.id);
-      const paid=pays.filter(x=>x.paid).length;
-      return `<div class="ww-card" style="animation-delay:${i*.05}s">
+      return `<div class="ww-card" style="animation-delay:${i*.04}s">
         <div class="ww-card-stripe" style="background:${cc}"></div>
         <div class="ww-card-body">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-            <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700">${ini(s.name)}</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="width:52px;height:52px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">
+              ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:`<span style="font-size:18px">${ini(s.name)}</span>`}
+            </div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:15px">${s.name}</div>
+              <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
               <div style="font-size:12px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?c.name:'—'}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${s.mat}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${s.mat}${s.dob?' · '+new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
             </div>
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
             ${pays.map(pp=>`<span class="pill ${pp.paid?'pill-green':'pill-red'}">${pp.t} ${pp.paid?'✅':'❌'}</span>`).join('')}
           </div>
-          <div style="font-size:12px;color:var(--text-secondary)">👨‍👩‍👧 ${p?p.name:'— Aucun parent'}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">👨‍👩‍👧 ${p?p.name:'— Aucun parent'}</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">✏️ Modifier</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">🗑️</button>
+          </div>
         </div>
       </div>`;
     }).join('')}
-  </div>`;
+  </div>`}`;
 };
 
-// ── TEACHERS / GUARDIANS / PARENTS — simple lists ──
+window.openStudentForm = (sid) => {
+  const s = sid ? DB.students.find(x=>x.id===sid) : null;
+  const mat = s ? s.mat : genMat();
+  const classOpts = DB.classes.map(c=>`<option value="${c.id}" ${s&&s.cid===c.id?'selected':''}>${c.name}</option>`).join('');
+  const parentOpts = `<option value="">— Aucun parent —</option>`+DB.users.filter(u=>u.role==='parent').map(u=>`<option value="${u.id}" ${s&&s.pid===u.id?'selected':''}>${u.name}${u.phone?' ('+u.phone+')':''}</option>`).join('');
+  openM(s?`✏️ Modifier — ${s.name}`:'➕ Inscrire un élève',`
+<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
+  <div id="stu_photo_preview" onclick="$('stu_photo_input').click()" style="width:80px;height:80px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;margin-bottom:8px;cursor:pointer;border:3px dashed var(--border)">
+    ${s&&s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover">`:'📷'}
+  </div>
+  <input type="file" id="stu_photo_input" accept="image/*" style="display:none" onchange="stuPhotoChange(this)">
+  <input type="hidden" id="stu_photo_data" value="${s&&s.photo?s.photo:''}">
+  <span style="font-size:11px;color:var(--text-muted);cursor:pointer" onclick="$('stu_photo_input').click()">Appuyer pour choisir une photo</span>
+</div>
+<input type="hidden" id="stu_id" value="${s?s.id:''}">
+<div class="form-row">
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="stu_name" value="${s?s.name:''}" placeholder="Ex: Lomela Dodo"></div>
+  <div class="form-group"><label class="form-label">Matricule</label><input class="form-input" id="stu_mat" value="${mat}"></div>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">Date de naissance</label><input class="form-input" id="stu_dob" type="date" value="${s&&s.dob?s.dob:''}"></div>
+  <div class="form-group"><label class="form-label">Classe *</label><select class="form-select" id="stu_cid"><option value="">— Choisir —</option>${classOpts}</select></div>
+</div>
+<div class="form-group"><label class="form-label">Parent lié</label><select class="form-select" id="stu_pid">${parentOpts}</select></div>
+<div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="stu_adresse" value="${s&&s.adresse?s.adresse:''}" placeholder="Ex: Av. Victoire 12, Gombe"></div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">Nom du père</label><input class="form-input" id="stu_papa" value="${s&&s.nom_papa?s.nom_papa:''}" placeholder="Nom père"></div>
+  <div class="form-group"><label class="form-label">Nom de la mère</label><input class="form-input" id="stu_maman" value="${s&&s.nom_maman?s.nom_maman:''}" placeholder="Nom mère"></div>
+</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveStudent()">💾 ${s?'Mettre à jour':'Inscrire'}</button>`);
+};
+
+window.stuPhotoChange = (input) => {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=400,MH=520;
+      let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MH){w=Math.round(w*MH/h);h=MH;}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const data=cv.toDataURL('image/jpeg',0.85);
+      $('stu_photo_data').value=data;
+      $('stu_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveStudent = () => {
+  const name=($('stu_name').value||'').trim();
+  if(!name){toast('Entrez le nom complet','error');return;}
+  const cid=$('stu_cid').value;
+  if(!cid){toast('Sélectionnez une classe','error');return;}
+  const mat=($('stu_mat').value||'').trim()||genMat();
+  const sid=$('stu_id').value;
+  const photo=$('stu_photo_data').value||null;
+  const data={name,mat,cid,pid:$('stu_pid').value||null,dob:$('stu_dob').value||null,adresse:($('stu_adresse').value||'').trim()||null,nom_papa:($('stu_papa').value||'').trim()||null,nom_maman:($('stu_maman').value||'').trim()||null,photo};
+  if(sid){
+    const s=DB.students.find(x=>x.id===sid); if(s) Object.assign(s,data);
+    toast(`✅ ${name} mis à jour`,'success');
+  } else {
+    if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
+    const ns={id:'s'+Date.now(),...data};
+    DB.students.push(ns);
+    ['T1','T2','T3'].forEach(t=>DB.payments.push({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
+    toast(`🎉 ${name} inscrit — ${mat}`,'success');
+    launchConfetti(30);
+  }
+  closeModal(); saveToCrypt(); render();
+};
+window.editStudent = (sid) => openStudentForm(sid);
+window.deleteStudent = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  showC(`Supprimer ${s.name} ?`,'Irréversible — paiements et présences liés seront aussi supprimés.',()=>{
+    DB.students=DB.students.filter(x=>x.id!==sid);
+    DB.payments=DB.payments.filter(x=>x.sid!==sid);
+    DB.attendance=DB.attendance.filter(x=>x.sid!==sid);
+    toast(`🗑️ ${s.name} supprimé`,'info');
+    saveToCrypt(); render();
+  });
+};
+
+// ── TEACHERS / GUARDIANS / PARENTS — CRUD ──
+const ROLE_META = {
+  enseignant:{label:'Enseignant',icon:'👨‍🏫',color:'#10b981',bg:'#d1fae5'},
+  gardien:{label:'Gardien',icon:'🛡️',color:'#f97316',bg:'#ffedd5'},
+  parent:{label:'Parent',icon:'👨‍👩‍👧',color:'#8b5cf6',bg:'#ede9fe'},
+  direction2:{label:'Direction 2',icon:'🏫',color:'#2563eb',bg:'#dbeafe'},
+  direction3:{label:'Caisse',icon:'💵',color:'#059669',bg:'#d1fae5'},
+};
+
 window._simpleList = (role, icon, gradient) => {
+  const meta = ROLE_META[role]||{label:role,icon,color:'#64748b',bg:'#f1f5f9'};
   const users = DB.users.filter(u=>u.role===role);
-  if (!users.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">${icon}</div>Aucun ${role}<br><span style="font-size:12px">Gestion complète en Partie 5</span></div>`;
-  return `<div class="ww-grid">${users.map((u,i)=>`
-    <div class="ww-card" style="animation-delay:${i*.05}s">
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">${meta.icon} ${meta.label}s (${users.length})</span>
+    <button class="btn btn-primary" onclick="openUserForm('${role}')">➕ Ajouter</button>
+  </div>
+  ${!users.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">${meta.icon}</div>Aucun ${meta.label.toLowerCase()} — cliquez ➕ pour ajouter</div>`:`
+  <div class="ww-grid">
+    ${users.map((u,i)=>`<div class="ww-card" style="animation-delay:${i*.04}s">
       <div class="ww-card-stripe" style="background:${gradient}"></div>
       <div class="ww-card-body">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:48px;height:48px;border-radius:14px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700">${u.initials||ini(u.name)}</div>
-          <div style="flex:1"><div style="font-weight:700;font-size:15px">${u.name}</div><div style="font-size:12px;color:var(--text-secondary)">${u.phone||'—'}</div></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="width:48px;height:48px;border-radius:14px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px">${u.initials||ini(u.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:15px">${u.name}</div>
+            <div style="font-size:12px;color:var(--text-secondary)">${u.phone||'—'}</div>
+          </div>
         </div>
-        <span class="pill pill-blue">PIN: ${u.pin}</span>
+        ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>c.name).join(', ')||'Aucune classe assignée'}</div>`:''}
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin}</span>
+          <span style="flex:1"></span>
+          <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
+        </div>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`).join('')}
+  </div>`}`;
 };
+
+window.openUserForm = (role, uid) => {
+  const u = uid ? DB.users.find(x=>x.id===uid) : null;
+  const meta = ROLE_META[role]||{label:role,icon:'👤'};
+  const classOpts = role==='enseignant' ? `<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${DB.classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
+  openM(u?`✏️ Modifier — ${u.name}`:`➕ Ajouter ${meta.icon} ${meta.label}`,`
+<input type="hidden" id="usr_id" value="${u?u.id:''}">
+<input type="hidden" id="usr_role" value="${role}">
+<div class="form-row">
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="usr_name" value="${u?u.name:''}" placeholder="Ex: Jean Kabongo"></div>
+  <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="usr_init" maxlength="3" value="${u&&u.initials?u.initials:''}" placeholder="JK"></div>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?u.phone:''}" placeholder="+243 8XX XXX XXX"></div>
+  <div class="form-group"><label class="form-label">PIN (6 chiffres) *</label><input class="form-input" id="usr_pin" type="password" maxlength="6" value="${u?u.pin:''}" placeholder="••••••"></div>
+</div>
+${classOpts}`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveUser()">💾 ${u?'Mettre à jour':'Ajouter'}</button>`);
+};
+
+window.saveUser = () => {
+  const name=($('usr_name').value||'').trim();
+  if(!name){toast('Entrez le nom','error');return;}
+  const pin=($('usr_pin').value||'').trim();
+  if(!pin||pin.length<4){toast('PIN invalide (min 4 chiffres)','error');return;}
+  const uid=$('usr_id').value;
+  const role=$('usr_role').value;
+  const initials=($('usr_init').value||'').trim()||ini(name);
+  const data={name,pin,role,initials,phone:($('usr_phone').value||'').trim()||null};
+  if(uid){
+    const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
+    // Update class assignments for teachers
+    if(role==='enseignant'){
+      document.querySelectorAll('[data-cid]').forEach(cb=>{
+        const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
+        if(cb.checked){if(c.teacher_id!==uid&&c.teacher_id_en!==uid) c.teacher_id=uid;}
+        else{if(c.teacher_id===uid) c.teacher_id=null; if(c.teacher_id_en===uid) c.teacher_id_en=null;}
+      });
+    }
+    toast(`✅ ${name} mis à jour`,'success');
+  } else {
+    const ns={id:'u'+Date.now(),...data};
+    DB.users.push(ns);
+    toast(`🎉 ${name} ajouté`,'success');
+  }
+  closeModal(); saveToCrypt(); render();
+};
+
+window.deleteUser = (uid) => {
+  const u=DB.users.find(x=>x.id===uid); if(!u) return;
+  const linked=DB.students.filter(s=>s.pid===uid);
+  showC(`Supprimer ${u.name} ?`,linked.length?`⚠️ ${linked.length} élève(s) lié(s) — le lien parent sera retiré.`:'Cette action est irréversible.',()=>{
+    linked.forEach(s=>s.pid=null);
+    DB.classes.forEach(c=>{if(c.teacher_id===uid)c.teacher_id=null;if(c.teacher_id_en===uid)c.teacher_id_en=null;});
+    DB.users=DB.users.filter(x=>x.id!==uid);
+    toast(`🗑️ ${u.name} supprimé`,'info');
+    saveToCrypt(); render();
+  });
+};
+
 R.teachers = () => _simpleList('enseignant','👨‍🏫','linear-gradient(90deg,#10b981,#059669)');
 R.guardians = () => _simpleList('gardien','🛡️','linear-gradient(90deg,#f97316,#ea580c)');
 R.parents = () => _simpleList('parent','👨‍👩‍👧','linear-gradient(90deg,#8b5cf6,#7c3aed)');
