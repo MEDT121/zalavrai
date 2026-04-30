@@ -4063,9 +4063,288 @@ window.markMsgRead = (mid) => {
   const m=DB.messages.find(x=>x.id===mid); if(!m) return;
   m.read=true; saveToCrypt(); render();
 };
-R.teacher_activity = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">👁️</div><h2>Activité Profs</h2><p style="color:var(--text-secondary)">Tableau de bord de l'activité de chaque enseignant — Partie 6.</p></div>`;
-R.year_mgmt = () => `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📆</div><h2>Année Scolaire</h2><p style="color:var(--text-secondary)">Clôture + passage de classe automatique — Partie 7.</p></div>`;
-R.export = () => S.user.role==='direction2' ? `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">L'export financier est réservé à la Direction 1.</p></div>` : `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px;box-shadow:var(--shadow-sm)"><div style="font-size:72px;margin-bottom:16px">📤</div><h2>Export Données</h2><p style="color:var(--text-secondary)">Export PDF + Excel — Partie 7.</p></div>`;
+// ── ÉTAPE 7 — ACTIVITÉ PROFS ──
+R.teacher_activity = () => {
+  const teachers = DB.users.filter(u=>u.role==='enseignant');
+  if (!teachers.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">👁️</div>Aucun enseignant enregistré</div>`;
+  const td = today();
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekStr = weekAgo.toISOString().slice(0,10);
+  return `
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">👨‍🏫</div><div class="ww-stat-val">${teachers.length}</div><div class="ww-stat-label">Enseignants</div></div>
+    <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon">📋</div><div class="ww-stat-val">${DB.attendance.filter(a=>a.date===td).length}</div><div class="ww-stat-label">Présences saisies</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${DB.devoirs.filter(d=>d.date>=weekStr).length}</div><div class="ww-stat-label">Devoirs cette semaine</div></div>
+    <div class="ww-stat" style="border-left-color:#8b5cf6"><div class="ww-stat-icon">📖</div><div class="ww-stat-val">${DB.cahier_texte.filter(c=>c.date>=weekStr).length}</div><div class="ww-stat-label">Cahiers cette semaine</div></div>
+  </div>
+  <div class="ww-grid">
+    ${teachers.map((u,i)=>{
+      const clFR = DB.classes.find(c=>c.teacher_id===u.id);
+      const clEN = DB.classes.find(c=>c.teacher_id_en===u.id);
+      const cl = clFR||clEN;
+      const attToday = cl ? DB.attendance.filter(a=>a.date===td&&DB.students.some(s=>s.cid===cl.id&&s.id===a.sid)).length : 0;
+      const studCount = cl ? DB.students.filter(s=>s.cid===cl.id).length : 0;
+      const devoirsW = DB.devoirs.filter(d=>d.teacher_id===u.id&&d.date>=weekStr).length;
+      const cahierW = DB.cahier_texte.filter(c=>c.teacher_id===u.id&&c.date>=weekStr).length;
+      const lastAtt = DB.attendance.filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const daysSince = lastAtt ? Math.floor((Date.now()-new Date(lastAtt.date).getTime())/86400000) : 999;
+      const alert = daysSince>3 && cl;
+      return `<div class="ww-card" style="animation-delay:${i*.04}s">
+        <div class="ww-card-stripe" style="background:${alert?'#ef4444':'#10b981'}"></div>
+        <div class="ww-card-body">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:48px;height:48px;border-radius:14px;background:${alert?'#fee2e2':'#d1fae5'};color:${alert?'#ef4444':'#059669'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px">${u.initials||ini(u.name)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:15px">${u.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${cl?cl.name:'— Aucune classe'}</div>
+            </div>
+            ${alert?`<span class="pill pill-red">⚠️ Inactif</span>`:`<span class="pill pill-green">✅ Actif</span>`}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div style="background:var(--bg);border-radius:10px;padding:8px;text-align:center">
+              <div style="font-weight:700;font-size:18px;color:${attToday>=studCount&&studCount>0?'#059669':'#f59e0b'}">${attToday}/${studCount}</div>
+              <div style="font-size:11px;color:var(--text-muted)">Présences auj.</div>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:8px;text-align:center">
+              <div style="font-weight:700;font-size:18px;color:#3b82f6">${devoirsW}</div>
+              <div style="font-size:11px;color:var(--text-muted)">Devoirs sem.</div>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:8px;text-align:center">
+              <div style="font-weight:700;font-size:18px;color:#8b5cf6">${cahierW}</div>
+              <div style="font-size:11px;color:var(--text-muted)">Cahiers sem.</div>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:8px;text-align:center">
+              <div style="font-weight:700;font-size:18px;color:${daysSince===0?'#059669':daysSince<=3?'#f59e0b':'#ef4444'}">${daysSince===999?'—':daysSince+'j'}</div>
+              <div style="font-size:11px;color:var(--text-muted)">Depuis activité</div>
+            </div>
+          </div>
+          ${alert?`<div style="font-size:12px;color:#ef4444;background:#fee2e2;border-radius:8px;padding:6px 10px">⚠️ Aucune présence depuis plus de 3 jours</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+};
+
+// ── ÉTAPE 9 — GESTION ANNÉE SCOLAIRE ──
+R.year_mgmt = () => {
+  const s = DB.settings;
+  const yr = s.year||'2025-2026';
+  const locks = s.trimLocks||{T1:false,T2:false,T3:false};
+  const archived = s.archived_years||[];
+  return `
+  <div class="premium-section" style="border-left:4px solid #2563eb">
+    <div class="premium-section-title">📆 Année scolaire en cours</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+      <div style="font-size:28px;font-weight:800;color:var(--primary)">${yr}</div>
+      <button class="btn btn-outline btn-sm" onclick="openYearConfig()">✏️ Modifier</button>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">${DB.students.length} élève(s) · ${DB.classes.length} classe(s)</div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">🔒 Verrouillage des trimestres</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Un trimestre verrouillé empêche toute modification des notes par les enseignants.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${['T1','T2','T3'].map(t=>`<div style="flex:1;min-width:100px;background:var(--bg);border-radius:12px;padding:14px;text-align:center;border:2px solid ${locks[t]?'#ef4444':'#e2e8f0'}">
+        <div style="font-size:20px;margin-bottom:4px">${locks[t]?'🔒':'🔓'}</div>
+        <div style="font-weight:700">${t}</div>
+        <div style="font-size:11px;color:${locks[t]?'#ef4444':'#059669'};margin-bottom:8px">${locks[t]?'Verrouillé':'Ouvert'}</div>
+        <button class="btn ${locks[t]?'btn-outline':'btn-danger'} btn-sm" style="width:100%" onclick="toggleTrimLock('${t}')">${locks[t]?'🔓 Ouvrir':'🔒 Clôturer'}</button>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">🎓 Passage de classe</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Faites avancer les élèves vers la classe suivante pour la nouvelle année.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="openPassageClasse()">🎓 Gérer le passage de classe</button>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #f59e0b">
+    <div class="premium-section-title">🗂️ Archiver et nouvelle année</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Archive toutes les données de l'année en cours (notes, présences, paiements) et repart à zéro pour la nouvelle année.</div>
+    <button class="btn btn-danger" style="width:100%" onclick="confirmNewYear()">📦 Archiver ${yr} et démarrer nouvelle année</button>
+  </div>
+  ${archived.length?`<div class="premium-section"><div class="premium-section-title">🗃️ Archives (${archived.length})</div>
+    ${archived.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">🗃️</div><div style="flex:1"><div class="pi-title">${a.year}</div><div class="pi-sub">${a.students} élèves archivés · ${a.date}</div></div></div>`).join('')}
+  </div>`:''}`;
+};
+
+window.openYearConfig = () => {
+  openM('✏️ Configurer l\'année scolaire',`
+<div class="form-group"><label class="form-label">Année scolaire</label><input class="form-input" id="yr_name" value="${DB.settings.year||'2025-2026'}" placeholder="Ex: 2025-2026"></div>
+<div class="form-group"><label class="form-label">Visibilité</label>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+    ${[['palmares','🏆 Palmarès visible par les parents'],['devoirs','📚 Devoirs visibles par les parents'],['cahier_texte','📖 Cahier de texte visible'],['presences','📋 Présences activées']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="tog_${k}" ${DB.settings.toggles[k]?'checked':''} style="accent-color:#2563eb"> ${lbl}</label>`).join('')}
+  </div>
+</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveYearConfig()">💾 Sauvegarder</button>`);
+};
+
+window.saveYearConfig = () => {
+  DB.settings.year = ($('yr_name').value||'').trim()||DB.settings.year;
+  ['palmares','devoirs','cahier_texte','presences'].forEach(k=>{
+    DB.settings.toggles[k] = !!document.getElementById('tog_'+k)?.checked;
+  });
+  toast('✅ Configuration sauvegardée','success');
+  closeModal(); saveToCrypt(); render();
+};
+
+window.toggleTrimLock = (t) => {
+  if(!DB.settings.trimLocks) DB.settings.trimLocks={T1:false,T2:false,T3:false};
+  DB.settings.trimLocks[t] = !DB.settings.trimLocks[t];
+  toast(`${DB.settings.trimLocks[t]?'🔒 Trimestre '+t+' verrouillé':'🔓 Trimestre '+t+' ouvert'}`, DB.settings.trimLocks[t]?'info':'success');
+  saveToCrypt(); render();
+};
+
+window.openPassageClasse = () => {
+  const classOrder = DB.classes.map(c=>c.id);
+  const body = `
+<p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Sélectionnez la classe de destination pour chaque élève. Les élèves de la dernière classe sont marqués "Diplômé".</p>
+<div style="max-height:60vh;overflow-y:auto">
+${DB.classes.map(cl=>{
+  const studs=DB.students.filter(s=>s.cid===cl.id);
+  if(!studs.length) return '';
+  const nextIdx=classOrder.indexOf(cl.id)+1;
+  const nextCl=nextIdx<classOrder.length?DB.classes.find(c=>c.id===classOrder[nextIdx]):null;
+  return `<div style="margin-bottom:12px"><div style="font-weight:700;font-size:13px;padding:6px 0;color:var(--text-secondary);border-bottom:1px solid var(--border)">${cl.name} → ${nextCl?nextCl.name:'🎓 Diplômé'}</div>
+  ${studs.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" checked style="accent-color:#2563eb"> ${s.name}</label>`).join('')}</div>`;
+}).join('')}
+</div>`;
+  openM('🎓 Passage de classe', body,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="executePassage()">✅ Valider le passage</button>`);
+};
+
+window.executePassage = () => {
+  let moved=0, diplomed=0;
+  document.querySelectorAll('[data-sid]').forEach(cb=>{
+    if(!cb.checked) return;
+    const s=DB.students.find(x=>x.id===cb.dataset.sid); if(!s) return;
+    if(cb.dataset.next==='diplome'){s.diplome=true;diplomed++;}
+    else{s.cid=cb.dataset.next;moved++;}
+  });
+  toast(`🎓 ${moved} élève(s) promu(s) · ${diplomed} diplômé(s)`,'success');
+  closeModal(); saveToCrypt(); render();
+};
+
+window.confirmNewYear = () => {
+  showC('📦 Archiver et nouvelle année ?',`Toutes les données de ${DB.settings.year} seront archivées. Les notes, présences et paiements seront réinitialisés. Cette action est irréversible.`,()=>{
+    const yr=DB.settings.year;
+    if(!DB.settings.archived_years) DB.settings.archived_years=[];
+    DB.settings.archived_years.unshift({year:yr,students:DB.students.length,date:today(),grades:DB.grades.length});
+    // Incrémenter année
+    const parts=yr.split('-');
+    const newYr=parts.length===2?`${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`:yr;
+    DB.settings.year=newYr;
+    DB.settings.trimLocks={T1:false,T2:false,T3:false};
+    // Reset données annuelles
+    DB.grades=[];
+    DB.attendance=[];
+    DB.payments=DB.students.flatMap(s=>['T1','T2','T3'].map(t=>({id:'p'+Date.now()+s.id+t,sid:s.id,t,paid:false})));
+    DB.devoirs=[];
+    DB.cahier_texte=[];
+    DB.absences=[];
+    DB.daily_records=[];
+    DB.daily_expenses=[];
+    DB.daily_reports=[];
+    toast(`🎉 Nouvelle année ${newYr} démarrée !`,'success');
+    launchConfetti(60);
+    saveToCrypt(); render();
+  });
+};
+
+// ── ÉTAPE 8 — EXPORT DONNÉES ──
+R.export = () => {
+  if (S.user.role==='direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">L'export financier est réservé à la Direction 1.</p></div>`;
+  return `
+  <div class="premium-section" style="border-left:4px solid #2563eb">
+    <div class="premium-section-title">📤 Export données — ${DB.settings.year||'2025-2026'}</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Téléchargez les données en CSV (Excel) ou imprimez en PDF via votre navigateur.</div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">📋 CSV (Excel)</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('students')">🎓 <span>Liste élèves (${DB.students.length})</span></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('payments')">💰 <span>Paiements — frais scolaires</span></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('attendance')">📋 <span>Présences (${DB.attendance.length} entrées)</span></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('caisse')">💵 <span>Historique caisse (${DB.daily_records.length} opérations)</span></button>
+      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('grades')">🏆 <span>Notes / Palmarès (${DB.grades.length} notes)</span></button>
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">🖨️ Impression PDF</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('students')">🎓 <span>Liste élèves avec classes</span></button>
+      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('payments')">💰 <span>Tableau des paiements</span></button>
+      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('palmares')">🏆 <span>Palmarès général</span></button>
+    </div>
+  </div>`;
+};
+
+window.exportCSV = (type) => {
+  let rows=[], filename='';
+  const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
+  if(type==='students'){
+    filename=`eleves_${DB.settings.year||'2025-2026'}.csv`;
+    rows=[['Matricule','Nom','Classe','Date naissance','Parent','Adresse','Père','Mère']];
+    DB.students.forEach(s=>{const c=gc(s.cid),p=gu(s.pid);rows.push([s.mat,s.name,c?c.name:'',s.dob||'',p?p.name:'',s.adresse||'',s.nom_papa||'',s.nom_maman||'']);});
+  } else if(type==='payments'){
+    filename=`paiements_${DB.settings.year||'2025-2026'}.csv`;
+    const fees=getFees();
+    rows=[['Matricule','Nom','Classe','T1','T2','T3','Total payé ($)','Reste ($)']];
+    DB.students.forEach(s=>{
+      const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);
+      const t1=pays.find(p=>p.t==='T1')?.paid?'Payé':'Non payé';
+      const t2=pays.find(p=>p.t==='T2')?.paid?'Payé':'Non payé';
+      const t3=pays.find(p=>p.t==='T3')?.paid?'Payé':'Non payé';
+      const {paid,debt}=getStudentBalance(s.id);
+      rows.push([s.mat,s.name,c?c.name:'',t1,t2,t3,paid,debt]);
+    });
+  } else if(type==='attendance'){
+    filename=`presences_${today()}.csv`;
+    rows=[['Date','Matricule','Nom','Classe','Statut','Heure arrivée']];
+    DB.attendance.forEach(a=>{const s=DB.students.find(x=>x.id===a.sid),c=s?gc(s.cid):null;rows.push([a.date,s?s.mat:'',s?s.name:'',c?c.name:'',a.status,a.arr_time||'']);});
+  } else if(type==='caisse'){
+    filename=`caisse_${today()}.csv`;
+    rows=[['Date','Heure','Élève','Matricule','Type','Montant','Note','Validé']];
+    DB.daily_records.forEach(r=>rows.push([r.date,r.time,r.student_name,r.mat,r.type_label,r.amount,r.note||'',r.validated?'Oui':'Non']));
+  } else if(type==='grades'){
+    filename=`notes_${DB.settings.year||'2025-2026'}.csv`;
+    rows=[['Élève','Classe','Matière','Trimestre','Note (%)']];
+    DB.grades.forEach(g=>{const s=DB.students.find(x=>x.id===g.sid),c=s?gc(s.cid):null;rows.push([s?s.name:'',c?c.name:'',g.matiere,g.trimester,g.pct]);});
+  }
+  const csv=rows.map(r=>r.map(esc).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();URL.revokeObjectURL(url);
+  toast(`📥 ${filename} téléchargé`,'success');
+};
+
+window.printReport = (type) => {
+  let html='',title='';
+  const school='The Wise School International';
+  const yr=DB.settings.year||'2025-2026';
+  const header=`<div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #000;padding-bottom:10px"><h2 style="margin:0">${school}</h2><div style="font-size:13px">Année scolaire ${yr} · Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div></div>`;
+  if(type==='students'){
+    title='Liste des élèves';
+    html=`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th>Mat.</th><th>Nom</th><th>Classe</th><th>Naissance</th><th>Parent</th></tr>
+    ${DB.students.map(s=>{const c=gc(s.cid),p=gu(s.pid);return`<tr><td>${s.mat}</td><td>${s.name}</td><td>${c?c.name:''}</td><td>${s.dob||''}</td><td>${p?p.name:''}</td></tr>`;}).join('')}</table>`;
+  } else if(type==='payments'){
+    title='Tableau des paiements';
+    const fees=getFees();
+    html=`<table border="1" cellpadding="6" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px"><tr style="background:#f1f5f9"><th>Nom</th><th>Classe</th><th>T1 ($${fees.T1||'?'})</th><th>T2 ($${fees.T2||'?'})</th><th>T3 ($${fees.T3||'?'})</th><th>Reste</th></tr>
+    ${DB.students.map(s=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td>${s.name}</td><td>${c?c.name:''}</td>${['T1','T2','T3'].map(t=>`<td style="background:${pays.find(p=>p.t===t)?.paid?'#d1fae5':'#fee2e2'};text-align:center">${pays.find(p=>p.t===t)?.paid?'✓':'✗'}</td>`).join('')}<td style="font-weight:bold;color:${debt>0?'red':'green'}">${debt>0?'-$'+debt:'Soldé'}</td></tr>`;}).join('')}</table>`;
+  } else if(type==='palmares'){
+    title='Palmarès général';
+    html=DB.classes.map(cl=>{
+      const studs=DB.students.filter(s=>s.cid===cl.id);
+      if(!studs.length) return '';
+      const mats=[...new Set(DB.grades.filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere))];
+      return `<h3 style="margin-top:16px">${cl.name}</h3><table border="1" cellpadding="4" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:11px"><tr style="background:#f1f5f9"><th>Nom</th>${mats.map(m=>`<th>${m}</th>`).join('')}<th>Moy.</th></tr>
+      ${studs.map(s=>{const gs=DB.grades.filter(g=>g.sid===s.id);const avg=gs.length?Math.round(gs.reduce((a,g)=>a+Number(g.pct||0),0)/gs.length):0;return`<tr><td>${s.name}</td>${mats.map(m=>{const g=gs.find(x=>x.matiere===m);return`<td style="text-align:center">${g?g.pct+'%':'—'}</td>`;}).join('')}<td style="font-weight:bold;text-align:center">${avg}%</td></tr>`;}).join('')}</table>`;
+    }).join('');
+  }
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#000}@media print{button{display:none}}</style></head><body>${header}<h3 style="text-align:center">${title}</h3>${html}<div style="margin-top:30px;text-align:center"><button onclick="window.print()" style="padding:10px 30px;font-size:14px;cursor:pointer">🖨️ Imprimer / Enregistrer PDF</button></div></body></html>`);
+  win.document.close();
+};
 
 // ── SETTINGS ──
 R.settings = () => `
