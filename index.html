@@ -3592,21 +3592,22 @@ window.scanExit = () => {
 
   const c=gc(s.cid);
   const parent=gu(s.pid);
-  // Build list of authorized persons (parent principal + APs actifs)
+  // Parent principal + tutelles secondaires liées à l'élève
   const aps=[];
-  if(parent) aps.push({name:parent.name,relation:'Parent principal',photo:parent.photo_url||null,active:true});
-  DB.aps.filter(a=>a.pid===s.pid&&a.active).forEach(a=>aps.push(a));
+  if(parent) aps.push({name:parent.name,relation:'👑 Parent principal',photo:parent.photo_url||null,active:true,phone:parent.phone||null});
+  DB.aps.filter(a=>a.sid===s.id&&a.active!==false).forEach(a=>aps.push(a));
 
   window._exitStudent=s;
   window._exitAps=aps;
 
   const thumbs=aps.map((a,i)=>`
-  <div onclick="selectExitPerson(${i})" style="cursor:pointer;text-align:center;background:var(--bg-card);border-radius:14px;padding:10px;border:2px solid var(--border);width:100px;transition:all .2s" id="exitThumb${i}">
-    <div style="width:80px;height:100px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
-      ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:28px;font-weight:700;color:#64748b">${ini(a.name)}</span>`}
+  <div onclick="selectExitPerson(${i})" style="cursor:pointer;text-align:center;background:var(--bg-card);border-radius:14px;padding:10px;border:2px solid var(--border);width:110px;transition:all .2s;flex-shrink:0" id="exitThumb${i}">
+    <div style="width:90px;height:110px;border-radius:12px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+      ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:30px;font-weight:700;color:#64748b">${ini(a.name)}</span>`}
     </div>
     <div style="font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name.split(' ')[0]}</div>
-    <div style="font-size:10px;color:var(--text-secondary)">${a.relation||'Tutelle'}</div>
+    <div style="font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.relation||'Tutelle'}</div>
+    ${a.phone?`<div style="font-size:10px;color:var(--text-muted)">${a.phone}</div>`:''}
   </div>`).join('');
 
   $('exitResult').innerHTML=`
@@ -3731,19 +3732,189 @@ window.sendAttendanceList = async () => {
 
 // ── PARENT: AUTORISÉS & ABSENCES (lecture seule avec placeholder) ──
 R.authorized = () => {
-  const aps = DB.aps.filter(a=>a.pid===(S.user.id||''));
-  if (S.user.role === 'direction') {
-    return `<div style="text-align:center;padding:40px 20px;background:var(--bg-card);border-radius:20px">
-      <div style="font-size:60px;margin-bottom:16px">🔑</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:8px">Personnes autorisées</div>
-      <p style="color:var(--text-secondary);font-size:13px;max-width:400px;margin:0 auto">Gestion complète avec photos et validation — Partie 5.</p>
+  const role = S.user.role;
+
+  // ── DIRECTION 1 : gestion complète par élève ──
+  if (role === 'direction') {
+    const q = (window._apQ||'').toLowerCase();
+    const studs = q ? DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)) : DB.students;
+    return `
+    <div class="ww-toolbar">
+      <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+        <input placeholder="Rechercher un élève..." oninput="window._apQ=this.value;render()" value="${window._apQ||''}">
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px;border-left:4px solid #f59e0b">
+      ⚠️ Chaque élève peut avoir <strong>1 parent principal</strong> (compte app) + <strong>jusqu'à 3 tutelles secondaires</strong> avec photo — visibles lors du scan de sortie.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${studs.map(s=>{
+        const c=gc(s.cid); const parent=gu(s.pid);
+        const [cc,cbg]=clsColor(c?c.name:'');
+        const tuts=DB.aps.filter(a=>a.sid===s.id);
+        return `<div class="premium-section" style="margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">
+              ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700">${s.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${s.mat} · ${c?c.name:''}</div>
+            </div>
+            ${tuts.length<3?`<button class="btn btn-primary btn-sm" onclick="openTutelleForm('${s.id}')">➕ Tutelle</button>`:`<span class="pill pill-orange">Max 3</span>`}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${parent?'#d1fae522':'#fee2e222'};border-radius:10px;margin-bottom:8px;border:1px solid ${parent?'#10b98133':'#ef444433'}">
+            <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;overflow:hidden;flex-shrink:0">
+              ${parent&&parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:parent?ini(parent.name):'?'}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700">${parent?parent.name:'— Aucun parent principal'}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">👑 Parent principal · ${parent?parent.phone||'—':'Non lié'}</div>
+            </div>
+            <span class="pill" style="background:#dbeafe;color:#1e40af;font-size:10px">COMPTE APP</span>
+          </div>
+          ${tuts.length?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${tuts.map(t=>`<div style="flex:1;min-width:120px;background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border);text-align:center;position:relative">
+              <div style="width:60px;height:70px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+                ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
+              </div>
+              <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${t.phone||'—'}</div>
+              <div style="display:flex;gap:4px;margin-top:6px">
+                <button class="btn btn-outline btn-sm" style="flex:1;padding:4px" onclick="openTutelleForm('${s.id}','${t.id}')">✏️</button>
+                <button class="btn btn-danger btn-sm" style="padding:4px 6px" onclick="deleteTutelle('${t.id}')">🗑️</button>
+              </div>
+            </div>`).join('')}
+          </div>`:`<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px">Aucune tutelle secondaire — cliquez ➕ pour en ajouter</div>`}
+        </div>`;
+      }).join('')}
     </div>`;
   }
-  return `<div class="premium-section" style="border-left:4px solid #f59e0b">
-    <div style="font-weight:700;font-size:14px">ℹ️ ${aps.length}/5 personnes autorisées</div>
-    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">Pour modifier, contactez la Direction.</div>
+
+  // ── PARENT / GARDIEN : vue lecture seule ──
+  const myKids = DB.students.filter(s=>s.pid===S.user.id);
+  if (!myKids.length && role==='parent') return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔑</div>Aucun enfant lié à ce compte</div>`;
+  const studsToShow = role==='parent' ? myKids : DB.students;
+  return `
+  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px">
+    ℹ️ Pour modifier les tutelles autorisées, contactez la Direction.
   </div>
-  ${aps.length?`<div class="ww-grid">${aps.map(a=>`<div class="ww-card"><div class="ww-card-body"><div style="font-weight:700">${a.name}</div><div style="font-size:12px;color:var(--text-secondary)">${a.relation||'Tuteur'}</div></div></div>`).join('')}</div>`:'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucune personne autorisée</div>'}`;
+  ${studsToShow.map(s=>{
+    const tuts=DB.aps.filter(a=>a.sid===s.id);
+    const parent=gu(s.pid);
+    const c=gc(s.cid); const [cc,cbg]=clsColor(c?c.name:'');
+    return `<div class="premium-section" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">
+          ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:ini(s.name)}
+        </div>
+        <div><div style="font-weight:700">${s.name}</div><div style="font-size:12px;color:var(--text-secondary)">${c?c.name:''}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${parent?`<div style="flex:1;min-width:110px;background:#d1fae511;border:1px solid #10b98133;border-radius:12px;padding:10px;text-align:center">
+          <div style="width:60px;height:70px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+            <span style="font-size:20px;font-weight:700;color:#10b981">${ini(parent.name)}</span>
+          </div>
+          <div style="font-size:11px;font-weight:700">${parent.name}</div>
+          <div style="font-size:10px;color:#10b981">👑 Parent</div>
+        </div>`:''}
+        ${tuts.map(t=>`<div style="flex:1;min-width:110px;background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border);text-align:center">
+          <div style="width:60px;height:70px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+            ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
+          </div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:10px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
+        </div>`).join('')}
+        ${!tuts.length&&!parent?`<div style="font-size:12px;color:var(--text-muted);padding:12px">Aucune tutelle enregistrée</div>`:''}
+      </div>
+    </div>`;
+  }).join('')}`;
+};
+
+window._apQ = '';
+
+window.openTutelleForm = (sid, tid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const t=tid?DB.aps.find(x=>x.id===tid):null;
+  const existing=DB.aps.filter(a=>a.sid===sid);
+  if(!t && existing.length>=3){toast('Maximum 3 tutelles par élève','error');return;}
+  const RELATIONS=['Père','Mère','Grand-père','Grand-mère','Oncle','Tante','Frère','Sœur','Tuteur légal','Autre'];
+  openM(t?`✏️ Modifier tutelle — ${s.name}`:`➕ Ajouter tutelle — ${s.name}`,`
+<input type="hidden" id="tut_sid" value="${sid}">
+<input type="hidden" id="tut_id" value="${tid||''}">
+<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
+  <div id="tut_photo_preview" onclick="$('tut_photo_input').click()" style="width:80px;height:100px;border-radius:12px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;margin-bottom:8px;cursor:pointer;border:3px dashed var(--border)">
+    ${t&&t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:'📷'}
+  </div>
+  <input type="file" id="tut_photo_input" accept="image/*" style="display:none" onchange="tutPhotoChange(this)">
+  <input type="hidden" id="tut_photo_data" value="${t&&t.photo?t.photo:''}">
+  <span style="font-size:11px;color:var(--text-muted);cursor:pointer" onclick="$('tut_photo_input').click()">📷 Photo obligatoire pour identification</span>
+</div>
+<div class="form-row">
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="tut_name" value="${t?t.name:''}" placeholder="Ex: Lomela Jean"></div>
+  <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="tut_phone" value="${t&&t.phone?t.phone:''}" placeholder="+243..."></div>
+</div>
+<div class="form-group"><label class="form-label">Lien de parenté *</label>
+  <select class="form-select" id="tut_relation">
+    ${RELATIONS.map(r=>`<option value="${r}" ${t&&t.relation===r?'selected':''}>${r}</option>`).join('')}
+  </select>
+</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveTutelle()">💾 ${t?'Mettre à jour':'Enregistrer'}</button>`);
+};
+
+window.tutPhotoChange = (input) => {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=300,MH=400;
+      let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MH){w=Math.round(w*MH/h);h=MH;}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const data=cv.toDataURL('image/jpeg',0.82);
+      $('tut_photo_data').value=data;
+      $('tut_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveTutelle = () => {
+  const sid=$('tut_sid').value;
+  const tid=$('tut_id').value;
+  const name=($('tut_name').value||'').trim();
+  if(!name){toast('Entrez le nom','error');return;}
+  const relation=$('tut_relation').value;
+  const phone=($('tut_phone').value||'').trim()||null;
+  const photo=$('tut_photo_data').value||null;
+  if(!photo){toast('Ajoutez une photo pour l\'identification','error');return;}
+  const data={sid,name,relation,phone,photo,active:true};
+  if(tid){
+    const t=DB.aps.find(x=>x.id===tid); if(t) Object.assign(t,data);
+    pushSync('aps','upsert',{id:tid,...data});
+    toast(`✅ ${name} mis à jour`,'success');
+  } else {
+    const nt={id:'ap'+Date.now(),...data};
+    DB.aps.push(nt);
+    pushSync('aps','upsert',nt);
+    toast(`✅ ${name} enregistré comme tutelle`,'success');
+  }
+  closeModal(); saveToCrypt(); render();
+};
+
+window.deleteTutelle = (tid) => {
+  const t=DB.aps.find(x=>x.id===tid); if(!t) return;
+  showC(`Supprimer ${t.name} ?`,'Cette personne ne pourra plus récupérer l\'enfant.',()=>{
+    DB.aps=DB.aps.filter(x=>x.id!==tid);
+    pushSync('aps','delete',{},'id=eq.'+tid);
+    toast(`🗑️ ${t.name} supprimé`,'info');
+    saveToCrypt(); render();
+  });
 };
 // ── ÉTAPE 5 — JUSTIFICATION D'ABSENCE ──
 R.absences = () => {
