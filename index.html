@@ -972,7 +972,7 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length;
+window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length + DB.devoirs.filter(d=>d.status==='pending_direction').length;
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -2466,7 +2466,8 @@ R.approbations = () => {
   const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
+  const pendingDevoirs = DB.devoirs.filter(d=>d.status==='pending_direction');
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingDevoirs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -2499,6 +2500,30 @@ R.approbations = () => {
     ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
   </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}
+  ${pendingDevoirs.length?`<div class="premium-section" style="border-left:4px solid #7c3aed"><div class="premium-section-title">📚 Publications enseignants à approuver (${pendingDevoirs.length})</div>
+    ${pendingDevoirs.map(d=>{
+      const teacher=gu(d.teacher_id);
+      const cl=gc(d.cid);
+      const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
+      const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Devoir';
+      const kids=DB.students.filter(s=>s.cid===d.cid);
+      const paidCount=kids.filter(k=>DB.payments.some(p=>p.sid===k.id&&p.paid)).length;
+      const dateStr=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+        <div class="pi-icon" style="background:#ede9fe">${catIcon}</div>
+        <div style="flex:1;min-width:150px">
+          <div class="pi-title">${catLabel} — ${d.title}</div>
+          <div class="pi-sub">${cl?cl.name:'?'} · ${d.matiere}${dateStr?' · '+dateStr:''}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Par ${teacher?teacher.name:'?'} · ${paidCount}/${kids.length} élèves frais payés</div>
+          ${d.description?`<div style="font-size:12px;margin-top:4px;padding:6px;background:var(--bg);border-radius:6px">${d.description}</div>`:''}
+        </div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-success btn-sm" onclick="approveDevoir('${d.id}','approved')">✅</button>
+          <button class="btn btn-danger btn-sm" onclick="approveDevoir('${d.id}','refused')">❌</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:''}
   ${pendingRats.length?`<div class="premium-section" style="border-left:4px solid #f59e0b"><div class="premium-section-title">📚 Signalements de rattrapage (${pendingRats.length})</div>
     ${pendingRats.map(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
@@ -2542,6 +2567,45 @@ window.validateAbs = (id, status) => {
     pushSync('notifs','post',notif);
   }
   toast(status==='approved'?'✅ Approuvée':'❌ Refusée', status==='approved'?'success':'info');
+  saveToCrypt(); render();
+};
+
+window.approveDevoir = (did, status) => {
+  const d = DB.devoirs.find(x=>x.id===did); if(!d) return;
+  d.status = status==='approved' ? 'published' : 'refused';
+  pushSync('devoirs','patch',{status:d.status},'id=eq.'+did);
+  const teacher=gu(d.teacher_id);
+  const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
+  const cm=catMeta[d.category]||catMeta.devoir;
+  if(status==='approved'){
+    const kids=DB.students.filter(s=>s.cid===d.cid);
+    let notifiedCount=0;
+    kids.forEach(k=>{
+      const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+      if(k.pid&&hasPaid){
+        const dateStr=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+        const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,
+          msg:`${cm.icon} ${cm.notif} — ${k.name} · ${d.matiere} · ${d.title}${dateStr?' le '+dateStr:''}`,
+          time:nowTime(),date:today(),read:false,type:'academic'};
+        DB.notifs.unshift(n); pushSync('notifs','post',n); notifiedCount++;
+      }
+    });
+    if(teacher){
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:teacher.id,
+        msg:`✅ Votre ${cm.notif} "${d.title}" approuvé — ${notifiedCount} parent(s) notifié(s)`,
+        time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    }
+    toast(`✅ Approuvé — ${notifiedCount} parent(s) notifié(s) (frais payés)`,'success');
+  } else {
+    if(teacher){
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:teacher.id,
+        msg:`❌ Votre publication "${d.title}" a été refusée par la Direction`,
+        time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    }
+    toast('❌ Publication refusée','info');
+  }
   saveToCrypt(); render();
 };
 
@@ -3671,47 +3735,148 @@ R.devoirs = () => {
 R.devoirs_parent = () => {
   if(!DB.settings.toggles.devoirs) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
-  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié</div>`;
-
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié à votre profil</div>`;
+  const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+  const condColor={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
+  const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
+  const renderDevoirItem = (d) => {
+    const deadline=d.deadline?new Date(d.deadline):null;
+    const overdue=deadline&&deadline<new Date();
+    const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
+    const catBg={devoir:'#dbeafe',interro:'#fef3c7',examen:'#ede9fe'}[d.category]||'#dbeafe';
+    const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+    return `<div class="premium-item" style="${overdue?'border-left:3px solid #ef4444;':''}">
+      <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg}">${overdue?'⏰':catIcon}</div>
+      <div style="flex:1">
+        <div class="pi-title">${d.title}</div>
+        <div class="pi-sub">${d.matiere||''}${dateLabel?' · '+dateLabel:''} · ${d.date}</div>
+        ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;line-height:1.6">${d.description}</div>`:''}
+        ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-top:6px">`:''}
+      </div>
+      <span class="pill ${overdue?'pill-red':'pill-blue'}">${overdue?'⏰ Passé':'✅ À venir'}</span>
+    </div>`;
+  };
   let html='';
-  kids.forEach(k=>{
-    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
-    if(!hasPaid){html+=`<div class="premium-section" style="border-left:4px solid #ef4444;margin-bottom:12px"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🔒</div><div><div style="font-weight:700">${k.name}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour voir les devoirs</div></div></div></div>`;return;}
-    const devoirs=DB.devoirs.filter(d=>d.cid===k.cid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  kids.forEach((k,ki)=>{
     const cl=gc(k.cid);
-    html+=`<div class="premium-section" style="margin-bottom:16px"><div class="premium-section-title">📚 ${k.name} — ${cl?cl.name:''}</div>`;
-    if(!devoirs.length) html+=`<div style="padding:20px;text-align:center;color:var(--text-muted)">Aucun devoir</div>`;
-    devoirs.forEach(d=>{
-      const deadline=d.deadline?new Date(d.deadline):null;
-      const overdue=deadline&&deadline<new Date();
-      html+=`<div class="premium-item"><div class="pi-icon" style="background:${overdue?'#fee2e2':'#dbeafe'}">${overdue?'⏰':'📝'}</div><div style="flex:1"><div class="pi-title">${d.title}</div><div class="pi-sub">${d.date}${d.deadline?' · À rendre le '+new Date(d.deadline).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):''}</div>${d.type==='text'?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;line-height:1.6">${d.content}</div>`:d.type==='photo'?`<img src="${d.content}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-top:6px">`:''}</div><span class="pill ${overdue?'pill-red':'pill-blue'}">${overdue?'En retard':'Actif'}</span></div>`;
-    });
+    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+    const kidColor=['#2563eb','#7c3aed','#059669'][ki%3];
+    html+=`<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${kidColor}18;border-radius:14px;border-left:4px solid ${kidColor};margin-bottom:10px">
+        <div style="font-size:28px">${['👦','👧','🧒'][ki%3]}</div>
+        <div>
+          <div style="font-weight:700;font-size:16px">${k.name}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${cl?cl.name:''}</div>
+        </div>
+        ${!hasPaid?`<span class="pill pill-red" style="margin-left:auto">🔒 Frais non payés</span>`:''}
+      </div>`;
+    if(!hasPaid){
+      html+=`<div style="padding:20px;text-align:center;color:#dc2626;background:#fee2e2;border-radius:12px;font-size:13px">
+        🔒 Les informations académiques sont disponibles après règlement des frais scolaires.<br>
+        <span style="font-size:11px;color:var(--text-muted)">Contactez la Direction pour régulariser.</span>
+      </div></div>`;
+      return;
+    }
+    const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
+    const interroList=allDevoirs.filter(d=>d.category==='interro');
+    const examenList=allDevoirs.filter(d=>d.category==='examen');
+    const conduites=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+    html+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <span style="padding:4px 10px;background:#dbeafe;border-radius:20px;font-size:12px;font-weight:600;color:#1e40af">📚 ${devoirsList.length} devoir${devoirsList.length!==1?'s':''}</span>
+      <span style="padding:4px 10px;background:#fef3c7;border-radius:20px;font-size:12px;font-weight:600;color:#92400e">⚠️ ${interroList.length} interro${interroList.length!==1?'s':''}</span>
+      <span style="padding:4px 10px;background:#ede9fe;border-radius:20px;font-size:12px;font-weight:600;color:#5b21b6">📝 ${examenList.length} examen${examenList.length!==1?'s':''}</span>
+    </div>`;
+    // Devoirs section
+    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
+      <div class="premium-section-title">📚 Devoirs</div>
+      ${devoirsList.length?devoirsList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
+    </div>`;
+    // Interrogations section
+    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
+      <div class="premium-section-title">⚠️ Interrogations à venir</div>
+      ${interroList.length?interroList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
+    </div>`;
+    // Examens section
+    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #7c3aed">
+      <div class="premium-section-title">📝 Examens</div>
+      ${examenList.length?examenList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
+    </div>`;
+    // Conduite section
+    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #10b981">
+      <div class="premium-section-title">📊 Conduite</div>
+      ${conduites.length?conduites.map(cd=>{
+        const bg=condColor[cd.score]||'#f3f4f6';
+        const tc=condTextColor[cd.score]||'#374151';
+        return `<div class="premium-item">
+          <div class="pi-icon" style="background:${bg}">📊</div>
+          <div style="flex:1">
+            <div class="pi-title" style="color:${tc};font-weight:700">${cd.score}</div>
+            <div class="pi-sub">${cd.date}${cd.remark?' · '+cd.remark:''}</div>
+          </div>
+          <span style="padding:4px 10px;background:${bg};color:${tc};border-radius:20px;font-size:12px;font-weight:600">${{Excellent:'⭐⭐⭐',Bien:'⭐⭐',Moyen:'⭐',Mauvais:'⚠️'}[cd.score]||''}</span>
+        </div>`;
+      }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
+    </div>`;
     html+=`</div>`;
   });
   return html;
 };
 
 // ── Modal: Publier un devoir ──
-window.openDevoirM = () => {
+window.openDevoirM = (category) => {
   const mc=getMyClass(); if(!mc.cl) return;
-  openM('📚 Publier un devoir',`
-  <div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="dvTitle" placeholder="Ex: Exercices page 42"></div>
+  window._devoirCategory = category||'devoir';
+  const catMeta = {
+    devoir:{icon:'📚',label:'Devoir',color:'#2563eb',ph:'Ex: Exercices page 42'},
+    interro:{icon:'⚠️',label:'Interrogation',color:'#f59e0b',ph:'Ex: Interrogation de Mathématiques'},
+    examen:{icon:'📝',label:'Examen',color:'#7c3aed',ph:'Ex: Examen de fin de trimestre T1'},
+  };
+  const cm=catMeta[window._devoirCategory]||catMeta.devoir;
+  const matOpts=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true).map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+  openM(`${cm.icon} Publier — ${cm.label}`,`
+  <div style="display:flex;gap:6px;margin-bottom:14px">
+    ${Object.entries(catMeta).map(([k,m])=>`<button onclick="switchDevoirCat('${k}')" id="dvCat_${k}"
+      style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid ${k===window._devoirCategory?m.color:'var(--border)'};
+      background:${k===window._devoirCategory?m.color+'18':'transparent'};cursor:pointer;font-size:12px;font-weight:600;
+      color:${k===window._devoirCategory?m.color:'var(--text-secondary)'}">
+      ${m.icon} ${m.label}</button>`).join('')}
+  </div>
+  <div class="form-group"><label class="form-label">Titre *</label>
+    <input class="form-input" id="dvTitle" placeholder="${cm.ph}">
+  </div>
+  <div class="form-group"><label class="form-label">Matière *</label>
+    <select class="form-select" id="dvMatiere">${matOpts}</select>
+  </div>
+  <div class="form-group"><label class="form-label">Description / Contenu à réviser</label>
+    <textarea class="form-input" id="dvText" style="height:80px;resize:vertical" placeholder="Chapitres, exercices, remarques..."></textarea>
+  </div>
   <div class="form-group">
-    <label class="form-label">Type de contenu</label>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary btn-sm" id="dvTypeText" onclick="setDevoirType('text')" style="flex:1">📝 Texte</button>
-      <button class="btn btn-outline btn-sm" id="dvTypePhoto" onclick="setDevoirType('photo')" style="flex:1">📷 Photo</button>
-    </div>
+    <label class="form-label" id="dvDeadlineLabel">${window._devoirCategory==='devoir'?'Date limite de remise *':'Date de l\'épreuve *'}</label>
+    <input class="form-input" id="dvDeadline" type="date" value="${today()}">
   </div>
-  <div id="dvContentArea">
-    <div class="form-group"><label class="form-label">Contenu</label>
-      <textarea class="form-input" id="dvText" style="height:100px;resize:vertical" placeholder="Écrivez le devoir..."></textarea>
+  <div class="form-group"><label class="form-label">Photo du tableau (optionnel)</label>
+    <div class="photo-upload" id="dvPhotoWrap" style="width:100%;height:100px;border-radius:12px">
+      <div style="pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-muted)"><span style="font-size:24px">📷</span><span style="font-size:11px">Photo du sujet</span></div>
+      <input type="file" accept="image/*" capture="environment" onchange="previewDevoirPhoto(this)">
     </div>
-  </div>
-  <div class="form-group"><label class="form-label">Date limite (optionnel)</label><input class="form-input" id="dvDeadline" type="date"></div>`,
+  </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
   <button class="btn btn-primary" onclick="saveDevoir()">📤 Publier</button>`);
-  window._devoirType='text';
+  window._devoirType='text'; window._devoirPhoto=null;
+};
+
+window.switchDevoirCat = (cat) => {
+  window._devoirCategory = cat;
+  const colors={devoir:'#2563eb',interro:'#f59e0b',examen:'#7c3aed'};
+  Object.keys(colors).forEach(k=>{
+    const btn=document.getElementById('dvCat_'+k); if(!btn) return;
+    btn.style.borderColor=k===cat?colors[k]:'var(--border)';
+    btn.style.background=k===cat?colors[k]+'18':'transparent';
+    btn.style.color=k===cat?colors[k]:'var(--text-secondary)';
+  });
+  const lbl=document.getElementById('dvDeadlineLabel');
+  if(lbl) lbl.textContent=cat==='devoir'?'Date limite de remise *':"Date de l'épreuve *";
 };
 
 window._devoirType='text';
@@ -3745,32 +3910,34 @@ window.previewDevoirPhoto = input => {
 
 window.saveDevoir = () => {
   const mc=getMyClass(); if(!mc.cl) return;
-  const title=$('dvTitle')?.value.trim();
+  const title=($('dvTitle')?.value||'').trim();
   if(!title){toast('Titre obligatoire','error');return;}
-  let content='',type=window._devoirType;
-  if(type==='text'){
-    content=$('dvText')?.value.trim();
-    if(!content){toast('Contenu obligatoire','error');return;}
-  } else if(type==='photo'){
-    if(!window._devoirPhoto){toast('Photo obligatoire','error');return;}
-    content=window._devoirPhoto;
-  }
-  const deadline=$('dvDeadline')?.value||null;
+  const category=window._devoirCategory||'devoir';
+  const matiere=($('dvMatiere')?.value||'');
+  const description=($('dvText')?.value||'').trim();
+  const deadline=($('dvDeadline')?.value)||null;
+  const photo=window._devoirPhoto||null;
+  // content = description text; type = photo if photo present
+  const type = photo?'photo':'text';
+  const content = photo||description;
+  const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
+  const cm=catMeta[category]||catMeta.devoir;
   const devoir={
     id:'dv'+Date.now(), cid:mc.cl.id, title, type, content, lang:mc.lang,
-    date:today(), deadline, by:S.user.id, status:'published'
+    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'pending_direction'
   };
   DB.devoirs.unshift(devoir);
-  // Notify parents of this class
-  const kids=DB.students.filter(s=>s.cid===mc.cl.id);
-  kids.forEach(k=>{
-    if(k.pid){
-      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,msg:`📚 Nouveau devoir: ${title}${deadline?' — à rendre le '+deadline:''}`,time:nowTime(),read:false};
-      DB.notifs.unshift(n);
-    }
+  pushSync('devoirs','post',devoir);
+  // Notify Direction for approval — parents see only after direction approves + frais paid
+  const dirs=DB.users.filter(u=>u.role==='direction'||u.role==='direction2');
+  dirs.forEach(dir=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:dir.id,
+      msg:`${cm.icon} ${cm.notif} à approuver — ${mc.cl.name} · ${matiere} · ${title} (${S.user.name})`,
+      time:nowTime(),date:today(),read:false,type:'approval'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
-  window._devoirPhoto=null;
-  toast('Devoir publié ✅','success');
+  window._devoirPhoto=null; window._devoirCategory='devoir';
+  toast(`${cm.icon} ${cm.notif} soumis à la Direction pour approbation`,'success');
   saveToCrypt(); closeModal(); render();
 };
 
