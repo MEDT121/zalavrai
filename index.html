@@ -2187,7 +2187,7 @@ R.students = () => {
     ${list.map((s,i)=>{
       const c=gc(s.cid),p=gu(s.pid);
       const [cc,cbg]=clsColor(c?c.name:'');
-      const pays=DB.payments.filter(x=>x.sid===s.id);
+      const pays=S.user.role!=='direction2'?DB.payments.filter(x=>x.sid===s.id):[];
       return `<div class="ww-card" style="animation-delay:${i*.04}s">
         <div class="ww-card-stripe" style="background:${cc}"></div>
         <div class="ww-card-body">
@@ -2201,9 +2201,9 @@ R.students = () => {
               <div style="font-size:11px;color:var(--text-muted)">${s.mat}${s.dob?' · '+new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
             </div>
           </div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+          ${pays.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
             ${pays.map(pp=>`<span class="pill ${pp.paid?'pill-green':'pill-red'}">${pp.t} ${pp.paid?'✅':'❌'}</span>`).join('')}
-          </div>
+          </div>`:''}
           <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">👨‍👩‍👧 ${p?p.name:'— Aucun parent'}</div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">✏️ Modifier</button>
@@ -4626,8 +4626,8 @@ window.sendAttendanceList = async () => {
 R.authorized = () => {
   const role = S.user.role;
 
-  // ── DIRECTION 1 : gestion complète par élève ──
-  if (role === 'direction') {
+  // ── DIRECTION 1 & 2 : gestion complète par élève ──
+  if (role === 'direction' || role === 'direction2') {
     const q = (window._apQ||'').toLowerCase();
     const studs = q ? DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)) : DB.students;
     return `
@@ -4991,7 +4991,7 @@ R.absences = () => {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
-            ${a.status==='pending'&&role==='direction'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div>`:''}
+            ${a.status==='pending'&&(role==='direction'||role==='direction2')?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div>`:''}
           </div>
         </div>`;
       }).join('')}
