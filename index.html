@@ -700,12 +700,14 @@ window.NAV = {
       {s:'Mes Enfants'},
       {id:'dashboard',i:'📊',l:'Tableau de bord'},
       {id:'children',i:'👶',l:'Mes enfants'},
+      {id:'attendance',i:'📋',l:'Présences'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
-      {s:'Gestion'},
-      {id:'authorized',i:'🔑',l:'Personnes autorisées'},
-      {id:'absences',i:'📄',l:'Justifier absence'},
+      {s:'Communication'},
       {id:'messages',i:'✉️',l:'Messages'},
+      {id:'absences',i:'📄',l:'Justifier absence'},
+      {s:'Sécurité'},
+      {id:'authorized',i:'🔑',l:'Personnes autorisées'},
       {s:'Infos'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
@@ -713,9 +715,9 @@ window.NAV = {
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
       {id:'children',i:'👶',l:'Enfants'},
-      {id:'absences',i:'📄',l:'Absences'},
+      {id:'attendance',i:'📋',l:'Présences'},
       {id:'messages',i:'✉️',l:'Messages'},
-      {id:'notifications',i:'🔔',l:'Notifs'},
+      {id:'absences',i:'📄',l:'Absences'},
     ]
   },
   direction2: {
@@ -1423,43 +1425,74 @@ function dashboardGardien() {
 function dashboardParent() {
   const u = S.user;
   const kids = DB.students.filter(s=>s.pid===u.id);
-  const apsCount = DB.aps.filter(a=>a.pid===u.id).length;
   const myNotifs = DB.notifs.filter(n=>n.uid===u.id&&!n.read);
-  const hasPaid = kids.some(k=>DB.payments.some(p=>p.sid===k.id&&p.paid));
+  const unreadMsgs = DB.messages.filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+
+  // Build real-time status for each child
+  const kidStatus = kids.map(k=>{
+    const att = DB.attendance.find(a=>a.sid===k.id&&a.date===today());
+    const exitScan = DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+    let status, bg, emoji;
+    if(exitScan){status='Sorti(e) à '+exitScan.time; bg='#fef3c7'; emoji='🏠';}
+    else if(att&&att.status==='ontime'){status='À l\'école ✅ depuis '+att.arr_time; bg='#d1fae5'; emoji='🏫';}
+    else if(att&&att.status==='late'){status='À l\'école ⚠️ (retard '+att.arr_time+')'; bg='#fef3c7'; emoji='⚠️';}
+    else if(att&&att.status==='sick'){status='Sorti(e) — maladie'; bg='#fce7f3'; emoji='🤒';}
+    else if(att&&att.status==='excused'){status='Absent(e) — justifié'; bg='#dbeafe'; emoji='📄';}
+    else{status='Pas encore arrivé(e)'; bg='#f1f5f9'; emoji='⏳';}
+    return{...k,status,bg,emoji};
+  });
+
+  const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
+  const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
 
   return `
   <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#2555a8,#4f46e5)">
     <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">Bonjour ${u.name.split(' ')[0]}</div>
-    <div class="hero-sub">${kids.length} enfant${kids.length>1?'s':''} · Accès ${hasPaid?'Niveau 2 ✅':'Niveau 1'}</div>
+    <div class="hero-title">Bonjour ${u.name.split(' ')[0]} 👋</div>
+    <div class="hero-sub">${kids.length} enfant${kids.length>1?'s':''} inscrit${kids.length>1?'s':''}</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${kids.length}</div><div class="hero-stat-lbl">Enfants</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${apsCount}</div><div class="hero-stat-lbl">Autorisés</div></div>
       <div class="hero-stat"><div class="hero-stat-num">${myNotifs.length}</div><div class="hero-stat-lbl">Notifs</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${unreadMsgs}</div><div class="hero-stat-lbl">Messages</div></div>
     </div>
   </div>
-  <div class="action-grid">
+
+  ${kidStatus.map(k=>`
+  <div class="premium-section" style="border-left:4px solid ${k.bg==='#d1fae5'?'#10b981':k.bg==='#fef3c7'?'#f59e0b':k.bg==='#fce7f3'?'#ec4899':'#64748b'};margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="width:56px;height:56px;border-radius:16px;background:${k.bg};display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${k.emoji}</div>
+      <div style="flex:1">
+        <div style="font-size:17px;font-weight:800">${k.name}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${k.status}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?gc(k.cid).name:''}</div>
+      </div>
+      <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none" onclick="go('children')">Détails →</button>
+    </div>
+  </div>`).join('')}
+
+  <div class="action-grid" style="grid-template-columns:repeat(4,1fr)">
     <button class="action-card" onclick="go('children')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">👶</span><span class="ac-label">Enfants</span></button>
     <button class="action-card" onclick="go('palmares_parent')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>
-    <button class="action-card" onclick="go('authorized')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">🔑</span><span class="ac-label">Autorisés</span></button>
+    <button class="action-card" onclick="go('devoirs_parent')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
+    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px">${unreadMsgs}</span>`:''}</button>
   </div>
+
+  ${myNotifs.length>0?`
+  <div class="premium-section" style="border-left:4px solid #3b82f6">
+    <div class="premium-section-title">🔔 Nouvelles notifications (${myNotifs.length})</div>
+    ${myNotifs.slice(0,3).map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe;font-size:16px">${n.type==='alert'?'⚠️':n.type==='message'?'✉️':'ℹ️'}</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
+    ${myNotifs.length>3?`<div style="text-align:center;padding:8px;font-size:13px;color:var(--primary);cursor:pointer" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
+  </div>`:''}
+
   <div class="premium-section">
-    <div class="premium-section-title">👶 Mes enfants</div>
-    ${kids.map(k=>{
-      const c=gc(k.cid); const pays=DB.payments.filter(p=>p.sid===k.id); const paidK=pays.filter(p=>p.paid).length;
-      const ta=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
-      const clr=c?clsColor(c.name)[0]:'#64748b';
-      return `<div class="premium-item" onclick="go('children')" style="cursor:pointer"><div class="pi-icon" style="background:${clr}22">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:'👦'}</div><div style="flex:1"><div class="pi-title">${k.name}</div><div class="pi-sub">${c?c.name:'—'} · ${ta?'Arrivé '+ta.arr_time:'Absent'}</div></div><span class="premium-badge" style="background:${paidK>=1?'#d1fae5':'#fee2e2'};color:${paidK>=1?'#065f46':'#991b1b'}">${paidK>=1?'Niveau 2':'Niveau 1'}</span></div>`;
-    }).join('')}
-  </div>
-  ${myNotifs.length?`<div class="premium-section"><div class="premium-section-title">🔔 Notifications</div>${myNotifs.slice(0,4).map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">🔔</div><div style="flex:1"><div class="pi-title">${n.msg.slice(0,50)}</div><div class="pi-sub">${n.time}</div></div></div>`).join('')}</div>`:''}
-  <div class="premium-section">
-    <div class="premium-section-title">⚡ Actions</div>
+    <div class="premium-section-title">⚡ Accès rapides</div>
     <div class="quick-grid">
-      ${[['devoirs_parent','📚','Devoirs'],['calendar','📅','Calendrier'],['absences','📄','Absences'],['authorized','🔑','Autorisés'],['notifications','🔔','Notifs']]
+      ${[['attendance','📋','Présences'],['absences','📄','Justifier'],['authorized','🔑','Autorisés'],['calendar','📅','Calendrier'],['notifications','🔔','Notifs']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
+  </div>
+
   </div>`;
 }
 
@@ -2719,33 +2752,172 @@ window.assignTrimestre = (sid) => {
 R.children = () => {
   const kids = DB.students.filter(s=>s.pid===S.user.id);
   if (!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">👶</div>Aucun enfant lié à ce compte</div>`;
+
   return kids.map((k,i)=>{
-    const c=gc(k.cid);
-    const pays=DB.payments.filter(p=>p.sid===k.id);
-    const paid=pays.filter(p=>p.paid).length;
-    const ta=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
-    const [cc,cbg]=clsColor(c?c.name:'');
-    return `<div class="ww-section" style="margin-bottom:14px;animation-delay:${i*.08}s">
+    const c = gc(k.cid);
+    const pays = DB.payments.filter(p=>p.sid===k.id);
+    const hasPaid = pays.some(p=>p.paid);
+    const [cc,cbg] = clsColor(c?c.name:'');
+
+    // Solde
+    const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
+    const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+    const paidAmt = pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+    const debt = totalFees - paidAmt;
+
+    // Présence aujourd'hui
+    const ta = DB.attendance.find(a=>a.sid===k.id&&a.date===today());
+    const exitScan = DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+
+    // Historique 14 derniers jours
+    const days14 = Array.from({length:14},(_,j)=>{
+      const d=new Date(); d.setDate(d.getDate()-j);
+      return d.toISOString().slice(0,10);
+    }).reverse();
+
+    // Profs de la classe
+    const profFR = c&&c.teacher_id ? gu(c.teacher_id) : null;
+    const profEN = c&&c.teacher_id_en ? gu(c.teacher_id_en) : null;
+    const titulaireProf = c&&c.titulaire_id ? gu(c.titulaire_id) : null;
+
+    return `
+    <div class="ww-section" style="margin-bottom:18px;animation-delay:${i*.08}s">
+
+      <!-- EN-TÊTE ENFANT -->
       <div style="padding:20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border-light)">
-        <div style="width:60px;height:60px;border-radius:16px;background:${cbg};color:${cc};font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center">${ini(k.name)}</div>
-        <div>
-          <div style="font-size:18px;font-weight:700">${k.name}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">${k.mat} · ${c?c.name:''}</div>
-          <div style="display:flex;gap:5px;margin-top:6px">${pays.map(p=>`<span class="pill ${p.paid?'pill-green':'pill-red'}">${p.t} ${p.paid?'✅':'❌'}</span>`).join('')}</div>
+        <div style="width:68px;height:68px;border-radius:18px;background:${cbg};color:${cc};font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+          ${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:ini(k.name)}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:19px;font-weight:800">${k.name}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${k.mat} · ${c?c.name:''} · ${c?c.cycle:''}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Matricule : ${k.mat}</div>
+        </div>
+        <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none;flex-shrink:0" onclick="showChildQR('${k.id}')">🪪 Carte</button>
+      </div>
+
+      <!-- STATUT TEMPS RÉEL -->
+      <div style="padding:14px 20px;background:${exitScan?'#fef3c7':ta&&(ta.status==='ontime'||ta.status==='late')?'#f0fdf4':'#f8fafc'};border-bottom:1px solid var(--border-light)">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:4px">📍 Statut aujourd'hui</div>
+        <div style="font-size:15px;font-weight:700;color:${exitScan?'#92400e':ta&&ta.status==='ontime'?'#065f46':ta&&ta.status==='late'?'#92400e':'#475569'}">
+          ${exitScan?`🏠 Sorti(e) à ${exitScan.time}`:ta&&ta.status==='ontime'?`🏫 À l'école depuis ${ta.arr_time}`:ta&&ta.status==='late'?`⚠️ À l'école (retard — ${ta.arr_time})`:ta&&ta.status==='sick'?'🤒 Sorti(e) pour maladie':ta&&ta.status==='excused'?'📄 Absent(e) — justifié':'⏳ Pas encore arrivé(e)'}
         </div>
       </div>
-      <div class="ww-item">
-        <div class="ww-item-icon" style="background:#dbeafe">📋</div>
-        <div class="ww-item-content"><div class="ww-item-title">Présence aujourd'hui</div><div class="ww-item-sub">${ta?`Arrivé à ${ta.arr_time}`:'Non scanné'}</div></div>
-        <span class="pill ${ta?ta.status==='ontime'?'pill-green':'pill-orange':'pill-gray'}">${ta?(ta.status==='ontime'?'✅ À l\'heure':'⚠️ Retard'):'—'}</span>
+
+      <!-- SOLDE FRAIS -->
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border-light)">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">💰 Frais scolaires</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);return`<div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:11px;color:var(--text-muted)">${fees[t]?fees[t].toLocaleString()+' FC':'—'}</div></div>`;}).join('')}
+        </div>
+        ${totalFees>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 12px;background:${debt>0?'#fee2e2':'#d1fae5'};border-radius:10px">
+          <span style="font-weight:600">${debt>0?'💳 Solde dû':'✅ Tout payé'}</span>
+          <span style="font-weight:800;color:${debt>0?'#dc2626':'#059669'}">${debt>0?debt.toLocaleString()+' FC':'0 FC'}</span>
+        </div>`:'<div style="font-size:12px;color:var(--text-muted)">Montants non configurés par la Direction</div>'}
       </div>
-      <div class="ww-item">
-        <div class="ww-item-icon" style="background:#fef3c7">🏆</div>
-        <div class="ww-item-content"><div class="ww-item-title">Palmarès</div><div class="ww-item-sub">${paid>=1?'Accès activé — Voir détails':'Frais à régler pour accéder'}</div></div>
-        ${paid>=1?'<span class="pill pill-green">Niveau 2</span>':'<span class="pill pill-red">Bloqué</span>'}
+
+      <!-- PROFS DE LA CLASSE -->
+      ${c&&c.cycle==='primaire'&&(profFR||profEN)?`
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border-light)">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">👨‍🏫 Professeurs</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${profFR?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
+            <div style="width:38px;height:38px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profFR.name)}</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
+            <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none;font-size:11px" onclick="msgProf('${profFR.id}','${profFR.name}')">✉️</button>
+          </div>`:''}
+          ${profEN?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
+            <div style="width:38px;height:38px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profEN.name)}</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
+            <button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="msgProf('${profEN.id}','${profEN.name}')">✉️</button>
+          </div>`:''}
+        </div>
+      </div>`:''}
+
+      <!-- HISTORIQUE PRÉSENCES 14 JOURS -->
+      <div style="padding:14px 20px">
+        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">📅 Présences — 14 derniers jours</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${days14.map(d=>{
+            const a=DB.attendance.find(x=>x.sid===k.id&&x.date===d);
+            const isToday=d===today();
+            const dot=a?(a.status==='ontime'?{bg:'#10b981',label:'✅',tip:'À l\'heure'}:a.status==='late'?{bg:'#f59e0b',label:'⚠',tip:'Retard'}:a.status==='excused'?{bg:'#3b82f6',label:'📄',tip:'Justifié'}:a.status==='sick'?{bg:'#ec4899',label:'🤒',tip:'Maladie'}:{bg:'#ef4444',label:'✗',tip:'Refusé'}):{bg:'#e2e8f0',label:'—',tip:'Absent'};
+            const dayName=new Date(d).toLocaleDateString('fr-FR',{weekday:'short'}).slice(0,2);
+            const dayNum=new Date(d).getDate();
+            return `<div style="text-align:center;min-width:30px">
+              <div style="width:28px;height:28px;border-radius:8px;background:${dot.bg};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;margin:0 auto;${isToday?'box-shadow:0 0 0 2px #2563eb;':''}cursor:default" title="${d} — ${dot.tip}">${dot.label}</div>
+              <div style="font-size:9px;color:var(--text-muted);margin-top:2px">${dayNum}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-secondary)">
+          <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:3px"></span> À l'heure</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:3px"></span> Retard</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:3px"></span> Justifié</span>
+          <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border-radius:3px"></span> Absent</span>
+        </div>
       </div>
+
     </div>`;
   }).join('');
+};
+
+window.msgProf = (profId, profName) => {
+  openM(`✉️ Message à ${profName}`,`
+<div class="form-group"><label class="form-label">Objet *</label><input class="form-input" id="mp_subject" placeholder="Ex: Question sur les notes de ${profName}"></div>
+<div class="form-group"><label class="form-label">Message *</label><textarea class="form-input" id="mp_body" rows="4" style="resize:vertical" placeholder="Votre message..."></textarea></div>
+<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:13px;color:#78350f">📨 Ce message sera soumis à l'approbation de la Direction avant d'atteindre le professeur.</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+<button class="btn btn-primary" onclick="sendMsgToProf('${profId}')">📤 Envoyer</button>`);
+};
+
+window.sendMsgToProf = (profId) => {
+  const subject = ($('mp_subject').value||'').trim();
+  const body = ($('mp_body').value||'').trim();
+  if(!subject){toast('Entrez un objet','error');return;}
+  if(!body){toast('Entrez un message','error');return;}
+  const msg = {id:'msg'+Date.now(),from:S.user.id,to:profId,to_role:null,to_class_cid:null,
+    subject,body,whatsapp:null,date:today(),time:nowTime(),msg_type:'normal',status:'pending',read:false};
+  DB.messages.push(msg);
+  pushSync('messages','post',msg);
+  DB.users.filter(u=>u.role==='direction').forEach(u=>{
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`⏳ Message en attente — ${S.user.name} → ${gu(profId)?.name||'Prof'} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+  });
+  toast('📤 Message soumis à la Direction','info');
+  closeModal(); saveToCrypt(); render();
+};
+
+window.showChildQR = (sid) => {
+  const s = DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl = gc(s.cid);
+  const [cc,cbg] = clsColor(cl?cl.name:'');
+  openM(`🪪 Carte — ${s.name}`,`
+  <div style="text-align:center;padding:10px">
+    <div style="width:160px;height:160px;margin:0 auto 16px;background:${cbg};border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${cc};overflow:hidden">
+      ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:20px">`:`<div style="font-size:48px">${ini(s.name)}</div>`}
+    </div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">${s.name}</div>
+    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">${cl?cl.name:''} · ${s.mat}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">The Wise School International</div>
+    <div id="childQRCanvas" style="display:flex;justify-content:center;margin-bottom:12px"></div>
+    <div style="font-size:12px;color:var(--text-muted)">Présentez cette carte au gardien lors du retrait de l'enfant</div>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+  // Generate QR using same system as cards page
+  setTimeout(()=>{
+    const el=document.getElementById('childQRCanvas'); if(!el) return;
+    const canvas=document.createElement('canvas');
+    canvas.width=140; canvas.height=140;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,140,140);
+    ctx.fillStyle='#1e293b';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('ID: '+s.id.slice(-6).toUpperCase(),70,70);
+    ctx.fillText(s.mat,70,90);
+    el.appendChild(canvas);
+    // Try QRCode if available
+    if(window.QRCode){el.innerHTML='';new QRCode(el,{text:s.id,width:140,height:140,colorDark:'#1e293b',colorLight:'#ffffff'});}
+  },100);
 };
 
 // ── ENSEIGNANT: PRESENCES ──
