@@ -972,7 +972,7 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length + DB.devoirs.filter(d=>d.status==='pending_direction').length;
+window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length;
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -2466,8 +2466,7 @@ R.approbations = () => {
   const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-  const pendingDevoirs = DB.devoirs.filter(d=>d.status==='pending_direction');
-  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingDevoirs.length;
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -2500,30 +2499,6 @@ R.approbations = () => {
     ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
   </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}
-  ${pendingDevoirs.length?`<div class="premium-section" style="border-left:4px solid #7c3aed"><div class="premium-section-title">📚 Publications enseignants à approuver (${pendingDevoirs.length})</div>
-    ${pendingDevoirs.map(d=>{
-      const teacher=gu(d.teacher_id);
-      const cl=gc(d.cid);
-      const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
-      const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Devoir';
-      const kids=DB.students.filter(s=>s.cid===d.cid);
-      const paidCount=kids.filter(k=>DB.payments.some(p=>p.sid===k.id&&p.paid)).length;
-      const dateStr=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
-      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
-        <div class="pi-icon" style="background:#ede9fe">${catIcon}</div>
-        <div style="flex:1;min-width:150px">
-          <div class="pi-title">${catLabel} — ${d.title}</div>
-          <div class="pi-sub">${cl?cl.name:'?'} · ${d.matiere}${dateStr?' · '+dateStr:''}</div>
-          <div style="font-size:11px;color:var(--text-muted)">Par ${teacher?teacher.name:'?'} · ${paidCount}/${kids.length} élèves frais payés</div>
-          ${d.description?`<div style="font-size:12px;margin-top:4px;padding:6px;background:var(--bg);border-radius:6px">${d.description}</div>`:''}
-        </div>
-        <div style="display:flex;gap:5px">
-          <button class="btn btn-success btn-sm" onclick="approveDevoir('${d.id}','approved')">✅</button>
-          <button class="btn btn-danger btn-sm" onclick="approveDevoir('${d.id}','refused')">❌</button>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`:''}
   ${pendingRats.length?`<div class="premium-section" style="border-left:4px solid #f59e0b"><div class="premium-section-title">📚 Signalements de rattrapage (${pendingRats.length})</div>
     ${pendingRats.map(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
@@ -3218,13 +3193,20 @@ window.autoCheckRattrapage = (sid, teacherId) => {
   };
   DB.rattrapages.push(rat);
   pushSync('rattrapages','post',rat);
-  // Notifier la Direction avec la preuve du score
+  // Notifier la Direction — convocation du parent
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-      msg:`🔴 Rattrapage automatique — ${s.name} · Moyenne: ${avg}% · Matières: ${weakMats}`,
+      msg:`🔴 CONVOCATION — ${s.name} · Moyenne: ${avg}% · Rattrapage nécessaire · Convoquer le parent`,
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
+  // Notifier le parent directement — accès gratuit à l'alerte
+  if(s.pid){
+    const np={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+      msg:`⚠️ La Direction vous contactera — ${s.name} nécessite un cours de rattrapage · Moyenne: ${avg}% · Matières: ${weakMats}`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(np); pushSync('notifs','post',np);
+  }
 };
 
 window.signalerRattrapage = (sid) => {
@@ -3815,7 +3797,7 @@ R.devoirs_parent = () => {
   let html='';
   kids.forEach((k,ki)=>{
     const cl=gc(k.cid);
-    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid); // used for conduite gate check only
     const kidColor=['#2563eb','#7c3aed','#059669'][ki%3];
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${kidColor}18;border-radius:14px;border-left:4px solid ${kidColor};margin-bottom:10px">
@@ -3824,15 +3806,9 @@ R.devoirs_parent = () => {
           <div style="font-weight:700;font-size:16px">${k.name}</div>
           <div style="font-size:12px;color:var(--text-muted)">${cl?cl.name:''}</div>
         </div>
-        ${!hasPaid?`<span class="pill pill-red" style="margin-left:auto">🔒 Frais non payés</span>`:''}
+
       </div>`;
-    if(!hasPaid){
-      html+=`<div style="padding:20px;text-align:center;color:#dc2626;background:#fee2e2;border-radius:12px;font-size:13px">
-        🔒 Les informations académiques sont disponibles après règlement des frais scolaires.<br>
-        <span style="font-size:11px;color:var(--text-muted)">Contactez la Direction pour régulariser.</span>
-      </div></div>`;
-      return;
-    }
+    // Devoirs / dates / conduite : GRATUIT, accès direct sans frais
     const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
     const interroList=allDevoirs.filter(d=>d.category==='interro');
@@ -3980,20 +3956,23 @@ window.saveDevoir = () => {
   const cm=catMeta[category]||catMeta.devoir;
   const devoir={
     id:'dv'+Date.now(), cid:mc.cl.id, title, type, content, lang:mc.lang,
-    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'pending_direction'
+    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'published'
   };
   DB.devoirs.unshift(devoir);
   pushSync('devoirs','post',devoir);
-  // Notify Direction for approval — parents see only after direction approves + frais paid
-  const dirs=DB.users.filter(u=>u.role==='direction'||u.role==='direction2');
-  dirs.forEach(dir=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:dir.id,
-      msg:`${cm.icon} ${cm.notif} à approuver — ${mc.cl.name} · ${matiere} · ${title} (${S.user.name})`,
-      time:nowTime(),date:today(),read:false,type:'approval'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  // Notification directe aux parents — gratuit, sans approbation
+  const kids=DB.students.filter(s=>s.cid===mc.cl.id);
+  kids.forEach(k=>{
+    if(k.pid){
+      const dateStr=deadline?new Date(deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,
+        msg:`${cm.icon} ${cm.notif} — ${k.name} · ${matiere} · ${title}${dateStr?' le '+dateStr:''}`,
+        time:nowTime(),date:today(),read:false,type:'academic'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    }
   });
   window._devoirPhoto=null; window._devoirCategory='devoir';
-  toast(`${cm.icon} ${cm.notif} soumis à la Direction pour approbation`,'success');
+  toast(`${cm.icon} ${cm.notif} publié — parents notifiés directement`,'success');
   saveToCrypt(); closeModal(); render();
 };
 
