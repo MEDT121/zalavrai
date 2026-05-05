@@ -1185,14 +1185,25 @@ function dashboardDirection() {
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
   </div>
+  ${(() => {
+    // Absence alerts sent by teachers today
+    const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
+    if(!absAlerts.length) return '';
+    return `
+    <div class="premium-section" style="border-left:4px solid #f59e0b">
+      <div class="premium-section-title">⚠️ Signalements d'absences (${absAlerts.length})</div>
+      ${absAlerts.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg.replace('⚠️ Absences signalées par ','')}</div><div class="pi-sub">${n.time}</div></div></div>`).join('')}
+    </div>`;
+  })()}
   <div class="premium-section">
     <div class="premium-section-title">🏫 Classes</div>
     ${DB.classes.map(c=>{
       const sc = DB.students.filter(s=>s.cid===c.id).length;
       const tf = DB.users.find(u=>u.id===c.teacher_id);
       const te = DB.users.find(u=>u.id===c.teacher_id_en);
+      const tit = c.titulaire_id ? DB.users.find(u=>u.id===c.titulaire_id) : null;
       const [cc]=clsColor(c.name);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cc}22;color:${cc}">${c.name.charAt(0)}</div><div style="flex:1"><div class="pi-title">${c.name}</div><div class="pi-sub">${c.cycle==='maternelle'?(te?te.name:'—'):`FR: ${tf?tf.name:'—'} · EN: ${te?te.name:'—'}`} · ${sc} élèves</div></div><span class="premium-badge" style="background:${cc}15;color:${cc}">${c.cycle}</span></div>`;
+      return `<div class="premium-item"><div class="pi-icon" style="background:${cc}22;color:${cc}">${c.name.charAt(0)}</div><div style="flex:1"><div class="pi-title">${c.name}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px">⭐ ${tit.name}</span>`:''}</div><div class="pi-sub">${c.cycle==='maternelle'?(te?te.name:'—'):`FR: ${tf?tf.name:'—'} · EN: ${te?te.name:'—'}`} · ${sc} élèves</div></div><span class="premium-badge" style="background:${cc}15;color:${cc}">${c.cycle}</span></div>`;
     }).join('')}
   </div>`;
 }
@@ -1201,38 +1212,96 @@ function dashboardEnseignant() {
   const u = S.user;
   const cl = DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
   const lang = cl ? (cl.teacher_id===u.id ? 'FR' : 'EN') : '';
+  const isTitulaire = cl && cl.titulaire_id===u.id;
   const students = cl ? DB.students.filter(s=>s.cid===cl.id) : [];
-  const todayAtt = DB.attendance.filter(a=>a.date===today()&&students.find(s=>s.id===a.sid));
+  const todayAtt = DB.attendance.filter(a=>a.date===today()&&students.some(s=>s.id===a.sid));
+  const scannedToday = cl ? DB.scan_log.filter(l=>l.date===today()&&l.type==='entry'&&students.some(s=>s.id===l.sid)) : [];
+  const validatedToday = todayAtt.some(a=>a.teacher_validated);
   const clColor = cl ? clsColor(cl.name)[0] : '#2563eb';
+
+  // Devoirs upcoming (next 7 days)
+  const in7 = new Date(); in7.setDate(in7.getDate()+7);
+  const upcomingDevoirs = cl ? DB.devoirs.filter(d=>d.cid===cl.id&&d.deadline&&new Date(d.deadline)>=new Date()&&new Date(d.deadline)<=in7).sort((a,b)=>a.deadline.localeCompare(b.deadline)) : [];
+
+  // Unread messages
+  const unreadMsgs = DB.messages.filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+
+  // Co-titulaire
+  const coId = lang==='fr' ? cl?.teacher_id_en : cl?.teacher_id;
+  const coTeacher = coId ? gu(coId) : null;
 
   return `
   <div class="hero-premium" style="background:linear-gradient(160deg,${clColor}dd,${clColor}99,var(--navy))">
     <div class="hero-school">The Wise School International</div>
     <div class="hero-title">${cl?cl.name:'Ma Classe'}</div>
-    <div class="hero-sub">${u.name}${lang?' — Prof '+lang:''} — ${students.length} élèves</div>
+    <div class="hero-sub">${u.name}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num">${scannedToday.length}</div><div class="hero-stat-lbl">Scannés</div></div>
       <div class="hero-stat"><div class="hero-stat-num">${todayAtt.length}</div><div class="hero-stat-lbl">Présents</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${students.length - todayAtt.length}</div><div class="hero-stat-lbl">Absents</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${students.length-scannedToday.length}</div><div class="hero-stat-lbl">Absents</div></div>
     </div>
   </div>
+
+  ${cl && !validatedToday && scannedToday.length>0 ? `
+  <div class="premium-section" style="border-left:4px solid #3b82f6;cursor:pointer" onclick="go('attendance')">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:32px">🚪</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${scannedToday.length} élève${scannedToday.length>1?'s':''} scanné${scannedToday.length>1?'s':''} au portail</div>
+        <div style="font-size:13px;color:var(--text-secondary)">Présences en attente de votre validation</div>
+      </div>
+      <span class="premium-badge" style="background:#dbeafe;color:#1d4ed8">Valider →</span>
+    </div>
+  </div>` : cl && validatedToday ? `
+  <div class="premium-section" style="border-left:4px solid #10b981">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="font-size:32px">✅</div>
+      <div><div style="font-weight:700">Présences validées</div><div style="font-size:13px;color:var(--text-secondary)">${todayAtt.length} présent${todayAtt.length>1?'s':''} confirmé${todayAtt.length>1?'s':''} · ${students.length-scannedToday.length} absent${students.length-scannedToday.length>1?'s':''}</div></div>
+    </div>
+  </div>` : ''}
+
   <div class="action-grid">
-    <button class="action-card" onclick="go('palmares')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>
+    <button class="action-card" onclick="go('attendance')" style="background:linear-gradient(135deg,#2563eb,#4f46e5);position:relative"><span class="ac-icon">📋</span><span class="ac-label">Présences</span>${!validatedToday&&scannedToday.length>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px">!</span>`:''}</button>
+    <button class="action-card" onclick="go('palmares')" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>
     <button class="action-card" onclick="go('devoirs')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
-    <button class="action-card" onclick="go('cahier_texte')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📖</span><span class="ac-label">Cahier</span></button>
+    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px">${unreadMsgs}</span>`:''}</button>
   </div>
+
+  ${upcomingDevoirs.length?`
+  <div class="premium-section">
+    <div class="premium-section-title">⏰ Devoirs à venir (7 jours)</div>
+    ${upcomingDevoirs.map(d=>{
+      const dl=new Date(d.deadline);
+      const daysLeft=Math.ceil((dl-new Date())/86400000);
+      return `<div class="premium-item"><div class="pi-icon" style="background:${daysLeft<=2?'#fef3c7':'#dbeafe'}">${daysLeft<=2?'⏰':'📝'}</div><div style="flex:1"><div class="pi-title">${d.title}</div><div class="pi-sub">${d.lang==='fr'?'🇫🇷':'🇬🇧'} · À rendre dans ${daysLeft} jour${daysLeft>1?'s':''}</div></div><span class="pill ${daysLeft<=2?'pill-orange':'pill-blue'}">${daysLeft}j</span></div>`;
+    }).join('')}
+  </div>`:''}
+
+  ${coTeacher?`
+  <div class="premium-section">
+    <div class="premium-section-title">👥 Co-titulaire</div>
+    <div class="premium-item" style="cursor:pointer" onclick="go('teacher_comm')">
+      <div class="pi-icon" style="background:${lang==='fr'?'#d1fae5':'#dbeafe'}">${ini(coTeacher.name)}</div>
+      <div style="flex:1"><div class="pi-title">${coTeacher.name}</div><div class="pi-sub">${lang==='fr'?'🇬🇧 Professeur Anglais':'🇫🇷 Professeur Français'}</div></div>
+      ${cl&&cl.titulaire_id===coTeacher.id?`<span class="pill" style="background:#fef3c7;color:#92400e">⭐ Titulaire</span>`:''}
+      <span class="premium-badge">Communiquer →</span>
+    </div>
+  </div>`:''}
+
   <div class="premium-section">
     <div class="premium-section-title">👨‍🎓 Mes élèves</div>
-    ${students.slice(0,8).map(s=>{
+    ${students.slice(0,6).map(s=>{
       const [cc,cbg]=clsColor(cl?cl.name:'');
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat}</div></div></div>`;
+      const hasAtt=todayAtt.find(a=>a.sid===s.id);
+      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px">❌</span>`}</div>`;
     }).join('')}
-    ${students.length>8?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted)">+ ${students.length-8} autres</div>`:''}
+    ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
   </div>
   <div class="premium-section">
     <div class="premium-section-title">⚡ Actions</div>
     <div class="quick-grid">
-      ${[['attendance','📋','Présences'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['calendar','📅','Calendrier'],['notifications','🔔','Alertes']]
+      ${[['cahier_texte','📖','Cahier'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['calendar','📅','Calendrier'],['notifications','🔔','Alertes']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
   </div>`;
@@ -2275,8 +2344,8 @@ R.classes = () => {
             </div>
             <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
           </div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}${c.titulaire_id===c.teacher_id?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}${c.titulaire_id===c.teacher_id_en?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline btn-sm" style="flex:1" onclick="openClassForm('${c.id}')">✏️ Modifier</button>
             <button class="btn btn-outline btn-sm" onclick="go('students');window._studentCF='${c.id}';render()">🎓 Élèves</button>
@@ -2298,16 +2367,37 @@ window.openClassForm = (cid) => {
   <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
   <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle"><option value="primaire" ${c&&c.cycle==='primaire'?'selected':''}>Primaire</option><option value="maternelle" ${c&&c.cycle==='maternelle'?'selected':''}>Maternelle</option></select></div>
 </div>
-<div class="form-group"><label class="form-label">🇫🇷 Titulaire Français</label><select class="form-select" id="cls_tf">${teacherOpts}</select></div>
-<div class="form-group"><label class="form-label">🇬🇧 Titulaire Anglais</label><select class="form-select" id="cls_te">${teacherEnOpts}</select></div>`,
+<div class="form-group"><label class="form-label">🇫🇷 Professeur Français</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
+<div class="form-group"><label class="form-label">🇬🇧 Professeur Anglais</label><select class="form-select" id="cls_te" onchange="updateTitulaireOpts()">${teacherEnOpts}</select></div>
+<div class="form-group"><label class="form-label">⭐ Titulaire de classe (responsable principal)</label>
+  <select class="form-select" id="cls_titulaire">
+    <option value="">— Choisir le titulaire —</option>
+    ${[c&&c.teacher_id?`<option value="${c.teacher_id}" ${c.titulaire_id===c.teacher_id?'selected':''}>${DB.users.find(u=>u.id===c.teacher_id)?.name||''} (FR)</option>`:'',
+       c&&c.teacher_id_en?`<option value="${c.teacher_id_en}" ${c.titulaire_id===c.teacher_id_en?'selected':''}>${DB.users.find(u=>u.id===c.teacher_id_en)?.name||''} (EN)</option>`:''
+    ].filter(Boolean).join('')}
+  </select>
+</div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveClass()">💾 ${c?'Mettre à jour':'Créer'}</button>`);
+};
+
+window.updateTitulaireOpts = () => {
+  const tfVal=$('cls_tf').value;
+  const teVal=$('cls_te').value;
+  const titEl=$('cls_titulaire'); if(!titEl) return;
+  const current=titEl.value;
+  const tfUser=tfVal?DB.users.find(u=>u.id===tfVal):null;
+  const teUser=teVal?DB.users.find(u=>u.id===teVal):null;
+  titEl.innerHTML=`<option value="">— Choisir le titulaire —</option>`+
+    (tfUser?`<option value="${tfVal}" ${current===tfVal?'selected':''}>${tfUser.name} (FR)</option>`:'')+
+    (teUser?`<option value="${teVal}" ${current===teVal?'selected':''}>${teUser.name} (EN)</option>`:'');
 };
 
 window.saveClass = () => {
   const name=($('cls_name').value||'').trim();
   if(!name){toast('Entrez le nom de la classe','error');return;}
   const cid=$('cls_id').value;
-  const data={name,cycle:$('cls_cycle').value,teacher_id:$('cls_tf').value||null,teacher_id_en:$('cls_te').value||null};
+  const data={name,cycle:$('cls_cycle').value,teacher_id:$('cls_tf').value||null,teacher_id_en:$('cls_te').value||null,
+    titulaire_id:$('cls_titulaire')?($('cls_titulaire').value||null):null};
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
@@ -2810,8 +2900,8 @@ window.markAttendance = (sid,status) => {
 R.palmares = () => {
   const role=S.user.role;
   let classes=DB.classes;
-  if(role==='enseignant') { const mc=getMyClass(); classes=mc.cl?[mc.cl]:[]; }
-  if(role==='direction') { /* all classes */ }
+  const mc=role==='enseignant'?getMyClass():{cl:null,lang:null};
+  if(role==='enseignant') classes=mc.cl?[mc.cl]:[];
 
   const medals=['🥇','🥈','🥉'];
   let html='';
@@ -2819,19 +2909,20 @@ R.palmares = () => {
   classes.forEach(cl=>{
     const students=DB.students.filter(s=>s.cid===cl.id);
     if(!students.length) return;
-    const matieres=getClassMatieres(cl.id);
+    const allMatieres=getClassMatieres(cl.id);
+    // Teacher sees only their language subjects; direction sees all
+    const matieres=role==='enseignant'&&mc.lang
+      ? allMatieres.filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true)
+      : allMatieres;
     const [cc,cbg]=clsColor(cl.name);
     const isTeacher=role==='enseignant';
-    const mc=isTeacher?getMyClass():{lang:null};
 
-    // Calculate rankings
+    // Calculate rankings using only the teacher's subjects when teacher
     const ranked=students.map(s=>{
       const grades=DB.grades.filter(g=>g.sid===s.id);
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
-      const att=DB.attendance.filter(a=>a.sid===s.id&&(a.status==='ontime'||a.status==='late'));
       const retards=DB.attendance.filter(a=>a.sid===s.id&&a.status==='late').length;
 
-      // Average by subject
       let totalPct=0,countPct=0;
       matieres.forEach(m=>{
         const g=grades.find(x=>x.sid===s.id&&x.matiere===m.name);
@@ -2839,11 +2930,8 @@ R.palmares = () => {
       });
       const moyPct=countPct?Math.round(totalPct/countPct):0;
 
-      // Conduct score
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
-
-      // Final score: 85% notes + 15% conduct (on 100)
       const condPct=Math.round(condAvg*25);
       const total=Math.round(moyPct*0.85+condPct*0.15);
 
@@ -2856,6 +2944,7 @@ R.palmares = () => {
         <div style="width:14px;height:14px;border-radius:50%;background:${cc}"></div>
         <h3 style="font-size:16px;font-weight:700">${cl.name}</h3>
         <span class="pill pill-gray">${ranked.length} élèves</span>
+        ${isTeacher&&mc.lang?`<span class="pill" style="background:${mc.lang==='fr'?'#dbeafe':'#d1fae5'};color:${mc.lang==='fr'?'#1d4ed8':'#065f46'}">${mc.lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>`:''}
         ${isTeacher?`<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openGradePanel('${cl.id}')">📝 Saisir notes</button>`:''}
       </div>
 
