@@ -729,6 +729,7 @@ window.NAV = {
       {id:'lockdown',i:'🚨',l:'LOCKDOWN'},
       {s:'Personnes'},
       {id:'students',i:'🎓',l:'Élèves'},
+      {id:'classes',i:'🏫',l:'Classes'},
       {id:'teachers',i:'👨‍🏫',l:'Enseignants'},
       {id:'guardians',i:'🛡️',l:'Gardiens'},
       {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
@@ -743,6 +744,8 @@ window.NAV = {
       {id:'notifications',i:'🔔',l:'Notifications'},
       {s:'Système'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
+      {id:'year_mgmt',i:'📆',l:'Année Scolaire'},
+      {id:'export',i:'📤',l:'Export Données'},
       {id:'settings',i:'⚙️',l:'Paramètres'},
     ],
     bn:[
@@ -1328,21 +1331,24 @@ function dashboardEnseignant() {
 function dashboardDirection2() {
   const ts = DB.students.length;
   const te = DB.users.filter(u=>u.role==='enseignant').length;
+  const tp = DB.users.filter(u=>u.role==='parent').length;
+  const tg = DB.users.filter(u=>u.role==='gardien').length;
   const todayAtt = DB.attendance.filter(a=>a.date===today());
   const present = todayAtt.filter(a=>a.status==='ontime').length;
+  const late = todayAtt.filter(a=>a.status==='late').length;
+  const refused = todayAtt.filter(a=>a.status==='refused').length;
   const pending = getPendingCount();
-  const todayRep = DB.daily_reports.filter(r=>r.date===today()&&r.status==='pending');
   return `
   <div class="hero-premium">
     <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">Direction 2</div>
-    <div class="hero-sub">Gestion scolaire — sans accès finances</div>
+    <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'SchoolSafe'}</div>
+    <div class="hero-sub">${S.lockdown?'Aucune sortie autorisée.':'Direction 2 — Gestion scolaire'}</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${ts}</div><div class="hero-stat-lbl">Élèves</div></div>
       <div class="hero-stat"><div class="hero-stat-num">${te}</div><div class="hero-stat-lbl">Profs</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">${tp}</div><div class="hero-stat-lbl">Parents</div></div>
       <div class="hero-stat"><div class="hero-stat-num">${present}</div><div class="hero-stat-lbl">Présents</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${pending}</div><div class="hero-stat-lbl">En attente</div></div>
     </div>
   </div>
   <div class="action-grid">
@@ -1350,16 +1356,42 @@ function dashboardDirection2() {
     <button class="action-card" onclick="go('approbations')" style="background:linear-gradient(135deg,#c9a030,#a68520);position:relative"><span class="ac-icon">✅</span><span class="ac-label">Approuver</span>${pending>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px">${pending}</span>`:''}</button>
     <button class="action-card" onclick="go('attendance')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📋</span><span class="ac-label">Présences</span></button>
   </div>
-  <div class="premium-section" style="background:#fef3c7;border-left:4px solid #f59e0b">
-    <div class="premium-section-title">🔒 Accès Finance</div>
-    <div style="font-size:13px;color:#78350f;margin-top:6px">Les pages de paiement, reçus et statistiques financières sont réservées à la Direction 1.</div>
+  ${pending > 0 ? `
+  <div class="premium-section" onclick="go('approbations')" style="cursor:pointer;border-left:4px solid #f59e0b">
+    <div class="premium-section-title">⏳ En attente d'approbation</div>
+    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente</div><div class="pi-sub">Messages, remarques, justifications...</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>
+  </div>` : ''}
+  <div class="premium-section">
+    <div class="premium-section-title">📊 Aujourd'hui</div>
+    <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">✅</div><div style="flex:1"><div class="pi-title">${present} à l'heure</div><div class="pi-sub">Entrées confirmées</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">Présents</span></div>
+    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">⚠️</div><div style="flex:1"><div class="pi-title">${late} retard${late>1?'s':''}</div><div class="pi-sub">Arrivés après l'heure</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Retards</span></div>
+    <div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚫</div><div style="flex:1"><div class="pi-title">${refused} refusé${refused>1?'s':''}</div><div class="pi-sub">Accès bloqué</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Refusés</span></div>
   </div>
   <div class="premium-section">
     <div class="premium-section-title">⚡ Actions rapides</div>
     <div class="quick-grid">
-      ${[['students','🎓','Élèves'],['teachers','👨‍🏫','Profs'],['attendance','📋','Présences'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['approbations','✅','Approuver'],['lockdown','🚨','Urgence'],['settings','⚙️','Système']]
+      ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['classes','🏫','Classes'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
+  </div>
+  ${(() => {
+    const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
+    if(!absAlerts.length) return '';
+    return `<div class="premium-section" style="border-left:4px solid #f59e0b">
+      <div class="premium-section-title">⚠️ Signalements d'absences (${absAlerts.length})</div>
+      ${absAlerts.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg.replace('⚠️ Absences signalées par ','')}</div><div class="pi-sub">${n.time}</div></div></div>`).join('')}
+    </div>`;
+  })()}
+  <div class="premium-section">
+    <div class="premium-section-title">🏫 Classes</div>
+    ${DB.classes.map(c=>{
+      const sc = DB.students.filter(s=>s.cid===c.id).length;
+      const tf = DB.users.find(u=>u.id===c.teacher_id);
+      const te2 = DB.users.find(u=>u.id===c.teacher_id_en);
+      const tit = c.titulaire_id ? DB.users.find(u=>u.id===c.titulaire_id) : null;
+      const [cc]=clsColor(c.name);
+      return `<div class="premium-item"><div class="pi-icon" style="background:${cc}22;color:${cc}">${c.name.charAt(0)}</div><div style="flex:1"><div class="pi-title">${c.name}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px">⭐ ${tit.name}</span>`:''}</div><div class="pi-sub">${c.cycle==='maternelle'?(te2?te2.name:'—'):`FR: ${tf?tf.name:'—'} · EN: ${te2?te2.name:'—'}`} · ${sc} élèves</div></div><span class="premium-badge" style="background:${cc}15;color:${cc}">${c.cycle}</span></div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -2670,16 +2702,38 @@ window.validateDailyReport = (rid) => {
   const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
   rep.status = 'validated';
   rep.validatedAt = nowTime();
+  pushSync('daily_reports','patch',{status:'validated',validatedAt:rep.validatedAt},'id=eq.'+rid);
   // Mark all associated records and expenses as validated so direction3 can no longer see them
-  (rep.records||[]).forEach(rec=>{ const r=DB.daily_records.find(x=>x.id===rec.id); if(r) r.validated=true; });
-  (rep.expenses||[]).forEach(exp=>{ const e=DB.daily_expenses.find(x=>x.id===exp.id); if(e) e.validated=true; });
+  (rep.records||[]).forEach(rec=>{
+    const r=DB.daily_records.find(x=>x.id===rec.id); if(!r) return;
+    r.validated=true;
+    pushSync('daily_records','patch',{validated:true},'id=eq.'+r.id);
+    // Auto-link frais_scolaires to DB.payments for the correct trimester
+    if(r.type==='frais_scolaires' && r.trimestre) {
+      const pay=DB.payments.find(p=>p.sid===r.sid&&p.t===r.trimestre&&!p.paid);
+      if(pay){
+        pay.paid=true;
+        pushSync('payments','patch',{paid:true},'sid=eq.'+r.sid+'&t=eq.'+r.trimestre);
+        // Notify parent
+        const stu=DB.students.find(x=>x.id===r.sid);
+        if(stu&&stu.pid){
+          const fees=getFees();
+          const pNotif={id:'n'+Date.now(),uid:stu.pid,msg:`✅ Paiement validé — ${stu.name} · ${r.trimestre} réglé ($${fees[r.trimestre]||r.amount}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
+          DB.notifs.unshift(pNotif);
+          pushSync('notifs','post',pNotif);
+        }
+      }
+    }
+  });
+  (rep.expenses||[]).forEach(exp=>{ const e=DB.daily_expenses.find(x=>x.id===exp.id); if(e){e.validated=true;pushSync('daily_expenses','patch',{validated:true},'id=eq.'+e.id);} });
   // Notify the sender
   const sender=DB.users.find(u=>u.id===rep.by);
   if(sender){
     const notif={id:'n'+Date.now(),uid:sender.id,msg:`✅ Votre rapport du ${rep.date} a été validé par la Direction 1.`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
   }
-  toast('✅ Rapport validé — données archivées','success');
+  toast('✅ Rapport validé — paiements frais scolaires mis à jour','success');
   saveToCrypt(); render();
 };
 
@@ -2702,6 +2756,29 @@ window.viewDailyReport = (rid) => {
 
 // ── AUTO-REPORT 16h00 ──
 window._autoReportSent = {};
+
+window.sendDailyReportNow = () => {
+  const dateKey = today();
+  const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id&&r.status==='pending');
+  if(already){toast('Rapport déjà envoyé — en attente de validation Direction 1','info');return;}
+  const recs = DB.daily_records.filter(r=>r.date===dateKey&&!r.validated);
+  const exps = DB.daily_expenses.filter(e=>e.date===dateKey&&!e.validated);
+  if(!recs.length&&!exps.length){toast('Aucun enregistrement à envoyer','info');return;}
+  const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
+  const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[...recs],expenses:[...exps]};
+  DB.daily_reports.unshift(rep);
+  pushSync('daily_reports','post',rep);
+  window._autoReportSent['d3_'+dateKey]=true;
+  DB.users.filter(u=>u.role==='direction').forEach(u=>{
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: $${totalIn} · Dépensé: $${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
+    DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
+  });
+  toast('📊 Rapport envoyé à Direction 1','success');
+  saveToCrypt(); render();
+};
+
 setInterval(() => {
   if (!S.user) return;
   const now = new Date();
@@ -2713,23 +2790,7 @@ setInterval(() => {
   if (role === 'direction3') {
     const sentKey = 'd3_' + dateKey;
     if (window._autoReportSent[sentKey]) return;
-    const recs = DB.daily_records.filter(r=>r.date===dateKey&&!r.validated);
-    const exps = DB.daily_expenses.filter(e=>e.date===dateKey&&!e.validated);
-    if (!recs.length && !exps.length) return;
-    const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id);
-    if (already) { window._autoReportSent[sentKey]=true; return; }
-    const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
-    const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
-    const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[...recs],expenses:[...exps]};
-    DB.daily_reports.unshift(rep);
-    window._autoReportSent[sentKey]=true;
-    // Notify all direction1 users
-    DB.users.filter(u=>u.role==='direction').forEach(u=>{
-      const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: $${totalIn} · Dépensé: $${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
-      DB.notifs.unshift(notif);
-    });
-    toast('📊 Rapport du jour envoyé automatiquement à Direction 1','success');
-    saveToCrypt(); render();
+    window.sendDailyReportNow();
   }
   // Direction 2 auto-report
   if (role === 'direction2') {
@@ -2742,10 +2803,12 @@ setInterval(() => {
     const absent=todayAtt.filter(a=>a.status==='absent').length;
     const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[],expenses:[],summary:{students:DB.students.length,present,absent}};
     DB.daily_reports.unshift(rep);
+    pushSync('daily_reports','post',rep);
     window._autoReportSent[sentKey]=true;
     DB.users.filter(u=>u.role==='direction').forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Direction 2 du ${dateKey} — ${present} présent(s) · ${absent} absent(s) sur ${DB.students.length} élèves`,time:nowTime(),date:dateKey,read:false,type:'report'};
       DB.notifs.unshift(notif);
+      pushSync('notifs','post',notif);
     });
     toast('📊 Rapport Direction 2 envoyé automatiquement à Direction 1','success');
     saveToCrypt(); render();
@@ -4293,8 +4356,9 @@ function showScanResult(color,icon,title,name,sub,time) {
 }
 
 async function pushNotif(uid,msg) {
-  const n={id:'n'+Date.now(),uid,msg,time:nowTime(),read:false};
+  const n={id:'n'+Date.now(),uid,msg,time:nowTime(),date:today(),read:false};
   DB.notifs.unshift(n);
+  await pushSync('notifs','post',n);
 }
 
 // ── SCANNER ENTRÉE ──
@@ -5019,8 +5083,16 @@ R.caisse_paiement = () => `
     <div id="caisse_student_info" style="margin-bottom:14px"></div>
     <div class="form-group">
       <label class="form-label">Type de paiement</label>
-      <select id="caisse_type" class="form-select">
+      <select id="caisse_type" class="form-select" onchange="caisseTypeChanged()">
         ${PAYMENT_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" id="caisse_trimestre_row" style="display:none">
+      <label class="form-label">Trimestre</label>
+      <select id="caisse_trimestre" class="form-select">
+        <option value="T1">Trimestre 1</option>
+        <option value="T2">Trimestre 2</option>
+        <option value="T3">Trimestre 3</option>
       </select>
     </div>
     <div class="form-group">
@@ -5029,7 +5101,7 @@ R.caisse_paiement = () => `
     </div>
     <div class="form-group">
       <label class="form-label">Observation (optionnel)</label>
-      <input class="form-input" id="caisse_note" placeholder="Ex: T1 2025-2026">
+      <input class="form-input" id="caisse_note" placeholder="Ex: Paiement partiel...">
     </div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
@@ -5039,6 +5111,11 @@ R.caisse_paiement = () => `
 </div>`;
 
 window._caisseStudent = null;
+window.caisseTypeChanged = () => {
+  const typeId = $('caisse_type') ? $('caisse_type').value : '';
+  const row = $('caisse_trimestre_row');
+  if(row) row.style.display = typeId === 'frais_scolaires' ? '' : 'none';
+};
 window.caisseSearch = () => {
   const q = ($('caisse_search').value||'').trim().toLowerCase();
   const res = $('caisse_results'); if(!res) return;
@@ -5074,19 +5151,22 @@ window.caisseSavePaiement = async () => {
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
   const typeId=$('caisse_type').value;
   const typeLbl=PAYMENT_TYPES.find(t=>t.id===typeId)?.label||typeId;
+  const trimestre=(typeId==='frais_scolaires'&&$('caisse_trimestre'))?$('caisse_trimestre').value:null;
   const note=($('caisse_note').value||'').trim();
-  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,type:typeId,type_label:typeLbl,amount,note,date:today(),time:nowTime(),by:S.user.id,validated:false};
+  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,type:typeId,type_label:typeLbl,trimestre,amount,note,date:today(),time:nowTime(),by:S.user.id,validated:false};
   DB.daily_records.push(rec);
   pushSync('daily_records','post',rec);
   if(s.pid) await sendCaisseReceipt(s, rec);
-  toast(`✅ ${s.name} — ${typeLbl} $${amount} enregistré · Reçu envoyé au parent`,'success');
+  const tLabel=trimestre?` · ${trimestre}`:'';
+  toast(`✅ ${s.name} — ${typeLbl}${tLabel} $${amount} enregistré · Reçu envoyé au parent`,'success');
   saveToCrypt(); caisseCancel(); render();
 };
 
 window.sendCaisseReceipt = async (student, rec) => {
   const cl=gc(student.cid);
   const receiptNum='REC-'+Date.now().toString().slice(-6);
-  const msg=`🧾 REÇU #${receiptNum}\n━━━━━━━━━━━━━━\n🏫 THE WISE SCHOOL INTERNATIONAL\nFormer – Réformer – Exceller\n━━━━━━━━━━━━━━\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}\n👶 Élève : ${student.name}\n🎓 Classe : ${cl?cl.name:'?'} · ${student.mat}\n💰 Type : ${rec.type_label}\n💵 Montant reçu : $${rec.amount}${rec.note?' ('+rec.note+')':''}\n━━━━━━━━━━━━━━\nEnregistré par : ${S.user.name}\nSchoolSafe — The Wise School`;
+  const triLabel=rec.trimestre?` · ${rec.trimestre}`:'';
+  const msg=`🧾 REÇU #${receiptNum}\n━━━━━━━━━━━━━━\n🏫 THE WISE SCHOOL INTERNATIONAL\nFormer – Réformer – Exceller\n━━━━━━━━━━━━━━\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}\n👶 Élève : ${student.name}\n🎓 Classe : ${cl?cl.name:'?'} · ${student.mat}\n💰 Type : ${rec.type_label}${triLabel}\n💵 Montant reçu : $${rec.amount}${rec.note?' ('+rec.note+')':''}\n━━━━━━━━━━━━━━\nEnregistré par : ${S.user.name}\nSchoolSafe — The Wise School`;
   const notif={id:'n'+Date.now(),uid:student.pid,msg,time:rec.time,date:today(),read:false,type:'receipt',receipt:{num:receiptNum,student:student.name,classe:cl?cl.name:'',type_label:rec.type_label,amount:rec.amount,note:rec.note,by:S.user.name}};
   DB.notifs.unshift(notif);
   await pushNotif(student.pid, msg);
@@ -5148,7 +5228,9 @@ R.caisse_rapport = () => {
   <div class="premium-section" style="border-left:4px solid #3b82f6">
     <div class="premium-section-title">⏰ Rapport automatique</div>
     <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">Le rapport est envoyé automatiquement à <strong>16h00</strong> à la Direction 1. Après validation, vous ne verrez plus ces données.</div>
-    ${sentToday?`<div style="margin-top:8px;font-weight:700;color:#059669">✅ Rapport du jour envoyé — en attente de validation Direction 1</div>`:''}
+    ${sentToday
+      ? `<div style="margin-top:8px;font-weight:700;color:#059669">✅ Rapport du jour envoyé — en attente de validation Direction 1</div>`
+      : `<button class="btn btn-primary" style="width:100%;margin-top:10px;padding:12px" onclick="sendDailyReportNow()">📤 Envoyer maintenant à Direction 1</button>`}
   </div>
   ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Paiements (${recs.length})</div>
     ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label}${r.note?' · '+r.note:''} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
@@ -5197,12 +5279,12 @@ R.messages = () => {
   <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px">
     <button onclick="window._msgTab='inbox';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='inbox'?'var(--primary)':'var(--bg)'};color:${tab==='inbox'?'#fff':'var(--text-secondary)'}">📥 Reçus ${unread>0?`(${unread} non lus)`:''}</button>
     <button onclick="window._msgTab='sent';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='sent'?'var(--primary)':'var(--bg)'};color:${tab==='sent'?'#fff':'var(--text-secondary)'}">📤 Envoyés (${sent.length})</button>
-    ${role==='direction'?`<button onclick="window._msgTab='pending';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='pending'?'var(--primary)':'var(--bg)'};color:${tab==='pending'?'#fff':'var(--text-secondary)'}">⏳ À approuver (${pending.length})</button>`:''}
+    ${(role==='direction'||role==='direction2')?`<button onclick="window._msgTab='pending';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='pending'?'var(--primary)':'var(--bg)'};color:${tab==='pending'?'#fff':'var(--text-secondary)'}">⏳ À approuver (${pending.length})</button>`:''}
   </div>
   <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="openComposeMsg()">✉️ Nouveau message</button>
   ${tab==='inbox'?`<div class="premium-section">${received.length?received.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message reçu</div>'}</div>`:''}
   ${tab==='sent'?`<div class="premium-section">${sent.length?sent.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message envoyé</div>'}</div>`:''}
-  ${tab==='pending'&&role==='direction'?`<div class="premium-section">${pending.length?pending.map(m=>msgItem(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message en attente d\'approbation</div>'}</div>`:''}`;
+  ${tab==='pending'&&(role==='direction'||role==='direction2')?`<div class="premium-section">${pending.length?pending.map(m=>msgItem(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message en attente d\'approbation</div>'}</div>`:''}`;
 };
 
 window._msgTab = 'inbox';
@@ -5586,19 +5668,20 @@ window.confirmNewYear = () => {
 
 // ── ÉTAPE 8 — EXPORT DONNÉES ──
 R.export = () => {
-  if (S.user.role==='direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">L'export financier est réservé à la Direction 1.</p></div>`;
+  const isD2 = S.user.role === 'direction2';
   return `
   <div class="premium-section" style="border-left:4px solid #2563eb">
     <div class="premium-section-title">📤 Export données — ${DB.settings.year||'2025-2026'}</div>
     <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">Téléchargez les données en CSV (Excel) ou imprimez en PDF via votre navigateur.</div>
+    ${isD2?`<div style="margin-top:8px;font-size:12px;padding:8px 12px;background:#fef3c7;border-radius:8px;color:#92400e">⚠️ Les exports financiers (paiements, caisse) sont réservés à la Direction 1.</div>`:''}
   </div>
   <div class="premium-section">
     <div class="premium-section-title">📋 CSV (Excel)</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('students')">🎓 <span>Liste élèves (${DB.students.length})</span></button>
-      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('payments')">💰 <span>Paiements — frais scolaires</span></button>
+      ${!isD2?`<button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('payments')">💰 <span>Paiements — frais scolaires</span></button>`:''}
       <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('attendance')">📋 <span>Présences (${DB.attendance.length} entrées)</span></button>
-      <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('caisse')">💵 <span>Historique caisse (${DB.daily_records.length} opérations)</span></button>
+      ${!isD2?`<button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('caisse')">💵 <span>Historique caisse (${DB.daily_records.length} opérations)</span></button>`:''}
       <button class="btn btn-outline" style="justify-content:flex-start;gap:10px;padding:14px" onclick="exportCSV('grades')">🏆 <span>Notes / Palmarès (${DB.grades.length} notes)</span></button>
     </div>
   </div>
@@ -5606,7 +5689,7 @@ R.export = () => {
     <div class="premium-section-title">🖨️ Impression PDF</div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('students')">🎓 <span>Liste élèves avec classes</span></button>
-      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('payments')">💰 <span>Tableau des paiements</span></button>
+      ${!isD2?`<button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('payments')">💰 <span>Tableau des paiements</span></button>`:''}
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('palmares')">🏆 <span>Palmarès général</span></button>
     </div>
   </div>`;
@@ -5708,7 +5791,7 @@ R.settings = () => `
 R.calendar = () => {
   const ti = {event:{icon:'📌',color:'#2563eb',bg:'#dbeafe'},holiday:{icon:'🎉',color:'#dc2626',bg:'#fee2e2'},vacation:{icon:'🌴',color:'#059669',bg:'#d1fae5'}};
   const sorted = [...DB.events].sort((a,b)=>a.date.localeCompare(b.date));
-  const ab = S.user.role==='direction' ? `<button class="btn btn-primary" onclick="openCalM()">➕ Ajouter</button>` : '';
+  const ab = (S.user.role==='direction'||S.user.role==='direction2') ? `<button class="btn btn-primary" onclick="openCalM()">➕ Ajouter</button>` : '';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📅 Calendrier scolaire</span>${ab}</div>
   <div class="ww-section">${sorted.length ? sorted.map((e,i)=>{
