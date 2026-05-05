@@ -498,7 +498,7 @@ window.DB = {
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther' },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -813,6 +813,7 @@ window.loadFromSupabase = async () => {
       _get('devoirs','select=*&order=date.desc&limit=200'),
       _get('cahier_texte','select=*&order=date.desc&limit=200'),
       _get('matieres','select=*'),
+      _get('rattrapages','select=*&order=date.desc&limit=200'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -827,6 +828,7 @@ window.loadFromSupabase = async () => {
     if(safe(devoirs).length) DB.devoirs=fd(devoirs);
     if(safe(cahier_texte).length) DB.cahier_texte=fd(cahier_texte);
     if(safe(matieres).length) DB.matieres=safe(matieres);
+    if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -970,7 +972,7 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length;
+window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length;
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -2463,7 +2465,8 @@ R.approbations = () => {
   const apr = DB.approbations.filter(a=>a.status==='pending');
   const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
-  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length;
+  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -2495,7 +2498,38 @@ R.approbations = () => {
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
     ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
   </div>`:''}
-  ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}`;
+  ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}
+  ${pendingRats.length?`<div class="premium-section" style="border-left:4px solid #f59e0b"><div class="premium-section-title">📚 Signalements de rattrapage (${pendingRats.length})</div>
+    ${pendingRats.map(r=>{
+      const s=DB.students.find(x=>x.id===r.sid);
+      const t=gu(r.teacher_id);
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+        <div class="pi-icon" style="background:#fef3c7">📚</div>
+        <div style="flex:1;min-width:150px">
+          <div class="pi-title">${s?s.name:'?'} — ${r.matiere}</div>
+          <div class="pi-sub">"${r.motif}"</div>
+          <div style="font-size:11px;color:var(--text-muted)">Signalé par ${t?t.name:'?'} · ${r.date}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="validerRattrapage('${r.id}')">💳 Fixer montant</button>
+      </div>`;
+    }).join('')}
+  </div>`:''}
+  ${DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by).length?`
+  <div class="premium-section" style="border-left:4px solid #3b82f6"><div class="premium-section-title">💳 Rattrapages en attente de paiement</div>
+    ${DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by).map(r=>{
+      const s=DB.students.find(x=>x.id===r.sid);
+      const t=gu(r.teacher_id);
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+        <div class="pi-icon" style="background:#dbeafe">💳</div>
+        <div style="flex:1;min-width:150px">
+          <div class="pi-title">${s?s.name:'?'} — ${r.matiere}</div>
+          <div class="pi-sub">Montant: <strong>$${r.amount}</strong> · Prof: ${t?t.name:'?'}</div>
+          <div style="font-size:11px;color:var(--text-muted)">Parent notifié le ${r.validated_date||r.date}</div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="marquerRattrapage('${r.id}',true)">✅ Payé</button>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
 };
 window.validateAbs = (id, status) => {
   const a = DB.absences.find(x=>x.id===id); if (!a) return;
@@ -2808,11 +2842,11 @@ R.children = () => {
       <div style="padding:14px 20px;border-bottom:1px solid var(--border-light)">
         <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">💰 Frais scolaires</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);return`<div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:11px;color:var(--text-muted)">${fees[t]?fees[t].toLocaleString()+' FC':'—'}</div></div>`;}).join('')}
+          ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);return`<div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:11px;color:var(--text-muted)">${fees[t]?'$'+fees[t]:'—'}</div></div>`;}).join('')}
         </div>
         ${totalFees>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 12px;background:${debt>0?'#fee2e2':'#d1fae5'};border-radius:10px">
           <span style="font-weight:600">${debt>0?'💳 Solde dû':'✅ Tout payé'}</span>
-          <span style="font-weight:800;color:${debt>0?'#dc2626':'#059669'}">${debt>0?debt.toLocaleString()+' FC':'0 FC'}</span>
+          <span style="font-weight:800;color:${debt>0?'#dc2626':'#059669'}">${debt>0?'$'+debt:'$0'}</span>
         </div>`:'<div style="font-size:12px;color:var(--text-muted)">Montants non configurés par la Direction</div>'}
       </div>
 
@@ -2823,13 +2857,11 @@ R.children = () => {
         <div style="display:flex;flex-direction:column;gap:8px">
           ${profFR?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
             <div style="width:38px;height:38px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profFR.name)}</div>
-            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
-            <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none;font-size:11px" onclick="msgProf('${profFR.id}','${profFR.name}')">✉️</button>
+            <div><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
           </div>`:''}
           ${profEN?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
             <div style="width:38px;height:38px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profEN.name)}</div>
-            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
-            <button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="msgProf('${profEN.id}','${profEN.name}')">✉️</button>
+            <div><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
           </div>`:''}
         </div>
       </div>`:''}
@@ -2858,35 +2890,55 @@ R.children = () => {
         </div>
       </div>
 
+      <!-- TUTELLES SECONDAIRES (lecture seule — enregistrées par Direction) -->
+      ${(()=>{
+        const tuts = DB.aps.filter(a=>a.sid===k.id&&a.active!==false);
+        if(!tuts.length) return `
+        <div style="padding:14px 20px;border-top:1px solid var(--border-light)">
+          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">🔑 Personnes autorisées pour la sortie</div>
+          <div style="font-size:12px;color:var(--text-muted);padding:10px;background:var(--bg);border-radius:10px">Aucune tutelle secondaire enregistrée.<br>Contactez la Direction pour ajouter des personnes autorisées.</div>
+        </div>`;
+        return `
+        <div style="padding:14px 20px;border-top:1px solid var(--border-light)">
+          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">🔑 Personnes autorisées pour la sortie (${tuts.length}/3)</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            ${tuts.map(t=>`<div style="text-align:center;flex:1;min-width:80px;max-width:110px">
+              <div style="width:64px;height:80px;border-radius:12px;background:#f1f5f9;margin:0 auto 6px;overflow:hidden;border:2px solid var(--border)">
+                ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#64748b">${ini(t.name)}</div>`}
+              </div>
+              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
+              <div style="font-size:10px;color:var(--text-muted)">${t.relation}</div>
+              ${t.phone?`<div style="font-size:10px;color:var(--primary)">${t.phone}</div>`:''}
+            </div>`).join('')}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:8px">⚠️ Ces personnes sont autorisées à récupérer l'enfant. Leur visage s'affiche lors du scan de sortie au gardien.</div>
+        </div>`;
+      })()}
+
+      <!-- RATTRAPAGE -->
+      ${(()=>{
+        const rats = DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
+        if(!rats.length) return '';
+        return `
+        <div style="padding:14px 20px;border-top:1px solid var(--border-light);background:#fef9c3">
+          <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px">📚 Cours de rattrapage</div>
+          ${rats.map(r=>`<div style="padding:10px;background:#fff;border-radius:10px;border-left:3px solid ${r.status==='paid'?'#10b981':'#f59e0b'};margin-bottom:8px">
+            <div style="font-weight:700;font-size:13px">${r.matiere} — ${r.motif}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">Signalé le ${r.date} par la Direction</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+              <span style="font-weight:700;color:${r.status==='paid'?'#059669':'#d97706'}">${r.status==='paid'?'✅ Payé ($'+r.amount+')':'💳 $'+r.amount+' à régler'}</span>
+              ${r.status==='pending'?`<span class="pill" style="background:#fef3c7;color:#92400e">En attente de paiement</span>`:`<span class="pill" style="background:#d1fae5;color:#065f46">Payé ✅</span>`}
+            </div>
+            ${r.status==='pending'?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Contactez la Direction pour régler ce montant et activer les cours de rattrapage.</div>`:''}
+          </div>`).join('')}
+        </div>`;
+      })()}
+
     </div>`;
   }).join('');
 };
 
-window.msgProf = (profId, profName) => {
-  openM(`✉️ Message à ${profName}`,`
-<div class="form-group"><label class="form-label">Objet *</label><input class="form-input" id="mp_subject" placeholder="Ex: Question sur les notes de ${profName}"></div>
-<div class="form-group"><label class="form-label">Message *</label><textarea class="form-input" id="mp_body" rows="4" style="resize:vertical" placeholder="Votre message..."></textarea></div>
-<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:13px;color:#78350f">📨 Ce message sera soumis à l'approbation de la Direction avant d'atteindre le professeur.</div>`,
-`<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-<button class="btn btn-primary" onclick="sendMsgToProf('${profId}')">📤 Envoyer</button>`);
-};
-
-window.sendMsgToProf = (profId) => {
-  const subject = ($('mp_subject').value||'').trim();
-  const body = ($('mp_body').value||'').trim();
-  if(!subject){toast('Entrez un objet','error');return;}
-  if(!body){toast('Entrez un message','error');return;}
-  const msg = {id:'msg'+Date.now(),from:S.user.id,to:profId,to_role:null,to_class_cid:null,
-    subject,body,whatsapp:null,date:today(),time:nowTime(),msg_type:'normal',status:'pending',read:false};
-  DB.messages.push(msg);
-  pushSync('messages','post',msg);
-  DB.users.filter(u=>u.role==='direction').forEach(u=>{
-    const notif={id:'n'+Date.now(),uid:u.id,msg:`⏳ Message en attente — ${S.user.name} → ${gu(profId)?.name||'Prof'} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
-  });
-  toast('📤 Message soumis à la Direction','info');
-  closeModal(); saveToCrypt(); render();
-};
+// Parents ne contactent jamais les enseignants directement — communication bloquée
 
 window.showChildQR = (sid) => {
   const s = DB.students.find(x=>x.id===sid); if(!s) return;
@@ -3058,6 +3110,101 @@ window.signalAbsencesToDir = (cid) => {
   saveToCrypt(); render();
 };
 
+// ── RATTRAPAGE — signalement enseignant → direction → parent ──
+window.signalerRattrapage = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const mc=getMyClass();
+  const matieres=getClassMatieres(mc.cl?mc.cl.id:'').filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
+  openM(`⚠️ Signaler rattrapage — ${s.name}`,`
+  <div style="background:#fef3c7;border-radius:10px;padding:12px;font-size:13px;color:#92400e;margin-bottom:14px">
+    Cet élève a un score inférieur à 50. Vous pouvez signaler à la Direction qu'un cours de rattrapage est nécessaire.
+  </div>
+  <div class="form-group"><label class="form-label">Matière concernée *</label>
+    <select class="form-select" id="rat_mat">
+      ${matieres.map(m=>`<option value="${m.name}">${m.name}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Motif / Observation *</label>
+    <textarea class="form-input" id="rat_motif" rows="3" placeholder="Ex: Niveau insuffisant en lecture, difficultés en calcul..."></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" style="background:#f59e0b;border-color:#f59e0b" onclick="submitRattrapage('${sid}')">⚠️ Signaler à la Direction</button>`);
+};
+
+window.submitRattrapage = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const mat=($('rat_mat').value||'').trim();
+  const motif=($('rat_motif').value||'').trim();
+  if(!motif){toast('Décrivez le motif','error');return;}
+  const rat={id:'rat'+Date.now(),sid,teacher_id:S.user.id,matiere:mat,motif,date:today(),
+    status:'pending',amount:0,paid:false};
+  DB.rattrapages.push(rat);
+  pushSync('rattrapages','post',rat);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+      msg:`📚 Rattrapage signalé par ${S.user.name} — ${s.name} · ${mat} · "${motif}"`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+  });
+  toast('✅ Signalement envoyé à la Direction','success');
+  closeModal(); saveToCrypt(); render();
+};
+
+// Direction: valider rattrapage + fixer montant + notifier parent
+window.validerRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const s=DB.students.find(x=>x.id===r.sid);
+  openM(`📚 Valider rattrapage — ${s?s.name:''}`,`
+  <div class="form-group"><label class="form-label">Montant du cours de rattrapage ($) *</label>
+    <input class="form-input" id="rat_amount" type="number" min="0" placeholder="Ex: 25">
+  </div>
+  <div style="font-size:13px;color:var(--text-secondary);padding:10px;background:var(--bg);border-radius:10px">
+    Le parent recevra une notification et devra régler ce montant à la Direction.<br>
+    La Direction ajoutera un bonus à la prime de l'enseignant après paiement.
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="confirmerRattrapage('${rid}')">✅ Valider et notifier le parent</button>`);
+};
+
+window.confirmerRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const amount=parseFloat($('rat_amount').value)||0;
+  if(!amount){toast('Entrez un montant','error');return;}
+  r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
+  pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by},'id=eq.'+rid);
+  const s=DB.students.find(x=>x.id===r.sid);
+  const teacher=gu(r.teacher_id);
+  // Notifier le parent
+  if(s&&s.pid){
+    const notif={id:'n'+Date.now(),uid:s.pid,
+      msg:`📚 Cours de rattrapage — ${s.name} · ${r.matiere} · $${amount} à régler à la Direction. Raison : ${r.motif}`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+  }
+  toast(`✅ Parent notifié — $${amount} de rattrapage pour ${s?s.name:''}`, 'success');
+  closeModal(); saveToCrypt(); render();
+};
+
+// Direction: marquer rattrapage comme payé + ajouter prime enseignant
+window.marquerRattrapage = (rid, paid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  r.status=paid?'paid':'pending'; r.paid=paid;
+  if(paid){
+    r.paid_date=today();
+    // Notifier enseignant de la prime
+    const teacher=gu(r.teacher_id);
+    if(teacher){
+      const notif={id:'n'+Date.now(),uid:teacher.id,
+        msg:`💰 Prime de rattrapage — $${r.amount} ajoutée à votre prime pour ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere})`,
+        time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+    }
+    toast('✅ Rattrapage marqué payé — prime enseignant notifiée','success');
+  }
+  pushSync('rattrapages','patch',{status:r.status,paid:r.paid},'id=eq.'+rid);
+  saveToCrypt(); render();
+};
+
 window.markAttendance = (sid,status) => {
   let a=DB.attendance.find(x=>x.sid===sid&&x.date===today());
   if(a) { a.status=status; }
@@ -3151,6 +3298,7 @@ R.palmares = () => {
               <div style="font-size:10px;color:var(--text-muted)">pts</div>
             </div>
             ${isTeacher?`<button class="action-btn" onclick="openStudentGrades('${s.id}','${cl.id}')" style="flex-shrink:0" title="Voir/modifier notes">📝</button>`:''}
+            ${isTeacher&&s.total<50?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="Signaler besoin de rattrapage">⚠️</button>`:''}
           </div>`;
         }).join('')}
       </div>
