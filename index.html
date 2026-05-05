@@ -988,7 +988,13 @@ window.getPendingCount = () => {
     }).length;
     return unreadNotifs+unreadMsgs+pendingRat;
   }
-  return DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length + DB.convocations.filter(c=>c.status==='pending').length;
+  const isD2 = S.user&&S.user.role==='direction2';
+  return DB.approbations.filter(a=>a.status==='pending').length
+    + DB.absences.filter(a=>a.status==='pending').length
+    + (isD2?0:DB.daily_reports.filter(r=>r.status==='pending').length)
+    + DB.messages.filter(m=>m.status==='pending').length
+    + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length
+    + DB.convocations.filter(c=>c.status==='pending').length;
 };
 
 // ── STATE ──
@@ -2521,9 +2527,10 @@ window.deleteClass = (cid) => {
 
 // ── APPROBATIONS ──
 R.approbations = () => {
+  const isD2 = S.user.role==='direction2';
   const pabs = DB.absences.filter(a=>a.status==='pending');
   const apr = DB.approbations.filter(a=>a.status==='pending');
-  const pendingReports = DB.daily_reports.filter(r=>r.status==='pending');
+  const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
   const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
@@ -2581,13 +2588,17 @@ R.approbations = () => {
             </div>
           </div>`:''}
           <div class="pi-sub" style="margin-top:3px">${r.motif}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${t?t.name:'?'} · ${r.date} · Frais: ${hasPaid?'✅ Payés':'❌ Non payés'}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${t?t.name:'?'} · ${r.date}${isD2?'':' · Frais: '+(hasPaid?'✅ Payés':'❌ Non payés')}</div>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="validerRattrapage('${r.id}')">💳 Fixer montant</button>
+        ${isD2
+          ? `<button class="btn btn-success btn-sm" onclick="validerRattrapage('${r.id}',true)">✅ Approuver</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="validerRattrapage('${r.id}')">💳 Fixer montant</button>`
+        }
       </div>`;
     }).join('')}
   </div>`:''}
   ${(()=>{
+    if(isD2) return '';
     const signaled=DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by&&r.payment_signaled);
     const waiting=DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by&&!r.payment_signaled);
     if(!signaled.length&&!waiting.length) return '';
@@ -3411,9 +3422,22 @@ window.submitRattrapage = (sid) => {
 };
 
 // Direction: valider rattrapage + fixer montant + notifier parent
-window.validerRattrapage = (rid) => {
+window.validerRattrapage = (rid, noPayment) => {
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid);
+  // Direction 2: approve academically without setting a fee
+  if(noPayment || S.user.role==='direction2') {
+    r.amount=0; r.validated_by=S.user.id; r.validated_date=today();
+    pushSync('rattrapages','patch',{amount:0,validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
+    if(s&&s.pid){
+      const notif={id:'n'+Date.now(),uid:s.pid,
+        msg:`📚 Cours de rattrapage approuvé — ${s.name} · ${r.matiere}. Raison : ${r.motif}`,
+        time:nowTime(),date:today(),read:false,type:'alert'};
+      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+    }
+    toast(`✅ Rattrapage approuvé — parent notifié`,'success');
+    saveToCrypt(); render(); return;
+  }
   openM(`📚 Valider rattrapage — ${s?s.name:''}`,`
   <div class="form-group"><label class="form-label">Montant du cours de rattrapage ($) *</label>
     <input class="form-input" id="rat_amount" type="number" min="0" placeholder="Ex: 25">
@@ -5048,7 +5072,7 @@ window.submitAbsence = () => {
   const abs={id:'ab'+Date.now(),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today()};
   DB.absences.push(abs);
   pushSync('absences','post',abs);
-  DB.users.filter(u=>u.role==='direction').forEach(u=>{
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const notif={id:'n'+Date.now(),uid:u.id,msg:`📄 Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
@@ -5435,7 +5459,7 @@ window.sendMsg = () => {
   } else {
     const clName=toClassCid?(gc(toClassCid)||{}).name||'':toRole||'';
     const typeLabel=msgType==='interro'?'⚠️ Avertissement interro':msgType==='devoir'?'📚 Rappel devoir':'✉️ Message';
-    DB.users.filter(u=>u.role==='direction').forEach(u=>{
+    DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,
         msg:`⏳ ${typeLabel} en attente — ${S.user.name}${clName?' ('+clName+')':''} : "${subject}"`,
         time:nowTime(),date:today(),read:false,type:'info'};
