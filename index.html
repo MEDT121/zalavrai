@@ -2688,7 +2688,7 @@ window.getClassMatieres = (cid) => {
   ];
 };
 
-// ── PRÉSENCES (enseignant: consultation + modification journée) ──
+// ── PRÉSENCES (enseignant: validation depuis scan automatique) ──
 R.attendance = () => {
   const role=S.user.role;
   let students=DB.students, myClass=null;
@@ -2700,7 +2700,34 @@ R.attendance = () => {
   const late=students.filter(s=>att.find(a=>a.sid===s.id&&a.status==='late'));
   const absent=students.filter(s=>!att.find(a=>a.sid===s.id));
   const canModify=role==='enseignant';
+
+  // Teacher scan validation block
+  let teacherScanBlock='';
+  if(role==='enseignant' && myClass){
+    const todayScans=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
+    const scannedSids=todayScans.map(l=>l.sid);
+    const myScanned=students.filter(s=>scannedSids.includes(s.id));
+    const notScanned=students.filter(s=>!scannedSids.includes(s.id));
+    const validated=DB.attendance.some(a=>a.date===today()&&students.some(s=>s.id===a.sid)&&a.teacher_validated);
+    teacherScanBlock=`
+    <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:${window.cssRadius||'16px'};padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:20px">🚪</span>
+        <div>
+          <div style="font-weight:700;font-size:15px">Scan automatique du portail</div>
+          <div style="font-size:12px;color:#1d4ed8">${myScanned.length} élève${myScanned.length>1?'s':''} scanné${myScanned.length>1?'s':''} · ${notScanned.length} non scanné${notScanned.length>1?'s':''}</div>
+        </div>
+        ${validated?`<span class="pill" style="margin-left:auto;background:#d1fae5;color:#065f46">✅ Validé</span>`:`<span class="pill" style="margin-left:auto;background:#fef3c7;color:#92400e">⏳ En attente</span>`}
+      </div>
+      ${!validated?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="validateScanPresence()">✅ Valider les présences</button>
+        ${notScanned.length?`<button class="btn" style="flex:1;min-width:160px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="signalAbsencesToDir('${myClass.id}')">⚠️ Signaler ${notScanned.length} absent${notScanned.length>1?'s':''} à la Direction</button>`:''}
+      </div>`:`<div style="font-size:12px;color:#065f46">Présences confirmées. ${notScanned.length?`<span style="color:#92400e;font-weight:600">${notScanned.length} élève${notScanned.length>1?'s':''} absent${notScanned.length>1?'s':''} signalé${notScanned.length>1?'s':''} automatiquement.</span>`:''}</div>`}
+    </div>`;
+  }
+
   return `
+  ${teacherScanBlock}
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${present.length}</div><div class="ww-stat-label">Présents</div></div>
     <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late.length}</div><div class="ww-stat-label">Retards</div></div>
@@ -2710,11 +2737,12 @@ R.attendance = () => {
     <div class="ww-section-header"><span class="ww-section-title">📋 Présence du jour</span></div>
     ${students.map((s,i)=>{
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
+      const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
       const [cc,cbg]=clsColor(c?c.name:'');
       const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:'À l\'heure',i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:'Retard',i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:'Justifié',i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:'Malade',i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:'Refusé',i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:'Absent',i:'❌'};
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
-        <div class="ww-item-content"><div class="ww-item-title">${s.name}</div><div class="ww-item-sub">${a?'Arrivé '+a.arr_time:'Non scanné'}</div></div>
+        <div class="ww-item-content"><div class="ww-item-title">${s.name}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.i} ${st.l}</span>
         ${canModify&&!a?`<div style="display:flex;gap:4px;flex-shrink:0">
           <button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié">📄</button>
@@ -2724,6 +2752,48 @@ R.attendance = () => {
       </div>`;
     }).join('')}
   </div>`;
+};
+
+window.validateScanPresence = () => {
+  const mc=getMyClass(); if(!mc.cl) return;
+  const students=DB.students.filter(s=>s.cid===mc.cl.id);
+  const todayScans=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
+  const scannedSids=todayScans.map(l=>l.sid);
+  let confirmed=0;
+  students.forEach(s=>{
+    const existing=DB.attendance.find(a=>a.sid===s.id&&a.date===today());
+    if(scannedSids.includes(s.id)){
+      // Scan data already created attendance entry from gardien — just mark teacher_validated
+      if(existing){ existing.teacher_validated=true; pushSync('attendance','patch',{teacher_validated:true},'id=eq.'+existing.id); }
+      confirmed++;
+    }
+    // Non-scanned → mark absent (no entry = absent, already covered)
+  });
+  // Mark class-wide validation flag via a sentinel record
+  const sent=DB.attendance.find(a=>a.date===today()&&a.teacher_validated&&students.some(s=>s.id===a.sid));
+  if(!sent){
+    // Create a dummy validated flag by updating all existing records
+    DB.attendance.filter(a=>a.date===today()&&students.some(s=>s.id===a.sid)).forEach(a=>{ a.teacher_validated=true; });
+  }
+  toast(`✅ ${confirmed} présence${confirmed>1?'s':''} validée${confirmed>1?'s':''}. Les absences sont enregistrées automatiquement.`,'success');
+  saveToCrypt(); render();
+};
+
+window.signalAbsencesToDir = (cid) => {
+  const cl=gc(cid); if(!cl) return;
+  const students=DB.students.filter(s=>s.cid===cid);
+  const scannedSids=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
+  const absents=students.filter(s=>!scannedSids.includes(s.id));
+  if(!absents.length){toast('Tous les élèves sont présents','info');return;}
+  const names=absents.map(s=>s.name).join(', ');
+  DB.users.filter(u=>u.role==='direction').forEach(u=>{
+    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+      msg:`⚠️ Absences signalées par ${S.user.name} (${cl.name}) : ${names}`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+  });
+  toast(`⚠️ ${absents.length} absence${absents.length>1?'s':''} signalée${absents.length>1?'s':''} à la Direction`,'info');
+  saveToCrypt(); render();
 };
 
 window.markAttendance = (sid,status) => {
@@ -2861,6 +2931,46 @@ R.palmares_parent = () => {
     const me=ranked.find(s=>s.id===k.id);
     const myGrades=DB.grades.filter(g=>g.sid===k.id);
 
+    // Detect bilingual class (primaire with both teachers)
+    const isBilingual = cl.cycle==='primaire' && cl.teacher_id && cl.teacher_id_en;
+    const profFR = isBilingual ? DB.users.find(u=>u.id===cl.teacher_id) : null;
+    const profEN = isBilingual ? DB.users.find(u=>u.id===cl.teacher_id_en) : null;
+
+    const renderGradeSection = (sectionMatieres, sectionLabel, flag, profName, bgColor) => {
+      if(!sectionMatieres.length) return '';
+      let total=0, count=0;
+      sectionMatieres.forEach(m=>{ const g=myGrades.find(x=>x.matiere===m.name); if(g){total+=g.pct;count++;} });
+      const moy=count?Math.round(total/count):null;
+      const barColor2=moy===null?'#e2e8f0':moy>=70?'#10b981':moy>=50?'#f59e0b':'#ef4444';
+      return `
+      <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:${bgColor}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:16px">${flag}</span>
+          <div>
+            <div style="font-weight:700;font-size:14px">${sectionLabel}</div>
+            ${profName?`<div style="font-size:11px;color:var(--text-secondary)">Prof: ${profName}</div>`:''}
+          </div>
+          ${moy!==null?`<span class="pill" style="margin-left:auto;background:${barColor2};color:#fff;font-size:13px;font-weight:800">${moy}%</span>`:''}
+        </div>
+        ${sectionMatieres.map(m=>{
+          const g=myGrades.find(x=>x.matiere===m.name);
+          const pct=g?g.pct:null;
+          const bc=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+          return `<div style="margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+              <span style="color:var(--text-secondary)">${m.name}</span>
+              <span style="font-weight:700;color:${bc==='#e2e8f0'?'var(--text-muted)':bc}">${pct!==null?pct+'%':'—'}</span>
+            </div>
+            <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${bc}"></div></div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    };
+
+    const frMatieres = matieres.filter(m=>m.lang==='fr'||(!isBilingual&&m.lang!=='en'));
+    const enMatieres = matieres.filter(m=>m.lang==='en');
+    const communMatieres = matieres.filter(m=>m.lang==='commun');
+
     return `
     <div class="premium-section" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
@@ -2871,19 +2981,25 @@ R.palmares_parent = () => {
           <div style="font-size:22px;font-weight:800;color:${me&&me.total>=70?'#059669':me&&me.total>=50?'#d97706':'#dc2626'};margin-top:4px">${me?me.total:0} pts</div>
         </div>
       </div>
-      <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 Notes par matière</div>
-      ${matieres.map(m=>{
-        const g=myGrades.find(x=>x.matiere===m.name);
-        const pct=g?g.pct:null;
-        const barColor=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
-        return `<div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-            <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
-            <span style="font-weight:700;color:${barColor==='#e2e8f0'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
-          </div>
-          <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
-        </div>`;
-      }).join('')}
+      ${isBilingual?`
+        ${renderGradeSection(frMatieres,'Bulletin Français','🇫🇷',profFR?profFR.name:null,'#f0fdf4')}
+        ${renderGradeSection(enMatieres,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eff6ff')}
+        ${communMatieres.length?renderGradeSection(communMatieres,'Matières communes','📚',null,'#fafafa'):''}
+      `:`
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 Notes par matière</div>
+        ${matieres.map(m=>{
+          const g=myGrades.find(x=>x.matiere===m.name);
+          const pct=g?g.pct:null;
+          const barColor=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+          return `<div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
+              <span style="font-weight:700;color:${barColor==='#e2e8f0'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
+            </div>
+            <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
+          </div>`;
+        }).join('')}
+      `}
     </div>`;
   }).join('');
 };
@@ -4229,10 +4345,28 @@ window.openComposeMsg = () => {
   const needsApproval = role==='enseignant';
   const recipients = DB.users.filter(u=>u.id!==S.user.id&&u.role!=='direction3');
   const parentPhone = S.user.phone||'';
+
+  // For teachers: build class-specific parent group options
+  const mc = role==='enseignant' ? getMyClass() : {cl:null,lang:null};
+  const myClassParentsOpt = mc.cl
+    ? `<option value="class_parents:${mc.cl.id}">👨‍👩‍👧 Parents de ${mc.cl.name}</option>`
+    : '';
+
+  const teacherTypeBlock = needsApproval ? `
+<div class="form-group"><label class="form-label">Type de message</label>
+  <select class="form-select" id="msg_type" onchange="applyMsgTemplate()">
+    <option value="normal">✉️ Message standard</option>
+    <option value="interro">⚠️ Avertissement d'interrogation</option>
+    <option value="devoir">📚 Rappel de devoir</option>
+  </select>
+</div>` : '';
+
   openM('✉️ Nouveau message',`
+${teacherTypeBlock}
 <div class="form-group"><label class="form-label">Destinataire *</label>
   <select class="form-select" id="msg_to">
     <option value="">— Choisir un destinataire —</option>
+    ${myClassParentsOpt}
     <optgroup label="Individuel">
       ${recipients.map(u=>`<option value="uid:${u.id}">${u.name} (${u.role})</option>`).join('')}
     </optgroup>
@@ -4247,13 +4381,37 @@ window.openComposeMsg = () => {
   <input class="form-input" id="msg_subject" placeholder="Ex: Réunion parents ce vendredi">
 </div>
 <div class="form-group"><label class="form-label">Message *</label>
-  <textarea class="form-input" id="msg_body" rows="4" placeholder="Votre message..." style="resize:vertical"></textarea>
+  <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message..." style="resize:vertical"></textarea>
 </div>
+<div id="msg_extra_fields"></div>
 <div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
   <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
 </div>
 ${needsApproval?`<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:13px;color:#78350f;margin-top:6px">⏳ Votre message sera soumis à l'approbation de la Direction avant envoi.</div>`:''}`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="sendMsg()">${needsApproval?'📤 Soumettre pour approbation':'📤 Envoyer'}</button>`);
+};
+
+window.applyMsgTemplate = () => {
+  const type = ($('msg_type')||{}).value||'normal';
+  const mc = getMyClass();
+  const className = mc.cl ? mc.cl.name : 'votre classe';
+  const subjEl = $('msg_subject');
+  const bodyEl = $('msg_body');
+  const toEl = $('msg_to');
+  const extraEl = $('msg_extra_fields');
+  if(type==='interro'){
+    if(subjEl) subjEl.value = `⚠️ Avertissement interrogation — ${className}`;
+    if(bodyEl) bodyEl.value = `Chers parents,\n\nUne interrogation est prévue prochainement en :\n• Matière : \n• Date : \n• Chapitres à réviser : \n\nMerci d'encourager votre enfant à bien réviser.\n\nCordialement,\n${S.user.name}`;
+    if(toEl && mc.cl) { Array.from(toEl.options).forEach(o=>{ if(o.value===`class_parents:${mc.cl.id}`) o.selected=true; }); }
+    if(extraEl) extraEl.innerHTML=`<div style="background:#fef9c3;border:1px solid #fcd34d;border-radius:10px;padding:10px;font-size:12px;color:#78350f;margin-bottom:12px">⚠️ Les parents recevront cette alerte pour préparer leur enfant à l'interrogation.</div>`;
+  } else if(type==='devoir'){
+    if(subjEl) subjEl.value = `📚 Rappel de devoir — ${className}`;
+    if(bodyEl) bodyEl.value = `Chers parents,\n\nRappel : votre enfant a un devoir à rendre.\n• Matière : \n• Devoir : \n• Date limite : \n\nMerci de vérifier que le devoir est bien fait.\n\nCordialement,\n${S.user.name}`;
+    if(toEl && mc.cl) { Array.from(toEl.options).forEach(o=>{ if(o.value===`class_parents:${mc.cl.id}`) o.selected=true; }); }
+    if(extraEl) extraEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px;font-size:12px;color:#14532d;margin-bottom:12px">📚 Rappel de devoir envoyé aux parents de la classe.</div>`;
+  } else {
+    if(extraEl) extraEl.innerHTML='';
+  }
 };
 
 window.sendMsg = () => {
@@ -4265,23 +4423,47 @@ window.sendMsg = () => {
   if(!body){toast('Entrez un message','error');return;}
   const role=S.user.role;
   const needsApproval=role==='enseignant';
-  const isRole=toVal.startsWith('role:');
-  const toId=isRole?null:toVal.replace('uid:','');
-  const toRole=isRole?toVal.replace('role:',''):null;
+  const msgType=($('msg_type')||{}).value||'normal';
+
+  // Resolve class_parents:cid → list of parent user IDs for that class
+  let toId=null, toRole=null, toClassCid=null;
+  if(toVal.startsWith('class_parents:')){
+    toClassCid=toVal.replace('class_parents:','');
+  } else if(toVal.startsWith('role:')){
+    toRole=toVal.replace('role:','');
+  } else {
+    toId=toVal.replace('uid:','');
+  }
+
   const wa=($('msg_wa').value||'').trim()||null;
-  const msg={id:'msg'+Date.now(),from:S.user.id,to:toId,to_role:toRole,subject,body,whatsapp:wa,date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
+  const msg={id:'msg'+Date.now(),from:S.user.id,to:toId,to_role:toRole,to_class_cid:toClassCid||null,
+    subject,body,whatsapp:wa,date:today(),time:nowTime(),msg_type:msgType,
+    status:needsApproval?'pending':'sent',read:false};
   DB.messages.push(msg);
   pushSync('messages','post',msg);
+
+  const resolveTargets = () => {
+    if(toClassCid){
+      const pids=[...new Set(DB.students.filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
+      return DB.users.filter(u=>pids.includes(u.id));
+    }
+    if(toId) return [DB.users.find(u=>u.id===toId)].filter(Boolean);
+    return DB.users.filter(u=>u.role===toRole);
+  };
+
   if(!needsApproval){
-    const targets=toId?[DB.users.find(u=>u.id===toId)].filter(Boolean):DB.users.filter(u=>u.role===toRole);
-    targets.forEach(u=>{
+    resolveTargets().forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     });
     toast('✅ Message envoyé','success');
   } else {
+    const clName=toClassCid?(gc(toClassCid)||{}).name||'':toRole||'';
+    const typeLabel=msgType==='interro'?'⚠️ Avertissement interro':msgType==='devoir'?'📚 Rappel devoir':'✉️ Message';
     DB.users.filter(u=>u.role==='direction').forEach(u=>{
-      const notif={id:'n'+Date.now(),uid:u.id,msg:`⏳ Message en attente d'approbation de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
+      const notif={id:'n'+Date.now(),uid:u.id,
+        msg:`⏳ ${typeLabel} en attente — ${S.user.name}${clName?' ('+clName+')':''} : "${subject}"`,
+        time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     });
     toast('📤 Message soumis — en attente d\'approbation Direction','info');
@@ -4293,7 +4475,15 @@ window.approveMsg = (mid, status) => {
   const m=DB.messages.find(x=>x.id===mid); if(!m) return;
   m.status=status;
   if(status==='approved'){
-    const targets=m.to?[DB.users.find(u=>u.id===m.to)].filter(Boolean):DB.users.filter(u=>u.role===m.to_role);
+    let targets=[];
+    if(m.to_class_cid){
+      const pids=[...new Set(DB.students.filter(s=>s.cid===m.to_class_cid).map(s=>s.pid).filter(Boolean))];
+      targets=DB.users.filter(u=>pids.includes(u.id));
+    } else if(m.to){
+      targets=[DB.users.find(u=>u.id===m.to)].filter(Boolean);
+    } else {
+      targets=DB.users.filter(u=>u.role===m.to_role);
+    }
     targets.forEach(u=>{
       const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
       DB.notifs.unshift(notif);
