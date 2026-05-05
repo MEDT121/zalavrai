@@ -704,20 +704,20 @@ window.NAV = {
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
       {s:'Communication'},
-      {id:'messages',i:'✉️',l:'Messages'},
+      {id:'messages',i:'✉️',l:'Messages',badge:true},
       {id:'absences',i:'📄',l:'Justifier absence'},
       {s:'Sécurité'},
       {id:'authorized',i:'🔑',l:'Personnes autorisées'},
       {s:'Infos'},
       {id:'calendar',i:'📅',l:'Calendrier'},
-      {id:'notifications',i:'🔔',l:'Notifications'},
+      {id:'notifications',i:'🔔',l:'Notifications',badge:true},
     ],
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
       {id:'children',i:'👶',l:'Enfants'},
-      {id:'attendance',i:'📋',l:'Présences'},
-      {id:'messages',i:'✉️',l:'Messages'},
-      {id:'absences',i:'📄',l:'Absences'},
+      {id:'devoirs_parent',i:'📚',l:'Devoirs'},
+      {id:'messages',i:'✉️',l:'Messages',badge:true},
+      {id:'notifications',i:'🔔',l:'Notifs',badge:true},
     ]
   },
   direction2: {
@@ -972,7 +972,19 @@ window.initParticles = () => {
 };
 
 // ── PENDING APPROBATIONS COUNT ──
-window.getPendingCount = () => DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length;
+window.getPendingCount = () => {
+  if(S.user&&S.user.role==='parent'){
+    const uid=S.user.id;
+    const unreadNotifs=DB.notifs.filter(n=>n.uid===uid&&!n.read).length;
+    const unreadMsgs=DB.messages.filter(m=>(m.to===uid||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==uid).length;
+    const pendingRat=DB.rattrapages.filter(r=>{
+      const s=DB.students.find(x=>x.id===r.sid);
+      return s&&s.pid===uid&&r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled;
+    }).length;
+    return unreadNotifs+unreadMsgs+pendingRat;
+  }
+  return DB.approbations.filter(a=>a.status==='pending').length + DB.absences.filter(a=>a.status==='pending').length + DB.daily_reports.filter(r=>r.status==='pending').length + DB.messages.filter(m=>m.status==='pending').length + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length;
+};
 
 // ── STATE ──
 window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
@@ -2084,12 +2096,26 @@ window.sendUrgentAlert = () => {
 
 // ── NOTIFICATIONS ──
 R.notifications = () => {
-  const ns = S.user.role==='direction' ? DB.notifs : DB.notifs.filter(n=>n.uid===S.user.id);
-  return `<div class="ww-section">${ns.length ? ns.map((n,i)=>`
-  <div class="ww-item" style="animation-delay:${i*.04}s">
-    <div class="ww-item-icon" style="background:${n.read?'#f1f5f9':'#dbeafe'}">🔔</div>
-    <div class="ww-item-content"><div class="ww-item-title" style="font-weight:${n.read?500:700}">${n.msg}</div><div class="ww-item-sub">${n.time}</div></div>
-    ${!n.read?'<span class="pill pill-blue">Nouveau</span>':''}
+  const uid=S.user.id, role=S.user.role;
+  const ns = (role==='direction'||role==='direction2') ? DB.notifs : DB.notifs.filter(n=>n.uid===uid);
+  const sorted=[...ns].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
+  const unread=sorted.filter(n=>!n.read);
+  // Mark all as read
+  unread.forEach(n=>{ n.read=true; pushSync('notifs','patch',{read:true},'id=eq.'+n.id); });
+  if(unread.length) setTimeout(()=>render(),300);
+  const typeIcon={academic:'📚',alert:'🚨',info:'ℹ️',approval:'⏳'};
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🔔 Notifications</span>
+    ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
+  </div>
+  <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
+  <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);':''}">
+    <div class="ww-item-icon" style="background:${n.type==='alert'?'#fee2e2':n.type==='academic'?'#dbeafe':n.type==='approval'?'#fef3c7':'#f1f5f9'}">${typeIcon[n.type]||'🔔'}</div>
+    <div class="ww-item-content">
+      <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4">${n.msg}</div>
+      <div class="ww-item-sub">${n.date||''} ${n.time||''}</div>
+    </div>
   </div>`).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔔</div>Aucune notification</div>'}</div>`;
 };
 
@@ -2992,6 +3018,11 @@ R.children = () => {
               <span style="font-weight:700;color:${r.status==='paid'?'#059669':'#d97706'}">${r.status==='paid'?'✅ Payé ($'+r.amount+')':r.amount?'💳 $'+r.amount+' à régler':'⏳ Montant à fixer'}</span>
               ${r.status==='pending'&&r.amount?`<span class="pill" style="background:#fef3c7;color:#92400e">À régler à la Direction</span>`:r.status==='paid'?`<span class="pill" style="background:#d1fae5;color:#065f46">Payé ✅</span>`:`<span class="pill" style="background:#fee2e2;color:#dc2626">En attente Direction</span>`}
             </div>
+            ${r.status==='pending'&&r.amount>0&&r.validated_by&&!r.payment_signaled?`
+            <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">
+              📲 Signaler mon paiement à la Direction
+            </button>`:''}
+            ${r.payment_signaled&&r.status!=='paid'?`<div style="font-size:11px;color:#059669;margin-top:6px;text-align:center">✅ Paiement signalé — en attente de confirmation Direction</div>`:''}
           </div>`;}).join('')}
         </div>`;
       })()}
@@ -4727,6 +4758,23 @@ window.toggleTutelle = (tid, newActive) => {
   toast(`${newActive?'✅ Autorisé':'🚫 Désactivé'} — ${t.name}`,'success');
   saveToCrypt(); render();
 };
+window.signalerPaiementRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const s=DB.students.find(x=>x.id===r.sid); if(!s) return;
+  if(s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  r.payment_signaled=true;
+  pushSync('rattrapages','patch',{payment_signaled:true},'id=eq.'+rid);
+  // Notifier la Direction
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+      msg:`💰 Paiement signalé — ${s.name} · Rattrapage ${r.matiere} · $${r.amount} · À confirmer`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  toast('✅ Paiement signalé à la Direction — en attente de confirmation','success');
+  saveToCrypt(); render();
+};
+
 // ── ÉTAPE 5 — JUSTIFICATION D'ABSENCE ──
 R.absences = () => {
   const role = S.user.role;
@@ -5038,14 +5086,40 @@ window._msgTab = 'inbox';
 window.openComposeMsg = () => {
   const role = S.user.role;
   const needsApproval = role==='enseignant';
-  const recipients = DB.users.filter(u=>u.id!==S.user.id&&u.role!=='direction3');
   const parentPhone = S.user.phone||'';
+
+  // Parent: ne peut contacter QUE la Direction — jamais les enseignants
+  if(role==='parent'){
+    const dirs=DB.users.filter(u=>u.role==='direction'||u.role==='direction2');
+    openM('✉️ Message à la Direction',`
+    <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:12px;color:#1e40af;margin-bottom:14px">
+      ℹ️ Les parents contactent uniquement la Direction. Tout contact direct avec les enseignants se fait via la Direction.
+    </div>
+    <div class="form-group"><label class="form-label">Destinataire</label>
+      <select class="form-select" id="msg_to">
+        ${dirs.map(u=>`<option value="uid:${u.id}">🏫 Direction — ${u.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Objet *</label>
+      <input class="form-input" id="msg_subject" placeholder="Ex: Question sur les frais scolaires">
+    </div>
+    <div class="form-group"><label class="form-label">Message *</label>
+      <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message à la Direction..." style="resize:vertical"></textarea>
+    </div>
+    <div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
+      <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="sendMsg()">📤 Envoyer</button>`);
+    return;
+  }
 
   // For teachers: build class-specific parent group options
   const mc = role==='enseignant' ? getMyClass() : {cl:null,lang:null};
   const myClassParentsOpt = mc.cl
     ? `<option value="class_parents:${mc.cl.id}">👨‍👩‍👧 Parents de ${mc.cl.name}</option>`
     : '';
+  const recipients = DB.users.filter(u=>u.id!==S.user.id&&u.role!=='direction3');
 
   const teacherTypeBlock = needsApproval ? `
 <div class="form-group"><label class="form-label">Type de message</label>
