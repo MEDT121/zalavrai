@@ -2143,7 +2143,8 @@ R.notifications = () => {
   // Mark all as read
   unread.forEach(n=>{ n.read=true; pushSync('notifs','patch',{read:true},'id=eq.'+n.id); });
   if(unread.length) setTimeout(()=>render(),300);
-  const typeIcon={academic:'📚',alert:'🚨',info:'ℹ️',approval:'⏳'};
+  const typeIcon={academic:'📚',alert:'🚨',info:'ℹ️',approval:'⏳',receipt:'🧾',report:'📊'};
+  const typeBg={academic:'#dbeafe',alert:'#fee2e2',approval:'#fef3c7',receipt:'#d1fae5',report:'#ede9fe',info:'#f1f5f9'};
   return `
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🔔 Notifications</span>
@@ -2151,9 +2152,10 @@ R.notifications = () => {
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
   <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);':''}">
-    <div class="ww-item-icon" style="background:${n.type==='alert'?'#fee2e2':n.type==='academic'?'#dbeafe':n.type==='approval'?'#fef3c7':'#f1f5f9'}">${typeIcon[n.type]||'🔔'}</div>
+    <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f1f5f9'}">${typeIcon[n.type]||'🔔'}</div>
     <div class="ww-item-content">
-      <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4">${n.msg}</div>
+      <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${n.msg}</div>
+      ${n.receipt?`<div style="margin-top:6px;padding:8px;background:#f0fdf4;border-radius:8px;font-size:12px"><strong>${n.receipt.student}</strong> · ${n.receipt.type_label}${n.receipt.trimestre?' '+n.receipt.trimestre:''} · <strong>$${n.receipt.amount}</strong>${n.receipt.by?' · '+n.receipt.by:''}</div>`:''}
       <div class="ww-item-sub">${n.date||''} ${n.time||''}</div>
     </div>
   </div>`).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔔</div>Aucune notification</div>'}</div>`;
@@ -2565,7 +2567,22 @@ R.approbations = () => {
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
     ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
   </div>`:''}
-  ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Autres approbations</div>${apr.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe">📬</div><div style="flex:1"><div class="pi-title">${a.type}</div><div class="pi-sub">${a.content||''}</div></div></div>`).join('')}</div>`:''}
+  ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Approbations (${apr.length})</div>
+    ${apr.map(a=>{
+      const typeLabel={cahier_texte:'📖 Cahier de texte',matiere:'📐 Nouvelle matière',retard_grave:'⏰ Retard grave'}[a.type]||'📬 '+a.type;
+      const submitter=gu(a.by);
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+        <div class="pi-icon" style="background:${a.type==='cahier_texte'?'#dbeafe':a.type==='matiere'?'#d1fae5':'#fef3c7'}">${a.type==='cahier_texte'?'📖':a.type==='matiere'?'📐':'⏰'}</div>
+        <div style="flex:1;min-width:150px">
+          <div class="pi-title">${typeLabel}</div>
+          <div class="pi-sub">${a.content||''}</div>
+          ${submitter?`<div style="font-size:11px;color:var(--text-muted)">${submitter.name} · ${a.date||''}</div>`:''}
+        </div>
+        ${a.type==='retard_grave'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveApr('${a.id}','approved')">✅ Autoriser</button><button class="btn btn-danger btn-sm" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
+        ${a.type==='cahier_texte'||a.type==='matiere'?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">✅ Approuver</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
+      </div>`;
+    }).join('')}
+  </div>`:''}
   ${pendingRats.length?`<div class="premium-section" style="border-left:4px solid #f59e0b"><div class="premium-section-title">📚 Signalements de rattrapage (${pendingRats.length})</div>
     ${pendingRats.map(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
@@ -2579,6 +2596,7 @@ R.approbations = () => {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <div class="pi-title">${s?s.name:'?'}</div>
             ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">AUTO</span>`:`<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px">Manuel</span>`}
+            ${r.d2_validated?`<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:10px;font-weight:700">D2 ✅</span>`:''}
           </div>
           <div class="pi-sub">${r.matiere} · ${cl?cl.name:'?'}</div>
           ${r.score!=null?`<div style="margin-top:4px;display:flex;align-items:center;gap:6px">
@@ -2656,17 +2674,42 @@ R.approbations = () => {
     </div>`;
   })()}`;
 };
+window.approveApr = (id, status) => {
+  const a = DB.approbations.find(x=>x.id===id); if(!a) return;
+  a.status = status;
+  pushSync('approbations','patch',{status},'id=eq.'+id);
+  if(a.type==='cahier_texte' && a.data && a.data.ctId) {
+    const ct = DB.cahier_texte.find(x=>x.id===a.data.ctId);
+    if(ct){ ct.status = status==='approved'?'approved':'refused'; pushSync('cahier_texte','patch',{status:ct.status},'id=eq.'+ct.id); }
+    const teacher = gu(a.by);
+    if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`${status==='approved'?'✅':'❌'} Cahier de texte ${status==='approved'?'approuvé':'refusé'} — ${a.content.slice(0,60)}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+  }
+  if(a.type==='matiere' && status==='approved' && a.data) {
+    const exists = DB.matieres.find(m=>m.cid===a.data.cid&&m.name===a.data.name);
+    if(!exists){ const nm={id:'mat'+Date.now(),cid:a.data.cid,name:a.data.name,lang:a.data.lang,active:true}; DB.matieres.push(nm); pushSync('matieres','post',nm); }
+    const teacher = gu(a.by);
+    if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+  }
+  toast(status==='approved'?'✅ Approuvé':'❌ Refusé', status==='approved'?'success':'info');
+  saveToCrypt(); render();
+};
+
 window.validateAbs = (id, status) => {
   const a = DB.absences.find(x=>x.id===id); if (!a) return;
   a.status = status;
   pushSync('absences','patch',{status},'id=eq.'+id);
+  // If approved, mark matching attendance records as excused
+  if(status==='approved') {
+    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&(x.status==='absent'||x.status==='late'));
+    affectedAtt.forEach(att=>{ att.excused=true; pushSync('attendance','patch',{excused:true},'id=eq.'+att.id); });
+  }
   const s=DB.students.find(x=>x.id===a.sid);
   if(a.pid){
     const notif={id:'n'+Date.now(),uid:a.pid,msg:`${status==='approved'?'✅':'❌'} Justification ${status==='approved'?'approuvée':'refusée'} — ${s?s.name:'?'} · ${a.dates} · ${a.motif}`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   }
-  toast(status==='approved'?'✅ Approuvée':'❌ Refusée', status==='approved'?'success':'info');
+  toast(status==='approved'?'✅ Approuvée — présences marquées excusées':'❌ Refusée', status==='approved'?'success':'info');
   saveToCrypt(); render();
 };
 
@@ -2770,7 +2813,8 @@ window._autoReportSent = {};
 
 window.sendDailyReportNow = () => {
   const dateKey = today();
-  const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id&&r.status==='pending');
+  const lsKey = 'd3_report_'+S.user.id+'_'+dateKey;
+  const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id&&r.status==='pending')||localStorage.getItem(lsKey);
   if(already){toast('Rapport déjà envoyé — en attente de validation Direction 1','info');return;}
   const recs = DB.daily_records.filter(r=>r.date===dateKey&&!r.validated);
   const exps = DB.daily_expenses.filter(e=>e.date===dateKey&&!e.validated);
@@ -2781,6 +2825,7 @@ window.sendDailyReportNow = () => {
   DB.daily_reports.unshift(rep);
   pushSync('daily_reports','post',rep);
   window._autoReportSent['d3_'+dateKey]=true;
+  localStorage.setItem('d3_report_'+S.user.id+'_'+dateKey,'1');
   DB.users.filter(u=>u.role==='direction').forEach(u=>{
     const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: $${totalIn} · Dépensé: $${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
     DB.notifs.unshift(notif);
@@ -3427,15 +3472,15 @@ window.validerRattrapage = (rid, noPayment) => {
   const s=DB.students.find(x=>x.id===r.sid);
   // Direction 2: approve academically without setting a fee
   if(noPayment || S.user.role==='direction2') {
-    r.amount=0; r.validated_by=S.user.id; r.validated_date=today();
-    pushSync('rattrapages','patch',{amount:0,validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
+    r.d2_validated=true; r.validated_date=today();
+    pushSync('rattrapages','patch',{d2_validated:true,validated_date:r.validated_date},'id=eq.'+rid);
     if(s&&s.pid){
       const notif={id:'n'+Date.now(),uid:s.pid,
         msg:`📚 Cours de rattrapage approuvé — ${s.name} · ${r.matiere}. Raison : ${r.motif}`,
         time:nowTime(),date:today(),read:false,type:'alert'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     }
-    toast(`✅ Rattrapage approuvé — parent notifié`,'success');
+    toast(`✅ Rattrapage approuvé — Direction 1 fixera le montant`,'success');
     saveToCrypt(); render(); return;
   }
   openM(`📚 Valider rattrapage — ${s?s.name:''}`,`
@@ -3796,8 +3841,9 @@ window.openStudentGrades = (sid,cid) => {
     const g=DB.grades.find(x=>x.sid===sid&&x.matiere===m.name);
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
       <span style="font-size:12px;flex:1">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
-      <input class="form-input sg-input" data-mat="${m.name}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" value="${g?g.pct:''}" placeholder="—">
+      <input class="form-input sg-input" data-mat="${m.name}" data-gid="${g?g.id:''}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" value="${g?g.pct:''}" placeholder="—">
       <span style="font-size:12px;color:var(--text-muted)">%</span>
+      ${g?`<button style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px" onclick="deleteGrade('${g.id}','${sid}')" title="Supprimer">🗑️</button>`:''}
     </div>`;
   }).join('')}
   <div style="margin-top:14px">
@@ -3836,6 +3882,17 @@ window.saveSingleGrades = sid => {
   autoCheckRattrapage(sid, S.user.id);
   toast('Enregistré ✅','success');
   saveToCrypt(); closeModal(); render();
+};
+
+window.deleteGrade = (gid, sid) => {
+  showC('Supprimer cette note ?','Cette action est irréversible.',()=>{
+    DB.grades=DB.grades.filter(x=>x.id!==gid);
+    pushSync('grades','delete',{},'id=eq.'+gid);
+    toast('🗑️ Note supprimée','info');
+    saveToCrypt(); render();
+    // Re-open the grade panel for the same student
+    if(sid){ const s=DB.students.find(x=>x.id===sid); if(s) openStudentGrades(sid,s.cid); }
+  });
 };
 
 // ── MATIÈRES ──
@@ -3894,10 +3951,14 @@ window.submitMatiere = cid => {
   const name=$('matName')?.value.trim();
   const lang=$('matLang')?.value;
   if(!name){toast('Nom obligatoire','error');return;}
-  DB.approbations.push({
-    id:'apr'+Date.now(),type:'matiere',status:'pending',
+  const apr={id:'apr'+Date.now(),type:'matiere',status:'pending',
     content:`Ajout matière: ${name} (${lang}) pour ${gc(cid)?.name||''}`,
-    data:{cid,name,lang},date:today()
+    data:{cid,name,lang},date:today(),by:S.user.id};
+  DB.approbations.push(apr);
+  pushSync('approbations','post',apr);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now(),uid:u.id,msg:`📐 Demande matière — "${name}" (${lang}) pour ${gc(cid)?.name||'?'} par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
   toast('Demande soumise à la Direction ✅','success');
   saveToCrypt(); closeModal(); render();
@@ -4206,6 +4267,7 @@ R.cahier_texte = () => {
 };
 
 window.openCahierM = () => {
+  if(!DB.settings.toggles?.cahier_texte){toast('Cahier de texte désactivé par la Direction','info');return;}
   const mc=getMyClass(); if(!mc.cl) return;
   const matieres=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
   openM('📖 Cahier de texte',`
@@ -4238,11 +4300,15 @@ window.saveCahier = () => {
     date, by:S.user.id, status:'pending'
   };
   DB.cahier_texte.unshift(entry);
-  // Add to approbations for Direction
-  DB.approbations.push({
-    id:'apr'+Date.now(), type:'cahier_texte', status:'pending',
-    content:`📖 ${mc.cl.name} — ${matiere}: ${content.slice(0,60)}...`,
-    data:{ctId:entry.id}, date:today()
+  pushSync('cahier_texte','post',entry);
+  const apr={id:'apr'+Date.now(), type:'cahier_texte', status:'pending',
+    content:`📖 ${mc.cl.name} — ${matiere}: ${content.slice(0,60)}${content.length>60?'...':''}`,
+    data:{ctId:entry.id}, date:today(), by:S.user.id};
+  DB.approbations.push(apr);
+  pushSync('approbations','post',apr);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now(),uid:u.id,msg:`📖 Cahier de texte soumis — ${mc.cl.name} · ${matiere} par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
   toast('Soumis à la Direction ✅','success');
   saveToCrypt(); closeModal(); render();
@@ -4610,6 +4676,7 @@ R.scan_log = () => {
   const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',authorized:'pill-green',unauthorized:'pill-red'};
   const typeIcon={entry:'📥',exit:'🚪'};
 
+  const incidents=logs.filter(l=>l.status==='unauthorized'||l.status==='refused');
   return `
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${ontime}</div><div class="ww-stat-label">À l'heure</div></div>
@@ -4618,6 +4685,9 @@ R.scan_log = () => {
     <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon">🚪</div><div class="ww-stat-val">${exits.length}</div><div class="ww-stat-label">Sorties</div></div>
   </div>
   ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
+  ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité aujourd'hui (${incidents.length})</div>
+    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.label||l.status} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#dc2626">${l.time}</span></div>`).join('')}
+  </div>`:''}
   ${logs.length?`
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} scan${logs.length>1?'s':''} aujourd'hui</div>
   <div class="ww-section">
@@ -5176,6 +5246,10 @@ window.caisseSavePaiement = async () => {
   const typeId=$('caisse_type').value;
   const typeLbl=PAYMENT_TYPES.find(t=>t.id===typeId)?.label||typeId;
   const trimestre=(typeId==='frais_scolaires'&&$('caisse_trimestre'))?$('caisse_trimestre').value:null;
+  if(typeId==='frais_scolaires'&&trimestre){
+    const expected=getFees()[trimestre];
+    if(expected&&amount!==expected) toast(`⚠️ Barème ${trimestre}: $${expected} — vous enregistrez $${amount}`,'info');
+  }
   const note=($('caisse_note').value||'').trim();
   const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,type:typeId,type_label:typeLbl,trimestre,amount,note,date:today(),time:nowTime(),by:S.user.id,validated:false};
   DB.daily_records.push(rec);
@@ -5262,7 +5336,21 @@ R.caisse_rapport = () => {
   ${exps.length?`<div class="premium-section"><div class="premium-section-title">💸 Dépenses (${exps.length})</div>
     ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${e.motif}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
   </div>`:''}
-  ${pastReps.length?`<div class="premium-section" style="opacity:.5"><div class="premium-section-title">🔒 Rapports précédents (validés)</div><div style="font-size:13px;color:var(--text-secondary)">${pastReps.length} rapport(s) validé(s) — données archivées par Direction 1.</div></div>`:''}`;
+  ${(()=>{
+    const past7=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated').slice(0,7);
+    if(!past7.length) return '';
+    return `<div class="premium-section"><div class="premium-section-title">📅 Historique (${past7.length} rapport${past7.length>1?'s':''} validés)</div>
+      ${past7.map(rep=>{
+        const tIn=(rep.records||[]).reduce((s,r)=>s+Number(r.amount||0),0);
+        const tOut=(rep.expenses||[]).reduce((s,e)=>s+Number(e.amount||0),0);
+        return `<div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">📋</div>
+          <div style="flex:1"><div class="pi-title">${rep.date}</div>
+          <div class="pi-sub">${(rep.records||[]).length} paiements · ${(rep.expenses||[]).length} dépenses</div></div>
+          <div style="text-align:right"><div style="font-size:12px;color:#059669;font-weight:700">+$${tIn}</div><div style="font-size:11px;color:#ef4444">-$${tOut}</div></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  })()}`;
 };
 
 // ── DIRECTION: autres pages ──
@@ -5318,23 +5406,29 @@ window.openComposeMsg = () => {
   const needsApproval = role==='enseignant';
   const parentPhone = S.user.phone||'';
 
-  // Parent: ne peut contacter QUE la Direction — jamais les enseignants
+  // Parent: peut contacter la Direction ET les enseignants de ses enfants
   if(role==='parent'){
     const dirs=DB.users.filter(u=>u.role==='direction'||u.role==='direction2');
-    openM('✉️ Message à la Direction',`
-    <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:12px;color:#1e40af;margin-bottom:14px">
-      ℹ️ Les parents contactent uniquement la Direction. Tout contact direct avec les enseignants se fait via la Direction.
-    </div>
+    const myKids=DB.students.filter(s=>s.pid===S.user.id);
+    const teacherIds=new Set();
+    myKids.forEach(k=>{ const cl=gc(k.cid); if(cl){if(cl.teacher_id) teacherIds.add(cl.teacher_id); if(cl.teacher_id_en) teacherIds.add(cl.teacher_id_en);} });
+    const teachers=DB.users.filter(u=>teacherIds.has(u.id));
+    openM('✉️ Envoyer un message',`
     <div class="form-group"><label class="form-label">Destinataire</label>
       <select class="form-select" id="msg_to">
-        ${dirs.map(u=>`<option value="uid:${u.id}">🏫 Direction — ${u.name}</option>`).join('')}
+        <optgroup label="Direction">
+          ${dirs.map(u=>`<option value="uid:${u.id}">🏫 ${u.name}</option>`).join('')}
+        </optgroup>
+        ${teachers.length?`<optgroup label="Enseignants de mes enfants">
+          ${teachers.map(u=>`<option value="uid:${u.id}">👨‍🏫 ${u.name}</option>`).join('')}
+        </optgroup>`:''}
       </select>
     </div>
     <div class="form-group"><label class="form-label">Objet *</label>
-      <input class="form-input" id="msg_subject" placeholder="Ex: Question sur les frais scolaires">
+      <input class="form-input" id="msg_subject" placeholder="Ex: Question concernant mon enfant">
     </div>
     <div class="form-group"><label class="form-label">Message *</label>
-      <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message à la Direction..." style="resize:vertical"></textarea>
+      <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message..." style="resize:vertical"></textarea>
     </div>
     <div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
       <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
