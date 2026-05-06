@@ -4,29 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <script>
-// ── Kill-switch : supprime l'ancien Service Worker ZALAVRAI (une seule fois) ──
 (function(){
-  var K='ss_clean_v3';
-  if(localStorage.getItem(K)) return;
-  localStorage.setItem(K,'1');
-  var done=false;
-  function reload(){if(done)return;done=true;window.location.reload(true);}
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.getRegistrations().then(function(regs){
-      var ps=regs.map(function(r){return r.unregister();});
-      return Promise.all(ps);
-    }).then(function(){
-      if('caches' in window){
-        return caches.keys().then(function(ks){
+  try {
+    var K='ss_clean_v4';
+    if(localStorage.getItem(K)) return;
+    localStorage.setItem(K,'1');
+    var done=false;
+    function reload(){if(done)return;done=true;window.location.reload(true);}
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){return r.unregister();}));
+      }).then(function(){
+        return 'caches' in window ? caches.keys().then(function(ks){
           return Promise.all(ks.map(function(k){return caches.delete(k);}));
-        });
-      }
-    }).then(function(){reload();}).catch(function(){reload();});
-  } else if('caches' in window){
-    caches.keys().then(function(ks){
-      Promise.all(ks.map(function(k){return caches.delete(k);})).then(reload);
-    }).catch(reload);
-  }
+        }) : null;
+      }).then(function(){
+        if(!done){done=true;window.location.reload(true);}
+      }).catch(function(){});
+    } else if('caches' in window){
+      caches.keys().then(function(ks){
+        return Promise.all(ks.map(function(k){return caches.delete(k);}));
+      }).then(function(){
+        if(!done){done=true;window.location.reload(true);}
+      }).catch(function(){});
+    }
+  } catch(e){}
 })();
 </script>
 <meta name="theme-color" content="#0f2557">
