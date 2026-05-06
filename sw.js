@@ -32,7 +32,7 @@ self.addEventListener('install', evt => {
   );
 });
 
-// ── Activation : supprime tous les anciens caches (zalavrai-v* inclus) ────────
+// ── Activation : supprime tous les anciens caches ────────────────────────────
 self.addEventListener('activate', evt => {
   evt.waitUntil(
     caches.keys()
