@@ -3,34 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<script>
-(function(){
-  try {
-    var K='ss_clean_v4';
-    if(localStorage.getItem(K)) return;
-    localStorage.setItem(K,'1');
-    var done=false;
-    function reload(){if(done)return;done=true;window.location.reload(true);}
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        return Promise.all(regs.map(function(r){return r.unregister();}));
-      }).then(function(){
-        return 'caches' in window ? caches.keys().then(function(ks){
-          return Promise.all(ks.map(function(k){return caches.delete(k);}));
-        }) : null;
-      }).then(function(){
-        if(!done){done=true;window.location.reload(true);}
-      }).catch(function(){});
-    } else if('caches' in window){
-      caches.keys().then(function(ks){
-        return Promise.all(ks.map(function(k){return caches.delete(k);}));
-      }).then(function(){
-        if(!done){done=true;window.location.reload(true);}
-      }).catch(function(){});
-    }
-  } catch(e){}
-})();
-</script>
 <meta name="theme-color" content="#0f2557">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1075,8 +1047,9 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 
 // ── LOGIN ──
 window.showLogin = () => {
-  $('SPLASH').classList.add('hidden');
-  setTimeout(() => { $('LS').style.display=''; $('LS').style.opacity='0'; setTimeout(()=>{$('LS').style.opacity='1';},50); },500);
+  const sp=$('SPLASH'), ls=$('LS');
+  if(sp) sp.style.display='none';
+  if(ls){ ls.style.display=''; ls.style.opacity='1'; }
 };
 window.tryLogin = () => {
   const name = ($('LN').value||'').trim().toLowerCase();
@@ -5969,48 +5942,32 @@ window.saveCal = () => {
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
-  if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.textContent='☀️';}
+  // Dark mode
+  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.textContent='☀️';} } catch(e){}
   initParticles();
-  // Login key handlers
-  const lp=$('LP'),ln=$('LN');
-  if(lp) lp.addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
-  if(ln) ln.addEventListener('keydown',e=>{if(e.key==='Enter')lp&&lp.focus();});
-  // Splash: robust touch + click handlers
-  const splash=$('SPLASH');
-  let _splashGone=false;
-  const goLogin=()=>{if(_splashGone)return;_splashGone=true;showLogin();};
-  if(splash){
-    splash.addEventListener('touchend',e=>{e.preventDefault();goLogin();},{passive:false});
-    splash.addEventListener('click',goLogin);
-  }
-  // Splash loader
-  let loadMsg=null;
-  if(splash){loadMsg=document.createElement('div');loadMsg.style.cssText='position:absolute;bottom:80px;left:50%;transform:translateX(-50%);font-size:13px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:8px;white-space:nowrap;pointer-events:none';loadMsg.innerHTML='<div class="spin"></div> Connexion à la base de données…';splash.appendChild(loadMsg);}
-  // 5-second timeout so app works even on slow/no network
-  const ok = await Promise.race([loadFromSupabase(), new Promise(res=>setTimeout(()=>res(false),5000))]);
-  if(loadMsg){loadMsg.innerHTML=ok?'🟢 Prêt':'🟡 Mode hors ligne';setTimeout(()=>loadMsg&&loadMsg.remove(),1500);}
-  document.addEventListener('keydown',e=>{const sp=$('SPLASH');if(e.key==='Enter'&&sp&&!sp.classList.contains('hidden'))goLogin();});
-});
 
-// ── SERVICE WORKER ──
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => {
-        console.log('[SW] enregistré', reg.scope);
-        // Force mise à jour immédiate si nouvelle version disponible
-        reg.addEventListener('updatefound', () => {
-          const nw = reg.installing;
-          nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              nw.postMessage({ type: 'SKIP_WAITING' });
-            }
-          });
-        });
-      })
-      .catch(e => console.warn('[SW] erreur:', e));
-  });
-}
+  // Login keyboard
+  const lp=$('LP'), ln=$('LN');
+  if(lp) lp.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+  if(ln) ln.addEventListener('keydown', e=>{ if(e.key==='Enter' && lp) lp.focus(); });
+
+  // Splash — tap sur mobile (touchstart = réponse immédiate)
+  const splash=$('SPLASH');
+  if(splash){
+    let gone=false;
+    function goLogin(){ if(gone) return; gone=true; showLogin(); }
+    splash.addEventListener('touchstart', goLogin, {passive:true});
+    splash.addEventListener('click', goLogin);
+    document.addEventListener('keydown', e=>{ if(e.key==='Enter') goLogin(); });
+  }
+
+  // Chargement Supabase (max 5 secondes)
+  const ok = await Promise.race([
+    loadFromSupabase(),
+    new Promise(res => setTimeout(()=>res(false), 5000))
+  ]);
+  if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
+});
 </script>
 </body>
 </html>
