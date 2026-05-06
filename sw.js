@@ -1,11 +1,9 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  ZALAVRAI — Service Worker  v11  ·  Production Ready
-//  Cache offline + Background Sync + Periodic Sync
+//  SchoolSafe — Service Worker  v1
+//  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE   = 'zalavrai-v11';
-const SYNC_TAG      = 'zalavrai-outbox';
-const SYNC_TAG_PULL = 'zalavrai-pull';
+const CACHE = 'schoolsafe-v1';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -13,18 +11,17 @@ const PRECACHE = [
   './manifest.json',
 ];
 
-// Domaines qui ne doivent JAMAIS passer par le cache
+// Domaines qui ne passent jamais par le cache
 const BYPASS_HOSTS = [
+  'supabase.co',
   'script.google.com',
   'script.googleusercontent.com',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'cdnjs.cloudflare.com',
-  'docs.google.com',       // gviz/tq requests
-  'spreadsheets.google.com',
 ];
 
-// ── Installation ─────────────────────────────────────────────────────────────
+// ── Installation ──────────────────────────────────────────────────────────────
 self.addEventListener('install', evt => {
   evt.waitUntil(
     caches.open(CACHE)
@@ -35,36 +32,50 @@ self.addEventListener('install', evt => {
   );
 });
 
-// ── Activation : nettoyage anciens caches ─────────────────────────────────────
+// ── Activation : supprime tous les anciens caches (zalavrai-v* inclus) ────────
 self.addEventListener('activate', evt => {
   evt.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE).map(k => {
+          console.log('[SW] suppression ancien cache:', k);
+          return caches.delete(k);
+        })
       ))
       .then(() => self.clients.claim())
   );
 });
 
-// ── Fetch : Cache-First pour statique, Network-Only pour API ──────────────────
+// ── Fetch : Network-First pour index.html, Cache-First pour le reste ──────────
 self.addEventListener('fetch', evt => {
   const url = new URL(evt.request.url);
 
-  // Bypass total pour les API externes
+  // Bypass pour les API externes
   if (BYPASS_HOSTS.some(h => url.hostname.includes(h))) return;
 
-  // Bypass pour toutes les requêtes POST/PUT (outbox)
+  // Bypass pour POST/PATCH/DELETE
   if (evt.request.method !== 'GET') return;
 
-  // Cache-First avec fallback réseau
+  // Network-First pour index.html (toujours la version la plus récente)
+  if (url.pathname.endsWith('/') || url.pathname.endsWith('index.html')) {
+    evt.respondWith(
+      fetch(evt.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put(evt.request, clone));
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // Cache-First avec fallback réseau pour les autres ressources
   evt.respondWith(
     caches.match(evt.request).then(cached => {
       if (cached) return cached;
       return fetch(evt.request).then(response => {
-        if (
-          response.ok &&
-          (url.origin === self.location.origin || url.hostname === self.location.hostname)
-        ) {
+        if (response.ok && url.origin === self.location.origin) {
           const clone = response.clone();
           caches.open(CACHE).then(cache => cache.put(evt.request, clone));
         }
@@ -78,51 +89,7 @@ self.addEventListener('fetch', evt => {
   );
 });
 
-// ── Background Sync — déclenchée automatiquement quand le réseau revient ─────
-// L'app enregistre 'zalavrai-outbox' quand il y a des items en attente
-// Le SW déclenche cette sync dès que le réseau est disponible (même si l'app est fermée)
-self.addEventListener('sync', evt => {
-  if (evt.tag === SYNC_TAG) {
-    evt.waitUntil(
-      // Notifier tous les clients (onglets) de vider leur outbox
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then(clients => {
-          if (clients.length > 0) {
-            // App ouverte → lui dire de processer
-            clients.forEach(client => client.postMessage({ type: 'BG_SYNC', tag: SYNC_TAG }));
-          }
-          // Si app fermée, on ne peut pas processer directement (pas d'accès à localStorage)
-          // L'outbox sera vidée au prochain ouverture de l'app
-        })
-    );
-  }
-
-  if (evt.tag === SYNC_TAG_PULL) {
-    evt.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then(clients => {
-          clients.forEach(client => client.postMessage({ type: 'BG_SYNC', tag: SYNC_TAG_PULL }));
-        })
-    );
-  }
-});
-
-// ── Periodic Background Sync (Chrome 80+ sur Android) ───────────────────────
-// Sync toutes les 30 minutes même si l'app est fermée
-self.addEventListener('periodicsync', evt => {
-  if (evt.tag === 'zalavrai-periodic') {
-    evt.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then(clients => {
-          clients.forEach(client =>
-            client.postMessage({ type: 'PERIODIC_SYNC' })
-          );
-        })
-    );
-  }
-});
-
-// ── Messages du client (app) vers le SW ──────────────────────────────────────
+// ── Messages du client ────────────────────────────────────────────────────────
 self.addEventListener('message', evt => {
   if (evt.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (evt.data?.type === 'CACHE_BUST') {

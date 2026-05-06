@@ -5963,6 +5963,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   if(loadMsg){loadMsg.innerHTML=ok?'🟢 Prêt':'🟡 Mode hors ligne';setTimeout(()=>loadMsg&&loadMsg.remove(),1500);}
   document.addEventListener('keydown',e=>{const sp=$('SPLASH');if(e.key==='Enter'&&sp&&!sp.classList.contains('hidden'))goLogin();});
 });
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        console.log('[SW] enregistré', reg.scope);
+        // Force mise à jour immédiate si nouvelle version disponible
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              nw.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      })
+      .catch(e => console.warn('[SW] erreur:', e));
+  });
+}
 </script>
 </body>
 </html>
