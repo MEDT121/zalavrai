@@ -1565,45 +1565,15 @@ const cardClasses = [
 ];
 
 
-let cardSchoolImg = new Image();
-let cardSafeImg = new Image();
+let schoolImg = new Image();
+let safeImg = new Image();
 let cardPhotoImg = null;
-cardSchoolImg.src = cardSchoolLogo;
-cardSafeImg.src = cardSafeLogo;
+schoolImg.src = cardSchoolLogo;
+safeImg.src = cardSafeLogo;
 
 // $ is already defined globally as document.getElementById
 function val(id) { return $(id).value || ""; }
 
-function init() {
-  $("classe").innerHTML = cardClasses.map((c,i)=>`<option value="${i}">${c.label}</option>`).join("");
-  $("colors").innerHTML = cardClasses.map((c,i)=>`<button class="colorBtn" style="background:${c.color}" onclick="setClass(${i})" title="${c.label}"></button>`).join("");
-  document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input", renderAll));
-  $("photo").addEventListener("change", e => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const tmp = new Image();
-      tmp.onload = () => {
-        // Redimensionner à max 400x520 pour performances
-        const maxW = 400, maxH = 520;
-        const scale = Math.min(maxW / tmp.width, maxH / tmp.height, 1);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(tmp.width * scale);
-        canvas.height = Math.round(tmp.height * scale);
-        canvas.getContext('2d').drawImage(tmp, 0, 0, canvas.width, canvas.height);
-        const resized = new Image();
-        resized.onload = () => { cardPhotoImg = resized; renderAll(); };
-        resized.src = canvas.toDataURL('image/jpeg', 0.85);
-      };
-      tmp.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-  cardSafeImg.onload = renderAll;
-  cardSchoolImg.onload = renderAll;
-  setClass(0);
-}
 
 function setClass(i) {
   $("classe").value = String(i);
@@ -1960,22 +1930,39 @@ function fillCardFromStudent(sid) {
   const cl = DB.classes.find(c => c.id === s.cid);
   const parent = DB.users.find(u => u.id === s.pid);
   const teacher = cl ? DB.users.find(u => u.id === cl.teacher_id) : null;
-  const classIdx = {'Petite Section':0,'Moyenne Section':1,'Grande Section':2,'CP1':3,'CP2':4,'CE1':5,'CE2':6,'CM1':7,'CM2':8}[cl ? cl.name : ''] || 0;
+  const classIdx = {'Petite Section':0,'Moyenne Section':1,'Grande Section':2,'CP1':3,'CP2':4,'CE1':5,'CE2':6,'CM1':7,'CM2':8}[cl ? cl.name : ''] ?? 0;
 
-  if (document.getElementById('nom')) {
-    document.getElementById('nom').value = s.name || '';
-    document.getElementById('matricule').value = s.mat || '';
-    document.getElementById('sid').value = s.id || '';
-    document.getElementById('dob').value = s.dob || '';
-    document.getElementById('validite').value = DB.settings ? DB.settings.year : '2025-2026';
-    document.getElementById('adresse').value = s.adresse || 'Kinshasa / RDC';
-    document.getElementById('parent').value = parent ? parent.name : (s.nom_papa || '');
-    document.getElementById('parentTel').value = parent ? (parent.phone || '') : '';
-    document.getElementById('teacher').value = teacher ? teacher.name : '';
-    if (document.getElementById('classe')) {
-      document.getElementById('classe').value = String(classIdx);
-      document.querySelectorAll('.colorBtn').forEach((b, k) => b.classList.toggle('active', k === classIdx));
-    }
+  if (!document.getElementById('nom')) return;
+
+  document.getElementById('nom').value = s.name || '';
+  document.getElementById('matricule').value = s.mat || '';
+  document.getElementById('sid').value = s.id || '';
+  document.getElementById('dob').value = s.dob || '';
+  document.getElementById('validite').value = (DB.settings && DB.settings.year) ? DB.settings.year : '2025-2026';
+  document.getElementById('adresse').value = s.adresse || 'Kinshasa / RDC';
+
+  // Parent : compte lié > nom_papa + nom_maman > vide
+  const parentName = parent ? parent.name : (s.nom_papa || s.nom_maman || '');
+  const parentTel  = parent ? (parent.phone || '') : '';
+  document.getElementById('parent').value = parentName;
+  document.getElementById('parentTel').value = parentTel;
+
+  // Enseignant : titulaire fr > titulaire en > vide
+  const teacherEn = cl ? DB.users.find(u => u.id === cl.teacher_id_en) : null;
+  document.getElementById('teacher').value = teacher ? teacher.name : (teacherEn ? teacherEn.name : '');
+
+  // Classe + couleur
+  document.getElementById('classe').value = String(classIdx);
+  document.querySelectorAll('.colorBtn').forEach((b, k) => b.classList.toggle('active', k === classIdx));
+
+  // Photo : charger depuis la DB si disponible, sinon effacer
+  cardPhotoImg = null;
+  if (s.photo) {
+    const img = new Image();
+    img.onload = () => { cardPhotoImg = img; renderAll(); };
+    img.onerror = () => { cardPhotoImg = null; renderAll(); };
+    img.src = s.photo;
+  } else {
     renderAll();
   }
 }
@@ -2008,15 +1995,22 @@ function initCardSystem() {
     };
     reader.readAsDataURL(file);
   });
-  if (cardSafeImg.complete && cardSafeImg.naturalWidth) {
+  if (safeImg.complete && safeImg.naturalWidth) {
     renderAll();
   } else {
-    cardSafeImg.onload = renderAll;
+    safeImg.onload = renderAll;
   }
-  if (!cardSchoolImg.complete || !cardSchoolImg.naturalWidth) {
-    cardSchoolImg.onload = renderAll;
+  if (!schoolImg.complete || !schoolImg.naturalWidth) {
+    schoolImg.onload = renderAll;
   }
   setClass(0);
+  // Auto-remplir avec le premier élève
+  if (DB.students.length) {
+    const first = DB.students[0];
+    const sel = document.getElementById('studentSelect');
+    if (sel) sel.value = first.id;
+    fillCardFromStudent(first.id);
+  }
 }
 
 // ── CARDS PREVIEW (Direction) ──
@@ -2038,11 +2032,12 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
 </style>
 <div class="premium-section" style="margin-bottom:14px">
   <div class="premium-section-title">&#127891; Sélectionner un élève</div>
-  <select class="form-select" onchange="fillCardFromStudent(this.value)" style="margin-top:8px">
+  <select id="studentSelect" class="form-select" onchange="fillCardFromStudent(this.value)" style="margin-top:8px">
     <option value="">— Choisir un élève —</option>
-    ${DB.students.map(s => {
-      const cl = DB.classes.find(c => c.id === s.cid);
-      return '<option value="'+s.id+'">'+ s.name +' — '+(cl?cl.name:'?')+'</option>';
+    ${DB.classes.map(cl => {
+      const studs = DB.students.filter(s => s.cid === cl.id).sort((a,b)=>a.name.localeCompare(b.name));
+      if (!studs.length) return '';
+      return '<optgroup label="'+cl.name+'">' + studs.map(s => '<option value="'+s.id+'">'+s.name+'</option>').join('') + '</optgroup>';
     }).join('')}
   </select>
 </div>
