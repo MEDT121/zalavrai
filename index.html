@@ -6067,212 +6067,258 @@ R.caisse_rapport = () => {
 // ── DIRECTION: autres pages ──
 // ── ÉTAPE 6 — MESSAGES INTERNES ──
 R.messages = () => {
-  const role = S.user.role;
-  const uid = S.user.id;
-  const received = DB.messages.filter(m=>m.to===uid||(m.to_role&&m.to_role===role)).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
-  const sent = DB.messages.filter(m=>m.from===uid).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
-  const pending = role==='direction' ? DB.messages.filter(m=>m.status==='pending') : [];
-  const tab = window._msgTab||'inbox';
-  const unread = received.filter(m=>!m.read).length;
+  const role=S.user.role, uid=S.user.id;
+  const isDir=role==='direction'||role==='direction2';
+  const received=DB.messages.filter(m=>(m.to===uid||(m.to_role&&m.to_role===role))&&m.status==='sent')
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const sent=DB.messages.filter(m=>m.from===uid)
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const fromParents=isDir?DB.messages.filter(m=>m.from_role==='parent'&&m.status==='sent')
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time)):[];
+  const pending=isDir?DB.messages.filter(m=>m.status==='pending'):[];
+  const tab=window._msgTab||(isDir?'parents':'inbox');
+  const unreadRec=received.filter(m=>!m.read).length;
+  const unreadPar=fromParents.filter(m=>!m.read).length;
 
-  const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444',sent:'#3b82f6'};
-  const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvé',refused:'❌ Refusé',sent:'📤 Envoyé'};
+  const TI={convocation:'📋',annonce:'📣',info:'ℹ️',normal:'✉️',question:'❓',rdv:'📅',reclamation:'⚠️',interro:'⚠️',devoir:'📚'};
+  const TL={convocation:'Convocation',annonce:'Annonce',info:'Information',normal:'Message',question:'Question',rdv:'RDV',reclamation:'Réclamation',interro:'Interro',devoir:'Devoir'};
 
-  const msgItem = (m, showActions=false) => {
-    const from=gu(m.from); const toUser=m.to?gu(m.to):null;
-    return `<div class="premium-item" style="${!m.read&&m.to===uid?'background:var(--bg)':''}">
-      <div class="pi-icon" style="background:#dbeafe">✉️</div>
-      <div style="flex:1;min-width:0">
-        <div class="pi-title">${m.subject||'(Sans objet)'} ${!m.read&&m.to===uid?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 5px;border-radius:6px;margin-left:4px">NEW</span>':''}</div>
-        <div class="pi-sub">${m.body}</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:3px">
-          De : ${from?from.name:'?'} → ${toUser?toUser.name:m.to_role?'Tous les '+m.to_role+'s':'?'} · ${m.date} ${m.time}
+  const card=(m,showReply=false)=>{
+    const from=gu(m.from), toU=m.to?gu(m.to):null;
+    const isNew=!m.read&&(m.to===uid||(m.to_role&&m.to_role===role));
+    const destLabel=toU?toU.name:m.to_role==='parent'?'Tous les parents':m.to_role==='enseignant'?'Tous les enseignants':m.to_role||'?';
+    return `<div style="background:${isNew?'#eff6ff':'var(--bg)'};border:1px solid ${isNew?'#bfdbfe':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+        <div style="width:38px;height:38px;border-radius:10px;background:${isNew?'#dbeafe':'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${TI[m.msg_type]||'✉️'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:${isNew?700:600};font-size:14px">${m.subject||'(Sans objet)'} ${isNew?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px">NEW</span>':''}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">${from?from.name:'?'} → ${destLabel} · ${m.date} ${m.time}</div>
         </div>
-        ${m.whatsapp?`<a href="https://wa.me/${m.whatsapp.replace(/\D/g,'')}?text=${encodeURIComponent(m.body)}" target="_blank" style="font-size:12px;color:#25d366;display:inline-flex;align-items:center;gap:4px;margin-top:4px">📱 Ouvrir sur WhatsApp</a>`:''}
+        <span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap">${TL[m.msg_type]||'Message'}</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <span class="pill" style="background:${statusColor[m.status]||'#e2e8f0'}22;color:${statusColor[m.status]||'#64748b'};white-space:nowrap">${statusLabel[m.status]||m.status}</span>
-        ${showActions&&m.status==='pending'?`<div style="display:flex;gap:4px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div>`:''}
-        ${m.to===uid&&!m.read?`<button class="btn btn-outline btn-sm" onclick="markMsgRead('${m.id}')">Lire</button>`:''}
+      <div style="font-size:13px;color:#374151;line-height:1.5;padding:8px 10px;background:#f8faff;border-radius:8px;white-space:pre-wrap">${m.body}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${isNew?`<button class="btn btn-outline btn-sm" onclick="markMsgRead('${m.id}')">✓ Marquer lu</button>`:''}
+        ${showReply?`<button class="btn btn-primary btn-sm" onclick="replyToParent('${m.id}')">↩️ Répondre</button>`:''}
+        ${isDir&&m.status==='pending'?`<button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅ Approuver</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌ Refuser</button>`:''}
       </div>
     </div>`;
   };
 
+  const tabs=isDir
+    ?[{id:'parents',l:`📨 Parents${unreadPar>0?' ('+unreadPar+')':''}`},{id:'inbox',l:`📥 Reçus${unreadRec>0?' ('+unreadRec+')':''}`},{id:'sent',l:`📤 Envoyés`},{id:'pending',l:`⏳ À approuver${pending.length?' ('+pending.length+')':''}`}]
+    :[{id:'inbox',l:`📥 Reçus${unreadRec>0?' ('+unreadRec+')':''}`},{id:'sent',l:`📤 Envoyés`}];
+
   return `
-  <div style="display:flex;gap:8px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px">
-    <button onclick="window._msgTab='inbox';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='inbox'?'var(--primary)':'var(--bg)'};color:${tab==='inbox'?'#fff':'var(--text-secondary)'}">📥 Reçus ${unread>0?`(${unread} non lus)`:''}</button>
-    <button onclick="window._msgTab='sent';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='sent'?'var(--primary)':'var(--bg)'};color:${tab==='sent'?'#fff':'var(--text-secondary)'}">📤 Envoyés (${sent.length})</button>
-    ${(role==='direction'||role==='direction2')?`<button onclick="window._msgTab='pending';render()" style="flex:1;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;background:${tab==='pending'?'var(--primary)':'var(--bg)'};color:${tab==='pending'?'#fff':'var(--text-secondary)'}">⏳ À approuver (${pending.length})</button>`:''}
+  ${isDir&&unreadPar>0?`<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:24px">📨</span>
+    <div><div style="font-weight:700;color:#991b1b">${unreadPar} message(s) de parent(s) non lu(s)</div>
+    <div style="font-size:12px;color:#b91c1c">Onglet "Parents" pour voir et répondre</div></div>
+  </div>`:''}
+  <div style="display:flex;gap:5px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px;flex-wrap:wrap">
+    ${tabs.map(t=>`<button onclick="window._msgTab='${t.id}';render()" style="flex:1;min-width:70px;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${tab===t.id?'var(--primary)':'var(--bg)'};color:${tab===t.id?'#fff':'var(--text-secondary)'}">${t.l}</button>`).join('')}
   </div>
-  <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="openComposeMsg()">✉️ Nouveau message</button>
-  ${tab==='inbox'?`<div class="premium-section">${received.length?received.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message reçu</div>'}</div>`:''}
-  ${tab==='sent'?`<div class="premium-section">${sent.length?sent.map(m=>msgItem(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message envoyé</div>'}</div>`:''}
-  ${tab==='pending'&&(role==='direction'||role==='direction2')?`<div class="premium-section">${pending.length?pending.map(m=>msgItem(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun message en attente d\'approbation</div>'}</div>`:''}`;
+  <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="openComposeMsg()">✉️ ${role==='parent'?'Écrire à la Direction':role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
+  ${tab==='parents'&&isDir?`<div>${fromParents.length?fromParents.map(m=>card(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📨</div>Aucun message de parent</div>'}</div>`:''}
+  ${tab==='inbox'?`<div>${received.length?received.map(m=>card(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📥</div>Aucun message reçu</div>'}</div>`:''}
+  ${tab==='sent'?`<div>${sent.length?sent.map(m=>card(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📤</div>Aucun message envoyé</div>'}</div>`:''}
+  ${tab==='pending'&&isDir?`<div>${pending.length?pending.map(m=>card(m)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">⏳</div>Aucun message en attente</div>'}</div>`:''}`;
 };
 
 window._msgTab = 'inbox';
 
 window.openComposeMsg = () => {
-  const role = S.user.role;
-  const needsApproval = role==='enseignant';
-  const parentPhone = S.user.phone||'';
+  const role=S.user.role;
 
-  // Parent: peut contacter la Direction ET les enseignants de ses enfants
   if(role==='parent'){
-    const dirs=DB.users.filter(u=>u.role==='direction'||u.role==='direction2');
-    const myKids=DB.students.filter(s=>s.pid===S.user.id);
-    const teacherIds=new Set();
-    myKids.forEach(k=>{ const cl=gc(k.cid); if(cl){if(cl.teacher_id) teacherIds.add(cl.teacher_id); if(cl.teacher_id_en) teacherIds.add(cl.teacher_id_en);} });
-    const teachers=DB.users.filter(u=>teacherIds.has(u.id));
-    openM('✉️ Envoyer un message',`
-    <div class="form-group"><label class="form-label">Destinataire</label>
-      <select class="form-select" id="msg_to">
-        <optgroup label="Direction">
-          ${dirs.map(u=>`<option value="uid:${u.id}">🏫 ${u.name}</option>`).join('')}
-        </optgroup>
-        ${teachers.length?`<optgroup label="Enseignants de mes enfants">
-          ${teachers.map(u=>`<option value="uid:${u.id}">👨‍🏫 ${u.name}</option>`).join('')}
-        </optgroup>`:''}
+    openM('✉️ Écrire à la Direction',`
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#065f46">
+      🏫 Votre message sera envoyé directement à la Direction de l'école
+    </div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <select class="form-select" id="msg_type">
+        <option value="question">❓ Question</option>
+        <option value="rdv">📅 Demande de rendez-vous</option>
+        <option value="reclamation">⚠️ Réclamation</option>
+        <option value="normal">✉️ Autre</option>
       </select>
     </div>
     <div class="form-group"><label class="form-label">Objet *</label>
       <input class="form-input" id="msg_subject" placeholder="Ex: Question concernant mon enfant">
     </div>
     <div class="form-group"><label class="form-label">Message *</label>
-      <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message..." style="resize:vertical"></textarea>
-    </div>
-    <div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
-      <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
+      <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Votre message..."></textarea>
     </div>`,
     `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-     <button class="btn btn-primary" onclick="sendMsg()">📤 Envoyer</button>`);
+     <button class="btn btn-primary" onclick="sendMsg('parent_to_dir')">📤 Envoyer</button>`);
     return;
   }
 
-  // For teachers: build class-specific parent group options
-  const mc = role==='enseignant' ? getMyClass() : {cl:null,lang:null};
-  const myClassParentsOpt = mc.cl
-    ? `<option value="class_parents:${mc.cl.id}">👨‍👩‍👧 Parents de ${mc.cl.name}</option>`
-    : '';
-  const recipients = DB.users.filter(u=>u.id!==S.user.id&&u.role!=='direction3');
+  if(role==='enseignant'){
+    const mc=getMyClass();
+    if(!mc.cl){toast('Aucune classe assignée','error');return;}
+    openM('✉️ Message aux parents',`
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#78350f">
+      ⏳ Ce message sera soumis à la Direction avant envoi à tous les parents de <strong>${mc.cl.name}</strong>
+    </div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <select class="form-select" id="msg_type" onchange="applyMsgTemplate()">
+        <option value="normal">✉️ Information générale</option>
+        <option value="interro">⚠️ Avertissement d'interrogation</option>
+        <option value="devoir">📚 Rappel de devoir</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Objet *</label>
+      <input class="form-input" id="msg_subject" placeholder="Ex: Interrogation prévue vendredi">
+    </div>
+    <div class="form-group"><label class="form-label">Message *</label>
+      <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical"></textarea>
+    </div>
+    <div id="msg_extra_fields"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="sendMsg('teacher_broadcast')">📤 Soumettre à la Direction</button>`);
+    return;
+  }
 
-  const teacherTypeBlock = needsApproval ? `
-<div class="form-group"><label class="form-label">Type de message</label>
-  <select class="form-select" id="msg_type" onchange="applyMsgTemplate()">
-    <option value="normal">✉️ Message standard</option>
-    <option value="interro">⚠️ Avertissement d'interrogation</option>
-    <option value="devoir">📚 Rappel de devoir</option>
-  </select>
-</div>` : '';
-
+  // Direction
+  const parents=DB.users.filter(u=>u.role==='parent');
+  const teachers=DB.users.filter(u=>u.role==='enseignant');
   openM('✉️ Nouveau message',`
-${teacherTypeBlock}
-<div class="form-group"><label class="form-label">Destinataire *</label>
-  <select class="form-select" id="msg_to">
-    <option value="">— Choisir un destinataire —</option>
-    ${myClassParentsOpt}
-    <optgroup label="Individuel">
-      ${recipients.map(u=>`<option value="uid:${u.id}">${u.name} (${u.role})</option>`).join('')}
-    </optgroup>
-    <optgroup label="Groupe">
-      <option value="role:parent">👨‍👩‍👧 Tous les parents</option>
-      <option value="role:enseignant">👨‍🏫 Tous les enseignants</option>
-      <option value="role:gardien">🛡️ Tous les gardiens</option>
-    </optgroup>
-  </select>
-</div>
-<div class="form-group"><label class="form-label">Objet *</label>
-  <input class="form-input" id="msg_subject" placeholder="Ex: Réunion parents ce vendredi">
-</div>
-<div class="form-group"><label class="form-label">Message *</label>
-  <textarea class="form-input" id="msg_body" rows="5" placeholder="Votre message..." style="resize:vertical"></textarea>
-</div>
-<div id="msg_extra_fields"></div>
-<div class="form-group"><label class="form-label">N° WhatsApp (optionnel)</label>
-  <input class="form-input" id="msg_wa" placeholder="+243 8XX XXX XXX" value="${parentPhone}">
-</div>
-${needsApproval?`<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:13px;color:#78350f;margin-top:6px">⏳ Votre message sera soumis à l'approbation de la Direction avant envoi.</div>`:''}`,
-`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="sendMsg()">${needsApproval?'📤 Soumettre pour approbation':'📤 Envoyer'}</button>`);
+  <div class="form-group"><label class="form-label">Type de message</label>
+    <select class="form-select" id="msg_type" onchange="applyDirMsgTemplate()">
+      <option value="normal">✉️ Message standard</option>
+      <option value="convocation">📋 Convocation</option>
+      <option value="annonce">📣 Annonce générale</option>
+      <option value="info">ℹ️ Information</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Destinataire *</label>
+    <select class="form-select" id="msg_to">
+      <option value="">— Choisir un destinataire —</option>
+      <optgroup label="👨‍👩‍👧 Parents">
+        <option value="role:parent">📢 Tous les parents</option>
+        ${parents.map(u=>{const k=DB.students.filter(s=>s.pid===u.id);return`<option value="uid:${u.id}">👤 ${u.name}${k.length?' ('+k[0].name+')':''}`;}).join('')}
+      </optgroup>
+      ${teachers.length?`<optgroup label="👨‍🏫 Enseignants">
+        <option value="role:enseignant">📢 Tous les enseignants</option>
+        ${teachers.map(u=>`<option value="uid:${u.id}">👤 ${u.name}</option>`).join('')}
+      </optgroup>`:''}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Objet *</label>
+    <input class="form-input" id="msg_subject" placeholder="Objet du message">
+  </div>
+  <div class="form-group"><label class="form-label">Message *</label>
+    <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical"></textarea>
+  </div>
+  <div id="msg_extra_fields"></div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="sendMsg('dir_send')">📤 Envoyer</button>`);
 };
 
 window.applyMsgTemplate = () => {
-  const type = ($('msg_type')||{}).value||'normal';
-  const mc = getMyClass();
-  const className = mc.cl ? mc.cl.name : 'votre classe';
-  const subjEl = $('msg_subject');
-  const bodyEl = $('msg_body');
-  const toEl = $('msg_to');
-  const extraEl = $('msg_extra_fields');
+  const type=($('msg_type')||{}).value||'normal';
+  const mc=getMyClass(), cn=mc.cl?mc.cl.name:'votre classe';
+  const subj=$('msg_subject'), body=$('msg_body');
   if(type==='interro'){
-    if(subjEl) subjEl.value = `⚠️ Avertissement interrogation — ${className}`;
-    if(bodyEl) bodyEl.value = `Chers parents,\n\nUne interrogation est prévue prochainement en :\n• Matière : \n• Date : \n• Chapitres à réviser : \n\nMerci d'encourager votre enfant à bien réviser.\n\nCordialement,\n${S.user.name}`;
-    if(toEl && mc.cl) { Array.from(toEl.options).forEach(o=>{ if(o.value===`class_parents:${mc.cl.id}`) o.selected=true; }); }
-    if(extraEl) extraEl.innerHTML=`<div style="background:#fef9c3;border:1px solid #fcd34d;border-radius:10px;padding:10px;font-size:12px;color:#78350f;margin-bottom:12px">⚠️ Les parents recevront cette alerte pour préparer leur enfant à l'interrogation.</div>`;
+    if(subj) subj.value=`⚠️ Avertissement interrogation — ${cn}`;
+    if(body) body.value=`Chers parents,\n\nUne interrogation est prévue en :\n• Matière : \n• Date : \n• Chapitres à réviser : \n\nMerci d'encourager votre enfant à bien réviser.\n\nCordialement,\n${S.user.name}`;
   } else if(type==='devoir'){
-    if(subjEl) subjEl.value = `📚 Rappel de devoir — ${className}`;
-    if(bodyEl) bodyEl.value = `Chers parents,\n\nRappel : votre enfant a un devoir à rendre.\n• Matière : \n• Devoir : \n• Date limite : \n\nMerci de vérifier que le devoir est bien fait.\n\nCordialement,\n${S.user.name}`;
-    if(toEl && mc.cl) { Array.from(toEl.options).forEach(o=>{ if(o.value===`class_parents:${mc.cl.id}`) o.selected=true; }); }
-    if(extraEl) extraEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px;font-size:12px;color:#14532d;margin-bottom:12px">📚 Rappel de devoir envoyé aux parents de la classe.</div>`;
-  } else {
-    if(extraEl) extraEl.innerHTML='';
+    if(subj) subj.value=`📚 Rappel de devoir — ${cn}`;
+    if(body) body.value=`Chers parents,\n\nVotre enfant a un devoir à rendre :\n• Matière : \n• Devoir : \n• Date limite : \n\nMerci de vérifier que le devoir est bien fait.\n\nCordialement,\n${S.user.name}`;
+  }
+};
+window.applyDirMsgTemplate = () => {
+  const type=($('msg_type')||{}).value;
+  const subj=$('msg_subject'),body=$('msg_body');
+  if(type==='convocation'){
+    if(subj) subj.value='📋 Convocation — The Wise School International';
+    if(body) body.value=`Chers parents,\n\nVous êtes invité(e) à vous présenter à la Direction de l'école.\n\nMotif :\nDate :\nHeure :\n\nMerci de votre présence.\n\nLa Direction`;
+  } else if(type==='annonce'){
+    if(subj) subj.value='📣 Annonce — The Wise School International';
+    if(body) body.value=`Chers parents,\n\nNous vous informons que :\n\n\n\nCordialement,\nLa Direction`;
+  } else if(type==='info'){
+    if(subj) subj.value='ℹ️ Information — The Wise School International';
+    if(body) body.value=`Chers parents,\n\nPour information :\n\n\n\nCordialement,\nLa Direction`;
   }
 };
 
-window.sendMsg = () => {
-  const toVal=($('msg_to').value||'').trim();
-  const subject=($('msg_subject').value||'').trim();
-  const body=($('msg_body').value||'').trim();
-  if(!toVal){toast('Sélectionnez un destinataire','error');return;}
+window.sendMsg = (mode) => {
+  const subject=($('msg_subject')?.value||'').trim();
+  const body=($('msg_body')?.value||'').trim();
+  const msgType=($('msg_type')?.value||'normal');
   if(!subject){toast('Entrez un objet','error');return;}
   if(!body){toast('Entrez un message','error');return;}
-  const role=S.user.role;
-  const needsApproval=role==='enseignant';
-  const msgType=($('msg_type')||{}).value||'normal';
 
-  // Resolve class_parents:cid → list of parent user IDs for that class
-  let toId=null, toRole=null, toClassCid=null;
-  if(toVal.startsWith('class_parents:')){
-    toClassCid=toVal.replace('class_parents:','');
-  } else if(toVal.startsWith('role:')){
-    toRole=toVal.replace('role:','');
-  } else {
-    toId=toVal.replace('uid:','');
+  let toId=null,toRole=null,toClassCid=null,needsApproval=false,targets=[];
+
+  if(mode==='parent_to_dir'){
+    toRole='direction';
+    targets=DB.users.filter(u=>u.role==='direction');
+  } else if(mode==='teacher_broadcast'){
+    const mc=getMyClass();
+    if(!mc.cl){toast('Aucune classe assignée','error');return;}
+    toClassCid=mc.cl.id; needsApproval=true;
+    const pids=[...new Set(DB.students.filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
+    targets=DB.users.filter(u=>pids.includes(u.id));
+  } else if(mode==='dir_send'){
+    const toVal=($('msg_to')?.value||'').trim();
+    if(!toVal){toast('Sélectionnez un destinataire','error');return;}
+    if(toVal.startsWith('role:')){toRole=toVal.replace('role:','');targets=DB.users.filter(u=>u.role===toRole);}
+    else {toId=toVal.replace('uid:','');targets=[DB.users.find(u=>u.id===toId)].filter(Boolean);}
   }
 
-  const wa=($('msg_wa').value||'').trim()||null;
-  const msg={id:'msg'+Date.now(),from:S.user.id,to:toId,to_role:toRole,to_class_cid:toClassCid||null,
-    subject,body,whatsapp:wa,date:today(),time:nowTime(),msg_type:msgType,
-    status:needsApproval?'pending':'sent',read:false};
-  DB.messages.push(msg);
-  pushSync('messages','post',msg);
+  const msg={id:'msg'+Date.now(),from:S.user.id,from_role:S.user.role,to:toId,to_role:toRole,
+    to_class_cid:toClassCid||null,subject,body,msg_type:msgType,
+    date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
+  DB.messages.push(msg); pushSync('messages','post',msg);
 
-  const resolveTargets = () => {
-    if(toClassCid){
-      const pids=[...new Set(DB.students.filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
-      return DB.users.filter(u=>pids.includes(u.id));
-    }
-    if(toId) return [DB.users.find(u=>u.id===toId)].filter(Boolean);
-    return DB.users.filter(u=>u.role===toRole);
-  };
-
-  if(!needsApproval){
-    resolveTargets().forEach(u=>{
-      const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
-      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
-    });
-    toast('✅ Message envoyé','success');
-  } else {
-    const clName=toClassCid?(gc(toClassCid)||{}).name||'':toRole||'';
-    const typeLabel=msgType==='interro'?'⚠️ Avertissement interro':msgType==='devoir'?'📚 Rappel devoir':'✉️ Message';
+  if(needsApproval){
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-      const notif={id:'n'+Date.now(),uid:u.id,
-        msg:`⏳ ${typeLabel} en attente — ${S.user.name}${clName?' ('+clName+')':''} : "${subject}"`,
-        time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+        msg:`⏳ Message enseignant à approuver — ${S.user.name} : "${subject}"`,
+        time:nowTime(),date:today(),read:false,type:'approval'};
+      DB.notifs.unshift(n);pushSync('notifs','post',n);
     });
-    toast('📤 Message soumis — en attente d\'approbation Direction','info');
+    toast('📤 Message soumis à la Direction','info');
+  } else {
+    targets.filter(Boolean).forEach(u=>{
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+        msg:`✉️ ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(n);pushSync('notifs','post',n);
+    });
+    if(mode==='parent_to_dir'){
+      DB.users.filter(u=>u.role==='direction').forEach(u=>{
+        const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+          msg:`📨 MESSAGE PARENT — ${S.user.name} : "${subject}"`,
+          time:nowTime(),date:today(),read:false,type:'alert'};
+        DB.notifs.unshift(n);pushSync('notifs','post',n);
+      });
+    }
+    toast('✅ Message envoyé','success');
   }
-  closeModal(); saveToCrypt(); render();
+  closeModal();saveToCrypt();render();
+};
+
+window.replyToParent = (mid) => {
+  const m=DB.messages.find(x=>x.id===mid);if(!m)return;
+  const parent=gu(m.from);if(!parent)return;
+  openM(`↩️ Répondre à ${parent.name}`,`
+  <div style="background:#f8faff;border-left:3px solid #0f2557;border-radius:8px;padding:10px 12px;margin-bottom:14px">
+    <div style="font-size:11px;color:#6b7280;margin-bottom:3px">Message original</div>
+    <div style="font-size:13px;font-weight:600;color:#374151">"${m.subject}"</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:4px">${m.body.slice(0,120)}${m.body.length>120?'…':''}</div>
+  </div>
+  <div class="form-group"><label class="form-label">Objet</label>
+    <input class="form-input" id="msg_subject" value="Re: ${m.subject}">
+  </div>
+  <div class="form-group"><label class="form-label">Votre réponse *</label>
+    <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Réponse à ${parent.name}..."></textarea>
+  </div>
+  <select id="msg_to" style="display:none"><option value="uid:${parent.id}" selected></option></select>
+  <select id="msg_type" style="display:none"><option value="normal" selected></option></select>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="sendMsg('dir_send')">↩️ Envoyer la réponse</button>`);
 };
 
 window.approveMsg = (mid, status) => {
@@ -6289,19 +6335,20 @@ window.approveMsg = (mid, status) => {
       targets=DB.users.filter(u=>u.role===m.to_role);
     }
     targets.forEach(u=>{
-      const notif={id:'n'+Date.now(),uid:u.id,msg:`✉️ Nouveau message de ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'message'};
-      DB.notifs.unshift(notif);
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+        msg:`✉️ ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(n);pushSync('notifs','post',n);
     });
-    // Notifier expéditeur
-    const senderNotif={id:'n'+Date.now(),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(senderNotif);
+    const sn={id:'n'+Date.now(),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(sn);
     toast('✅ Message approuvé et envoyé','success');
   } else {
-    const senderNotif={id:'n'+Date.now(),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(senderNotif);
+    const sn={id:'n'+Date.now(),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(sn);
     toast('❌ Message refusé','info');
   }
-  saveToCrypt(); render();
+  pushSync('messages','patch',{status},'id=eq.'+mid);
+  saveToCrypt();render();
 };
 
 window.markMsgRead = (mid) => {
