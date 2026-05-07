@@ -546,7 +546,8 @@ window.DB = {
       maternelle: { ontime:485, late:510 },
     },
     toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true },
-    year: '2025-2026'
+    year: '2025-2026',
+    feesControl: { active:false, trimestre:'T1' }
   }
 };
 
@@ -1226,6 +1227,21 @@ function dashboardDirection() {
       ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['payments','💰','Frais'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
+    ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:24px">${fc.active?'🔴':'💰'}</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:${fc.active?'#991b1b':'var(--text)'}">${fc.active?`CONTRÔLE FRAIS ACTIF — ${fc.trimestre}`:'Contrôle de frais scolaires'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${fc.active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div>
+        </div>
+        <select id="fcTrim" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:13px;color:var(--text)" onchange="DB.settings.feesControl.trimestre=this.value">
+          <option value="T1" ${fc.trimestre==='T1'?'selected':''}>Trimestre 1</option>
+          <option value="T2" ${fc.trimestre==='T2'?'selected':''}>Trimestre 2</option>
+          <option value="T3" ${fc.trimestre==='T3'?'selected':''}>Trimestre 3</option>
+        </select>
+        <button class="btn ${fc.active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${fc.active?'🔓 Désactiver':'🔴 Activer'}</button>
+      </div>
+    </div>`;})()}
   </div>
   ${(() => {
     // Absence alerts sent by teachers today
@@ -1394,6 +1410,19 @@ function dashboardDirection2() {
       ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['classes','🏫','Classes'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
+    ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:24px">${fc.active?'🔴':'💰'}</span>
+        <div style="flex:1"><div style="font-weight:700;font-size:14px;color:${fc.active?'#991b1b':'var(--text)'}">${fc.active?`CONTRÔLE FRAIS ACTIF — ${fc.trimestre}`:'Contrôle de frais scolaires'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${fc.active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div></div>
+        <select id="fcTrim2" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:13px;color:var(--text)" onchange="DB.settings.feesControl.trimestre=this.value">
+          <option value="T1" ${fc.trimestre==='T1'?'selected':''}>Trimestre 1</option>
+          <option value="T2" ${fc.trimestre==='T2'?'selected':''}>Trimestre 2</option>
+          <option value="T3" ${fc.trimestre==='T3'?'selected':''}>Trimestre 3</option>
+        </select>
+        <button class="btn ${fc.active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${fc.active?'🔓 Désactiver':'🔴 Activer'}</button>
+      </div>
+    </div>`;})()}
   </div>
   ${(() => {
     const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
@@ -1473,6 +1502,14 @@ function dashboardGardien() {
       <div class="hero-stat"><div class="hero-stat-num">${exits.length}</div><div class="hero-stat-lbl">Sorties</div></div>
     </div>
   </div>
+  ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`
+  <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:2px;animation:glow 3s ease-in-out infinite">
+    <span style="font-size:28px;flex-shrink:0">🔴</span>
+    <div>
+      <div style="font-weight:800;font-size:15px;color:#991b1b">CONTRÔLE FRAIS SCOLAIRES — ${fc.trimestre}</div>
+      <div style="font-size:12px;color:#991b1b">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés</div>
+    </div>
+  </div>`:''})()}
   <div class="action-grid">
     <button class="action-card" onclick="go('scanner')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📷</span><span class="ac-label">Entrée</span></button>
     <button class="action-card" onclick="go('scanner_exit')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🚪</span><span class="ac-label">Sortie</span></button>
@@ -2266,6 +2303,24 @@ R.lockdown = () => `
   </button>
 </div>`;
 window.toggleLockdown = () => { S.lockdown=!S.lockdown; toast(S.lockdown?'🚨 LOCKDOWN ACTIVÉ':'🟢 LOCKDOWN désactivé',S.lockdown?'error':'success'); render(); };
+
+window.toggleFeesControl = () => {
+  if(!DB.settings.feesControl) DB.settings.feesControl={active:false,trimestre:'T1'};
+  const fc=DB.settings.feesControl;
+  const trimEl=document.getElementById('fcTrim')||document.getElementById('fcTrim2');
+  if(trimEl) fc.trimestre=trimEl.value;
+  fc.active=!fc.active;
+  // Notifier les gardiens
+  DB.users.filter(u=>u.role==='gardien').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+      msg:fc.active?`🔴 CONTRÔLE FRAIS ACTIVÉ (${fc.trimestre}) — Refusez les élèves dont les frais ne sont pas réglés`:'💰 Contrôle des frais désactivé — accès normal rétabli',
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  pushSync('settings','upsert',DB.settings);
+  toast(fc.active?`🔴 Contrôle frais ${fc.trimestre} activé — gardiens notifiés`:'✅ Contrôle frais désactivé',fc.active?'error':'success');
+  saveToCrypt(); render();
+};
 
 // ── ALERT URGENT (Gardien) ──
 R.alert_urgent = () => `
@@ -5023,6 +5078,7 @@ R.scanner = () => `
 <div class="scan-container">
   <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">📷 Scanner Entrée</h2>
   <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Scannez la carte QR de l'élève</p>
+  ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`<div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;width:100%;max-width:380px"><span style="font-size:22px">🔴</span><div><div style="font-weight:700;font-size:13px;color:#991b1b">Contrôle frais ${fc.trimestre}</div><div style="font-size:11px;color:#991b1b">Élèves non payés = refusés</div></div></div>`:''})()}
   <div class="scan-video-wrap">
     <video id="scanVideo" autoplay playsinline muted></video>
     <div class="scan-line"></div>
@@ -5054,6 +5110,27 @@ window.processScanEntry = async code => {
   // Already scanned today?
   const existing=DB.attendance.find(a=>a.sid===student.id&&a.date===today());
   if(existing){showScanResult('orange','🔄','Déjà scanné',student.name,`Enregistré à ${existing.arr_time}`,time);return;}
+
+  // ── CONTRÔLE FRAIS SCOLAIRES ──────────────────────────────────────────────
+  const fc=DB.settings.feesControl||{};
+  if(fc.active){
+    const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
+    if(!hasPaidFc){
+      const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry'};
+      DB.scan_log.unshift(log);
+      // Notifier Direction
+      DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+        const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+          msg:`💰 Frais non réglés — ${student.name} (${cls?cls.name:''}) refusé(e) à l'entrée · ${fc.trimestre}`,
+          time,date:today(),read:false,type:'alert'};
+        DB.notifs.unshift(n); pushSync('notifs','post',n);
+      });
+      if(student.pid) await pushNotif(student.pid,`🔴 ${student.name} n'a pas pu entrer à l'école — Frais ${fc.trimestre} non réglés. Veuillez régulariser.`);
+      showScanResult('red','💰','FRAIS NON RÉGLÉS',student.name,`Frais ${fc.trimestre} non payés — Entrée refusée`,time);
+      saveToCrypt();
+      return;
+    }
+  }
 
   // Check access blocked by Direction
   const hasPaid=DB.payments.some(p=>p.sid===student.id&&p.paid);
