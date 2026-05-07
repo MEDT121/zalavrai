@@ -1128,6 +1128,8 @@ window.buildUI = () => {
   document.querySelector('.dark-toggle').textContent = document.body.classList.contains('dark')?'☀️':'🌙';
   // User photo
   if (S.user.photo_url) $('SA').innerHTML = `<img src="${S.user.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+  // Vérifier alertes cahier de texte au login
+  try { checkCahierAlerts(); } catch(e) {}
   render();
 };
 
@@ -4677,6 +4679,45 @@ window.saveDevoir = () => {
 };
 
 // ── CAHIER DE TEXTE (avec approbation Direction) ──
+window.checkCahierAlerts = () => {
+  // Collect the last 7 school days (Mon-Fri) going back from yesterday
+  const schoolDays=[];
+  const cur=new Date(); cur.setDate(cur.getDate()-1);
+  while(schoolDays.length<7){
+    const dow=cur.getDay();
+    if(dow>=1&&dow<=5) schoolDays.push(cur.toISOString().slice(0,10));
+    cur.setDate(cur.getDate()-1);
+  }
+  if(schoolDays.length<2) return; // not enough history
+  const d0=schoolDays[0]; // yesterday
+  const d1=schoolDays[1]; // day before
+
+  const alertKey='cahier_alerted_'+today();
+  const alerted=new Set(JSON.parse(localStorage.getItem(alertKey)||'[]'));
+
+  DB.classes.forEach(cl=>{
+    const teachers=[];
+    if(cl.teacher_id){const t=gu(cl.teacher_id);if(t)teachers.push(t);}
+    if(cl.teacher_id_en){const t=gu(cl.teacher_id_en);if(t)teachers.push(t);}
+    teachers.forEach(u=>{
+      const key=cl.id+'_'+u.id;
+      if(alerted.has(key)) return;
+      const miss0=!DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d0);
+      const miss1=!DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d1);
+      if(miss0&&miss1){
+        DB.users.filter(x=>x.role==='direction'||x.role==='direction2').forEach(dir=>{
+          const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:dir.id,
+            msg:`⚠️ Cahier non rempli — ${u.name} (${cl.name}) · 2 jours consécutifs sans entrée`,
+            time:nowTime(),date:today(),read:false,type:'alert'};
+          DB.notifs.unshift(n); pushSync('notifs','post',n);
+        });
+        alerted.add(key);
+      }
+    });
+  });
+  localStorage.setItem(alertKey,JSON.stringify([...alerted]));
+};
+
 R.cahier_texte = () => {
   const role=S.user.role;
   const mc=getMyClass();
@@ -4703,10 +4744,12 @@ R.cahier_texte = () => {
       teachers.forEach(({u,lang})=>{
         const filled=weekDays.map(d=>DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d));
         const total=filled.filter(Boolean).length;
-        html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+        // Detect 2 consecutive missing days ending on latest day
+        const consec2=!filled[filled.length-1]&&!filled[filled.length-2];
+        html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);${consec2?'background:#fff1f2;':''}">
           <div style="width:36px;height:36px;border-radius:10px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(u.name)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;margin-bottom:5px">${u.name} <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};color:${lang==='fr'?'#1e40af':'#065f46'}">${lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span></div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:5px">${u.name} <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};color:${lang==='fr'?'#1e40af':'#065f46'}">${lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>${consec2?` <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700">⚠️ 2j sans entrée</span>`:''}</div>
             <div style="display:flex;gap:6px">
               ${weekDays.map((d,i)=>`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
                 <div style="font-size:10px;color:var(--text-muted)">${dayNames[i]}</div>
