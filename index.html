@@ -2953,7 +2953,9 @@ R.approbations = () => {
               <div style="width:${r.score}%;height:100%;background:${scoreColor};border-radius:3px"></div>
             </div>
           </div>`:''}
-          <div class="pi-sub" style="margin-top:3px">${r.motif}</div>
+          ${r.weak_details?.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+            ${r.weak_details.map(w=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${w.avg<30?'#fee2e2':w.avg<40?'#ffedd5':'#fef3c7'};color:${w.avg<30?'#991b1b':w.avg<40?'#c2410c':'#92400e'};font-weight:700">${w.mat}: ${w.avg}%</span>`).join('')}
+          </div>`:`<div class="pi-sub" style="margin-top:3px">${r.motif?.split('\n')[0]||''}</div>`}
           <div style="font-size:11px;color:var(--text-muted)">${t?t.name:'?'} · ${r.date}${isD2?'':' · Frais: '+(hasPaid?'✅ Payés':'❌ Non payés')}</div>
         </div>
         ${isD2
@@ -3764,45 +3766,75 @@ window.signalAbsencesToDir = (cid) => {
 
 // ── RATTRAPAGE — signalement enseignant → direction → parent ──
 window.autoCheckRattrapage = (sid, teacherId) => {
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const grades=DB.grades.filter(g=>g.sid===sid);
-  if(!grades.length) return;
-  const avg=Math.round(grades.reduce((a,g)=>a+gradePct(g),0)/grades.length);
-  if(avg>=50) return; // score suffisant
-  // Ne pas créer de doublon si déjà en attente
-  const already=DB.rattrapages.find(r=>r.sid===sid&&(r.status==='pending'||r.status==='notified'));
-  if(already){already.score=avg;return;}
-  const weakMats=[...new Set(grades.filter(g=>gradePct(g)<50).map(g=>g.matiere))].join(', ')||'Général';
-  const rat={
-    id:'rat'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid, teacher_id:teacherId,
-    matiere:weakMats,
-    motif:`Score moyen insuffisant: ${avg}% — Matières faibles: ${weakMats}`,
-    date:today(), status:'pending', amount:0, paid:false,
-    score:avg, auto_triggered:true
+  const s = DB.students.find(x => x.id === sid); if(!s) return;
+  const cl = gc(s.cid);
+  const allGrades = DB.grades.filter(g => g.sid === sid);
+  if(!allGrades.length) return;
+
+  // Collect weak subjects: average per matière < 50%
+  const matsList = [...new Set(allGrades.map(g => g.matiere))];
+  const weakDetails = matsList.map(mat => {
+    const gs = allGrades.filter(g => g.matiere === mat);
+    const avg = Math.round(gs.reduce((a, g) => a + gradePct(g), 0) / gs.length);
+    if(avg >= 50) return null;
+    // Build detail: list each low evaluation
+    const evals = gs.map(g => {
+      const note = g.note !== undefined ? `${g.note}/${g.max||20}` : `${gradePct(g)}%`;
+      const lbl  = g.label || g.type || 'Note';
+      const trim = g.trimester ? ` (${g.trimester})` : '';
+      return `${lbl}${trim}: ${note}`;
+    }).join(' · ');
+    return {mat, avg, evals};
+  }).filter(Boolean);
+
+  if(!weakDetails.length) return;
+
+  // Global average
+  const globalAvg = Math.round(allGrades.reduce((a, g) => a + gradePct(g), 0) / allGrades.length);
+  const weakMatsStr = weakDetails.map(w => `${w.mat} (${w.avg}%)`).join(', ');
+
+  // Don't create a duplicate if already pending for this student
+  const already = DB.rattrapages.find(r => r.sid === sid && (r.status === 'pending' || r.status === 'notified'));
+  if(already) { already.score = globalAvg; already.matiere = weakMatsStr; return; }
+
+  // Build detailed motif
+  const motifLines = weakDetails.map(w => `• ${w.mat}: moy. ${w.avg}% — ${w.evals}`).join('\n');
+  const motif = `Matières insuffisantes (< 50%) :\n${motifLines}`;
+
+  const rat = {
+    id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+    sid, teacher_id: teacherId,
+    matiere: weakMatsStr,
+    motif,
+    date: today(), status: 'pending', amount: 0, paid: false,
+    score: globalAvg, auto_triggered: true,
+    weak_details: weakDetails
   };
   DB.rattrapages.push(rat);
-  pushSync('rattrapages','post',rat);
-  // Créer une convocation liée
-  const conv={
-    id:'conv'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid, rat_id:rat.id, date:today(),
-    status:'pending', rdv_date:null, note:'', score:avg
+  pushSync('rattrapages', 'post', rat);
+
+  // Convocation liée
+  const conv = {
+    id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
+    sid, rat_id: rat.id, date: today(),
+    status: 'pending', rdv_date: null, note: '', score: globalAvg
   };
   DB.convocations.push(conv);
-  pushSync('convocations','post',conv);
-  // Notifier la Direction — convocation à planifier
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-      msg:`🔴 CONVOCATION À PLANIFIER — ${s.name} · Moyenne: ${avg}% · Matières faibles: ${weakMats}`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
+  pushSync('convocations', 'post', conv);
+
+  // Alert Direction
+  const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières faibles: ${weakMatsStr}`;
+  DB.users.filter(u => u.role === 'direction' || u.role === 'direction2').forEach(u => {
+    const n = {id:'n'+Date.now()+Math.random().toString(36).slice(2,5), uid:u.id,
+      msg: dirMsg, time:nowTime(), date:today(), read:false, type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
-  // Notifier le parent directement — accès gratuit à l'alerte
-  if(s.pid){
-    const np={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
-      msg:`⚠️ La Direction vous contactera bientôt — ${s.name} nécessite un cours de rattrapage · Moyenne: ${avg}%`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
+
+  // Alert parent — free access
+  if(s.pid) {
+    const parentMsg = `📚 ${s.name} a besoin de cours de rattrapage — Matières en difficulté : ${weakDetails.map(w=>`${w.mat} (${w.avg}%)`).join(', ')}. La Direction vous contactera pour organiser le suivi.`;
+    const np = {id:'n'+Date.now()+Math.random().toString(36).slice(2,5), uid:s.pid,
+      msg: parentMsg, time:nowTime(), date:today(), read:false, type:'alert'};
     DB.notifs.unshift(np); pushSync('notifs','post',np);
   }
 };
