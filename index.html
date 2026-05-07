@@ -5960,7 +5960,8 @@ window.sendCaisseReceipt = async (student, rec) => {
 window.viewReceipt = (nid) => {
   const n=DB.notifs.find(x=>x.id===nid); if(!n||!n.receipt) return;
   const r=n.receipt;
-  const school='The Wise School International';
+  const sc=DB.settings.school||{};
+  const school=sc.name||'The Wise School International';
   const printDate=new Date(r.date+'T00:00').toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const numToWords = v => {
     if(!v||isNaN(v)) return '';
@@ -6669,9 +6670,10 @@ window.exportCSV = (type) => {
 
 window.printReport = (type) => {
   let html='',title='';
-  const school='The Wise School International';
-  const schoolSub='Complexe Scolaire Le Sage — Kinshasa, RDC';
-  const phone='+243 978 444 167';
+  const sc=DB.settings.school||{};
+  const school=sc.name||'The Wise School International';
+  const schoolSub=sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC';
+  const phone=sc.phone||'+243 978 444 167';
   const yr=DB.settings.year||'2025-2026';
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const logoSrc=window.SCHOOL_LOGO||'';
@@ -6731,28 +6733,201 @@ window.printReport = (type) => {
 };
 
 // ── SETTINGS ──
-R.settings = () => `
-<div class="premium-section">
-  <div class="premium-section-title">🏫 Informations école</div>
-  <div class="premium-item"><div class="pi-icon" style="background:#dbeafe">🏫</div><div style="flex:1"><div class="pi-title">The Wise School International</div><div class="pi-sub">Complexe Scolaire Le Sage</div></div></div>
-  <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">📞</div><div style="flex:1"><div class="pi-title">+243 978 444 167</div><div class="pi-sub">Direction</div></div></div>
-  <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📧</div><div style="flex:1"><div class="pi-title">thewiseschoolinternational@gmail.com</div><div class="pi-sub">Email</div></div></div>
-</div>
-<div class="premium-section">
-  <div class="premium-section-title">💾 Données</div>
-  <div class="premium-item"><div class="pi-icon" style="background:#dbeafe">☁️</div><div style="flex:1"><div class="pi-title">Supabase</div><div class="pi-sub">${DB_ONLINE?'🟢 Connecté':'🔴 Hors ligne'}</div></div></div>
-  <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💽</div><div style="flex:1"><div class="pi-title">Stockage local crypté</div><div class="pi-sub">${localStorage.getItem('schoolsafe_db_ts')?'Dernière: '+new Date(parseInt(localStorage.getItem('schoolsafe_db_ts'))).toLocaleString('fr-FR'):'Aucune sauvegarde'}</div></div></div>
-  <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">🔄</div><div style="flex:1"><div class="pi-title">File de synchro</div><div class="pi-sub">${syncQueue.count()} changements en attente</div></div>${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>toast('✅ '+n+' envoyés','success'))">Vider</button>`:''}</div>
-  <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">☁️</div><div style="flex:1"><div class="pi-title">Forcer synchronisation</div><div class="pi-sub">Pousse toutes les données vers Supabase</div></div><button class="btn btn-primary btn-sm" onclick="forceSyncNow()">🔄 Sync</button></div>
-</div>
-<div class="premium-section">
-  <div class="premium-section-title">🪪 Templates cartes</div>
-  <div class="premium-item" onclick="go('cards')" style="cursor:pointer"><div class="pi-icon" style="background:#dbeafe">🪪</div><div style="flex:1"><div class="pi-title">9 templates chargés + 1 verso</div><div class="pi-sub">${CARDS.isReady()?'✅ Prêts':'⏳ Chargement...'}</div></div><span class="premium-badge" style="background:#dbeafe;color:#1e40af">Voir →</span></div>
-</div>
-<div class="premium-section">
-  <div class="premium-section-title">ℹ️ Version</div>
-  <div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">📱</div><div style="flex:1"><div class="pi-title">SchoolSafe v3.0 — Partie 1</div><div class="pi-sub">The Wise School International — Kinshasa, RDC</div></div></div>
-</div>`;
+R.settings = () => {
+  const sc=DB.settings.school||{};
+  const fees=getFees();
+  const hr=DB.settings.horaires||{};
+  const hp=hr.primaire||{ontime:455,late:480};
+  const hm=hr.maternelle||{ontime:485,late:510};
+  const tog=DB.settings.toggles||{};
+  const minsToTime=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+  const lastSave=localStorage.getItem('schoolsafe_db_ts');
+  return `
+  <!-- ══ ÉCOLE ══ -->
+  <div class="premium-section" style="border-left:4px solid #0f2557">
+    <div class="premium-section-title">🏫 Informations école</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <img src="${window.SCHOOL_LOGO}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid #0f2557;flex-shrink:0" alt="">
+      <div style="font-size:12px;color:var(--text-secondary)">Ces informations apparaissent sur les documents PDF et les bordereaux de paiement.</div>
+    </div>
+    <div class="form-group"><label class="form-label">Nom de l'école</label>
+      <input class="form-input" id="cfg_school_name" value="${sc.name||'The Wise School International'}">
+    </div>
+    <div class="form-group"><label class="form-label">Sous-titre / Complexe</label>
+      <input class="form-input" id="cfg_school_sub" value="${sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">📞 Téléphone</label>
+        <input class="form-input" id="cfg_school_phone" value="${sc.phone||'+243 978 444 167'}">
+      </div>
+      <div class="form-group"><label class="form-label">📧 Email</label>
+        <input class="form-input" id="cfg_school_email" value="${sc.email||'thewiseschoolinternational@gmail.com'}">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSettingsSchool()">💾 Enregistrer infos école</button>
+  </div>
+
+  <!-- ══ ANNÉE SCOLAIRE ══ -->
+  <div class="premium-section" style="border-left:4px solid #2563eb">
+    <div class="premium-section-title">📅 Année scolaire</div>
+    <div class="form-group" style="margin-top:10px"><label class="form-label">Année en cours</label>
+      <input class="form-input" id="cfg_year" value="${DB.settings.year||'2025-2026'}" placeholder="Ex: 2025-2026" style="font-size:16px;font-weight:700">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSettingsYear()">💾 Enregistrer l'année</button>
+  </div>
+
+  <!-- ══ FRAIS SCOLAIRES ══ -->
+  <div class="premium-section" style="border-left:4px solid #059669">
+    <div class="premium-section-title">💰 Frais scolaires</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Montants utilisés pour le calcul des dettes et les bordereaux de paiement.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">T1 ($)</label>
+        <input class="form-input" id="cfg_fee_t1" type="number" min="0" step="1" value="${fees.T1||0}">
+      </div>
+      <div class="form-group"><label class="form-label">T2 ($)</label>
+        <input class="form-input" id="cfg_fee_t2" type="number" min="0" step="1" value="${fees.T2||0}">
+      </div>
+      <div class="form-group"><label class="form-label">T3 ($)</label>
+        <input class="form-input" id="cfg_fee_t3" type="number" min="0" step="1" value="${fees.T3||0}">
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Total annuel : <strong>$${(fees.T1||0)+(fees.T2||0)+(fees.T3||0)}</strong></div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSettingsFees()">💾 Enregistrer les frais</button>
+  </div>
+
+  <!-- ══ HORAIRES D'ENTRÉE ══ -->
+  <div class="premium-section" style="border-left:4px solid #d97706">
+    <div class="premium-section-title">⏰ Horaires d'entrée</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Définit les seuils : avant → à l'heure ✅ / entre → retard léger ⚠️ / après → retard grave 🚫</div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:8px;color:#0f2557">🎓 Primaire</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">✅ À l'heure jusqu'à</label>
+        <input class="form-input" id="cfg_p_ontime" type="time" value="${minsToTime(hp.ontime)}">
+      </div>
+      <div class="form-group"><label class="form-label">⚠️ Retard léger jusqu'à</label>
+        <input class="form-input" id="cfg_p_late" type="time" value="${minsToTime(hp.late)}">
+      </div>
+    </div>
+    <div style="font-weight:600;font-size:13px;margin:8px 0;color:#0f2557">🌱 Maternelle</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">✅ À l'heure jusqu'à</label>
+        <input class="form-input" id="cfg_m_ontime" type="time" value="${minsToTime(hm.ontime)}">
+      </div>
+      <div class="form-group"><label class="form-label">⚠️ Retard léger jusqu'à</label>
+        <input class="form-input" id="cfg_m_late" type="time" value="${minsToTime(hm.late)}">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSettingsHoraires()">💾 Enregistrer les horaires</button>
+  </div>
+
+  <!-- ══ FONCTIONNALITÉS ══ -->
+  <div class="premium-section" style="border-left:4px solid #7c3aed">
+    <div class="premium-section-title">🔧 Fonctionnalités actives</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Active ou désactive l'accès des parents et enseignants à ces sections.</div>
+    <div style="display:flex;flex-direction:column;gap:0">
+      ${[
+        ['palmares','🏆','Palmarès','Classement visible par les parents'],
+        ['notes_parent','📊','Notes & Côtes','Parents voient les notes (frais requis)'],
+        ['devoirs','📚','Devoirs','Devoirs/interros publiés par les enseignants'],
+        ['cahier_texte','📖','Cahier de texte','Enseignants remplissent, parents consultent'],
+        ['presences','📋','Présences','Marquage des présences par les enseignants'],
+      ].map(([k,ic,lbl,sub])=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+        <div style="width:38px;height:38px;border-radius:10px;background:${tog[k]?'#dbeafe':'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ic}</div>
+        <div style="flex:1"><div style="font-weight:600;font-size:13px">${lbl}</div><div style="font-size:11px;color:var(--text-muted)">${sub}</div></div>
+        <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="tog_${k}" ${tog[k]?'checked':''} onchange="saveSettingsToggle('${k}',this.checked)" style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:${tog[k]?'#2563eb':'#cbd5e1'};border-radius:24px;transition:.2s"><span style="position:absolute;height:18px;width:18px;left:${tog[k]?'22px':'3px'};bottom:3px;background:#fff;border-radius:50%;transition:.2s"></span></span>
+        </label>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- ══ DONNÉES & SYNC ══ -->
+  <div class="premium-section" style="border-left:4px solid #0891b2">
+    <div class="premium-section-title">💾 Données & Synchronisation</div>
+    <div class="premium-item"><div class="pi-icon" style="background:${DB_ONLINE?'#d1fae5':'#fee2e2'}">${DB_ONLINE?'🟢':'🔴'}</div>
+      <div style="flex:1"><div class="pi-title">Supabase</div><div class="pi-sub">${DB_ONLINE?'Connecté — synchronisation active':'Hors ligne — mode local'}</div></div>
+    </div>
+    <div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">💽</div>
+      <div style="flex:1"><div class="pi-title">Dernière sauvegarde locale</div><div class="pi-sub">${lastSave?new Date(parseInt(lastSave)).toLocaleString('fr-FR'):'Aucune sauvegarde'}</div></div>
+    </div>
+    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">🔄</div>
+      <div style="flex:1"><div class="pi-title">File en attente</div><div class="pi-sub">${syncQueue.count()} opération(s) non synchronisée(s)</div></div>
+      ${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>toast('✅ '+n+' envoyés','success'))">Vider</button>`:''}
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="forceSyncNow()">🔄 Forcer la synchronisation</button>
+  </div>
+
+  <!-- ══ CARTES & VERSION ══ -->
+  <div class="premium-section">
+    <div class="premium-section-title">🪪 Cartes scolaires</div>
+    <div class="premium-item" onclick="go('cards')" style="cursor:pointer">
+      <div class="pi-icon" style="background:#dbeafe">🪪</div>
+      <div style="flex:1"><div class="pi-title">9 templates + 1 verso</div><div class="pi-sub">${CARDS.isReady()?'✅ Prêts à imprimer':'⏳ Chargement...'}</div></div>
+      <span class="premium-badge" style="background:#dbeafe;color:#1e40af">Ouvrir →</span>
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">ℹ️ À propos</div>
+    <div class="premium-item">
+      <img src="${window.SCHOOL_LOGO}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" alt="">
+      <div style="flex:1"><div class="pi-title">SchoolSafe v3.0</div><div class="pi-sub">${DB.settings.school?.name||'The Wise School International'} — Kinshasa, RDC</div></div>
+      <span class="pill" style="background:#f1f5f9;color:#374151;font-size:10px">${DB.settings.year||'2025-2026'}</span>
+    </div>
+  </div>`;
+};
+
+window.saveSettingsSchool = () => {
+  if(!DB.settings.school) DB.settings.school={};
+  DB.settings.school.name=($('cfg_school_name')?.value||'').trim()||'The Wise School International';
+  DB.settings.school.sub=($('cfg_school_sub')?.value||'').trim()||'Complexe Scolaire Le Sage — Kinshasa, RDC';
+  DB.settings.school.phone=($('cfg_school_phone')?.value||'').trim()||'+243 978 444 167';
+  DB.settings.school.email=($('cfg_school_email')?.value||'').trim()||'thewiseschoolinternational@gmail.com';
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt(); toast('✅ Informations école enregistrées','success'); render();
+};
+
+window.saveSettingsYear = () => {
+  const y=($('cfg_year')?.value||'').trim();
+  if(!y){toast('Entrez une année valide','error');return;}
+  DB.settings.year=y;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt(); toast('✅ Année scolaire mise à jour : '+y,'success'); render();
+};
+
+window.saveSettingsFees = () => {
+  if(!DB.settings.fees) DB.settings.fees={};
+  DB.settings.fees.T1=parseFloat($('cfg_fee_t1')?.value)||0;
+  DB.settings.fees.T2=parseFloat($('cfg_fee_t2')?.value)||0;
+  DB.settings.fees.T3=parseFloat($('cfg_fee_t3')?.value)||0;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt(); toast('✅ Frais scolaires enregistrés','success'); render();
+};
+
+window.saveSettingsHoraires = () => {
+  const timeToMins=t=>{const[h,m]=(t||'').split(':').map(Number);return(h||0)*60+(m||0);};
+  if(!DB.settings.horaires) DB.settings.horaires={};
+  DB.settings.horaires.primaire={
+    ontime:timeToMins($('cfg_p_ontime')?.value),
+    late:timeToMins($('cfg_p_late')?.value)
+  };
+  DB.settings.horaires.maternelle={
+    ontime:timeToMins($('cfg_m_ontime')?.value),
+    late:timeToMins($('cfg_m_late')?.value)
+  };
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt(); toast('✅ Horaires d\'entrée mis à jour','success'); render();
+};
+
+window.saveSettingsToggle = (key, val) => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
+  DB.settings.toggles[key]=val;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  toast(`${val?'✅ Activé':'⛔ Désactivé'} : ${key}`,'success');
+  render();
+};
 
 // ── CALENDAR ──
 R.calendar = () => {
