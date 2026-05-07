@@ -2982,8 +2982,11 @@ window.validateAbs = (id, status) => {
   pushSync('absences','patch',{status},'id=eq.'+id);
   // If approved, mark matching attendance records as excused
   if(status==='approved') {
-    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&(x.status==='absent'||x.status==='late'));
-    affectedAtt.forEach(att=>{ att.excused=true; pushSync('attendance','patch',{excused:true},'id=eq.'+att.id); });
+    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&(x.status==='absent'||x.status==='late'||!x.status));
+    affectedAtt.forEach(att=>{
+      att.excused=true; att.status='excused';
+      pushSync('attendance','patch',{excused:true,status:'excused'},'id=eq.'+att.id);
+    });
   }
   const s=DB.students.find(x=>x.id===a.sid);
   if(a.pid){
@@ -3646,10 +3649,7 @@ R.attendance = () => {
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${s.name}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.i} ${st.l}</span>
-        ${canModify&&!a?`<div style="display:flex;gap:4px;flex-shrink:0">
-          <button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié">📄</button>
-          <button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie">🤒</button>
-        </div>`:''}
+        ${canModify&&!a?`<button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button>`:''}
         ${canModify&&a&&a.status!=='excused'&&a.status!=='sick'?`<button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button>`:''}
       </div>`;
     }).join('')}
