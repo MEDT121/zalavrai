@@ -4559,10 +4559,16 @@ function _startDecodeLoop(video) {
       else if (typeof jsQR!=='undefined') { const img=ctx.getImageData(0,0,canvas.width,canvas.height); const qr=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}); if(qr) code=qr.data; }
       if (code && code!==lastCode && Date.now()-lastTime>2000) {
         lastCode=code; lastTime=Date.now();
-        let mat=code.toUpperCase();
-        if(mat.startsWith('CR360-STU-')) mat=mat.replace('CR360-STU-','');
-        if(mat.startsWith('CR360-PAR-')) mat=mat.replace('CR360-PAR-','');
-        if(/^S\d+$/.test(mat)){const found=DB.students.find(x=>x.id===mat.toLowerCase());if(found)mat=found.mat;}
+        let mat=code;
+        // Format SchoolSafe card: schoolsafe://student/{sid}/{matricule} ou schoolsafe://verify/{sid}/{matricule}
+        if(mat.startsWith('schoolsafe://student/') || mat.startsWith('schoolsafe://verify/')) {
+          mat = mat.split('/').pop(); // dernier segment = matricule
+        } else {
+          mat = mat.toUpperCase();
+          if(mat.startsWith('CR360-STU-')) mat=mat.replace('CR360-STU-','');
+          if(mat.startsWith('CR360-PAR-')) mat=mat.replace('CR360-PAR-','');
+          if(/^S\d+$/.test(mat)){const found=DB.students.find(x=>x.id===mat.toLowerCase());if(found)mat=found.mat;}
+        }
         if(S.page==='scanner') processScanEntry(mat);
         else if(S.page==='scanner_exit') { const inp=$('exitCode');if(inp)inp.value=mat; scanExit(); }
       }
