@@ -3624,8 +3624,8 @@ window.showChildQR = (sid) => {
     ctx.fillText('ID: '+s.id.slice(-6).toUpperCase(),70,70);
     ctx.fillText(s.mat,70,90);
     el.appendChild(canvas);
-    // Try QRCode if available
-    if(window.QRCode){el.innerHTML='';new QRCode(el,{text:s.id,width:140,height:140,colorDark:'#1e293b',colorLight:'#ffffff'});}
+    // QR scannable avec même payload que la carte
+    if(window.QRCode){el.innerHTML='';new QRCode(el,{text:'schoolsafe://student/'+s.id+'/'+s.mat,width:140,height:140,colorDark:'#1e293b',colorLight:'#ffffff'});}
   },100);
 };
 
@@ -5008,16 +5008,67 @@ window.sendTeacherNote = () => {
 
 // ── Camera management ──
 let scanStream = null, _scanRAF = null;
+function setScanStatus(ok, msg) {
+  const el=$('scanStatus'); if(!el) return;
+  el.innerHTML=ok
+    ? `<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#059669;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#059669;display:inline-block;animation:pulse 1.5s infinite"></span>${msg||'Caméra active — pointez vers le QR code'}</div>`
+    : `<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#dc2626;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block"></span>${msg||'Caméra inactive'}</div>`;
+  const btn=$('scanRetryBtn');
+  if(btn) btn.style.display=ok?'none':'block';
+}
 function startScan() {
-  const video = $('scanVideo'); if (!video || scanStream) return;
-  if (!navigator.mediaDevices?.getUserMedia) return;
-  navigator.mediaDevices.getUserMedia({ video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}} })
-  .then(stream => { scanStream=stream; video.srcObject=stream; video.onloadedmetadata=()=>{video.play();_startDecodeLoop(video);}; })
-  .catch(()=>{});
+  const video=$('scanVideo'); if(!video) return;
+  if(scanStream){stopScan();}
+  const btn=$('scanRetryBtn'); if(btn) btn.style.display='none';
+  setScanStatus(false,'⏳ Démarrage de la caméra...');
+  if(!navigator.mediaDevices?.getUserMedia){
+    setScanStatus(false,'❌ Caméra non disponible sur cet appareil');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}})
+  .then(stream=>{
+    scanStream=stream; video.srcObject=stream;
+    video.onloadedmetadata=()=>{
+      video.play();
+      setScanStatus(true);
+      _startDecodeLoop(video);
+    };
+  })
+  .catch(err=>{
+    const msg=err.name==='NotAllowedError'
+      ? '🔒 Accès caméra refusé — autorisez dans les paramètres du navigateur'
+      : err.name==='NotFoundError'
+      ? '📷 Aucune caméra trouvée sur cet appareil'
+      : '❌ Caméra indisponible — utilisez la saisie manuelle';
+    setScanStatus(false, msg);
+  });
 }
 function stopScan() {
-  if (_scanRAF) { cancelAnimationFrame(_scanRAF); _scanRAF=null; }
-  if (scanStream) { scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  if(_scanRAF){cancelAnimationFrame(_scanRAF);_scanRAF=null;}
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  setScanStatus(false,'Caméra arrêtée');
+}
+function _decodeQR(raw) {
+  // Extrait le matricule depuis n'importe quel format SchoolSafe
+  if(!raw) return null;
+  let mat=raw.trim();
+  if(mat.startsWith('schoolsafe://student/')||mat.startsWith('schoolsafe://verify/')){
+    // schoolsafe://student/{sid}/{mat}  ou schoolsafe://student/{mat}
+    const parts=mat.split('/');
+    const last=parts[parts.length-1];
+    const second=parts[parts.length-2];
+    // Si le dernier segment ressemble à un matricule (STU-...) on l'utilise, sinon on cherche par ID
+    if(last&&last.includes('-')) return last;
+    // Sinon cherche par sid
+    const byId=DB.students.find(s=>s.id===second||s.id===last);
+    return byId?byId.mat:last;
+  }
+  mat=mat.toUpperCase();
+  if(mat.startsWith('CR360-STU-')) mat=mat.replace('CR360-STU-','');
+  // Cherche par ID brut (ex: "stu001" ou "u5")
+  const byId=DB.students.find(s=>s.id===raw||s.id===raw.toLowerCase());
+  if(byId) return byId.mat;
+  return mat;
 }
 function _startDecodeLoop(video) {
   const canvas=document.createElement('canvas');
@@ -5026,29 +5077,22 @@ function _startDecodeLoop(video) {
   const bd=useBD?new BarcodeDetector({formats:['qr_code']}):null;
   let lastCode='',lastTime=0;
   async function loop() {
-    if (!scanStream) return;
+    if(!scanStream) return;
     _scanRAF=requestAnimationFrame(loop);
-    if (video.readyState<2) return;
+    if(video.readyState<2) return;
     canvas.width=video.videoWidth; canvas.height=video.videoHeight;
     ctx.drawImage(video,0,0);
     try {
-      let code=null;
-      if (useBD) { const codes=await bd.detect(canvas); if(codes.length) code=codes[0].rawValue; }
-      else if (typeof jsQR!=='undefined') { const img=ctx.getImageData(0,0,canvas.width,canvas.height); const qr=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'}); if(qr) code=qr.data; }
-      if (code && code!==lastCode && Date.now()-lastTime>2000) {
-        lastCode=code; lastTime=Date.now();
-        let mat=code;
-        // Format SchoolSafe card: schoolsafe://student/{sid}/{matricule} ou schoolsafe://verify/{sid}/{matricule}
-        if(mat.startsWith('schoolsafe://student/') || mat.startsWith('schoolsafe://verify/')) {
-          mat = mat.split('/').pop(); // dernier segment = matricule
-        } else {
-          mat = mat.toUpperCase();
-          if(mat.startsWith('CR360-STU-')) mat=mat.replace('CR360-STU-','');
-          if(mat.startsWith('CR360-PAR-')) mat=mat.replace('CR360-PAR-','');
-          if(/^S\d+$/.test(mat)){const found=DB.students.find(x=>x.id===mat.toLowerCase());if(found)mat=found.mat;}
-        }
+      let raw=null;
+      if(useBD){const r=await bd.detect(canvas);if(r.length) raw=r[0].rawValue;}
+      else if(typeof jsQR!=='undefined'){const img=ctx.getImageData(0,0,canvas.width,canvas.height);const q=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});if(q) raw=q.data;}
+      if(raw && raw!==lastCode && Date.now()-lastTime>2000){
+        lastCode=raw; lastTime=Date.now();
+        const mat=_decodeQR(raw);
+        if(!mat) return;
+        setScanStatus(true,'✅ QR détecté — traitement...');
         if(S.page==='scanner') processScanEntry(mat);
-        else if(S.page==='scanner_exit') { const inp=$('exitCode');if(inp)inp.value=mat; scanExit(); }
+        else if(S.page==='scanner_exit'){const inp=$('exitCode');if(inp)inp.value=mat;scanExit();}
       }
     } catch(e){}
   }
@@ -5057,7 +5101,7 @@ function _startDecodeLoop(video) {
 
 // Hook render to start/stop camera
 const _baseRender = window.render;
-window.render = () => { stopScan(); _baseRender(); if(['scanner','scanner_exit'].includes(S.page)) setTimeout(startScan,200); };
+window.render = () => { stopScan(); _baseRender(); if(['scanner','scanner_exit'].includes(S.page)) setTimeout(startScan,300); };
 
 // ── 3-Level arrival system ──
 function getArrivalStatus(cycle) {
@@ -5091,7 +5135,9 @@ R.scanner = () => `
     <div class="scan-line"></div>
     <div class="scan-corners"></div>
   </div>
-  <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:12px">
+  <div id="scanStatus" style="width:100%;max-width:380px;margin-top:8px;min-height:32px;font-size:12px;color:var(--text-secondary);text-align:center"></div>
+  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
+  <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:10px">
     <input class="form-input" id="scanInput" placeholder="Matricule STU-0001" autocomplete="off" style="flex:1">
     <button class="btn btn-primary" onclick="manualScanEntry()">📋 Valider</button>
   </div>
@@ -5210,7 +5256,9 @@ R.scanner_exit = () => `
     <div class="scan-line"></div>
     <div class="scan-corners"></div>
   </div>
-  <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:12px">
+  <div id="scanStatus" style="width:100%;max-width:380px;margin-top:8px;min-height:32px;font-size:12px;color:var(--text-secondary);text-align:center"></div>
+  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
+  <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:10px">
     <input class="form-input" id="exitCode" placeholder="Matricule élève" autocomplete="off" style="flex:1">
     <button class="btn btn-primary" onclick="scanExit()">🚪 Vérifier</button>
   </div>
