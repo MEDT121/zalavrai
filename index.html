@@ -545,7 +545,7 @@ window.DB = {
       primaire: { ontime:455, late:480 },
       maternelle: { ontime:485, late:510 },
     },
-    toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:false, remarques:false, presences:true },
+    toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true },
     year: '2025-2026'
   }
 };
@@ -643,6 +643,7 @@ window.NAV = {
       {id:'cards',i:'🪪',l:'Cartes d\'élèves'},
       {s:'Communication'},
       {id:'messages',i:'✉️',l:'Messages'},
+      {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
       {s:'Système'},
@@ -711,6 +712,7 @@ window.NAV = {
       {id:'dashboard',i:'📊',l:'Tableau de bord'},
       {id:'children',i:'👶',l:'Mes enfants'},
       {id:'attendance',i:'📋',l:'Présences'},
+      {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
       {s:'Communication'},
@@ -2813,7 +2815,7 @@ window.deleteClass = (cid) => {
 R.approbations = () => {
   const isD2 = S.user.role==='direction2';
   const pabs = DB.absences.filter(a=>a.status==='pending');
-  const apr = DB.approbations.filter(a=>a.status==='pending');
+  const apr = DB.approbations.filter(a=>a.status==='pending'&&a.type!=='cahier_texte');
   const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
@@ -2861,7 +2863,7 @@ R.approbations = () => {
           ${submitter?`<div style="font-size:11px;color:var(--text-muted)">${submitter.name} · ${a.date||''}</div>`:''}
         </div>
         ${a.type==='retard_grave'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveApr('${a.id}','approved')">✅ Autoriser</button><button class="btn btn-danger btn-sm" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
-        ${a.type==='cahier_texte'||a.type==='matiere'?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">✅ Approuver</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
+        ${a.type==='matiere'?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">✅ Approuver</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
       </div>`;
     }).join('')}
   </div>`:''}
@@ -4676,47 +4678,112 @@ window.saveDevoir = () => {
 
 // ── CAHIER DE TEXTE (avec approbation Direction) ──
 R.cahier_texte = () => {
+  const role=S.user.role;
   const mc=getMyClass();
-  const isTeacher=S.user.role==='enseignant'&&mc.cl;
-  let entries=DB.cahier_texte;
-  if(isTeacher) entries=entries.filter(e=>e.cid===mc.cl.id&&e.by===S.user.id);
-  const sorted=[...entries].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
-  // Group by date
-  const byDate={};
-  sorted.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
-
-  return `
-  <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📖 Cahier de texte${mc.cl?' — '+mc.cl.name:''}</span>
-    ${isTeacher?`<button class="btn btn-primary" onclick="openCahierM()">➕ Ajouter</button>`:''}
-  </div>
-  ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
-    const d=new Date(date);
-    return `<div class="ww-section" style="margin-bottom:14px">
-      <div class="ww-section-header">
-        <span class="ww-section-title">📅 ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span>
-      </div>
-      ${items.map((e,i)=>`
-      <div class="ww-item" style="animation-delay:${i*.04}s">
-        <div class="ww-item-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d1fae5'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
-        <div class="ww-item-content">
-          <div class="ww-item-title">${e.matiere}</div>
-          <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${e.content}</div>
-        </div>
-        <span class="pill ${e.status==='approved'?'pill-green':e.status==='refused'?'pill-red':'pill-orange'}">${e.status==='approved'?'✅':e.status==='refused'?'❌':'⏳'}</span>
-      </div>`).join('')}
+  // ── DIRECTION : suivi hebdomadaire ─────────────────────────────────────────
+  if(role==='direction'||role==='direction2') {
+    const now=new Date();
+    const dow=now.getDay();
+    const mon=new Date(now); mon.setDate(now.getDate()-(dow===0?6:dow-1));
+    const weekDays=[0,1,2,3,4].map(i=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d.toISOString().slice(0,10);});
+    const dayNames=['Lun','Mar','Mer','Jeu','Ven'];
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📖 Suivi Cahier de texte</span></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;padding:8px 14px;background:var(--bg-card);border-radius:10px">
+      Semaine du ${new Date(weekDays[0]).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} au ${new Date(weekDays[4]).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}
     </div>`;
-  }).join(''):`
-  <div style="text-align:center;padding:60px;color:var(--text-muted)">
-    <div style="font-size:60px;margin-bottom:16px">📖</div>
-    Aucune entrée
-    ${isTeacher?'<br><button class="btn btn-primary" style="margin-top:16px" onclick="openCahierM()">➕ Première entrée</button>':''}
-  </div>`}`;
+    DB.classes.forEach(cl=>{
+      const teachers=[];
+      if(cl.teacher_id){const t=gu(cl.teacher_id);if(t)teachers.push({u:t,lang:'fr'});}
+      if(cl.teacher_id_en){const t=gu(cl.teacher_id_en);if(t)teachers.push({u:t,lang:'en'});}
+      if(!teachers.length) return;
+      const [cc]=clsColor(cl.name);
+      html+=`<div class="ww-section" style="margin-bottom:14px">
+        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${cl.name}</span><span style="font-size:11px;color:var(--text-muted)">${cl.cycle}</span></div>`;
+      teachers.forEach(({u,lang})=>{
+        const filled=weekDays.map(d=>DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d));
+        const total=filled.filter(Boolean).length;
+        html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div style="width:36px;height:36px;border-radius:10px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(u.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:13px;margin-bottom:5px">${u.name} <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};color:${lang==='fr'?'#1e40af':'#065f46'}">${lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span></div>
+            <div style="display:flex;gap:6px">
+              ${weekDays.map((d,i)=>`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+                <div style="font-size:10px;color:var(--text-muted)">${dayNames[i]}</div>
+                <div style="width:30px;height:30px;border-radius:8px;background:${filled[i]?'#d1fae5':'#fee2e2'};display:flex;align-items:center;justify-content:center;font-size:14px">${filled[i]?'✅':'⬜'}</div>
+              </div>`).join('')}
+            </div>
+          </div>
+          <span style="padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700;flex-shrink:0;background:${total>=4?'#d1fae5':total>=2?'#fef3c7':'#fee2e2'};color:${total>=4?'#065f46':total>=2?'#92400e':'#991b1b'}">${total}/5</span>
+        </div>`;
+      });
+      html+='</div>';
+    });
+    return html;
+  }
+
+  // ── ENSEIGNANT ─────────────────────────────────────────────────────────────
+  if(role==='enseignant') {
+    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📖</div>Aucune classe assignée</div>`;
+    const entries=DB.cahier_texte.filter(e=>e.cid===mc.cl.id&&e.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+    return `
+    <div class="ww-toolbar">
+      <span style="font-size:16px;font-weight:700">📖 Cahier de texte — ${mc.cl.name}</span>
+      <button class="btn btn-primary" onclick="openCahierM()">➕ Ajouter</button>
+    </div>
+    ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
+      const d=new Date(date);
+      return `<div class="ww-section" style="margin-bottom:14px">
+        <div class="ww-section-header"><span class="ww-section-title">📅 ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
+        ${items.map((e,i)=>`
+        <div class="ww-item" style="animation-delay:${i*.04}s">
+          <div class="ww-item-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d1fae5'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
+          <div class="ww-item-content">
+            <div class="ww-item-title">${e.matiere}</div>
+            <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${e.content}</div>
+          </div>
+        </div>`).join('')}
+      </div>`;
+    }).join(''):`
+    <div style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:60px;margin-bottom:16px">📖</div>Aucune entrée
+      <br><button class="btn btn-primary" style="margin-top:16px" onclick="openCahierM()">➕ Première entrée</button>
+    </div>`}`;
+  }
+
+  // ── PARENT ─────────────────────────────────────────────────────────────────
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucun enfant lié à votre compte</div>`;
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📖 Cahier de texte</span></div>`;
+  kids.forEach(k=>{
+    const cl=gc(k.cid); if(!cl) return;
+    const entries=DB.cahier_texte.filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+    const [cc]=clsColor(cl.name);
+    html+=`<div style="margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${cc}18;border-radius:14px;border-left:4px solid ${cc};margin-bottom:10px">
+        <span style="font-size:24px">📖</span>
+        <div><div style="font-weight:700;font-size:15px">${k.name}</div><div style="font-size:12px;color:var(--text-muted)">${cl.name}</div></div>
+      </div>
+      ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
+        const d=new Date(date);
+        return `<div class="premium-section" style="margin-bottom:8px">
+          <div class="premium-section-title">📅 ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+          ${items.map(e=>`<div class="premium-item">
+            <div class="pi-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d1fae5'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
+            <div style="flex:1"><div class="pi-title">${e.matiere}</div>
+              <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${e.content}</div>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      }).join(''):`<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">📖 Aucune entrée pour le moment</div>`}
+    </div>`;
+  });
+  return html;
 };
 
 window.openCahierM = () => {
-  if(!DB.settings.toggles?.cahier_texte){toast('Cahier de texte désactivé par la Direction','info');return;}
   const mc=getMyClass(); if(!mc.cl) return;
   const matieres=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
   openM('📖 Cahier de texte',`
@@ -4725,17 +4792,17 @@ window.openCahierM = () => {
       ${matieres.map(m=>`<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Ce qui a été enseigné</label>
-    <textarea class="form-input" id="ctContent" style="height:100px;resize:vertical" placeholder="Ex: Leçon sur les fractions — exercices page 42-43, correction en classe"></textarea>
+  <div class="form-group"><label class="form-label">Ce qui a été enseigné aujourd'hui</label>
+    <textarea class="form-input" id="ctContent" style="height:110px;resize:vertical" placeholder="Ex: Leçon sur les fractions — exercices page 42-43, correction en classe. Les parents pourront réviser avec leur enfant."></textarea>
   </div>
   <div class="form-group"><label class="form-label">Date</label>
     <input class="form-input" id="ctDate" type="date" value="${today()}">
   </div>
-  <div style="background:#fef3c7;border-radius:10px;padding:12px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">ℹ️</span>Cette entrée sera soumise à l'approbation de la Direction avant d'être visible par les parents.
+  <div style="background:#d1fae5;border-radius:10px;padding:12px;font-size:12px;color:#065f46;display:flex;align-items:center;gap:8px">
+    <span style="font-size:16px">✅</span>Publié immédiatement — visible par les parents pour les aider à réviser avec leur enfant.
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-  <button class="btn btn-primary" onclick="saveCahier()">📤 Soumettre</button>`);
+  <button class="btn btn-primary" onclick="saveCahier()">📖 Publier</button>`);
 };
 
 window.saveCahier = () => {
@@ -4746,20 +4813,20 @@ window.saveCahier = () => {
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
     id:'ct'+Date.now(), cid:mc.cl.id, matiere, content, lang:mc.lang,
-    date, by:S.user.id, status:'pending'
+    date, by:S.user.id, status:'published'
   };
   DB.cahier_texte.unshift(entry);
   pushSync('cahier_texte','post',entry);
-  const apr={id:'apr'+Date.now(), type:'cahier_texte', status:'pending',
-    content:`📖 ${mc.cl.name} — ${matiere}: ${content.slice(0,60)}${content.length>60?'...':''}`,
-    data:{ctId:entry.id}, date:today(), by:S.user.id};
-  DB.approbations.push(apr);
-  pushSync('approbations','post',apr);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:'n'+Date.now(),uid:u.id,msg:`📖 Cahier de texte soumis — ${mc.cl.name} · ${matiere} par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
+  // Notifier les parents de la classe
+  const kids=DB.students.filter(s=>s.cid===mc.cl.id&&s.pid);
+  const pids=[...new Set(kids.map(k=>k.pid))];
+  pids.forEach(pid=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:pid,
+      msg:`📖 Cahier de texte — ${mc.cl.name} · ${matiere} : ${content.slice(0,60)}${content.length>60?'...':''}`,
+      time:nowTime(),date:today(),read:false,type:'academic'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
-  toast('Soumis à la Direction ✅','success');
+  toast('📖 Cahier publié — parents notifiés','success');
   saveToCrypt(); closeModal(); render();
 };
 
