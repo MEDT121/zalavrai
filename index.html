@@ -4929,13 +4929,13 @@ R.authorized = () => {
     </div>`;
   }
 
-  // ── PARENT : vue avec toggle actif/inactif ──
+  // ── PARENT : vue avec ajout + toggle ──
   if (role === 'parent') {
     const myKids = DB.students.filter(s=>s.pid===S.user.id);
     if (!myKids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔑</div>Aucun enfant lié à ce compte</div>`;
     return `
-    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:12px 14px;background:#fef3c7;border-radius:10px;border-left:3px solid #f59e0b">
-      ⚠️ Les tutelles sont enregistrées par la Direction. Vous pouvez activer ou désactiver leur autorisation de récupérer votre enfant.
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:12px 14px;background:#dbeafe;border-radius:10px;border-left:3px solid #2563eb">
+      🔑 Vous pouvez ajouter jusqu'à <strong>3 tutelles</strong> par enfant et activer/désactiver leur autorisation de récupérer votre enfant.
     </div>
     ${myKids.map(s=>{
       const tuts = DB.aps.filter(a=>a.sid===s.id);
@@ -4967,11 +4967,17 @@ R.authorized = () => {
           </div>
         </div>
 
-        <!-- TUTELLES SECONDAIRES avec toggle -->
+        <!-- TUTELLES SECONDAIRES avec ajout + toggle -->
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🔑 Tutelles secondaires (${tuts.length}/3)</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">🔑 Tutelles secondaires (${tuts.length}/3)</div>
+            ${tuts.length<3?`<button class="btn btn-primary btn-sm" onclick="openTutelleForm('${s.id}')">➕ Ajouter</button>`:`<span class="pill pill-orange">Max 3</span>`}
+          </div>
           ${!tuts.length
-            ? `<div style="font-size:13px;color:var(--text-muted);padding:12px;background:var(--bg);border-radius:10px;text-align:center">Aucune tutelle enregistrée par la Direction</div>`
+            ? `<div style="font-size:13px;color:var(--text-muted);padding:14px;background:var(--bg);border-radius:10px;text-align:center">
+                 <div style="font-size:28px;margin-bottom:6px">👥</div>
+                 Aucune tutelle — cliquez <strong>➕ Ajouter</strong> pour enregistrer les personnes autorisées à récupérer votre enfant
+               </div>`
             : tuts.map(t=>{
                 const active = t.active !== false;
                 return `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:${active?'var(--bg)':'#f1f5f9'};border:1px solid ${active?'var(--border)':'#e2e8f0'};border-radius:12px;margin-bottom:8px;opacity:${active?1:0.65}">
@@ -4985,12 +4991,16 @@ R.authorized = () => {
                     ${t.phone?`<div style="font-size:11px;color:var(--text-muted)">${t.phone}</div>`:''}
                     <div style="font-size:11px;margin-top:4px;color:${active?'#059669':'#dc2626'};font-weight:600">${active?'✅ Autorisé à récupérer':'🚫 Accès désactivé'}</div>
                   </div>
-                  <div>
+                  <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
                     <button onclick="toggleTutelle('${t.id}',${!active})"
-                      style="padding:8px 14px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;
+                      style="padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:600;
                         background:${active?'#fee2e2':'#d1fae5'};color:${active?'#dc2626':'#059669'}">
                       ${active?'🚫 Désactiver':'✅ Activer'}
                     </button>
+                    <div style="display:flex;gap:4px">
+                      <button onclick="openTutelleForm('${s.id}','${t.id}')" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px">✏️</button>
+                      <button onclick="deleteTutelle('${t.id}')" style="padding:5px 8px;border-radius:8px;border:none;background:#fee2e2;color:#dc2626;cursor:pointer;font-size:11px">🗑️</button>
+                    </div>
                   </div>
                 </div>`;
               }).join('')}
@@ -4999,48 +5009,65 @@ R.authorized = () => {
     }).join('')}`;
   }
 
-  // ── GARDIEN : vue lecture seule ──
-  const studsToShow = DB.students;
+  // ── GARDIEN : vue lecture seule avec recherche ──
+  const qG = (window._apQG||'').toLowerCase();
+  const studsToShow = qG ? DB.students.filter(s=>s.name.toLowerCase().includes(qG)||s.mat.toLowerCase().includes(qG)) : DB.students;
   return `
-  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px">
-    ℹ️ Personnes autorisées à récupérer les enfants.
+  <div class="ww-toolbar">
+    <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+      <input placeholder="Rechercher un élève..." oninput="window._apQG=this.value;render()" value="${window._apQG||''}">
+    </div>
+  </div>
+  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px;border-left:3px solid #2563eb">
+    🚪 Vérifiez ici les personnes autorisées <strong>avant de laisser sortir un enfant</strong>. Seules les personnes avec <span style="color:#059669">✅</span> peuvent récupérer l'enfant.
   </div>
   ${studsToShow.map(s=>{
     const tuts=DB.aps.filter(a=>a.sid===s.id&&a.active!==false);
     const parent=gu(s.pid);
     const c=gc(s.cid); const [cc,cbg]=clsColor(c?c.name:'');
+    const totalAps = (parent?1:0) + tuts.length;
     return `<div class="premium-section" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:44px;height:44px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">
           ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:ini(s.name)}
         </div>
-        <div><div style="font-weight:700">${s.name}</div><div style="font-size:12px;color:var(--text-secondary)">${c?c.name:''}</div></div>
+        <div style="flex:1">
+          <div style="font-weight:700">${s.name}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${c?c.name:''} · ${s.mat}</div>
+        </div>
+        <span class="pill" style="background:${totalAps>0?'#d1fae5':'#fee2e2'};color:${totalAps>0?'#065f46':'#991b1b'}">${totalAps} autorisé${totalAps!==1?'s':''}</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        ${parent?`<div style="flex:1;min-width:100px;background:#d1fae511;border:1px solid #10b98133;border-radius:10px;padding:8px;text-align:center">
-          <div style="width:52px;height:64px;border-radius:9px;overflow:hidden;margin:0 auto 5px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
-            ${parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:18px;font-weight:700;color:#10b981">${ini(parent.name)}</span>`}
+        ${parent?`<div style="flex:1;min-width:100px;max-width:130px;background:#d1fae511;border:2px solid #10b98155;border-radius:12px;padding:10px;text-align:center">
+          <div style="width:56px;height:68px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+            ${parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#10b981">${ini(parent.name)}</span>`}
           </div>
-          <div style="font-size:11px;font-weight:700">${parent.name}</div>
-          <div style="font-size:10px;color:#10b981">👑 Parent</div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${parent.name.split(' ')[0]}</div>
+          <div style="font-size:10px;color:#10b981;font-weight:600">👑 Parent</div>
+          ${parent.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${parent.phone}</div>`:''}
         </div>`:''}
-        ${tuts.map(t=>`<div style="flex:1;min-width:100px;background:var(--bg);border-radius:10px;padding:8px;border:1px solid var(--border);text-align:center">
-          <div style="width:52px;height:64px;border-radius:9px;overflow:hidden;margin:0 auto 5px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
-            ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:18px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
+        ${tuts.map(t=>`<div style="flex:1;min-width:100px;max-width:130px;background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border);text-align:center">
+          <div style="width:56px;height:68px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+            ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
           </div>
-          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name.split(' ')[0]}</div>
           <div style="font-size:10px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
+          ${t.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${t.phone}</div>`:''}
         </div>`).join('')}
-        ${!tuts.length&&!parent?`<div style="font-size:12px;color:var(--text-muted);padding:12px">Aucune personne autorisée</div>`:''}
+        ${totalAps===0?`<div style="font-size:12px;color:#dc2626;padding:12px;background:#fee2e2;border-radius:10px;width:100%">⚠️ Aucune personne autorisée enregistrée</div>`:''}
       </div>
     </div>`;
   }).join('')}`;
 };
+window._apQG = '';
 
 window._apQ = '';
 
 window.openTutelleForm = (sid, tid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  // Contrôle accès : direction peut tout modifier, parent uniquement ses propres enfants
+  const isParent = S.user.role==='parent';
+  if(isParent && s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   const t=tid?DB.aps.find(x=>x.id===tid):null;
   const existing=DB.aps.filter(a=>a.sid===sid);
   if(!t && existing.length>=3){toast('Maximum 3 tutelles par élève','error');return;}
@@ -5054,11 +5081,11 @@ window.openTutelleForm = (sid, tid) => {
   </div>
   <input type="file" id="tut_photo_input" accept="image/*" style="display:none" onchange="tutPhotoChange(this)">
   <input type="hidden" id="tut_photo_data" value="${t&&t.photo?t.photo:''}">
-  <span style="font-size:11px;color:var(--text-muted);cursor:pointer" onclick="$('tut_photo_input').click()">📷 Photo obligatoire pour identification</span>
+  <span style="font-size:11px;color:#f59e0b;cursor:pointer" onclick="$('tut_photo_input').click()">📷 Photo recommandée pour identification au portail</span>
 </div>
 <div class="form-row">
   <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="tut_name" value="${t?t.name:''}" placeholder="Ex: Lomela Jean"></div>
-  <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="tut_phone" value="${t&&t.phone?t.phone:''}" placeholder="+243..."></div>
+  <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" id="tut_phone" value="${t&&t.phone?t.phone:''}" placeholder="+243..."></div>
 </div>
 <div class="form-group"><label class="form-label">Lien de parenté *</label>
   <select class="form-select" id="tut_relation">
@@ -5097,7 +5124,7 @@ window.saveTutelle = () => {
   const relation=$('tut_relation').value;
   const phone=($('tut_phone').value||'').trim()||null;
   const photo=$('tut_photo_data').value||null;
-  if(!photo){toast('Ajoutez une photo pour l\'identification','error');return;}
+  if(!photo) toast('⚠️ Sans photo, l\'identification au portail sera difficile','info');
   const data={sid,name,relation,phone,photo,active:true};
   if(tid){
     const t=DB.aps.find(x=>x.id===tid); if(t) Object.assign(t,data);
@@ -5114,6 +5141,11 @@ window.saveTutelle = () => {
 
 window.deleteTutelle = (tid) => {
   const t=DB.aps.find(x=>x.id===tid); if(!t) return;
+  // Contrôle accès : direction ou parent de l'enfant
+  if(S.user.role==='parent'){
+    const s=DB.students.find(x=>x.id===t.sid);
+    if(!s||s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  }
   showC(`Supprimer ${t.name} ?`,'Cette personne ne pourra plus récupérer l\'enfant.',()=>{
     DB.aps=DB.aps.filter(x=>x.id!==tid);
     pushSync('aps','delete',{},'id=eq.'+tid);
