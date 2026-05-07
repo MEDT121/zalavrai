@@ -4345,6 +4345,7 @@ R.devoirs_parent = () => {
         <div class="pi-sub">${d.matiere||''}${dateLabel?' · '+dateLabel:''} · ${d.date}</div>
         ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;line-height:1.6">${d.description}</div>`:''}
         ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-top:6px">`:''}
+        ${d.type==='pdf'&&d.content?`<a href="${d.content}" download="devoir.pdf" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 12px;background:#ede9fe;border-radius:8px;font-size:12px;font-weight:600;color:#5b21b6;text-decoration:none">📄 Télécharger le PDF</a>`:''}
       </div>
       <span class="pill ${overdue?'pill-red':'pill-blue'}">${overdue?'⏰ Passé':'✅ À venir'}</span>
     </div>`;
@@ -4480,6 +4481,9 @@ R.devoirs_parent = () => {
 window.openDevoirM = (category) => {
   const mc=getMyClass(); if(!mc.cl) return;
   window._devoirCategory = category||'devoir';
+  window._devoirType = 'text';
+  window._devoirPhoto = null;
+  window._devoirPdf = null;
   const catMeta = {
     devoir:{icon:'📚',label:'Devoir',color:'#2563eb',ph:'Ex: Exercices page 42'},
     interro:{icon:'⚠️',label:'Interrogation',color:'#f59e0b',ph:'Ex: Interrogation de Mathématiques'},
@@ -4501,22 +4505,23 @@ window.openDevoirM = (category) => {
   <div class="form-group"><label class="form-label">Matière *</label>
     <select class="form-select" id="dvMatiere">${matOpts}</select>
   </div>
-  <div class="form-group"><label class="form-label">Description / Contenu à réviser</label>
-    <textarea class="form-input" id="dvText" style="height:80px;resize:vertical" placeholder="Chapitres, exercices, remarques..."></textarea>
-  </div>
   <div class="form-group">
     <label class="form-label" id="dvDeadlineLabel">${window._devoirCategory==='devoir'?'Date limite de remise *':'Date de l\'épreuve *'}</label>
     <input class="form-input" id="dvDeadline" type="date" value="${today()}">
   </div>
-  <div class="form-group"><label class="form-label">Photo du tableau (optionnel)</label>
-    <div class="photo-upload" id="dvPhotoWrap" style="width:100%;height:100px;border-radius:12px">
-      <div style="pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-muted)"><span style="font-size:24px">📷</span><span style="font-size:11px">Photo du sujet</span></div>
-      <input type="file" accept="image/*" capture="environment" onchange="previewDevoirPhoto(this)">
+  <div class="form-group">
+    <label class="form-label">Type de contenu</label>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button id="dvTypeText"  onclick="setDevoirType('text')"  class="btn btn-sm btn-primary"  style="flex:1">📝 Texte</button>
+      <button id="dvTypePhoto" onclick="setDevoirType('photo')" class="btn btn-sm btn-outline" style="flex:1">📷 Image</button>
+      <button id="dvTypePdf"   onclick="setDevoirType('pdf')"   class="btn btn-sm btn-outline" style="flex:1">📄 PDF</button>
+    </div>
+    <div id="dvContentArea">
+      <textarea class="form-input" id="dvText" style="height:90px;resize:vertical" placeholder="Description, chapitres à réviser, exercices..."></textarea>
     </div>
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
   <button class="btn btn-primary" onclick="saveDevoir()">📤 Publier</button>`);
-  window._devoirType='text'; window._devoirPhoto=null;
 };
 
 window.switchDevoirCat = (cat) => {
@@ -4539,14 +4544,23 @@ window.setDevoirType = type => {
   window._devoirType=type;
   $('dvTypeText').className=`btn btn-sm ${type==='text'?'btn-primary':'btn-outline'}`;
   $('dvTypePhoto').className=`btn btn-sm ${type==='photo'?'btn-primary':'btn-outline'}`;
+  $('dvTypePdf').className=`btn btn-sm ${type==='pdf'?'btn-primary':'btn-outline'}`;
   if(type==='text'){
     $('dvContentArea').innerHTML=`<div class="form-group"><label class="form-label">Contenu</label><textarea class="form-input" id="dvText" style="height:100px;resize:vertical" placeholder="Écrivez le devoir..."></textarea></div>`;
-  } else {
+  } else if(type==='photo'){
     $('dvContentArea').innerHTML=`
     <div class="form-group"><label class="form-label">Photo du devoir</label>
       <div class="photo-upload" id="dvPhotoWrap" style="width:100%;height:200px;border-radius:12px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted);pointer-events:none"><span style="font-size:36px">📷</span><span style="font-size:12px">Photographier ou choisir</span></div>
         <input type="file" accept="image/*" capture="environment" onchange="previewDevoirPhoto(this)">
+      </div>
+    </div>`;
+  } else {
+    $('dvContentArea').innerHTML=`
+    <div class="form-group"><label class="form-label">Document PDF</label>
+      <div id="dvPdfWrap" style="border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;position:relative;background:var(--bg-card)" onclick="document.getElementById('dvPdfInput').click()">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted)"><span style="font-size:36px">📄</span><span style="font-size:13px">Cliquez pour choisir un PDF</span></div>
+        <input type="file" id="dvPdfInput" accept="application/pdf" style="display:none" onchange="previewDevoirPdf(this)">
       </div>
     </div>`;
   }
@@ -4561,6 +4575,27 @@ window.previewDevoirPhoto = input => {
   });
 };
 
+window.previewDevoirPdf = input => {
+  const file=input.files[0]; if(!file) return;
+  if(file.size>5*1024*1024){toast('PDF trop volumineux (max 5 Mo)','error');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    window._devoirPdf=e.target.result;
+    const wrap=document.getElementById('dvPdfWrap');
+    if(wrap) wrap.innerHTML=`
+      <div style="display:flex;align-items:center;gap:12px;padding:4px">
+        <span style="font-size:32px">📄</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${file.name}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${(file.size/1024).toFixed(0)} Ko · PDF</div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('dvPdfInput').click()">Changer</button>
+      </div>
+      <input type="file" id="dvPdfInput" accept="application/pdf" style="display:none" onchange="previewDevoirPdf(this)">`;
+  };
+  reader.readAsDataURL(file);
+};
+
 window.saveDevoir = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const title=($('dvTitle')?.value||'').trim();
@@ -4570,9 +4605,9 @@ window.saveDevoir = () => {
   const description=($('dvText')?.value||'').trim();
   const deadline=($('dvDeadline')?.value)||null;
   const photo=window._devoirPhoto||null;
-  // content = description text; type = photo if photo present
-  const type = photo?'photo':'text';
-  const content = photo||description;
+  const pdf=window._devoirPdf||null;
+  const type = photo?'photo':pdf?'pdf':'text';
+  const content = photo||pdf||description;
   const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
   const cm=catMeta[category]||catMeta.devoir;
   const devoir={
@@ -4592,7 +4627,7 @@ window.saveDevoir = () => {
       DB.notifs.unshift(n); pushSync('notifs','post',n);
     }
   });
-  window._devoirPhoto=null; window._devoirCategory='devoir';
+  window._devoirPhoto=null; window._devoirPdf=null; window._devoirCategory='devoir';
   toast(`${cm.icon} ${cm.notif} publié — parents notifiés directement`,'success');
   saveToCrypt(); closeModal(); render();
 };
