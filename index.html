@@ -1950,7 +1950,13 @@ function drawBack() {
 function renderAll() {
   drawFront();
   drawBack();
-  $("status").textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
+  const st=$("status");
+  if(st) st.textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
+  if(window._cardRenderCallback){
+    const cb=window._cardRenderCallback;
+    window._cardRenderCallback=null;
+    cb();
+  }
 }
 
 function downloadCanvas(id, name) {
@@ -1989,6 +1995,45 @@ function downloadZip() {
     toast('ZIP créé : '+folderName+'.zip','success');
   });
 }
+
+// Fill card for a student and wait until renderAll completes
+function fillCardAsync(sid) {
+  return new Promise(resolve => {
+    window._cardRenderCallback = resolve;
+    fillCardFromStudent(sid);
+    // Safety timeout in case renderAll never fires (e.g. no photo)
+    setTimeout(() => { if(window._cardRenderCallback){ window._cardRenderCallback=null; resolve(); } }, 1500);
+  });
+}
+
+// Export ALL students' cards as a single ZIP (RECTO+VERSO per student, organised by class)
+window.exportAllCardsZip = async () => {
+  if(typeof JSZip==='undefined'){toast('JSZip non chargé — vérifiez la connexion','error');return;}
+  const students=DB.students;
+  if(!students.length){toast('Aucun élève dans la base','error');return;}
+  toast('⏳ Génération des cartes en cours...','info');
+  const zip=new JSZip();
+  let count=0;
+  for(const s of students){
+    await fillCardAsync(s.id);
+    const cl=DB.classes.find(c=>c.id===s.cid);
+    const folder=clean(cl?cl.name:'CLASSE');
+    const name=clean(s.name||'ELEVE')+'_'+clean(s.mat||s.id);
+    try{
+      zip.file(folder+'/'+name+'_RECTO.png',$('front').toDataURL('image/png').split(',')[1],{base64:true});
+      zip.file(folder+'/'+name+'_VERSO.png',$('back').toDataURL('image/png').split(',')[1],{base64:true});
+      count++;
+    }catch(e){console.warn('Carte ignorée:',s.name,e);}
+  }
+  if(!count){toast('Aucune carte générée','error');return;}
+  zip.generateAsync({type:'blob'}).then(blob=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='Cartes_Eleves_'+today()+'.zip'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    toast('✅ ZIP créé — '+count+' cartes (RECTO+VERSO)','success');
+  });
+};
 
 function downloadAllNine() {
   const old = $("classe").value;
@@ -2268,10 +2313,11 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
       <button class="btn btn-primary" onclick="renderAll()">&#128260; Générer</button>
-      <button class="btn btn-gold" onclick="downloadZip()">&#128230; Exporter ZIP</button>
+      <button class="btn btn-gold" onclick="downloadZip()">&#128230; ZIP élève</button>
     </div>
     <div style="margin-top:8px">
       <button class="btn btn-outline" style="width:100%;margin-bottom:6px" onclick="downloadBoth()">&#11015;&#65039; PNG séparés</button>
+      <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="exportAllCardsZip()">&#128230; Exporter TOUTES les cartes (ZIP)</button>
       <button class="btn btn-outline" style="width:100%" onclick="downloadAllNine()">&#127891; 9 rectos toutes classes</button>
     </div>
   </aside>
