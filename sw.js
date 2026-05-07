@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════════════════════
-//  SchoolSafe — Service Worker  v1
+//  SchoolSafe — Service Worker  v2
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v1';
+const CACHE = 'schoolsafe-v2';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
