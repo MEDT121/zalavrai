@@ -4509,7 +4509,14 @@ R.devoirs = () => {
         </div>
         ${d.type==='text'?`<div style="font-size:14px;color:var(--text);line-height:1.7;padding:12px;background:var(--bg);border-radius:10px">${d.content}</div>`:''}
         ${d.type==='photo'?`<div style="border-radius:10px;overflow:hidden;max-height:300px"><img src="${d.content}" style="width:100%;display:block;object-fit:contain"></div>`:''}
-        ${d.type==='pdf'?`<div style="padding:16px;background:var(--bg);border-radius:10px;display:flex;align-items:center;gap:10px"><span style="font-size:32px">📄</span><div><div style="font-weight:600">Document PDF</div><div style="font-size:12px;color:var(--text-muted)">Télécharger pour consulter</div></div></div>`:''}
+        ${d.type==='pdf'?`<div style="padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;align-items:center;gap:12px">
+          <span style="font-size:32px">📄</span>
+          <div style="flex:1">
+            <div style="font-weight:600">Document PDF</div>
+            <div style="font-size:12px;color:var(--text-muted)">${d.content?'Disponible':'Non disponible hors-ligne'}</div>
+          </div>
+          ${d.content?`<button onclick="openPdfDevoir('${d.id}')" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📄 Ouvrir</button>`:''}
+        </div>`:''}
         ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">📅 À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
       </div>
     </div>`;
@@ -4542,7 +4549,8 @@ R.devoirs_parent = () => {
         <div class="pi-sub">${d.matiere||''}${dateLabel?' · '+dateLabel:''} · ${d.date}</div>
         ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;line-height:1.6">${d.description}</div>`:''}
         ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-top:6px">`:''}
-        ${d.type==='pdf'&&d.content?`<a href="${d.content}" download="devoir.pdf" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 12px;background:#ede9fe;border-radius:8px;font-size:12px;font-weight:600;color:#5b21b6;text-decoration:none">📄 Télécharger le PDF</a>`:''}
+        ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">📄 Ouvrir le PDF</button>`:''}
+        ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📄 PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
       </div>
       <span class="pill ${overdue?'pill-red':'pill-blue'}">${overdue?'⏰ Passé':'✅ À venir'}</span>
     </div>`;
@@ -4818,6 +4826,25 @@ window.previewDevoirPdf = input => {
   reader.readAsDataURL(file);
 };
 
+// Open a PDF devoir in a new tab using a Blob URL (works on all platforms)
+window.openPdfDevoir = (dvId) => {
+  const d = DB.devoirs.find(x => x.id === dvId);
+  if(!d || !d.content) { toast('PDF non disponible', 'error'); return; }
+  try {
+    const b64 = d.content.split(',')[1] || d.content;
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const blob = new Blob([arr], {type: 'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch(e) {
+    // Fallback: open data URL directly
+    window.open(d.content, '_blank');
+  }
+};
+
 window.saveDevoir = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const title=($('dvTitle')?.value||'').trim();
@@ -4838,7 +4865,11 @@ window.saveDevoir = () => {
     expires_at: Date.now() + 90*24*60*60*1000
   };
   DB.devoirs.unshift(devoir);
-  pushSync('devoirs','post',devoir);
+  // PDF content is base64 — too large for Supabase rows, push metadata only
+  const syncPayload = type === 'pdf'
+    ? {...devoir, content: null, pdf_local_only: true}
+    : devoir;
+  pushSync('devoirs','post',syncPayload);
   // Notification directe aux parents — gratuit, sans approbation
   const kids=DB.students.filter(s=>s.cid===mc.cl.id);
   kids.forEach(k=>{
