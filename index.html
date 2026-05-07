@@ -919,8 +919,8 @@ window.saveToCrypt = () => {
       attendance:DB.attendance.slice(0,300), scan_log:DB.scan_log.slice(0,200),
       conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,200),
       notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,100),
-      aps:DB.aps, devoirs:DB.devoirs, cahier_texte:DB.cahier_texte, matieres:DB.matieres,
-      approbations:DB.approbations, teacher_notes:DB.teacher_notes, settings:DB.settings,
+      aps:DB.aps, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
+      approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
       daily_records:DB.daily_records.slice(0,500),
       daily_expenses:DB.daily_expenses.slice(0,500),
       daily_reports:DB.daily_reports.slice(0,100),
@@ -2506,9 +2506,18 @@ window.openUserForm = (role, uid) => {
   const u = uid ? DB.users.find(x=>x.id===uid) : null;
   const meta = ROLE_META[role]||{label:role,icon:'👤'};
   const classOpts = role==='enseignant' ? `<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${DB.classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
+  const photoOpts = role==='parent' ? `<div class="form-group"><label class="form-label">Photo d'identité</label>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div id="usr_photo_preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">
+        ${u&&u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:'👤'}
+      </div>
+      <label class="btn btn-outline btn-sm" style="cursor:pointer">📷 Choisir une photo<input type="file" accept="image/*" style="display:none" onchange="previewUserPhoto(this)"></label>
+    </div>
+  </div>` : '';
   openM(u?`✏️ Modifier — ${u.name}`:`➕ Ajouter ${meta.icon} ${meta.label}`,`
 <input type="hidden" id="usr_id" value="${u?u.id:''}">
 <input type="hidden" id="usr_role" value="${role}">
+${photoOpts}
 <div class="form-row">
   <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="usr_name" value="${u?u.name:''}" placeholder="Ex: Jean Kabongo"></div>
   <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="usr_init" maxlength="3" value="${u&&u.initials?u.initials:''}" placeholder="JK"></div>
@@ -2529,7 +2538,9 @@ window.saveUser = () => {
   const uid=$('usr_id').value;
   const role=$('usr_role').value;
   const initials=($('usr_init').value||'').trim()||ini(name);
-  const data={name,pin,role,initials,phone:($('usr_phone').value||'').trim()||null};
+  const photo=window._userPhoto||null;
+  const data={name,pin,role,initials,phone:($('usr_phone').value||'').trim()||null,...(photo?{photo_url:photo}:{})};
+  window._userPhoto=null;
   if(uid){
     const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
     if(role==='enseignant'){
@@ -2549,6 +2560,16 @@ window.saveUser = () => {
     toast(`🎉 ${name} ajouté`,'success');
   }
   closeModal(); saveToCrypt(); render();
+};
+
+window._userPhoto = null;
+window.previewUserPhoto = input => {
+  if(!input.files[0]) return;
+  compressWithProfile(input.files[0],'photo_user',data=>{
+    window._userPhoto=data;
+    const prev=document.getElementById('usr_photo_preview');
+    if(prev) prev.innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+  });
 };
 
 window.deleteUser = (uid) => {
@@ -2689,8 +2710,10 @@ R.classes = () => {
             </div>
             <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
           </div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}${c.titulaire_id===c.teacher_id?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}${c.titulaire_id===c.teacher_id_en?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
+          ${c.cycle==='maternelle'
+            ?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">👨‍🏫 ${te?te.name:'— Enseignant non assigné'}</div>`
+            :`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}${c.titulaire_id===c.teacher_id?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}${c.titulaire_id===c.teacher_id_en?` <span style="background:#fef3c7;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>`}
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline btn-sm" style="flex:1" onclick="openClassForm('${c.id}')">✏️ Modifier</button>
             <button class="btn btn-outline btn-sm" onclick="go('students');window._studentCF='${c.id}';render()">🎓 Élèves</button>
@@ -2706,15 +2729,16 @@ window.openClassForm = (cid) => {
   const c = cid ? DB.classes.find(x=>x.id===cid) : null;
   const teacherOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id===u.id?'selected':''}>${u.name}</option>`).join('');
   const teacherEnOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id_en===u.id?'selected':''}>${u.name}</option>`).join('');
+  const isMaternelle = c?.cycle==='maternelle';
   openM(c?`✏️ Modifier — ${c.name}`:'➕ Créer une classe',`
 <input type="hidden" id="cls_id" value="${c?c.id:''}">
 <div class="form-row">
   <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
-  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle"><option value="primaire" ${c&&c.cycle==='primaire'?'selected':''}>Primaire</option><option value="maternelle" ${c&&c.cycle==='maternelle'?'selected':''}>Maternelle</option></select></div>
+  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()"><option value="primaire" ${!isMaternelle?'selected':''}>Primaire</option><option value="maternelle" ${isMaternelle?'selected':''}>Maternelle</option></select></div>
 </div>
-<div class="form-group"><label class="form-label">🇫🇷 Professeur Français</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
-<div class="form-group"><label class="form-label">🇬🇧 Professeur Anglais</label><select class="form-select" id="cls_te" onchange="updateTitulaireOpts()">${teacherEnOpts}</select></div>
-<div class="form-group"><label class="form-label">⭐ Titulaire de classe (responsable principal)</label>
+<div class="form-group" id="cls_tf_group" ${isMaternelle?'style="display:none"':''}><label class="form-label">🇫🇷 Professeur Français</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
+<div class="form-group"><label class="form-label" id="cls_te_label">${isMaternelle?'👨‍🏫 Enseignant (Anglais)':'🇬🇧 Professeur Anglais'}</label><select class="form-select" id="cls_te" onchange="updateTitulaireOpts()">${teacherEnOpts}</select></div>
+<div class="form-group" id="cls_titulaire_group" ${isMaternelle?'style="display:none"':''}><label class="form-label">⭐ Titulaire de classe (responsable principal)</label>
   <select class="form-select" id="cls_titulaire">
     <option value="">— Choisir le titulaire —</option>
     ${[c&&c.teacher_id?`<option value="${c.teacher_id}" ${c.titulaire_id===c.teacher_id?'selected':''}>${DB.users.find(u=>u.id===c.teacher_id)?.name||''} (FR)</option>`:'',
@@ -2737,12 +2761,28 @@ window.updateTitulaireOpts = () => {
     (teUser?`<option value="${teVal}" ${current===teVal?'selected':''}>${teUser.name} (EN)</option>`:'');
 };
 
+window.updateClassCycleFields = () => {
+  const cycle=$('cls_cycle').value;
+  const isMat=cycle==='maternelle';
+  const tfGroup=document.getElementById('cls_tf_group');
+  const titGroup=document.getElementById('cls_titulaire_group');
+  const teLabel=document.getElementById('cls_te_label');
+  if(tfGroup) tfGroup.style.display=isMat?'none':'';
+  if(titGroup) titGroup.style.display=isMat?'none':'';
+  if(teLabel) teLabel.textContent=isMat?'👨‍🏫 Enseignant (Anglais)':'🇬🇧 Professeur Anglais';
+  if(isMat&&$('cls_tf')) $('cls_tf').value='';
+};
+
 window.saveClass = () => {
   const name=($('cls_name').value||'').trim();
   if(!name){toast('Entrez le nom de la classe','error');return;}
   const cid=$('cls_id').value;
-  const data={name,cycle:$('cls_cycle').value,teacher_id:$('cls_tf').value||null,teacher_id_en:$('cls_te').value||null,
-    titulaire_id:$('cls_titulaire')?($('cls_titulaire').value||null):null};
+  const cycle=$('cls_cycle').value;
+  const isMat=cycle==='maternelle';
+  const tid_en=$('cls_te').value||null;
+  const tid_fr=isMat?null:($('cls_tf').value||null);
+  const titId=isMat?tid_en:($('cls_titulaire')?($('cls_titulaire').value||null):null);
+  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId};
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
@@ -4367,7 +4407,8 @@ R.devoirs_parent = () => {
 
       </div>`;
     // Devoirs / dates / conduite : GRATUIT, accès direct sans frais
-    const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const _now=Date.now();
+    const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
     const interroList=allDevoirs.filter(d=>d.category==='interro');
     const examenList=allDevoirs.filter(d=>d.category==='examen');
@@ -4612,7 +4653,8 @@ window.saveDevoir = () => {
   const cm=catMeta[category]||catMeta.devoir;
   const devoir={
     id:'dv'+Date.now(), cid:mc.cl.id, title, type, content, lang:mc.lang,
-    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'published'
+    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'published',
+    expires_at: Date.now() + 90*24*60*60*1000
   };
   DB.devoirs.unshift(devoir);
   pushSync('devoirs','post',devoir);
@@ -4731,7 +4773,8 @@ R.teacher_comm = () => {
   const coTeacher=coId?gu(coId):null;
 
   // Filter notes for this class
-  const notes=DB.teacher_notes.filter(n=>n.cid===cl.id).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const now=Date.now();
+  const notes=DB.teacher_notes.filter(n=>n.cid===cl.id&&(!n.expires_at||n.expires_at>now)).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
 
   return `
   <div class="premium-section">
@@ -4763,7 +4806,7 @@ R.teacher_comm = () => {
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:36px;height:36px;border-radius:10px;background:${isMe?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${author?ini(author.name):'?'}</div>
         <div class="ww-item-content">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((n.expires_at-Date.now())/3600000))}h restantes`:''}</div>
           <div style="font-size:14px;line-height:1.6">${n.content}</div>
           ${n.sid?`<div style="font-size:11px;color:var(--primary);margin-top:4px">👤 Concerne: ${DB.students.find(s=>s.id===n.sid)?.name||''}</div>`:''}
         </div>
@@ -4778,7 +4821,8 @@ window.sendTeacherNote = () => {
   if(!msg){toast('Écrivez un message','error');return;}
   const note={
     id:'tn'+Date.now(), cid:mc.cl.id, by:S.user.id,
-    content:msg, date:today(), time:nowTime(), sid:null
+    content:msg, date:today(), time:nowTime(), sid:null,
+    expires_at: Date.now() + 72*60*60*1000
   };
   DB.teacher_notes.push(note);
   $('commMsg').value='';
