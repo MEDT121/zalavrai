@@ -701,6 +701,7 @@ window.NAV = {
       {id:'scanner_exit',i:'🚪',l:'Scanner Sortie'},
       {id:'scan_log',i:'📜',l:'Historique'},
       {s:'Sécurité'},
+      {id:'authorized',i:'🔑',l:'Personnes autorisées'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
       {id:'notifications',i:'🔔',l:'Alertes'},
     ],
@@ -1262,6 +1263,7 @@ function dashboardDirection() {
       <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e">Retards</div></div>
       <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b">Absents</div></div>
     </div>
+    ${ts-(present+late+refused)>0?`<button class="btn" style="width:100%;margin-top:10px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;font-size:13px" onclick="notifyAbsentParents()">📣 Notifier les parents des absents (${ts-(present+late+refused)})</button>`:''}
   </div>
 
   <div class="premium-section" style="border-left:4px solid #059669">
@@ -3969,7 +3971,7 @@ R.attendance = () => {
       </div>
       ${!validated?`<div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="validateScanPresence()">✅ Valider les présences</button>
-        ${notScanned.length?`<button class="btn" style="flex:1;min-width:160px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="signalAbsencesToDir('${myClass.id}')">⚠️ Signaler ${notScanned.length} absent${notScanned.length>1?'s':''} à la Direction</button>`:''}
+        ${notScanned.length?`<button class="btn" style="flex:1;min-width:160px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="signalAbsencesToDir('${myClass.id}')">⚠️ Signaler à la Direction</button><button class="btn" style="flex:1;min-width:160px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="notifyAbsentParents('${myClass.id}')">📣 Notifier les parents</button>`:''}
       </div>`:`<div style="font-size:12px;color:#065f46">Présences confirmées. ${notScanned.length?`<span style="color:#92400e;font-weight:600">${notScanned.length} élève${notScanned.length>1?'s':''} absent${notScanned.length>1?'s':''} signalé${notScanned.length>1?'s':''} automatiquement.</span>`:''}</div>`}
     </div>`;
   }
@@ -3992,7 +3994,7 @@ R.attendance = () => {
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${s.name}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.i} ${st.l}</span>
-        ${canModify&&!a?`<button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd">📄</button>`:''}
+        ${canModify&&!a?`<button class="action-btn" onclick="manualMarkPresent('${s.id}')" title="Marquer présent manuellement" style="flex-shrink:0;background:#d1fae5;border-color:#6ee7b7;color:#065f46">✏️</button><button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd">📄</button>`:''}
         ${canModify&&a&&a.status!=='excused'&&a.status!=='sick'?`<button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd">📄</button>`:''}
       </div>`;
     }).join('')}
@@ -7950,6 +7952,71 @@ window.renderGSearch = () => {
     <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${it.title}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.sub}</div></div>
     <span style="color:var(--text-muted);font-size:18px">›</span>
   </div>`).join('')+(items.length>12?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">${items.length-12} autres résultats — affinez la recherche</div>`:'');
+};
+
+// ── NOTIFICATION ABSENCES → PARENTS ──
+window.notifyAbsentParents = async (cid) => {
+  const students = cid ? DB.students.filter(s=>s.cid===cid) : DB.students;
+  const scannedSids = DB.scan_log.filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
+  const absents = students.filter(s=>!scannedSids.includes(s.id)&&s.pid);
+  if(!absents.length){toast('Tous les élèves présents ou sans parent lié','info');return;}
+  const key='abs_notif_'+today();
+  if(!DB._absentNotified) DB._absentNotified={};
+  const alreadyToday = DB._absentNotified[key]||[];
+  const toNotify = absents.filter(s=>!alreadyToday.includes(s.id));
+  if(!toNotify.length){toast('Parents déjà notifiés aujourd\'hui pour ces absents','info');return;}
+  const cl = cid?gc(cid):null;
+  showC(`Notifier ${toNotify.length} parent${toNotify.length>1?'s':''}${cl?' ('+cl.name+')':''}?`,
+    toNotify.slice(0,5).map(s=>s.name).join(', ')+(toNotify.length>5?` +${toNotify.length-5}`:''),
+    async ()=>{
+      let count=0;
+      for(const s of toNotify){
+        if(!s.pid) continue;
+        await pushNotif(s.pid,`⚠️ ${s.name} est absent(e) aujourd'hui (${today()}). Si c'est prévu, merci de justifier via l'application.`);
+        count++;
+      }
+      DB._absentNotified[key]=[...alreadyToday,...toNotify.map(s=>s.id)];
+      logAudit('absent_notif',`${count} parent(s) notifié(s) — ${cl?cl.name:'tous'}`);
+      toast(`📣 ${count} parent${count>1?'s':''} notifié${count>1?'s':''}`, 'success');
+      saveToCrypt();
+    }
+  );
+};
+
+// ── CORRECTION RÉTROACTIVE PRÉSENCES ──
+window.manualMarkPresent = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const existing=DB.attendance.find(a=>a.sid===sid&&a.date===today());
+  if(existing){toast(`${s.name} est déjà enregistré(e) comme présent(e)`,'info');return;}
+  openM(`✏️ Marquer présent — ${s.name}`,`
+  <div style="background:#d1fae5;border-radius:10px;padding:10px 14px;font-size:13px;color:#065f46;margin-bottom:14px">
+    Correction manuelle — l'élève était présent(e) mais n'a pas pu scanner sa carte.
+  </div>
+  <div class="form-group"><label class="form-label">Heure d'arrivée</label>
+    <input class="form-input" id="manualArrTime" type="time" value="${nowTime()}">
+  </div>
+  <div class="form-group"><label class="form-label">Motif (optionnel)</label>
+    <input class="form-input" id="manualArrNote" placeholder="Ex: Scanner hors service, carte oubliée...">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="doManualPresent('${sid}')">✅ Confirmer présent</button>`);
+};
+
+window.doManualPresent = async (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const time=document.getElementById('manualArrTime')?.value||nowTime();
+  const note=document.getElementById('manualArrNote')?.value.trim()||'';
+  const att={id:'a'+Date.now(),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined};
+  const log={id:'sl'+Date.now(),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
+  DB.attendance.push(att);
+  DB.scan_log.unshift(log);
+  await pushSync('attendance','post',att);
+  await pushSync('scan_log','post',log);
+  if(s.pid) await pushNotif(s.pid,`✏️ ${s.name} a été marqué(e) présent(e) manuellement à ${time} par ${S.user.name}.`);
+  logAudit('attendance_manual',`${s.name} — ${time}${note?' — '+note:''}`,sid);
+  closeModal();
+  toast(`✅ ${s.name} marqué(e) présent(e) à ${time}`,'success');
+  saveToCrypt(); render();
 };
 
 // ── SWIPE NAV ──
