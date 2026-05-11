@@ -510,7 +510,7 @@ window.DB = {
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther' },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -644,6 +644,7 @@ window.NAV = {
       {id:'palmares',i:'🏆',l:'Palmarès'},
       {id:'primes',i:'💎',l:'Primes Enseignants'},
       {id:'attendance',i:'📋',l:'Présences'},
+      {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'cards',i:'🪪',l:'Cartes d\'élèves'},
       {s:'Communication'},
       {id:'messages',i:'✉️',l:'Messages'},
@@ -678,6 +679,7 @@ window.NAV = {
       {s:'Suivi'},
       {id:'attendance',i:'📋',l:'Présences'},
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
+      {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'teacher_comm',i:'💬',l:'Communication co-titulaire'},
       {s:'Infos'},
       {id:'messages',i:'✉️',l:'Messages'},
@@ -721,6 +723,7 @@ window.NAV = {
       {id:'children',i:'👶',l:'Mes enfants'},
       {id:'attendance',i:'📋',l:'Présences'},
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
+      {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
       {s:'Communication'},
@@ -757,6 +760,7 @@ window.NAV = {
       {s:'Scolarité'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
       {id:'attendance',i:'📋',l:'Présences'},
+      {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'cards',i:'🪪',l:"Cartes d'élèves"},
       {s:'Communication'},
       {id:'messages',i:'✉️',l:'Messages'},
@@ -818,7 +822,7 @@ window.loadFromSupabase = async () => {
     window.DB_ONLINE = true;
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
-           devoirs,cahier_texte,matieres,rattrapages,convocations] = await Promise.all([
+           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -840,6 +844,7 @@ window.loadFromSupabase = async () => {
       _get('matieres','select=*'),
       _get('rattrapages','select=*&order=date.desc&limit=200'),
       _get('convocations','select=*&order=date.desc&limit=200'),
+      _get('timetables','select=*'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -856,6 +861,7 @@ window.loadFromSupabase = async () => {
     if(safe(matieres).length) DB.matieres=safe(matieres);
     if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     if(safe(convocations).length) DB.convocations=fd(convocations);
+    if(safe(timetables).length) DB.timetables=safe(timetables);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -7983,6 +7989,167 @@ window.deleteEvent = (eid) => {
     DB.events=DB.events.filter(e=>e.id!==eid);
     saveToCrypt(); toast('🗑️ Événement supprimé','info'); render();
   });
+};
+
+// ── EMPLOI DU TEMPS ──
+const EDT_DAYS = ['lun','mar','mer','jeu','ven'];
+const EDT_DAY_LABELS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const EDT_PERIODS = ['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
+
+R.timetable = () => {
+  const role=S.user.role;
+  const canEdit=role==='direction'||role==='direction2';
+
+  if(role==='enseignant') {
+    const mc=getMyClass(); if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🗓️</div>Aucune classe assignée</div>`;
+    const clSlots=DB.timetables.filter(t=>t.cid===mc.cl.id);
+    const [cc]=clsColor(mc.cl.name);
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ Emploi du temps — ${mc.cl.name}</span></div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table style="width:100%;border-collapse:collapse;min-width:480px;font-size:12px">
+      <thead><tr style="background:var(--bg-card)">
+        <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border);width:90px;color:var(--text-muted)">Période</th>
+        ${EDT_DAY_LABELS.map(d=>`<th style="padding:8px;text-align:center;border-bottom:2px solid var(--border);color:${cc}">${d}</th>`).join('')}
+      </tr></thead><tbody>`;
+    EDT_PERIODS.forEach((p,pi)=>{
+      html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap">${p}</td>`;
+      EDT_DAYS.forEach(day=>{
+        const slot=clSlots.find(t=>t.day===day&&t.period===pi);
+        const isMe=slot&&slot.teacher_id===S.user.id;
+        html+=`<td style="padding:6px;text-align:center;vertical-align:middle;background:${isMe?'#dbeafe':slot?'#f8fafc':'transparent'}">`;
+        if(slot){
+          html+=`<div style="font-weight:${isMe?'700':'500'};font-size:11px;color:${isMe?'#1e40af':'var(--text)'};line-height:1.3">${slot.matiere||'—'}</div>`;
+          const t=gu(slot.teacher_id); if(t) html+=`<div style="font-size:10px;color:var(--text-muted)">${ini(t.name)}</div>`;
+        }
+        html+='</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table></div>';
+    return html;
+  }
+
+  if(role==='parent') {
+    const kids=DB.students.filter(s=>s.pid===S.user.id);
+    if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucun enfant lié à votre compte</div>`;
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ Emploi du temps</span></div>`;
+    kids.forEach(kid=>{
+      const cl=DB.classes.find(c=>c.id===kid.cid); if(!cl) return;
+      const [cc]=clsColor(cl.name);
+      const clSlots=DB.timetables.filter(t=>t.cid===cl.id);
+      html+=`<div class="ww-section" style="margin-bottom:18px">
+        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${kid.name} — ${cl.name}</span></div>
+        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table style="width:100%;border-collapse:collapse;min-width:480px;font-size:12px">
+          <thead><tr style="background:var(--bg-card)">
+            <th style="padding:8px;text-align:left;border-bottom:2px solid var(--border);width:90px;color:var(--text-muted)">Période</th>
+            ${EDT_DAY_LABELS.map(d=>`<th style="padding:8px;text-align:center;border-bottom:2px solid var(--border);color:${cc}">${d}</th>`).join('')}
+          </tr></thead><tbody>`;
+      EDT_PERIODS.forEach((p,pi)=>{
+        html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap">${p}</td>`;
+        EDT_DAYS.forEach(day=>{
+          const slot=clSlots.find(t=>t.day===day&&t.period===pi);
+          html+=`<td style="padding:6px;text-align:center">`;
+          if(slot){
+            html+=`<div style="font-weight:500;font-size:11px;line-height:1.3">${slot.matiere||'—'}</div>`;
+            const t=gu(slot.teacher_id); if(t) html+=`<div style="font-size:10px;color:var(--text-muted)">${ini(t.name)}</div>`;
+          }
+          html+='</td>';
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table></div></div>';
+    });
+    return html;
+  }
+
+  // ── DIRECTION ──
+  const clsList=DB.classes;
+  window._edtCid=window._edtCid||clsList[0]?.id||'';
+  const selCl=DB.classes.find(c=>c.id===window._edtCid)||clsList[0];
+  if(!selCl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune classe</div>`;
+  const [cc]=clsColor(selCl.name);
+  const clSlots=DB.timetables.filter(t=>t.cid===selCl.id);
+  const teachers=DB.users.filter(u=>u.role==='enseignant'||(u.class_id&&u.role==='enseignant'));
+
+  let html=`<div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🗓️ Emploi du temps</span>
+  </div>
+  <div style="padding:0 0 12px 0;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch">
+    ${clsList.map(cl=>{const[c]=clsColor(cl.name);return`<button onclick="window._edtCid='${cl.id}';render()" style="display:inline-block;margin:0 4px 4px 0;padding:5px 12px;border-radius:20px;border:2px solid ${cl.id===selCl.id?c:'var(--border)'};background:${cl.id===selCl.id?c:'var(--bg-card)'};color:${cl.id===selCl.id?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">${cl.name}</button>`;}).join('')}
+  </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <table style="width:100%;border-collapse:collapse;min-width:520px;font-size:12px">
+    <thead><tr style="background:var(--bg-card)">
+      <th style="padding:10px;text-align:left;border-bottom:2px solid var(--border);width:100px;color:var(--text-muted)">Période</th>
+      ${EDT_DAY_LABELS.map(d=>`<th style="padding:10px;text-align:center;border-bottom:2px solid var(--border);color:${cc}">${d}</th>`).join('')}
+    </tr></thead><tbody>`;
+  EDT_PERIODS.forEach((p,pi)=>{
+    html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap">${p}</td>`;
+    EDT_DAYS.forEach((day,di)=>{
+      const slot=clSlots.find(t=>t.day===day&&t.period===pi);
+      const t=slot?gu(slot.teacher_id):null;
+      html+=`<td onclick="${canEdit?`editTimetableSlot('${selCl.id}','${day}',${pi})`:''}" style="padding:6px;text-align:center;vertical-align:middle;cursor:${canEdit?'pointer':'default'};background:${slot?'#f0f9ff':'transparent'};transition:background .15s" onmouseover="if(${canEdit})this.style.background='#e0f2fe'" onmouseout="this.style.background='${slot?'#f0f9ff':'transparent'}'">`;
+      if(slot){
+        html+=`<div style="font-weight:600;font-size:11px;line-height:1.4;color:var(--text)">${slot.matiere||'—'}</div>`;
+        if(t) html+=`<div style="font-size:10px;color:#2563eb;margin-top:2px">${ini(t.name)} ${t.name.split(' ').pop()}</div>`;
+        if(canEdit) html+=`<div style="font-size:9px;color:var(--text-muted);margin-top:2px">✏️ modifier</div>`;
+      } else if(canEdit) {
+        html+=`<div style="font-size:18px;color:var(--border)">＋</div>`;
+      }
+      html+='</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  return html;
+};
+
+window.editTimetableSlot = (cid, day, period) => {
+  const slot=DB.timetables.find(t=>t.cid===cid&&t.day===day&&t.period===period);
+  const dayLabel=EDT_DAY_LABELS[EDT_DAYS.indexOf(day)];
+  const teachers=DB.users.filter(u=>u.role==='enseignant');
+  const matieresList=['Mathématiques','Français','Lecture','Écriture','Sciences','Géographie','Histoire','Anglais','Arts plastiques','Musique','EPS','Informatique','Religion','Éveil','Autre'];
+  openM(`🗓️ ${dayLabel} — ${EDT_PERIODS[period]}`,`
+  <div class="form-group"><label class="form-label">Matière</label>
+    <select class="form-input" id="edtMat">
+      <option value="">— Vide (effacer) —</option>
+      ${matieresList.map(m=>`<option value="${m}" ${slot?.matiere===m?'selected':''}>${m}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Professeur</label>
+    <select class="form-input" id="edtTeacher">
+      <option value="">— Aucun —</option>
+      ${teachers.map(u=>`<option value="${u.id}" ${slot?.teacher_id===u.id?'selected':''}>${u.name}</option>`).join('')}
+    </select>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   ${slot?`<button class="btn btn-danger" onclick="deleteTimetableSlot('${slot.id}')">🗑️ Effacer</button>`:''}
+   <button class="btn btn-primary" onclick="saveTimetableSlot('${cid}','${day}',${period},'${slot?.id||''}')">💾 Enregistrer</button>`);
+};
+
+window.saveTimetableSlot = async (cid, day, period, existingId) => {
+  const mat=(document.getElementById('edtMat')?.value||'').trim();
+  const tid=document.getElementById('edtTeacher')?.value||'';
+  if(!mat){if(existingId) await deleteTimetableSlot(existingId); else closeModal(); return;}
+  if(existingId) {
+    const slot=DB.timetables.find(t=>t.id===existingId);
+    if(slot){slot.matiere=mat;slot.teacher_id=tid;}
+    pushSync('timetables','patch',{matiere:mat,teacher_id:tid||null},'id=eq.'+existingId);
+  } else {
+    const slot={id:'tt'+Date.now(),cid,day,period,matiere:mat,teacher_id:tid||null};
+    DB.timetables.push(slot);
+    pushSync('timetables','post',slot);
+  }
+  logAudit('timetable_edit',`${EDT_DAY_LABELS[EDT_DAYS.indexOf(day)]} p${period+1} — ${mat}`,cid);
+  closeModal(); toast('✅ Emploi du temps mis à jour','success'); saveToCrypt(); render();
+};
+
+window.deleteTimetableSlot = async (id) => {
+  DB.timetables=DB.timetables.filter(t=>t.id!==id);
+  pushSync('timetables','delete',null,'id=eq.'+id);
+  logAudit('timetable_delete',`Créneau supprimé`,id);
+  closeModal(); toast('🗑️ Créneau effacé','info'); saveToCrypt(); render();
 };
 
 // ── AUDIT LOG ──
