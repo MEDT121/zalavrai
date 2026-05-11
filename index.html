@@ -393,6 +393,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
         <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre">🌙</button>
+        <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale">🔍</button>
         <span class="topbar-date" id="TD"></span>
         <button class="topbar-notif-btn" onclick="go('notifications')">🔔<span class="notif-badge"></span></button>
       </div>
@@ -509,7 +510,7 @@ window.DB = {
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther' },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -653,6 +654,7 @@ window.NAV = {
       {s:'Système'},
       {id:'statistiques',i:'📈',l:'Statistiques'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
+      {id:'audit_log',i:'🕐',l:'Historique'},
       {id:'year_mgmt',i:'📆',l:'Année Scolaire'},
       {id:'export',i:'📤',l:'Export Données'},
       {id:'settings',i:'⚙️',l:'Paramètres'},
@@ -933,6 +935,7 @@ window.saveToCrypt = () => {
       daily_records:DB.daily_records.slice(0,500),
       daily_expenses:DB.daily_expenses.slice(0,500),
       daily_reports:DB.daily_reports.slice(0,100),
+      audit_log:DB.audit_log.slice(0,200),
       _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
     };
     localStorage.setItem(CRYPT_STORE, _xorEncrypt(snap, CRYPT_KEY));
@@ -1030,7 +1033,7 @@ window.PT = {
   lockdown:'🚨 LOCKDOWN', settings:'⚙️ Paramètres', cards:'🪪 Cartes',
   approbations:'✅ Approbations', devoirs:'📚 Devoirs', matieres:'📐 Matières',
   cahier_texte:'📖 Cahier de texte', teacher_comm:'💬 Communication',
-  teacher_activity:'👁️ Activité Profs', year_mgmt:'📆 Année Scolaire',
+  teacher_activity:'👁️ Activité Profs', audit_log:'🕐 Historique des modifications', year_mgmt:'📆 Année Scolaire',
   export:'📤 Export', alert_urgent:'🚨 Alerte Urgence',
   devoirs_parent:'📚 Devoirs', palmares_parent:'🏆 Palmarès',
   caisse_paiement:'💵 Enregistrer Paiement', caisse_depense:'💸 Enregistrer Dépense',
@@ -2485,7 +2488,7 @@ R.lockdown = () => `
   ${S.lockdown?'🔓 DÉSACTIVER':'🚨 ACTIVER LE LOCKDOWN'}
   </button>
 </div>`;
-window.toggleLockdown = () => { S.lockdown=!S.lockdown; toast(S.lockdown?'🚨 LOCKDOWN ACTIVÉ':'🟢 LOCKDOWN désactivé',S.lockdown?'error':'success'); render(); };
+window.toggleLockdown = () => { S.lockdown=!S.lockdown; logAudit('lockdown_toggle', S.lockdown?'LOCKDOWN activé':'LOCKDOWN désactivé'); toast(S.lockdown?'🚨 LOCKDOWN ACTIVÉ':'🟢 LOCKDOWN désactivé',S.lockdown?'error':'success'); render(); };
 
 window.toggleFeesControl = () => {
   if(!DB.settings.feesControl) DB.settings.feesControl={active:false,trimestre:'T1'};
@@ -2724,6 +2727,7 @@ window.saveStudent = () => {
   if(sid){
     const s=DB.students.find(x=>x.id===sid); if(s) Object.assign(s,data);
     pushSync('students','upsert',{id:sid,...data});
+    logAudit('student_edit',`${name} — ${mat}`,sid);
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
@@ -2733,6 +2737,7 @@ window.saveStudent = () => {
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
+    logAudit('student_add',`${name} — ${mat} — ${DB.classes.find(c=>c.id===cid)?.name||'?'}`,ns.id);
     toast(`🎉 ${name} inscrit — ${mat}`,'success');
     launchConfetti(30);
   }
@@ -2742,6 +2747,7 @@ window.editStudent = (sid) => openStudentForm(sid);
 window.deleteStudent = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   showC(`Supprimer ${s.name} ?`,'Irréversible — paiements et présences liés seront aussi supprimés.',()=>{
+    logAudit('student_delete',`${s.name} — ${s.mat}`,sid);
     DB.students=DB.students.filter(x=>x.id!==sid);
     DB.payments=DB.payments.filter(x=>x.sid!==sid);
     DB.attendance=DB.attendance.filter(x=>x.sid!==sid);
@@ -2843,11 +2849,13 @@ window.saveUser = () => {
       DB.classes.forEach(c=>pushSync('classes','upsert',c));
     }
     pushSync('users','upsert',{id:uid,...data});
+    logAudit('user_edit', `${name} — ${role}`, uid);
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     const ns={id:'u'+Date.now(),...data};
     DB.users.push(ns);
     pushSync('users','upsert',ns);
+    logAudit('user_add', `${name} — ${role}`, ns.id);
     toast(`🎉 ${name} ajouté`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -2871,6 +2879,7 @@ window.deleteUser = (uid) => {
     DB.classes.forEach(c=>{if(c.teacher_id===uid){c.teacher_id=null;pushSync('classes','patch',{teacher_id:null},'id=eq.'+c.id);}if(c.teacher_id_en===uid){c.teacher_id_en=null;pushSync('classes','patch',{teacher_id_en:null},'id=eq.'+c.id);}});
     DB.users=DB.users.filter(x=>x.id!==uid);
     pushSync('users','delete',{},'id=eq.'+uid);
+    logAudit('user_delete', `${u.name} — ${u.role}`, uid);
     toast(`🗑️ ${u.name} supprimé`,'info');
     saveToCrypt(); render();
   });
@@ -3557,6 +3566,8 @@ window.togglePay = (sid, t) => {
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=!p.paid;
   pushSync('payments','patch',{paid:p.paid},'sid=eq.'+sid+'&t=eq.'+t);
+  const s=DB.students.find(x=>x.id===sid);
+  logAudit('payment_toggle', `${s?s.name:sid} — T${t} ${p.paid?'payé':'impayé'}`, sid);
   toast(p.paid?`T${t} activé ✅`:`T${t} désactivé ❌`, p.paid?'success':'info');
   saveToCrypt(); render();
 };
@@ -5789,15 +5800,52 @@ window.confirmExitAlone = async sid => {
   saveToCrypt();
 };
 
-window.confirmExitRefused = async sid => {
+window.confirmExitRefused = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  openM(`🚨 Personne inconnue — ${s.name}`,`
+  <div style="background:#fee2e2;border-radius:10px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:14px">
+    Documentez l'incident avant d'alerter la Direction.
+  </div>
+  <div class="form-group"><label class="form-label">Description de la personne *</label>
+    <textarea class="form-input" id="refDesc" rows="3" placeholder="Ex: Homme adulte, chemise rouge, environ 40 ans..." style="resize:none"></textarea>
+  </div>
+  <div class="form-group"><label class="form-label">Photo de la personne (optionnel)</label>
+    <input type="file" accept="image/*" capture="environment" id="refPhoto" class="form-input" style="padding:6px" onchange="previewRefPhoto(this)">
+    <div id="refPhotoPreview" style="margin-top:6px"></div>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-danger" onclick="doExitRefused('${sid}')">🚨 Confirmer le refus et alerter</button>`);
+};
+window.previewRefPhoto = (input) => {
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const p=document.getElementById('refPhotoPreview');
+    if(p) p.innerHTML=`<img src="${e.target.result}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;border:2px solid #dc2626">`;
+    window._refPhotoData=e.target.result;
+  };
+  r.readAsDataURL(f);
+};
+window.doExitRefused = async (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const desc=document.getElementById('refDesc')?.value.trim();
+  if(!desc){toast('Décrivez la personne','error');return;}
+  const photo=window._refPhotoData||null;
+  window._refPhotoData=null;
+  closeModal();
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'unauthorized',label:'REFUSÉ — Personne inconnue 🔴',time,date:today()};
+  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'unauthorized',
+    label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo?photo.slice(0,500):null,time,date:today()};
   DB.scan_log.unshift(log);
-  if(s.pid) await pushNotif(s.pid,`🚨 ALERTE : Tentative de récupération non autorisée pour ${s.name} à ${time}. Personne inconnue au portail.`);
-  await pushNotif('u1',`🚨 ALERTE SÉCURITÉ — Personne inconnue tente de récupérer ${s.name} au portail à ${time}`);
-  showExitDone('red','🚫','REFUSÉ',s.name,'Personne non autorisée — Direction alertée',time);
-  toast(`${s.name} — REFUSÉ 🔴`,'error');
+  const alertMsg=`🚨 ALERTE SÉCURITÉ — Personne inconnue tente de récupérer ${s.name} à ${time}. Description: ${desc}`;
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:alertMsg,time,date:today(),read:false,type:'urgent'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  if(s.pid) await pushNotif(s.pid,`🚨 ALERTE : Tentative de récupération non autorisée pour ${s.name} à ${time}. Personne inconnue au portail. La Direction a été alertée.`);
+  pushSync('scan_log','post',log);
+  showExitDone('red','🚫','REFUSÉ — Direction alertée',s.name,`Personne inconnue · ${desc.slice(0,60)}`,time);
+  toast(`${s.name} — REFUSÉ 🔴 — Direction alertée`,'error');
   saveToCrypt();
 };
 
@@ -6533,6 +6581,7 @@ R.caisse_rapport = () => {
     ${sentToday
       ? `<div style="margin-top:8px;font-weight:700;color:#059669">✅ Rapport du jour envoyé — en attente de validation Direction 1</div>`
       : `<button class="btn btn-primary" style="width:100%;margin-top:10px;padding:12px" onclick="sendDailyReportNow()">📤 Envoyer maintenant à Direction 1</button>`}
+    <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="printReport('caisse')">🖨️ Imprimer le rapport du jour</button>
   </div>
   ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Paiements (${recs.length})</div>
     ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label}${r.note?' · '+r.note:''} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
@@ -7352,6 +7401,7 @@ window.executePassage = () => {
     if(cb.dataset.next==='diplome'){s.diplome=true;diplomed++;pushSync('students','patch',{diplome:true},'id=eq.'+s.id);}
     else{s.cid=cb.dataset.next;moved++;pushSync('students','patch',{cid:s.cid},'id=eq.'+s.id);}
   });
+  logAudit('passage_classe', `${moved} promu(s) · ${diplomed} diplômé(s)`);
   toast(`🎓 ${moved} élève(s) promu(s) · ${diplomed} diplômé(s)`,'success');
   closeModal(); saveToCrypt(); render();
 };
@@ -7553,6 +7603,26 @@ window.printReport = (type) => {
     const totE=DB.attendance.filter(a=>a.status==='excused').length;
     html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Absences</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Excusées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Absents</th><th>Excusés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='present'||a.status==='late').length;const ab=e.filter(a=>a.status==='absent'||a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#16a34a;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d97706;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
 
+  } else if(type==='caisse'){
+    title='Rapport de Caisse — ' + today();
+    const recs=DB.daily_records.filter(r=>r.date===today());
+    const exps=DB.daily_expenses.filter(e=>e.date===today());
+    const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
+    const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
+    const solde=totalIn-totalOut;
+    const caissier=S.user.name;
+    html=`<div class="stats">
+      <div class="stat"><div class="v" style="color:#059669">+$${totalIn}</div><div class="l">Encaissé</div></div>
+      <div class="stat"><div class="v" style="color:#dc2626">-$${totalOut}</div><div class="l">Dépensé</div></div>
+      <div class="stat"><div class="v" style="color:${solde>=0?'#059669':'#dc2626'}">$${solde}</div><div class="l">Solde net</div></div>
+    </div>
+    <div style="font-size:12px;color:#666;margin-bottom:14px">Caissier : <strong>${caissier}</strong> · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+    ${recs.length?`<div class="ch">💵 Paiements reçus (${recs.length})</div><table><tr><th>#</th><th>Élève</th><th>Type</th><th>Heure</th><th>Montant</th></tr>${recs.map((r,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${r.student_name}</td><td>${r.type_label||'—'}</td><td>${r.time}</td><td style="font-weight:700;color:#059669">$${r.amount}</td></tr>`).join('')}</table>`:''}
+    ${exps.length?`<div class="ch">💸 Dépenses (${exps.length})</div><table><tr><th>#</th><th>Motif</th><th>Heure</th><th>Montant</th></tr>${exps.map((e,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td>${e.motif}</td><td>${e.time}</td><td style="font-weight:700;color:#dc2626">$${e.amount}</td></tr>`).join('')}</table>`:''}
+    <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:2px solid #16a34a;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;font-size:14px">Solde final du jour</span>
+      <span style="font-weight:800;font-size:20px;color:${solde>=0?'#059669':'#dc2626'}">$${solde}</span>
+    </div>`;
   } else if(type==='rattrapage'){
     title='Liste de Rattrapage';
     const pass=50;
@@ -7802,6 +7872,84 @@ window.deleteEvent = (eid) => {
     DB.events=DB.events.filter(e=>e.id!==eid);
     saveToCrypt(); toast('🗑️ Événement supprimé','info'); render();
   });
+};
+
+// ── AUDIT LOG ──
+window.logAudit = (action, detail, targetId) => {
+  if(!S.user) return;
+  const entry = {id:'al'+Date.now()+Math.random().toString(36).slice(2,4), by:S.user.id, by_name:S.user.name, action, detail, target_id:targetId||null, date:today(), time:nowTime()};
+  if(!DB.audit_log) DB.audit_log=[];
+  DB.audit_log.unshift(entry);
+  if(DB.audit_log.length>500) DB.audit_log=DB.audit_log.slice(0,500);
+};
+
+R.audit_log = () => {
+  if(!DB.audit_log) DB.audit_log=[];
+  const filter=window._auditFilter||'';
+  const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const shown=filter?all.filter(e=>e.action===filter):all;
+  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️'};
+  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée'};
+  const cats=[...new Set(all.map(e=>e.action))];
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🕐 Historique des modifications</span>
+    <span style="font-size:12px;color:var(--text-muted)">${all.length} entrées</span>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto">
+    <button class="pill ${!filter?'pill-blue':''}" onclick="window._auditFilter='';render()" style="cursor:pointer;border:none;white-space:nowrap">Tout (${all.length})</button>
+    ${cats.map(c=>`<button class="pill ${filter===c?'pill-blue':''}" onclick="window._auditFilter='${c}';render()" style="cursor:pointer;border:none;white-space:nowrap">${actionIcon[c]||'•'} ${actionLabel[c]||c}</button>`).join('')}
+  </div>
+  ${shown.length?`<div class="premium-section">
+    ${shown.map((e,i)=>`<div class="premium-item" style="animation-delay:${i*.02}s">
+      <div class="pi-icon" style="background:#f1f5f9;font-size:16px">${actionIcon[e.action]||'•'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="pi-title" style="font-size:13px">${actionLabel[e.action]||e.action}</div>
+        <div class="pi-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.detail||''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary)">${e.by_name||'?'}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${e.date} ${e.time}</div>
+      </div>
+    </div>`).join('')}
+  </div>`:`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🕐</div>Aucune action enregistrée</div>`}`;
+};
+
+// ── RECHERCHE GLOBALE ──
+window.openGlobalSearch = () => {
+  openM('🔍 Recherche globale',`
+  <input class="form-input" id="gSearch" placeholder="Nom, matricule, téléphone..." oninput="renderGSearch()" autofocus style="margin-bottom:10px">
+  <div id="gSearchResults" style="max-height:60vh;overflow-y:auto"></div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+  setTimeout(()=>document.getElementById('gSearch')?.focus(),100);
+};
+window.renderGSearch = () => {
+  const q=(document.getElementById('gSearch')?.value||'').toLowerCase().trim();
+  const res=document.getElementById('gSearchResults'); if(!res) return;
+  if(q.length<2){res.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Saisissez au moins 2 caractères</div>';return;}
+  const role=S.user.role;
+  const canSeeUsers=role==='direction'||role==='direction2';
+  let items=[];
+  DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).forEach(s=>{
+    const cl=DB.classes.find(c=>c.id===s.cid);
+    items.push({icon:'🎓',title:s.name,sub:`${s.mat} · ${cl?cl.name:'?'}`,action:`go('students');closeModal();window._studentQ='${s.name}';render()`});
+  });
+  if(canSeeUsers){
+    DB.users.filter(u=>u.name.toLowerCase().includes(q)||(u.phone&&u.phone.toLowerCase().includes(q))).forEach(u=>{
+      const roleLabel={direction:'Direction 1',direction2:'Direction 2',direction3:'Caisse',enseignant:'Enseignant',gardien:'Gardien',parent:'Parent'};
+      const page={enseignant:'teachers',gardien:'guardians',parent:'parents',direction:'settings',direction2:'settings',direction3:'settings'};
+      items.push({icon:{enseignant:'👨‍🏫',gardien:'🛡️',parent:'👨‍👩‍👧',direction:'🏛️',direction2:'🏛️',direction3:'💵'}[u.role]||'👤',title:u.name,sub:`${roleLabel[u.role]||u.role}${u.phone?' · '+u.phone:''}`,action:`go('${page[u.role]||'settings'}');closeModal()`});
+    });
+    DB.classes.filter(c=>c.name.toLowerCase().includes(q)).forEach(c=>{
+      items.push({icon:'🏫',title:c.name,sub:`${c.cycle} · ${DB.students.filter(s=>s.cid===c.id).length} élèves`,action:`go('classes');closeModal()`});
+    });
+  }
+  if(!items.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun résultat pour "${q}"</div>`;return;}
+  res.innerHTML=items.slice(0,12).map(it=>`<div onclick="${it.action}" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+    <div style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${it.icon}</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${it.title}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.sub}</div></div>
+    <span style="color:var(--text-muted);font-size:18px">›</span>
+  </div>`).join('')+(items.length>12?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">${items.length-12} autres résultats — affinez la recherche</div>`:'');
 };
 
 // ── SWIPE NAV ──
