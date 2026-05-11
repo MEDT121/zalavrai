@@ -3760,11 +3760,13 @@ R.children = () => {
         <div style="display:flex;flex-direction:column;gap:8px">
           ${profFR?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
             <div style="width:38px;height:38px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profFR.name)}</div>
-            <div><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
+            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
+            <button class="btn btn-outline btn-sm" onclick="messageTeacher('${profFR.id}','${k.id}')">📨</button>
           </div>`:''}
           ${profEN?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
             <div style="width:38px;height:38px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profEN.name)}</div>
-            <div><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
+            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
+            <button class="btn btn-outline btn-sm" onclick="messageTeacher('${profEN.id}','${k.id}')">📨</button>
           </div>`:''}
         </div>
       </div>`:''}
@@ -5758,7 +5760,7 @@ window.scanExit = () => {
   const code=($('exitCode')?.value||'').trim().toUpperCase();
   const s=DB.students.find(x=>x.mat===code);
   if(!s){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">❌</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${code}</div></div>`;return;}
-  if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">🔴</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée</div></div>`;return;}
+  if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">🔴</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${s.name}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">⚡ Exception urgence médicale</button></div>`;return;}
 
   const c=gc(s.cid);
   const parent=gu(s.pid);
@@ -6489,11 +6491,22 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_form').style.display='';
   $('caisse_results').innerHTML='';
   $('caisse_search').value='';
+  const pays=DB.payments.filter(p=>p.sid===s.id);
+  const fees=getFees();
+  const recentRecs=DB.daily_records.filter(r=>r.sid===s.id).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
   $('caisse_student_info').innerHTML=`
-    <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33">
+    <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:10px">
       <div class="pi-icon" style="background:${cbg};color:${cc}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat} · ${cl?cl.name:'?'}</div></div>
-    </div>`;
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const f=fees[t]||0;return`<div style="flex:1;padding:8px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:10px;color:var(--text-muted)">${f?'$'+f:'—'}</div></div>`;}).join('')}
+    </div>
+    ${recentRecs.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px">📋 Derniers paiements enregistrés</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+      ${recentRecs.map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px"><span>${r.date} · ${r.type_label}${r.trimestre?' ('+r.trimestre+')':''}</span><span style="font-weight:700;color:#059669">+$${r.amount}</span></div>`).join('')}
+    </div>`:''}
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Sélectionnez le type de paiement ci-dessous</div>`;
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
 window.caisseSavePaiement = async () => {
@@ -7256,9 +7269,10 @@ R.convocations = () => {
   const role=S.user.role;
   const isDir=role==='direction'||role==='direction2';
   const filter=window._convFilter||'active';
-  const all=DB.convocations.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const statusLabel={pending:'⏳ À planifier',scheduled:'📅 RDV fixé',completed:'✅ Parent venu',missed:'❌ Absent au RDV'};
-  const statusColor={pending:'#f59e0b',scheduled:'#2563eb',completed:'#059669',missed:'#dc2626'};
+  const myKidIds=role==='parent'?DB.students.filter(s=>s.pid===S.user.id).map(s=>s.id):null;
+  const all=(myKidIds?DB.convocations.filter(c=>myKidIds.includes(c.sid)):DB.convocations).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const statusLabel={pending:'⏳ À planifier',scheduled:'📅 RDV fixé',completed:'✅ Parent venu',missed:'❌ Absent au RDV',confirmed_parent:'📬 Reçu (parent)'};
+  const statusColor={pending:'#f59e0b',scheduled:'#2563eb',completed:'#059669',missed:'#dc2626',confirmed_parent:'#7c3aed'};
   const active=all.filter(c=>c.status==='pending'||c.status==='scheduled');
   const closed=all.filter(c=>c.status==='completed'||c.status==='missed');
   const shown=filter==='active'?active:filter==='closed'?closed:all;
@@ -7285,12 +7299,14 @@ R.convocations = () => {
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+conv.note:''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-          <span style="font-size:11px;font-weight:700;color:${statusColor[conv.status]}">${statusLabel[conv.status]}</span>
+          <span style="font-size:11px;font-weight:700;color:${statusColor[conv.status]||'#64748b'}">${statusLabel[conv.status]||conv.status}</span>
+          ${conv.parent_confirmed&&isDir?`<span style="font-size:10px;color:#7c3aed;font-weight:600">📬 Lu par le parent</span>`:''}
           ${conv.status==='pending'&&isDir?`<button class="btn btn-primary btn-sm" onclick="planifierConvocation('${conv.id}')">📅 Fixer RDV</button>`:''}
           ${conv.status==='scheduled'&&isDir?`<div style="display:flex;gap:4px">
             <button class="btn btn-success btn-sm" onclick="cloturerConvocation('${conv.id}','completed')">✅ Venu</button>
             <button class="btn btn-danger btn-sm" onclick="cloturerConvocation('${conv.id}','missed')">❌ Absent</button>
           </div>`:''}
+          ${(conv.status==='pending'||conv.status==='scheduled')&&role==='parent'&&s&&s.pid===S.user.id&&!conv.parent_confirmed?`<button class="btn btn-outline btn-sm" style="border-color:#7c3aed;color:#7c3aed" onclick="confirmConvocationParent('${conv.id}')">📬 Confirmer réception</button>`:''}
         </div>
       </div>`;
     }).join('')}
@@ -8045,6 +8061,99 @@ window.renderGSearch = () => {
     <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${it.title}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.sub}</div></div>
     <span style="color:var(--text-muted);font-size:18px">›</span>
   </div>`).join('')+(items.length>12?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">${items.length-12} autres résultats — affinez la recherche</div>`:'');
+};
+
+// ── CONVOCATION CONFIRMATION PARENT ──
+window.confirmConvocationParent = (cid) => {
+  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  showC('📬 Confirmer la réception ?','Vous confirmez avoir bien reçu et lu cette convocation.',()=>{
+    conv.parent_confirmed=true; conv.parent_confirmed_at=today()+' '+nowTime();
+    pushSync('convocations','patch',{parent_confirmed:true,parent_confirmed_at:conv.parent_confirmed_at},'id=eq.'+cid);
+    DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+      const s=DB.students.find(x=>x.id===conv.sid);
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+        msg:`📬 ${S.user.name} a confirmé la réception de la convocation${s?' pour '+s.name:''}`,
+        time:nowTime(),date:today(),read:false,type:'info'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    });
+    toast('✅ Réception confirmée — la Direction a été notifiée','success');
+    saveToCrypt(); render();
+  });
+};
+
+// ── MESSAGE PARENT → PROF ──
+window.messageTeacher = (uid, kidId) => {
+  const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
+  if(!teacher){toast('Professeur introuvable','error');return;}
+  openM(`📨 Message à ${teacher.name}`,`
+  <div style="background:#dbeafe;border-radius:10px;padding:10px 14px;font-size:13px;color:#1e40af;margin-bottom:14px">
+    À : <strong>${teacher.name}</strong>${kid?' · Concernant : '+kid.name:''}
+  </div>
+  <div class="form-group"><label class="form-label">Votre message *</label>
+    <textarea class="form-input" id="msgToTeacher" rows="5" placeholder="Bonjour, je voulais vous contacter au sujet de..."></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="sendMessageToTeacher('${uid}','${kidId||''}')">📨 Envoyer</button>`);
+};
+
+window.sendMessageToTeacher = async (uid, kidId) => {
+  const body=(document.getElementById('msgToTeacher')?.value||'').trim();
+  if(!body){toast('Écrivez un message','error');return;}
+  const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
+  const msg={id:'m'+Date.now(),from:S.user.id,from_name:S.user.name,to:uid,to_name:teacher?teacher.name:'',
+    body,date:today(),time:nowTime(),read:false,status:'sent',type:'parent_to_teacher',
+    about_sid:kidId||null,about_name:kid?kid.name:null};
+  DB.messages.unshift(msg);
+  pushSync('messages','post',msg);
+  await pushNotif(uid,`📨 Message de ${S.user.name}${kid?' à propos de '+kid.name:''} : ${body.slice(0,80)}${body.length>80?'...':''}`);
+  closeModal();
+  toast(`📨 Message envoyé à ${teacher?teacher.name:''}`, 'success');
+  saveToCrypt();
+};
+
+// ── LOCKDOWN EXCEPTION URGENCE ──
+window.lockdownEmergencyExit = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  openM(`⚡ Exception urgence — ${s.name}`,`
+  <div style="background:#fee2e2;border-radius:10px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:14px">
+    ⚠️ Cette sortie sera enregistrée et signalée à la Direction immédiatement.
+  </div>
+  <div class="form-group"><label class="form-label">Motif de l'exception *</label>
+    <select class="form-input" id="emMotif">
+      <option value="Urgence médicale">🏥 Urgence médicale</option>
+      <option value="Évacuation d'urgence">🚨 Évacuation d'urgence</option>
+      <option value="Autorisation Direction">📋 Autorisation Direction</option>
+      <option value="Autre urgence">⚡ Autre urgence</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Précisions *</label>
+    <input class="form-input" id="emNote" placeholder="Ex: Convulsion, appel du parent, etc.">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-danger" onclick="doEmergencyExit('${sid}')">⚡ Confirmer l'exception</button>`);
+};
+
+window.doEmergencyExit = async (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const motif=document.getElementById('emMotif')?.value||'Urgence';
+  const note=(document.getElementById('emNote')?.value||'').trim();
+  if(!note){toast('Précisez le motif','error');return;}
+  const time=nowTime();
+  const log={id:'sl'+Date.now(),sid,name:s.name,date:today(),time,status:'emergency_exit',
+    label:`⚡ Exception LOCKDOWN — ${motif}`,note,type:'exit'};
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+      msg:`⚡ EXCEPTION LOCKDOWN — ${s.name} sorti(e) à ${time} · ${motif} · ${note}`,
+      time,date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  if(s.pid) await pushNotif(s.pid,`⚡ ${s.name} a quitté l'école (exception urgence lockdown) à ${time} — ${motif}`);
+  logAudit('emergency_exit',`${s.name} — ${motif} — ${note}`,sid);
+  closeModal();
+  $('exitResult').innerHTML=`<div class="scan-result orange" style="margin-top:8px"><div class="sr-icon">⚡</div><div class="sr-title">Exception enregistrée</div><div class="sr-sub">${s.name} — ${motif} · Direction alertée</div></div>`;
+  toast(`⚡ Exception lockdown enregistrée — Direction notifiée`,'info');
+  saveToCrypt();
 };
 
 // ── ABSENCE PROF ──
