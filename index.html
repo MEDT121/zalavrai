@@ -641,6 +641,7 @@ window.NAV = {
       {s:'Scolarité'},
       {id:'payments',i:'💰',l:'Paiements'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
+      {id:'primes',i:'💎',l:'Primes Enseignants'},
       {id:'attendance',i:'📋',l:'Présences'},
       {id:'cards',i:'🪪',l:'Cartes d\'élèves'},
       {s:'Communication'},
@@ -1185,7 +1186,6 @@ function dashboardDirection() {
   const ts = DB.students.length;
   const te = DB.users.filter(u=>u.role==='enseignant').length;
   const tp = DB.users.filter(u=>u.role==='parent').length;
-  const tg = DB.users.filter(u=>u.role==='gardien').length;
   const paid = DB.payments.filter(p=>p.paid).length;
   const totalP = DB.payments.length;
   const payPct = totalP ? Math.round(paid/totalP*100) : 0;
@@ -1194,6 +1194,25 @@ function dashboardDirection() {
   const late = todayAtt.filter(a=>a.status==='late').length;
   const refused = todayAtt.filter(a=>a.status==='refused').length;
   const pending = getPendingCount();
+  const presencePct = ts ? Math.round((present+late)/ts*100) : 0;
+
+  // Caisse du jour
+  const casseIn = DB.daily_records.filter(r=>r.date===today()).reduce((s,r)=>s+Number(r.amount||0),0);
+  const casseOut = DB.daily_expenses.filter(e=>e.date===today()).reduce((s,e)=>s+Number(e.amount||0),0);
+  const casseSolde = casseIn - casseOut;
+
+  // Rattrapages en attente de validation D1
+  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
+
+  // Élèves bloqués
+  const blockedStudents = DB.students.filter(s=>s.access_blocked);
+
+  // Cahier de texte — enseignants sans entrée aujourd'hui
+  const allTeachers = DB.users.filter(u=>u.role==='enseignant');
+  const noCahierToday = allTeachers.filter(u=>{
+    const hasCl=DB.classes.some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+    return hasCl && !DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
+  });
 
   return `
   <div class="hero-premium">
@@ -1208,26 +1227,57 @@ function dashboardDirection() {
       <div class="hero-stat"><div class="hero-stat-num">${payPct}%</div><div class="hero-stat-lbl">Payé</div></div>
     </div>
   </div>
+
   <div class="action-grid">
     <button class="action-card" onclick="go('students')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">🎓</span><span class="ac-label">Élèves</span></button>
     <button class="action-card" onclick="go('approbations')" style="background:linear-gradient(135deg,#c9a030,#a68520);position:relative"><span class="ac-icon">✅</span><span class="ac-label">Approuver</span>${pending>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px">${pending}</span>`:''}</button>
     <button class="action-card" onclick="go('payments')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">💰</span><span class="ac-label">Paiements</span></button>
   </div>
-  ${pending > 0 ? `
-  <div class="premium-section" onclick="go('approbations')" style="cursor:pointer;border-left:4px solid #f59e0b">
-    <div class="premium-section-title">⏳ En attente d'approbation</div>
-    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente</div><div class="pi-sub">Messages, remarques, justifications...</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>
-  </div>` : ''}
+
+  ${pending>0||pendingRats.length||blockedStudents.length?`
+  <div class="premium-section" style="border-left:4px solid #ef4444;padding-bottom:4px">
+    <div class="premium-section-title" style="color:#991b1b">🚨 Alertes immédiates</div>
+    ${pending>0?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fef3c7">⏳</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente d'approbation</div><div class="pi-sub">Messages, rapports, justifications...</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>`:''}
+    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?s.name:'?';}).slice(0,3).join(', ')}${pendingRats.length>3?` +${pendingRats.length-3}`:''}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
+    ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('payments')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''} à l'entrée</div><div class="pi-sub">${blockedStudents.slice(0,3).map(s=>s.name).join(', ')}${blockedStudents.length>3?` +${blockedStudents.length-3}`:''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
+  </div>`:''}
+
   <div class="premium-section">
-    <div class="premium-section-title">📊 Aujourd'hui</div>
-    <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">✅</div><div style="flex:1"><div class="pi-title">${present} à l'heure</div><div class="pi-sub">Entrées confirmées</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">Présents</span></div>
-    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">⚠️</div><div style="flex:1"><div class="pi-title">${late} retard${late>1?'s':''}</div><div class="pi-sub">Arrivés après l'heure</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Retards</span></div>
-    <div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚫</div><div style="flex:1"><div class="pi-title">${refused} refusé${refused>1?'s':''}</div><div class="pi-sub">Accès bloqué</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Refusés</span></div>
+    <div class="premium-section-title">📊 Présences du jour</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="flex:1;height:8px;background:#e5e7eb;border-radius:6px;overflow:hidden">
+        <div style="width:${presencePct}%;height:100%;background:${presencePct>=80?'#10b981':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:6px;transition:width .5s"></div>
+      </div>
+      <span style="font-weight:700;font-size:14px;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${presencePct}%</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46">À l'heure</div></div>
+      <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e">Retards</div></div>
+      <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b">Absents</div></div>
+    </div>
   </div>
+
+  <div class="premium-section" style="border-left:4px solid #059669">
+    <div class="premium-section-title">💵 Caisse du jour</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:#065f46">+$${casseIn}</div><div style="font-size:10px;color:#065f46">Encaissé</div></div>
+      <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:#991b1b">-$${casseOut}</div><div style="font-size:10px;color:#991b1b">Dépensé</div></div>
+      <div style="background:${casseSolde>=0?'#dbeafe':'#fef3c7'};border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:${casseSolde>=0?'#1d4ed8':'#92400e'}">$${casseSolde}</div><div style="font-size:10px;color:${casseSolde>=0?'#1d4ed8':'#92400e'}">Solde</div></div>
+    </div>
+    ${DB.daily_reports.some(r=>r.date===today()&&r.status==='pending')?`<div style="font-size:12px;color:#d97706;background:#fef3c7;border-radius:8px;padding:6px 10px">⏳ Rapport journalier en attente de validation</div>`:`<div style="font-size:12px;color:var(--text-muted)">Rapport journalier de la Direction 3</div>`}
+  </div>
+
+  ${noCahierToday.length?`
+  <div class="premium-section" style="border-left:4px solid #8b5cf6">
+    <div class="premium-section-title">📖 Cahier de texte — Non rempli aujourd'hui</div>
+    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${u.name}</div><div class="pi-sub">${cl?cl.name:'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('cahier_texte')">Voir le suivi complet →</div>
+  </div>`:''}
+
   <div class="premium-section">
     <div class="premium-section-title">⚡ Actions rapides</div>
     <div class="quick-grid">
-      ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['payments','💰','Frais'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
+      ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['payments','💰','Frais'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['primes','💎','Primes'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
     ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
@@ -1247,7 +1297,6 @@ function dashboardDirection() {
     </div>`;})()}
   </div>
   ${(() => {
-    // Absence alerts sent by teachers today
     const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
     if(!absAlerts.length) return '';
     return `
@@ -6724,6 +6773,70 @@ R.teacher_activity = () => {
             </div>
           </div>
           ${alert?`<div style="font-size:12px;color:#ef4444;background:#fee2e2;border-radius:8px;padding:6px 10px">⚠️ Aucune présence depuis plus de 3 jours</div>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+};
+
+// ── PRIMES ENSEIGNANTS ──
+R.primes = () => {
+  const teachers = DB.users.filter(u=>u.role==='enseignant');
+  const allRats = DB.rattrapages.filter(r=>r.amount>0);
+  const totalDue = allRats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalPending = allRats.filter(r=>!r.paid&&r.validated_by).reduce((s,r)=>s+Number(r.amount||0),0);
+
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💎 Primes Enseignants — Rattrapages</span></div>
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">💰</div><div class="ww-stat-val">$${totalDue}</div><div class="ww-stat-label">Primes versées</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">⏳</div><div class="ww-stat-val">$${totalPending}</div><div class="ww-stat-label">Primes dues</div></div>
+    <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${allRats.length}</div><div class="ww-stat-label">Rattrapages total</div></div>
+  </div>
+  <div class="ww-grid">
+    ${teachers.map((u,i)=>{
+      const rats=allRats.filter(r=>r.teacher_id===u.id);
+      if(!rats.length) return `<div class="ww-card" style="animation-delay:${i*.04}s">
+        <div class="ww-card-stripe" style="background:#e5e7eb"></div>
+        <div class="ww-card-body">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${u.initials||ini(u.name)}</div>
+            <div><div style="font-weight:700">${u.name}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div>
+          </div>
+        </div>
+      </div>`;
+      const earned=rats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
+      const due=rats.filter(r=>!r.paid&&r.validated_by).reduce((s,r)=>s+Number(r.amount||0),0);
+      const pending=rats.filter(r=>!r.validated_by).length;
+      const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+      return `<div class="ww-card" style="animation-delay:${i*.04}s">
+        <div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#10b981':'#3b82f6'}"></div>
+        <div class="ww-card-body">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+            <div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fef3c7':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u.initials||ini(u.name)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:15px">${u.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${cl?cl.name:'—'}</div>
+            </div>
+            ${due>0?`<span class="pill" style="background:#fef3c7;color:#92400e;font-weight:700">⏳ $${due}</span>`:''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+            <div style="background:#d1fae5;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">$${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div>
+            <div style="background:${due>0?'#fef3c7':'#f1f5f9'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">$${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div>
+            <div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#1d4ed8">${rats.length}</div><div style="font-size:10px;color:#1d4ed8">Signalé${rats.length>1?'s':''}</div></div>
+          </div>
+          ${rats.slice(0,3).map(r=>{
+            const s=DB.students.find(x=>x.id===r.sid);
+            const stColor=r.paid?'#d1fae5':r.validated_by?'#fef3c7':'#f1f5f9';
+            const stText=r.paid?'✅ Versé':r.validated_by?'⏳ À verser':'🕐 En attente';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">
+              <div style="font-size:12px;flex:1"><span style="font-weight:600">${s?s.name:'?'}</span><span style="color:var(--text-muted)"> · ${r.matiere}</span></div>
+              <span style="font-size:11px;font-weight:700;color:#059669">$${r.amount}</span>
+              <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>
+              ${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}
+            </div>`;
+          }).join('')}
+          ${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}
         </div>
       </div>`;
     }).join('')}
