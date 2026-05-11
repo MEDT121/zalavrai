@@ -651,6 +651,7 @@ window.NAV = {
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
       {s:'Système'},
+      {id:'statistiques',i:'📈',l:'Statistiques'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
       {id:'year_mgmt',i:'📆',l:'Année Scolaire'},
       {id:'export',i:'📤',l:'Export Données'},
@@ -1411,6 +1412,31 @@ function dashboardEnseignant() {
     }).join('')}
     ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
   </div>
+  ${(()=>{
+    const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).slice(0,5);
+    if(!myRats.length) return '';
+    const statusLabel={pending:'⏳ En attente',validated:'✅ Validé',refused:'❌ Refusé'};
+    const statusColor={pending:'#f59e0b',validated:'#059669',refused:'#dc2626'};
+    const pendingN=myRats.filter(r=>!r.validated_by&&r.status!=='refused').length;
+    const validatedN=myRats.filter(r=>r.validated_by).length;
+    return `<div class="premium-section" style="border-left:4px solid #f59e0b">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="premium-section-title" style="margin-bottom:0">⚠️ Mes signalements rattrapage</div>
+        ${pendingN>0?`<span class="pill" style="background:#fef3c7;color:#92400e">${pendingN} en attente</span>`:''}
+      </div>
+      ${myRats.map(r=>{
+        const s=DB.students.find(x=>x.id===r.sid);
+        const status=r.validated_by?'validated':r.status==='refused'?'refused':'pending';
+        return `<div class="premium-item">
+          <div class="pi-icon" style="background:${statusColor[status]+'22'};font-size:14px">⚠️</div>
+          <div style="flex:1"><div class="pi-title" style="font-size:13px">${s?s.name:'?'} — ${r.matiere}</div>
+            <div class="pi-sub">${r.date}${r.amount>0?` · Prime: $${r.amount}`:''}${r.paid?' · ✅ Versée':r.validated_by&&r.amount>0?' · ⏳ À percevoir':''}</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;color:${statusColor[status]}">${statusLabel[status]}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  })()}
   <div class="premium-section">
     <div class="premium-section-title">⚡ Actions</div>
     <div class="quick-grid">
@@ -1671,6 +1697,37 @@ function dashboardParent() {
     ${myNotifs.length>3?`<div style="text-align:center;padding:8px;font-size:13px;color:var(--primary);cursor:pointer" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
   </div>`:''}
 
+  ${(()=>{
+    if(!kids.length) return '';
+    const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
+    const trims=['T1','T2','T3'];
+    let rows='';
+    kids.forEach(k=>{
+      const pay=DB.payments.find(p=>p.sid===k.id)||{};
+      const paidTrims=trims.filter(t=>pay[t.toLowerCase()+'_paid']||pay[t]);
+      const totalPaid=paidTrims.reduce((s,t)=>s+Number(fees[t]||0),0);
+      const totalDue=trims.reduce((s,t)=>s+Number(fees[t]||0),0);
+      const balance=totalDue-totalPaid;
+      rows+=`<div class="premium-item">
+        <div class="pi-icon" style="background:${balance===0?'#d1fae5':'#fef3c7'}">${balance===0?'✅':'💰'}</div>
+        <div style="flex:1">
+          <div class="pi-title">${k.name}</div>
+          <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+            ${trims.map(t=>{const p=pay[t.toLowerCase()+'_paid']||pay[t];return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p?'#d1fae5':'#fee2e2'};color:${p?'#065f46':'#991b1b'};font-weight:600">${t} ${p?'✅':'$'+Number(fees[t]||0)}</span>`;}).join('')}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800;font-size:15px;color:${balance===0?'#059669':'#dc2626'}">${balance===0?'Tout payé':'$'+balance+' dû'}</div>
+          <div style="font-size:10px;color:var(--text-muted)">sur $${totalDue}</div>
+        </div>
+      </div>`;
+    });
+    return `<div class="premium-section" style="border-left:4px solid #059669">
+      <div class="premium-section-title">💰 Frais scolaires</div>
+      ${rows}
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px;cursor:pointer;text-decoration:underline" onclick="go('children')">Voir le détail →</div>
+    </div>`;
+  })()}
   <div class="premium-section">
     <div class="premium-section-title">⚡ Accès rapides</div>
     <div class="quick-grid">
@@ -2508,7 +2565,10 @@ R.notifications = () => {
   return `
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🔔 Notifications</span>
-    ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
+    <div style="display:flex;gap:6px;align-items:center">
+      ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
+      ${sorted.length?`<button class="btn btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:11px;padding:4px 10px">🗑️ Effacer tout</button>`:''}
+    </div>
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
   <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);':''}">
@@ -2525,6 +2585,16 @@ R.notifications = () => {
       <div class="ww-item-sub">${n.date||''} ${n.time||''}</div>
     </div>
   </div>`).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔔</div>Aucune notification</div>'}</div>`;
+};
+window.clearAllNotifs = () => {
+  const uid=S.user.id, role=S.user.role;
+  const toDelete = (role==='direction'||role==='direction2') ? [...DB.notifs] : DB.notifs.filter(n=>n.uid===uid);
+  showC('Effacer toutes les notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} seront supprimées.`,()=>{
+    toDelete.forEach(n=>pushSync('notifs','delete',{},'id=eq.'+n.id));
+    if(role==='direction'||role==='direction2') DB.notifs=[];
+    else DB.notifs=DB.notifs.filter(n=>n.uid!==uid);
+    saveToCrypt(); toast('🗑️ Notifications effacées','info'); render();
+  });
 };
 
 // ═══════════════════════════════════════════
@@ -4234,7 +4304,7 @@ R.palmares = () => {
               <div style="font-size:10px;color:var(--text-muted)">pts</div>
             </div>
             ${isTeacher?`<button class="action-btn" onclick="openStudentGrades('${s.id}','${cl.id}')" style="flex-shrink:0" title="Voir/modifier notes">📝</button>`:''}
-            ${isTeacher&&s.total<50?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="Signaler besoin de rattrapage">⚠️</button>`:''}
+            ${isTeacher?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="Signaler besoin de rattrapage">⚠️</button>`:''}
           </div>`;
         }).join('')}
       </div>
@@ -6802,6 +6872,139 @@ window.markMsgRead = (mid) => {
   saveToCrypt(); render();
 };
 // ── ÉTAPE 7 — ACTIVITÉ PROFS ──
+// ── STATISTIQUES ANNUELLES ──
+R.statistiques = () => {
+  const yr = DB.settings.year||'2025-2026';
+  const ts = DB.students.length;
+  const allDates = [...new Set(DB.attendance.map(a=>a.date))].sort();
+  const months = [...new Set(allDates.map(d=>d.slice(0,7)))].sort();
+
+  // Présences par mois
+  const presenceByMonth = months.map(m=>{
+    const days = allDates.filter(d=>d.startsWith(m));
+    const recs = DB.attendance.filter(a=>a.date.startsWith(m));
+    const ontime = recs.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const total = ts * days.length;
+    return {m, pct: total>0?Math.round(ontime/total*100):0, ontime, days:days.length};
+  });
+
+  // Paiements par trimestre
+  const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
+  const payStats = ['T1','T2','T3'].map(t=>{
+    const paid = DB.payments.filter(p=>p[t.toLowerCase()+'_paid']||p[t]).length;
+    const total = DB.students.length;
+    const amount = paid * Number(fees[t]||0);
+    return {t, paid, total, pct: total>0?Math.round(paid/total*100):0, amount};
+  });
+
+  // Notes moyennes par classe
+  const classAvgs = DB.classes.map(cl=>{
+    const studs = DB.students.filter(s=>s.cid===cl.id);
+    const grades = DB.grades.filter(g=>studs.some(s=>s.id===g.sid));
+    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+Number(g.pct||0),0)/grades.length) : null;
+    const paidCount = DB.payments.filter(p=>studs.some(s=>s.id===p.sid)&&(p.t1_paid||p.T1||p.t2_paid||p.T2||p.t3_paid||p.T3)).length;
+    return {cl, count:studs.length, avg, paidCount};
+  });
+
+  // Rattrapages
+  const rats = DB.rattrapages;
+  const ratsValidated = rats.filter(r=>r.validated_by).length;
+  const ratsPaid = rats.filter(r=>r.paid).length;
+  const primesDue = rats.filter(r=>r.validated_by&&!r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
+  const primesVersees = rats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
+
+  // Absences justifiées
+  const absTotal = DB.absences.length;
+  const absApproved = DB.absences.filter(a=>a.status==='approved').length;
+  const absPending = DB.absences.filter(a=>a.status==='pending').length;
+
+  const barW = (pct) => `style="width:${pct}%;height:100%;border-radius:6px;transition:width .5s;background:${pct>=80?'#10b981':pct>=60?'#f59e0b':'#ef4444'}"`;
+
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Statistiques — ${yr}</span></div>
+
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#2563eb"><div class="ww-stat-icon">🎓</div><div class="ww-stat-val">${ts}</div><div class="ww-stat-label">Élèves inscrits</div></div>
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${payStats.reduce((s,p)=>s+p.paid,0)}</div><div class="ww-stat-label">Paiements reçus</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${rats.length}</div><div class="ww-stat-label">Rattrapages</div></div>
+    <div class="ww-stat" style="border-left-color:#dc2626"><div class="ww-stat-icon">📄</div><div class="ww-stat-val">${absTotal}</div><div class="ww-stat-label">Justifications</div></div>
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">💰 Paiements des frais scolaires</div>
+    ${payStats.map(p=>`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+        <span style="font-weight:700">${p.t} — ${p.paid}/${p.total} élèves payés</span>
+        <span style="font-weight:800;color:${p.pct>=80?'#059669':p.pct>=60?'#d97706':'#dc2626'}">${p.pct}% · $${p.amount.toLocaleString()}</span>
+      </div>
+      <div style="background:#e5e7eb;border-radius:8px;height:12px;overflow:hidden"><div ${barW(p.pct)}></div></div>
+    </div>`).join('')}
+    <div style="padding:10px;background:#d1fae5;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+      <span style="font-weight:700;color:#065f46">Total encaissé (tous trimestres)</span>
+      <span style="font-weight:800;font-size:16px;color:#059669">$${payStats.reduce((s,p)=>s+p.amount,0).toLocaleString()}</span>
+    </div>
+  </div>
+
+  ${presenceByMonth.length?`
+  <div class="premium-section">
+    <div class="premium-section-title">📋 Présences par mois</div>
+    ${presenceByMonth.map(p=>{
+      const ml=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+      const mn=ml[parseInt(p.m.split('-')[1])-1]||p.m;
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+          <span style="font-weight:600">${mn} ${p.m.split('-')[0]} <span style="color:var(--text-muted);font-size:11px">(${p.days}j scolaires)</span></span>
+          <span style="font-weight:700;color:${p.pct>=80?'#059669':p.pct>=60?'#d97706':'#dc2626'}">${p.pct}%</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:8px;height:10px;overflow:hidden"><div ${barW(p.pct)}></div></div>
+      </div>`;
+    }).join('')}
+  </div>`:''}
+
+  <div class="premium-section">
+    <div class="premium-section-title">🏆 Résultats par classe</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:7px 10px;background:var(--bg);font-weight:700;border-radius:8px 0 0 0">Classe</th>
+          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700">Élèves</th>
+          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700">Moy. notes</th>
+          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700;border-radius:0 8px 0 0">Payants</th>
+        </tr></thead>
+        <tbody>${classAvgs.map((row,i)=>`
+          <tr style="background:${i%2===0?'var(--bg-card)':'transparent'}">
+            <td style="padding:7px 10px;font-weight:700">${row.cl.name}</td>
+            <td style="text-align:center;padding:7px">${row.count}</td>
+            <td style="text-align:center;padding:7px;font-weight:700;color:${row.avg===null?'var(--text-muted)':row.avg>=70?'#059669':row.avg>=50?'#d97706':'#dc2626'}">${row.avg!==null?row.avg+'%':'—'}</td>
+            <td style="text-align:center;padding:7px;font-weight:700;color:${row.paidCount===row.count?'#059669':'#d97706'}">${row.paidCount}/${row.count}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">📚 Rattrapages & Primes</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="background:#dbeafe;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#1d4ed8">${rats.length}</div><div style="font-size:11px;color:#1d4ed8">Signalés</div></div>
+      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${ratsValidated}</div><div style="font-size:11px;color:#065f46">Validés</div></div>
+      <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#92400e">$${primesDue}</div><div style="font-size:11px;color:#92400e">Primes dues</div></div>
+      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">$${primesVersees}</div><div style="font-size:11px;color:#065f46">Primes versées</div></div>
+    </div>
+    <button class="btn btn-outline" style="width:100%" onclick="go('primes')">💎 Voir détail primes →</button>
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">📄 Justifications d'absence</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:#f1f5f9;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px">${absTotal}</div><div style="font-size:11px;color:var(--text-muted)">Total</div></div>
+      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${absApproved}</div><div style="font-size:11px;color:#065f46">Approuvées</div></div>
+      <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#92400e">${absPending}</div><div style="font-size:11px;color:#92400e">En attente</div></div>
+    </div>
+  </div>`;
+};
+
 R.teacher_activity = () => {
   const teachers = DB.users.filter(u=>u.role==='enseignant');
   if (!teachers.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">👁️</div>Aucun enseignant enregistré</div>`;
