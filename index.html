@@ -547,7 +547,7 @@ window.DB = {
       primaire: { ontime:455, late:480 },
       maternelle: { ontime:485, late:510 },
     },
-    toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true },
+    toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true, bulletin:false },
     year: '2025-2026',
     feesControl: { active:false, trimestre:'T1' }
   }
@@ -4497,7 +4497,14 @@ R.palmares_parent = () => {
           </div>
         </div>`;
       })()}
-      <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${k.name.split(' ')[0]}</button>
+      ${(()=>{
+        const bulletinOn=DB.settings.toggles.bulletin;
+        const allPaid=DB.payments.filter(p=>p.sid===k.id).every(p=>p.paid);
+        const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+        if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
+        if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${k.name.split(' ')[0]}.</div></div></div>`;
+        return `<button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${k.name.split(' ')[0]}</button>`;
+      })()}
     </div>`;
   }).join('');
 };
@@ -7854,6 +7861,7 @@ R.settings = () => {
     <div style="display:flex;flex-direction:column;gap:0">
       ${[
         ['palmares','🏆','Palmarès','Classement visible par les parents'],
+        ['bulletin','📄','Bulletins scolaires','Parents accèdent au bulletin (frais requis)'],
         ['notes_parent','📊','Notes & Côtes','Parents voient les notes (frais requis)'],
         ['devoirs','📚','Devoirs','Devoirs/interros publiés par les enseignants'],
         ['cahier_texte','📖','Cahier de texte','Enseignants remplissent, parents consultent'],
