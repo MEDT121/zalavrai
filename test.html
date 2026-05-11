@@ -5857,4 +5857,199 @@ R.authorized = () => {
           ${parent.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${parent.phone}</div>`:''}
         </div>`:''}
         ${tuts.map(t=>`<div style="flex:1;min-width:100px;max-width:130px;background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border);text-align:center">
-          <div style="width:56px;height:68px;border-radius:10px
+          <div style="width:56px;height:68px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
+            ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
+          </div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name.split(' ')[0]}</div>
+          <div style="font-size:10px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
+          ${t.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${t.phone}</div>`:''}
+        </div>`).join('')}
+        ${totalAps===0?`<div style="font-size:12px;color:#dc2626;padding:12px;background:#fee2e2;border-radius:10px;width:100%">⚠️ Aucune personne autorisée enregistrée</div>`:''}
+      </div>
+    </div>`;
+  }).join('')}`;
+};
+window._apQG = '';
+
+window._apQ = '';
+
+window.openTutelleForm = (sid, tid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  // Contrôle accès : direction peut tout modifier, parent uniquement ses propres enfants
+  const isParent = S.user.role==='parent';
+  if(isParent && s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  const t=tid?DB.aps.find(x=>x.id===tid):null;
+  const existing=DB.aps.filter(a=>a.sid===sid);
+  if(!t && existing.length>=3){toast('Maximum 3 tutelles par élève','error');return;}
+  const RELATIONS=['Père','Mère','Grand-père','Grand-mère','Oncle','Tante','Frère','Sœur','Tuteur légal','Autre'];
+  openM(t?`✏️ Modifier tutelle — ${s.name}`:`➕ Ajouter tutelle — ${s.name}`,`
+<input type="hidden" id="tut_sid" value="${sid}">
+<input type="hidden" id="tut_id" value="${tid||''}">
+<div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
+  <div id="tut_photo_preview" onclick="$('tut_photo_input').click()" style="width:80px;height:100px;border-radius:12px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;margin-bottom:8px;cursor:pointer;border:3px dashed var(--border)">
+    ${t&&t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:'📷'}
+  </div>
+  <input type="file" id="tut_photo_input" accept="image/*" style="display:none" onchange="tutPhotoChange(this)">
+  <input type="hidden" id="tut_photo_data" value="${t&&t.photo?t.photo:''}">
+  <span style="font-size:11px;color:#f59e0b;cursor:pointer" onclick="$('tut_photo_input').click()">📷 Photo recommandée pour identification au portail</span>
+</div>
+<div class="form-row">
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="tut_name" value="${t?t.name:''}" placeholder="Ex: Lomela Jean"></div>
+  <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" id="tut_phone" value="${t&&t.phone?t.phone:''}" placeholder="+243..."></div>
+</div>
+<div class="form-group"><label class="form-label">Lien de parenté *</label>
+  <select class="form-select" id="tut_relation">
+    ${RELATIONS.map(r=>`<option value="${r}" ${t&&t.relation===r?'selected':''}>${r}</option>`).join('')}
+  </select>
+</div>`,
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveTutelle()">💾 ${t?'Mettre à jour':'Enregistrer'}</button>`);
+};
+
+window.tutPhotoChange = (input) => {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const MAX=300,MH=400;
+      let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MH){w=Math.round(w*MH/h);h=MH;}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const data=cv.toDataURL('image/jpeg',0.82);
+      $('tut_photo_data').value=data;
+      $('tut_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+window.saveTutelle = () => {
+  const sid=$('tut_sid').value;
+  const tid=$('tut_id').value;
+  const name=($('tut_name').value||'').trim();
+  if(!name){toast('Entrez le nom','error');return;}
+  const relation=$('tut_relation').value;
+  const phone=($('tut_phone').value||'').trim()||null;
+  const photo=$('tut_photo_data').value||null;
+  if(!photo) toast('⚠️ Sans photo, l\'identification au portail sera difficile','info');
+  const data={sid,name,relation,phone,photo,active:true};
+  if(tid){
+    const t=DB.aps.find(x=>x.id===tid); if(t) Object.assign(t,data);
+    pushSync('aps','upsert',{id:tid,...data});
+    toast(`✅ ${name} mis à jour`,'success');
+  } else {
+    const nt={id:'ap'+Date.now(),...data};
+    DB.aps.push(nt);
+    pushSync('aps','upsert',nt);
+    toast(`✅ ${name} enregistré comme tutelle`,'success');
+  }
+  closeModal(); saveToCrypt(); render();
+};
+
+window.deleteTutelle = (tid) => {
+  const t=DB.aps.find(x=>x.id===tid); if(!t) return;
+  // Contrôle accès : direction ou parent de l'enfant
+  if(S.user.role==='parent'){
+    const s=DB.students.find(x=>x.id===t.sid);
+    if(!s||s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  }
+  showC(`Supprimer ${t.name} ?`,'Cette personne ne pourra plus récupérer l\'enfant.',()=>{
+    DB.aps=DB.aps.filter(x=>x.id!==tid);
+    pushSync('aps','delete',{},'id=eq.'+tid);
+    toast(`🗑️ ${t.name} supprimé`,'info');
+    saveToCrypt(); render();
+  });
+};
+
+window.toggleTutelle = (tid, newActive) => {
+  const t = DB.aps.find(x=>x.id===tid); if(!t) return;
+  const s = DB.students.find(x=>x.id===t.sid);
+  if(!s || s.pid !== S.user.id){ toast('Accès non autorisé','error'); return; }
+  t.active = newActive;
+  pushSync('aps','patch',{active:newActive},'id=eq.'+tid);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+      msg:`🔑 ${S.user.name} a ${newActive?'activé':'désactivé'} l'autorisation de ${t.name} pour ${s.name}`,
+      time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+  });
+  toast(`${newActive?'✅ Autorisé':'🚫 Désactivé'} — ${t.name}`,'success');
+  saveToCrypt(); render();
+};
+window.signalerPaiementRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const s=DB.students.find(x=>x.id===r.sid); if(!s) return;
+  if(s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  r.payment_signaled=true;
+  pushSync('rattrapages','patch',{payment_signaled:true},'id=eq.'+rid);
+  // Notifier la Direction
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+      msg:`💰 Paiement signalé — ${s.name} · Rattrapage ${r.matiere} · $${r.amount} · À confirmer`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+
+  toast('✅ Paiement signalé à la Direction — en attente de confirmation','success');
+  saveToCrypt(); render();
+};
+
+window.planifierConvocation = (cid) => {
+  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const s=DB.students.find(x=>x.id===conv.sid);
+  const parent=s?gu(s.pid):null;
+  openM(`📅 Fixer un RDV — ${s?s.name:''}`,`
+  <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:13px;color:#1e40af;margin-bottom:14px">
+    Parent : <strong>${parent?parent.name:'—'}</strong>${parent&&parent.phone?' · '+parent.phone:''}
+  </div>
+  <div class="form-group"><label class="form-label">Date du rendez-vous *</label>
+    <input class="form-input" id="rdv_date" type="date" value="${today()}">
+  </div>
+  <div class="form-group"><label class="form-label">Note (optionnel)</label>
+    <input class="form-input" id="rdv_note" placeholder="Ex: 8h à la direction">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="confirmerRDV('${cid}')">📅 Confirmer le RDV</button>`);
+};
+
+window.confirmerRDV = (cid) => {
+  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const rdv_date=$('rdv_date')?.value; if(!rdv_date){toast('Choisissez une date','error');return;}
+  const note=$('rdv_note')?.value||'';
+  conv.status='scheduled'; conv.rdv_date=rdv_date; conv.note=note;
+  pushSync('convocations','patch',{status:'scheduled',rdv_date,note},'id=eq.'+cid);
+  const s=DB.students.find(x=>x.id===conv.sid);
+  // Notifier le parent
+  if(s&&s.pid){
+    const dateStr=new Date(rdv_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+      msg:`📅 Convocation — ${s.name} · RDV fixé le ${dateStr} à la Direction${note?' · '+note:''}`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  }
+  toast(`✅ RDV fixé — parent notifié`,'success');
+  closeModal(); saveToCrypt(); render();
+};
+
+window.cloturerConvocation = (cid, status) => {
+  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  conv.status=status;
+  pushSync('convocations','patch',{status},'id=eq.'+cid);
+  const s=DB.students.find(x=>x.id===conv.sid);
+  if(status==='missed'&&s&&s.pid){
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+      msg:`⚠️ Convocation manquée — ${s.name} · Veuillez recontacter la Direction pour fixer un nouveau RDV`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  }
+  toast(status==='completed'?'✅ Parent reçu — convocation clôturée':'❌ Absent — parent renotifié',
+    status==='completed'?'success':'info');
+  saveToCrypt(); render();
+};
+
+// ── ÉTAPE 5 — JUSTIFICATION D'ABSENCE ──
+R.absences = () => {
+  const role = S.user
