@@ -6128,4 +6128,59 @@ R.absences = () => {
 window._absFilter = '';
 window.submitAbsence = () => {
   const sid=$('abs_sid').value;
-  const dates=($('abs_
+  const dates=($('abs_dates').value||'').trim();
+  const motif=$('abs_motif').value;
+  if(!dates){toast('Entrez les dates d\'absence','error');return;}
+  const note=($('abs_note').value||'').trim();
+  const abs={id:'ab'+Date.now(),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today()};
+  DB.absences.push(abs);
+  pushSync('absences','post',abs);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`📄 Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
+  });
+  toast('✅ Justification soumise — en attente de validation','success');
+  saveToCrypt(); render();
+};
+
+// ── DIRECTION 3 — CAISSE ──
+const PAYMENT_TYPES = [
+  {id:'frais_scolaires', label:'Frais scolaires'},
+  {id:'uniforme', label:'Uniforme'},
+  {id:'sortie', label:'Sortie scolaire'},
+  {id:'accompagnement', label:'Accompagnement à domicile'},
+  {id:'activite', label:'Activité'},
+  {id:'autre', label:'Autre'},
+];
+
+R.caisse_paiement = () => `
+<div class="premium-section">
+  <div class="premium-section-title">🔍 Rechercher un élève</div>
+  <div class="ww-toolbar" style="margin-top:10px">
+    <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+      <input id="caisse_search" placeholder="Nom ou matricule..." oninput="caisseSearch()" autocomplete="off">
+    </div>
+  </div>
+  <div id="caisse_results" style="margin-top:8px"></div>
+</div>
+<div id="caisse_form" style="display:none">
+  <div class="premium-section">
+    <div class="premium-section-title">💵 Enregistrer le paiement</div>
+    <div id="caisse_student_info" style="margin-bottom:14px"></div>
+    <div class="form-group">
+      <label class="form-label">Type de paiement</label>
+      <select id="caisse_type" class="form-select" onchange="caisseTypeChanged()">
+        ${PAYMENT_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" id="caisse_trimestre_row" style="display:none">
+      <label class="form-label">Trimestre</label>
+      <select id="caisse_trimestre" class="form-select">
+        <option value="T1">Trimestre 1</option>
+        <option value="T2">Trimestre 2</option>
+        <option value="T3">Trimestre 3</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="
