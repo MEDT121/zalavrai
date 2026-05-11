@@ -6183,4 +6183,29 @@ R.caisse_paiement = () => `
       </select>
     </div>
     <div class="form-group">
-      <label class="
+      <label class="form-label">Montant reçu ($)</label>
+      <input class="form-input" id="caisse_amount" type="number" min="0" step="0.5" placeholder="Ex: 50">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observation (optionnel)</label>
+      <input class="form-input" id="caisse_note" placeholder="Ex: Paiement partiel...">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
+      <button class="btn btn-primary" style="flex:1;padding:14px" onclick="caisseSavePaiement()">✅ Enregistrer + Envoyer reçu</button>
+    </div>
+  </div>
+</div>`;
+
+window._caisseStudent = null;
+window.caisseTypeChanged = () => {
+  const typeId = $('caisse_type') ? $('caisse_type').value : '';
+  const row = $('caisse_trimestre_row');
+  if(row) row.style.display = typeId === 'frais_scolaires' ? '' : 'none';
+};
+window.caisseSearch = () => {
+  const q = ($('caisse_search').value||'').trim().toLowerCase();
+  const res = $('caisse_results'); if(!res) return;
+  if(!q){res.innerHTML='';return;}
+  const found = DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).slice(0,6);
+  if(!found.length){res.innerHTML=`<div style="text-al
