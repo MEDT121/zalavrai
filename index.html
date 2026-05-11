@@ -510,7 +510,7 @@ window.DB = {
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther' },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -1215,6 +1215,9 @@ function dashboardDirection() {
   // Élèves bloqués
   const blockedStudents = DB.students.filter(s=>s.access_blocked);
 
+  // Profs absents aujourd'hui
+  const teacherAbsentsToday = DB.teacher_absences.filter(a=>a.date===today());
+
   // Cahier de texte — enseignants sans entrée aujourd'hui
   const allTeachers = DB.users.filter(u=>u.role==='enseignant');
   const noCahierToday = allTeachers.filter(u=>{
@@ -1265,6 +1268,22 @@ function dashboardDirection() {
     </div>
     ${ts-(present+late+refused)>0?`<button class="btn" style="width:100%;margin-top:10px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;font-size:13px" onclick="notifyAbsentParents()">📣 Notifier les parents des absents (${ts-(present+late+refused)})</button>`:''}
   </div>
+
+  ${teacherAbsentsToday.length?`
+  <div class="premium-section" style="border-left:4px solid #f97316">
+    <div class="premium-section-title" style="color:#c2410c">🏠 Profs absents aujourd'hui (${teacherAbsentsToday.length})</div>
+    ${teacherAbsentsToday.map(a=>{
+      const t=gu(a.uid);
+      const cl=DB.classes.find(c=>c.teacher_id===a.uid||c.teacher_id_en===a.uid);
+      return `<div class="premium-item">
+        <div class="pi-icon" style="background:#fff7ed">🏠</div>
+        <div style="flex:1"><div class="pi-title">${t?t.name:a.uid}</div>
+          <div class="pi-sub">${cl?cl.name:'—'} · ${a.motif||'Absence'} · ${a.time}</div>
+        </div>
+        ${cl?`<button class="btn btn-outline btn-sm" onclick="notifyAbsenceTeacherParents('${a.uid}')">📣</button>`:''}
+      </div>`;
+    }).join('')}
+  </div>`:''}
 
   <div class="premium-section" style="border-left:4px solid #059669">
     <div class="premium-section-title">💵 Caisse du jour</div>
@@ -1448,7 +1467,19 @@ function dashboardEnseignant() {
       ${[['cahier_texte','📖','Cahier'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['calendar','📅','Calendrier'],['notifications','🔔','Alertes']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
-  </div>`;
+  </div>
+  ${(()=>{
+    const myAbsToday=DB.teacher_absences.filter(a=>a.uid===S.user.id&&a.date===today());
+    return `<div class="premium-section" style="border-left:4px solid ${myAbsToday.length?'#059669':'#f59e0b'}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${myAbsToday.length?0:10}px">
+        <span style="font-size:22px">${myAbsToday.length?'✅':'🏠'}</span>
+        <div style="flex:1"><div style="font-weight:700">${myAbsToday.length?'Absence signalée aujourd\'hui':'Signaler mon absence'}</div>
+          ${myAbsToday.length?`<div style="font-size:12px;color:var(--text-secondary)">${myAbsToday[0].motif||'—'} · Signalé à ${myAbsToday[0].time}</div>`:'<div style="font-size:12px;color:var(--text-secondary)">Si vous êtes absent(e), prévenez la Direction</div>'}
+        </div>
+        ${!myAbsToday.length?`<button class="btn btn-primary btn-sm" onclick="declareTeacherAbsence()">Signaler</button>`:''}
+      </div>
+    </div>`;
+  })()}`;
 }
 
 function dashboardDirection2() {
@@ -4457,6 +4488,7 @@ R.palmares_parent = () => {
           </div>
         </div>`;
       })()}
+      <button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${k.name.split(' ')[0]}</button>
     </div>`;
   }).join('');
 };
@@ -7574,7 +7606,68 @@ window.printReport = (type) => {
   const hdr=`<div class="hdr"><div class="hl">${logoSrc?`<img src="${logoSrc}" class="logo" style="border-radius:50%;border:2px solid #0f2557" alt="">`:'<div style="width:54px;height:54px;background:#0f2557;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px">🏫</div>'}<div class="si"><h1>${school}</h1><div class="s">${schoolSub}</div><div class="s">📞 ${phone}</div></div></div><div class="hr"><div class="brand">🛡️ SchoolSafe</div><div class="meta">Année ${yr}</div><div class="meta">${printDate}</div></div></div>`;
   const ftr=`<div class="footer"><span>© ${new Date().getFullYear()} ${school}</span><span>L'excellence au service de l'avenir</span><span>Document officiel SchoolSafe</span></div>`;
 
-  if(type==='students'){
+  if(type==='bulletin'){
+    const sid=arguments[1];
+    const k=DB.students.find(x=>x.id===sid);
+    if(!k){toast('Élève introuvable','error');return;}
+    const cl=gc(k.cid);
+    const matieres=getClassMatieres(k.cid);
+    const isBilingual=cl&&cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+    const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
+    const profEN=isBilingual?gu(cl.teacher_id_en):null;
+    const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+    const ranked=students.map(s=>{
+      let tot=0,cnt=0;
+      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){tot+=a;cnt++;}});
+      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+      const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
+      return{id:s.id,moy:cnt?Math.round(tot/cnt):0,cond:Math.round(cAvg*25)};
+    }).sort((a,b)=>(b.moy*0.85+b.cond*0.15)-(a.moy*0.85+a.cond*0.15));
+    const pos=ranked.findIndex(r=>r.id===k.id)+1;
+    const me=ranked.find(r=>r.id===k.id);
+    const mention=me?(me.moy>=90?'Excellent':me.moy>=75?'Très Bien':me.moy>=60?'Bien':me.moy>=50?'Passable':'À améliorer'):'—';
+    const mColor=me&&me.moy>=75?'#059669':me&&me.moy>=50?'#d97706':'#dc2626';
+
+    const sectionRows=(mats,flag)=>mats.map(m=>{
+      const grades=DB.grades.filter(g=>g.sid===k.id&&g.matiere===m.name);
+      const t1=matAvgPct(k.id,m.name,'T1'),t2=matAvgPct(k.id,m.name,'T2'),t3=matAvgPct(k.id,m.name,'T3');
+      const avg=matAvgPct(k.id,m.name);
+      const col=avg===null?'#666':avg>=70?'#059669':avg>=50?'#d97706':'#dc2626';
+      return `<tr><td>${flag} ${m.name}</td><td style="text-align:center">${t1!==null?t1+'%':'—'}</td><td style="text-align:center">${t2!==null?t2+'%':'—'}</td><td style="text-align:center">${t3!==null?t3+'%':'—'}</td><td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td></tr>`;
+    }).join('');
+
+    const frMats=matieres.filter(m=>m.lang==='fr'||((!isBilingual)&&m.lang!=='en'));
+    const enMats=matieres.filter(m=>m.lang==='en');
+    const coMats=matieres.filter(m=>m.lang==='commun');
+
+    title=`Bulletin de ${k.name}`;
+    html=`
+    <div style="display:flex;align-items:center;gap:20px;padding:16px;background:#f8faff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:18px">
+      <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0;border:3px solid #0f2557">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:#64748b">'+ini(k.name)+'</span>'}</div>
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:800;color:#0f2557">${k.name}</div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${k.mat} · ${cl?cl.name:'—'} · Année ${yr}</div>
+        <div style="font-size:12px;color:#666">Prof: ${profFR?profFR.name:'—'}${profEN?' / '+profEN.name:''}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:28px;font-weight:900;color:${mColor}">${me?me.moy:0}%</div>
+        <div style="font-size:11px;color:#666">${pos}${pos===1?'er':'ème'} / ${students.length}</div>
+        <div style="font-size:12px;font-weight:700;color:${mColor}">${mention}</div>
+      </div>
+    </div>
+    <table><tr><th>Matière</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th></tr>
+      ${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:sectionRows(matieres,'')}
+      ${enMats.length?`<tr><td colspan="5" style="background:#eff6ff;font-weight:700;color:#1e40af;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:'' }
+      ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:'' }
+    </table>
+    ${(()=>{const conduct=DB.conduct.filter(c=>c.sid===k.id);if(!conduct.length)return '';const lbl={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};const latest=conduct[conduct.length-1];return`<table><tr><th colspan="3">📊 Conduite & comportement</th></tr><tr><td>Note de conduite</td><td>${conduct.length} évaluation${conduct.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`})()}
+    <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:30px">
+      <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Cachet et signature Direction</div></div>
+      <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Signature Parent / Tuteur</div></div>
+    </div>`;
+
+  } else if(type==='students'){
     title='Liste des Élèves';
     const byClass=DB.classes.map(cl=>({cl,studs:DB.students.filter(s=>s.cid===cl.id)})).filter(x=>x.studs.length);
     html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves total</div></div><div class="stat"><div class="v">${DB.classes.filter(c=>DB.students.some(s=>s.cid===c.id)).length}</div><div class="l">Classes</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender==='F').length}</div><div class="l">Filles</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender!=='F').length}</div><div class="l">Garçons</div></div></div>${byClass.map(({cl,studs})=>`<div class="ch">🏫 ${cl.name} <span style="font-weight:400;font-size:11px">(${studs.length} élèves)</span></div><table><tr><th>#</th><th>Matricule</th><th>Nom</th><th>Naissance</th><th>Parent / Tuteur</th><th>Contact</th></tr>${studs.map((s,i)=>{const p=gu(s.pid);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-family:monospace;font-size:11px">${s.mat}</td><td style="font-weight:600">${s.name}</td><td>${s.dob||'—'}</td><td>${p?p.name:'—'}</td><td style="font-size:11px">${p?p.phone||'—':'—'}</td></tr>`;}).join('')}</table>`).join('')}`;
@@ -7952,6 +8045,71 @@ window.renderGSearch = () => {
     <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${it.title}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.sub}</div></div>
     <span style="color:var(--text-muted);font-size:18px">›</span>
   </div>`).join('')+(items.length>12?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">${items.length-12} autres résultats — affinez la recherche</div>`:'');
+};
+
+// ── ABSENCE PROF ──
+window.declareTeacherAbsence = () => {
+  const already=DB.teacher_absences.find(a=>a.uid===S.user.id&&a.date===today());
+  if(already){toast('Absence déjà signalée aujourd\'hui','info');return;}
+  openM('🏠 Signaler mon absence',`
+  <div style="background:#fef3c7;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:14px">
+    La Direction sera notifiée immédiatement. Les parents de votre classe pourront ensuite être informés.
+  </div>
+  <div class="form-group"><label class="form-label">Date</label>
+    <input class="form-input" id="absDate" type="date" value="${today()}">
+  </div>
+  <div class="form-group"><label class="form-label">Motif *</label>
+    <input class="form-input" id="absMotif" placeholder="Ex: Maladie, urgence familiale, formation...">
+  </div>
+  <div class="form-group"><label class="form-label">Durée prévisionnelle</label>
+    <select class="form-input" id="absDuree">
+      <option value="1 jour">1 jour</option>
+      <option value="2 jours">2 jours</option>
+      <option value="3 jours">3 jours</option>
+      <option value="Indéterminée">Indéterminée</option>
+    </select>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveTeacherAbsence()">📣 Confirmer et notifier</button>`);
+};
+
+window.saveTeacherAbsence = async () => {
+  const motif=(document.getElementById('absMotif')?.value||'').trim();
+  if(!motif){toast('Indiquez le motif','error');return;}
+  const date=document.getElementById('absDate')?.value||today();
+  const duree=document.getElementById('absDuree')?.value||'1 jour';
+  const cl=DB.classes.find(c=>c.teacher_id===S.user.id||c.teacher_id_en===S.user.id);
+  const entry={id:'ta'+Date.now(),uid:S.user.id,name:S.user.name,date,motif,duree,time:nowTime(),cid:cl?cl.id:null};
+  if(!DB.teacher_absences) DB.teacher_absences=[];
+  DB.teacher_absences.push(entry);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+      msg:`🏠 ${S.user.name} absent(e) le ${date} (${duree}) — ${motif}${cl?' · Classe: '+cl.name:''}`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  logAudit('teacher_absence',`${S.user.name} — ${motif} — ${duree}`);
+  closeModal();
+  toast(`✅ Absence signalée — la Direction a été notifiée`,'success');
+  saveToCrypt(); render();
+};
+
+window.notifyAbsenceTeacherParents = async (uid) => {
+  const cl=DB.classes.find(c=>c.teacher_id===uid||c.teacher_id_en===uid);
+  if(!cl){toast('Classe introuvable','error');return;}
+  const teacher=gu(uid);
+  const students=DB.students.filter(s=>s.cid===cl.id&&s.pid);
+  if(!students.length){toast('Aucun parent lié dans cette classe','info');return;}
+  const abs=DB.teacher_absences.find(a=>a.uid===uid&&a.date===today());
+  showC(`Notifier ${students.length} parent(s) de ${cl.name}?`,
+    `Prof ${teacher?teacher.name:uid} absent(e) — ${abs?abs.motif:'—'}`,
+    async()=>{
+      for(const s of students){
+        await pushNotif(s.pid,`ℹ️ Classe ${cl.name} : ${teacher?teacher.name:'Le professeur'} est absent(e) aujourd'hui (${abs?abs.motif:'absence'}). Vérifiez le planning de remplacement.`);
+      }
+      toast(`📣 ${students.length} parent(s) notifié(s)`,'success');
+    }
+  );
 };
 
 // ── NOTIFICATION ABSENCES → PARENTS ──
