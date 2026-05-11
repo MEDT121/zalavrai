@@ -6052,4 +6052,80 @@ window.cloturerConvocation = (cid, status) => {
 
 // ── ÉTAPE 5 — JUSTIFICATION D'ABSENCE ──
 R.absences = () => {
-  const role = S.user
+  const role = S.user.role;
+  // Direction: voir toutes les justifications
+  if (role === 'direction' || role === 'direction2') {
+    const all = DB.absences.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📄</div>Aucune justification soumise</div>`;
+    const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
+    const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+    return `
+    <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📄 Justifications (${all.length})</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      ${['','pending','approved','refused'].map(s=>`<button class="pill ${(window._absFilter||'')===(s)?'pill-blue':''}" onclick="window._absFilter='${s}';render()" style="cursor:pointer;border:none">${s===''?'Toutes':statusLabel[s]}</button>`).join('')}
+    </div>
+    <div class="premium-section">
+      ${all.filter(a=>!(window._absFilter)||a.status===(window._absFilter||'')).map(a=>{
+        const s=DB.students.find(x=>x.id===a.sid);
+        const p=gu(a.pid);
+        return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
+          <div class="pi-icon" style="background:#fef3c7">📄</div>
+          <div style="flex:1;min-width:150px">
+            <div class="pi-title">${s?s.name:'?'}</div>
+            <div class="pi-sub">${a.dates} · ${a.motif}</div>
+            ${a.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${a.note}</div>`:''}
+            <div style="font-size:11px;color:var(--text-muted)">Soumis par ${p?p.name:'?'} le ${a.submitted}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
+            ${a.status==='pending'&&(role==='direction'||role==='direction2')?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div>`:''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  // Parent: soumettre justification
+  const kids = DB.students.filter(s=>s.pid===S.user.id);
+  const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>b.submitted.localeCompare(a.submitted));
+  const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
+  const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+  return `
+  <div class="premium-section">
+    <div class="premium-section-title">📄 Soumettre une justification</div>
+    ${!kids.length?`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à votre compte.</div>`:`
+    <div class="form-group" style="margin-top:12px"><label class="form-label">Enfant concerné *</label>
+      <select class="form-select" id="abs_sid">${kids.map(k=>`<option value="${k.id}">${k.name}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">Date(s) d'absence *</label>
+      <input class="form-input" id="abs_dates" placeholder="Ex: 28/04/2025 ou du 28 au 30/04/2025">
+    </div>
+    <div class="form-group"><label class="form-label">Motif *</label>
+      <select class="form-select" id="abs_motif">
+        <option value="Maladie">🤒 Maladie</option>
+        <option value="Décès familial">🕊️ Décès familial</option>
+        <option value="Raison médicale">🏥 Raison médicale</option>
+        <option value="Voyage">✈️ Voyage</option>
+        <option value="Autre">📝 Autre</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Précisions (optionnel)</label>
+      <input class="form-input" id="abs_note" placeholder="Ex: Certificat médical disponible">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:14px" onclick="submitAbsence()">📤 Soumettre la justification</button>`}
+  </div>
+  ${myAbs.length?`<div class="premium-section"><div class="premium-section-title">📋 Mes justifications</div>
+    ${myAbs.map(a=>{
+      const s=DB.students.find(x=>x.id===a.sid);
+      return `<div class="premium-item">
+        <div class="pi-icon" style="background:#fef3c7">📄</div>
+        <div style="flex:1"><div class="pi-title">${s?s.name:'?'} — ${a.dates}</div><div class="pi-sub">${a.motif}${a.note?' · '+a.note:''}</div><div style="font-size:11px;color:var(--text-muted)">${a.submitted}</div></div>
+        <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
+};
+
+window._absFilter = '';
+window.submitAbsence = () => {
+  const sid=$('abs_sid').value;
+  const dates=($('abs_
