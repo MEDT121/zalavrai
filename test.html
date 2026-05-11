@@ -6208,4 +6208,8 @@ window.caisseSearch = () => {
   const res = $('caisse_results'); if(!res) return;
   if(!q){res.innerHTML='';return;}
   const found = DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).slice(0,6);
-  if(!found.length){res.innerHTML=`<div style="text-al
+  if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé</div>`;return;}
+  res.innerHTML=found.map(s=>{
+    const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+    return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
+      <div class="pi-icon" sty
