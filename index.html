@@ -732,9 +732,11 @@ window.NAV = {
       {id:'absences',i:'📄',l:'Justifier absence'},
       {s:'Sécurité'},
       {id:'authorized',i:'🔑',l:'Personnes autorisées'},
+      {id:'scan_history',i:'🚪',l:'Entrées / Sorties'},
       {s:'Infos'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications',badge:true},
+      {id:'profil_parent',i:'👤',l:'Mon profil'},
     ],
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
@@ -3760,6 +3762,7 @@ R.children = () => {
           <span style="font-weight:600">${debt>0?'💳 Solde dû':'✅ Tout payé'}</span>
           <span style="font-weight:800;color:${debt>0?'#dc2626':'#059669'}">${debt>0?'$'+debt:'$0'}</span>
         </div>`:'<div style="font-size:12px;color:var(--text-muted)">Montants non configurés par la Direction</div>'}
+        ${paidAmt>0?`<button class="btn btn-outline" style="width:100%;margin-top:10px;font-size:12px" onclick="printReport('recu','${k.id}')">🧾 Reçu de paiement</button>`:''}
       </div>
 
       <!-- PROFS DE LA CLASSE -->
@@ -3909,6 +3912,26 @@ R.children = () => {
             </button>`:''}
             ${r.payment_signaled&&r.status!=='paid'?`<div style="font-size:11px;color:#059669;margin-top:6px;text-align:center">✅ Paiement signalé — en attente de confirmation Direction</div>`:''}
           </div>`;}).join('')}
+        </div>`;
+      })()}
+
+      <!-- CONDUITE DÉTAILLÉE -->
+      ${(()=>{
+        const conds=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+        if(!conds.length) return '';
+        const colors={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};
+        const bgs={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
+        return `<div style="padding:14px 20px;border-top:1px solid var(--border-light)">
+          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">📊 Conduite — 8 dernières évaluations</div>
+          ${conds.map(c=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-light)">
+            <div style="width:30px;height:30px;border-radius:8px;background:${bgs[c.score]||'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${colors[c.score]||'#64748b'};flex-shrink:0">${(c.score||'?').slice(0,2)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:${colors[c.score]||'var(--text)'}">${c.score||'—'}</div>
+              ${c.remark?`<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.remark}</div>`:''}
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);flex-shrink:0">${c.date?new Date(c.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'—'}</div>
+          </div>`).join('')}
         </div>`;
       })()}
 
@@ -7750,6 +7773,45 @@ window.printReport = (type) => {
       <span style="font-weight:700;font-size:14px">Solde final du jour</span>
       <span style="font-weight:800;font-size:20px;color:${solde>=0?'#059669':'#dc2626'}">$${solde}</span>
     </div>`;
+  } else if(type==='recu'){
+    const sid=arguments[1];
+    const k=DB.students.find(x=>x.id===sid);
+    if(!k){toast('Élève introuvable','error');return;}
+    const cl=gc(k.cid);
+    const fees=getFees();
+    const pays=DB.payments.filter(p=>p.sid===k.id);
+    const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+    const totalAmt=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+    const balance=totalAmt-paidAmt;
+    const refNum='REC-'+k.mat+'-'+Date.now().toString(36).toUpperCase().slice(-5);
+    title='Reçu de Paiement';
+    html=`
+    <div style="border:2px solid #0f2557;border-radius:12px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;color:#666;margin-bottom:2px">ÉLÈVE</div>
+          <div style="font-size:15px;font-weight:800;color:#0f2557">${k.name}</div>
+          <div style="font-size:11px;color:#555">${k.mat} · ${cl?cl.name:''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:#888">Réf. : ${refNum}</div>
+          <div style="font-size:10px;color:#888">Émis le : ${printDate}</div>
+          <div style="display:inline-block;margin-top:6px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${balance===0?'#d1fae5':'#fef3c7'};color:${balance===0?'#065f46':'#92400e'}">${balance===0?'✅ SOLDÉ':'⏳ PARTIEL'}</div>
+        </div>
+      </div>
+      <table><tr><th>Trimestre</th><th>Montant</th><th>Statut</th></tr>
+      ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const paid=p&&p.paid;return`<tr><td style="font-weight:600">${t}</td><td>$${fees[t]||0}</td><td><span class="pill ${paid?'paid':'unpaid'}">${paid?'✅ Payé':'❌ Non réglé'}</span></td></tr>`;}).join('')}
+      </table>
+      <div style="display:flex;justify-content:space-between;padding:12px;background:#f8faff;border-radius:8px;margin-top:8px">
+        <span style="font-weight:700">Total payé</span><span style="font-weight:800;color:#059669">$${paidAmt}</span>
+      </div>
+      ${balance>0?`<div style="display:flex;justify-content:space-between;padding:12px;background:#fff1f2;border-radius:8px;margin-top:6px"><span style="font-weight:700;color:#dc2626">Solde restant</span><span style="font-weight:800;color:#dc2626">$${balance}</span></div>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:30px">
+      <div style="text-align:center"><div style="height:50px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Cachet & Signature Direction</div></div>
+      <div style="text-align:center"><div style="height:50px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Signature Parent / Tuteur</div></div>
+    </div>`;
+
   } else if(type==='rattrapage'){
     title='Liste de Rattrapage';
     const pass=50;
@@ -8000,6 +8062,105 @@ window.deleteEvent = (eid) => {
     DB.events=DB.events.filter(e=>e.id!==eid);
     saveToCrypt(); toast('🗑️ Événement supprimé','info'); render();
   });
+};
+
+// ── HISTORIQUE ENTRÉES / SORTIES PARENT ──
+R.scan_history = () => {
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🚪</div>Aucun enfant lié à ce compte</div>`;
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🚪 Historique Entrées / Sorties</span></div>`;
+  kids.forEach(kid=>{
+    const cl=gc(kid.cid);
+    const [cc]=clsColor(cl?cl.name:'');
+    const logs=DB.scan_log.filter(l=>l.sid===kid.id).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+    const att=DB.attendance.filter(a=>a.sid===kid.id).sort((a,b)=>b.date.localeCompare(a.date));
+    const byDate={};
+    logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
+    att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
+    const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).slice(0,30);
+    const statusColor={ontime:'#059669',late:'#d97706',excused:'#2563eb',sick:'#ec4899'};
+    const statusLabel={ontime:'✅ À l\'heure',late:'⚠️ Retard',excused:'📄 Justifié',sick:'🤒 Maladie'};
+    html+=`<div class="ww-section" style="margin-bottom:18px">
+      <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${kid.name}</span><span style="font-size:11px;color:var(--text-muted)">${cl?cl.name:''} · 30 derniers jours</span></div>
+      ${dates.length?dates.map(date=>{
+        const {logs:dl,att:a}=byDate[date];
+        const entry=dl.find(l=>l.type==='entry');
+        const exit=dl.find(l=>l.type==='exit'||l.status==='emergency_exit');
+        const d=new Date(date);
+        const isToday=date===today();
+        const sc=a?statusColor[a.status]:'#ef4444';
+        const sl=a?statusLabel[a.status]||'❌':'⏳ Absent';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${isToday?'background:#f0f9ff;':''}">
+          <div style="text-align:center;min-width:36px;flex-shrink:0">
+            <div style="font-size:10px;color:var(--text-muted)">${d.toLocaleDateString('fr-FR',{weekday:'short'})}</div>
+            <div style="font-size:17px;font-weight:800;color:var(--text)">${d.getDate()}</div>
+            <div style="font-size:9px;color:var(--text-muted)">${d.toLocaleDateString('fr-FR',{month:'short'})}</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:700;color:${sc};margin-bottom:4px">${sl}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              ${entry?`<span style="font-size:12px;color:#059669;font-weight:600">🏫 ${entry.time}</span>`:'<span style="font-size:11px;color:#94a3b8">Pas d\'entrée</span>'}
+              ${exit?`<span style="font-size:12px;color:#f97316;font-weight:600">🏠 ${exit.time}${exit.status==='emergency_exit'?' ⚡':''}</span>`:''}
+            </div>
+          </div>
+          ${a&&a.arr_time&&!entry?`<div style="font-size:10px;color:var(--text-muted);text-align:right;flex-shrink:0">Arr. ${a.arr_time}</div>`:''}
+        </div>`;
+      }).join(''):`<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Aucun historique disponible</div>`}
+    </div>`;
+  });
+  return html;
+};
+
+// ── PROFIL PARENT ──
+R.profil_parent = () => {
+  const u=S.user;
+  const kids=DB.students.filter(s=>s.pid===u.id);
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
+  <div class="premium-section">
+    <div class="premium-section-title">👤 Mes informations</div>
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 0 16px">
+      <div style="width:60px;height:60px;border-radius:18px;background:#ede9fe;color:#7c3aed;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(u.name)}</div>
+      <div><div style="font-size:18px;font-weight:800">${u.name}</div><div style="font-size:12px;color:var(--text-muted)">Parent / Tuteur · ID ${u.id}</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+      <input class="form-input" id="pp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveParentProfile()">💾 Enregistrer</button>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">👶 Mes enfants</div>
+    ${kids.length?kids.map(k=>{
+      const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+      const pays=DB.payments.filter(p=>p.sid===k.id);
+      const fees=getFees();
+      const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+      const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+      return `<div class="premium-item">
+        <div class="pi-icon" style="background:${cbg};color:${cc};font-size:14px;font-weight:700">${ini(k.name)}</div>
+        <div style="flex:1"><div class="pi-title">${k.name}</div><div class="pi-sub">${k.mat} · ${cl?cl.name:''}</div></div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11px;font-weight:700;color:${paidAmt>=total?'#059669':'#dc2626'}">$${paidAmt}/$${total}</div>
+          <div style="font-size:10px;color:var(--text-muted)">frais payés</div>
+        </div>
+      </div>`;
+    }).join(''):`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à ce compte</div>`}
+  </div>
+  <div class="premium-section" style="border-left:4px solid #e2e8f0">
+    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+    <div style="font-size:12px;color:var(--text-muted);padding:8px 0">Pour modifier votre nom ou votre code PIN, contactez la Direction.</div>
+  </div>`;
+};
+
+window.saveParentProfile = () => {
+  const phone=(document.getElementById('pp_phone')?.value||'').trim();
+  if(!phone){toast('Numéro de téléphone requis','error');return;}
+  S.user.phone=phone;
+  const u=DB.users.find(x=>x.id===S.user.id);
+  if(u) u.phone=phone;
+  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
+  saveToCrypt();
+  toast('✅ Numéro de téléphone mis à jour','success');
 };
 
 // ── EMPLOI DU TEMPS ──
