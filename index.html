@@ -2187,6 +2187,21 @@ function downloadBoth() {
   setTimeout(()=>downloadCanvas("back",base+"_VERSO_UNIVERSEL.png"),400);
 }
 
+function downloadBadge() {
+  const src = $('front'); if(!src) return;
+  const badge = document.createElement('canvas');
+  badge.width  = src.width  * 2;   // 2032px = 171mm à 300 DPI
+  badge.height = src.height * 2;   // 1276px = 108mm à 300 DPI
+  const ctx = badge.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, 0, 0, badge.width, badge.height);
+  const a = document.createElement('a');
+  a.href = badge.toDataURL('image/png');
+  a.download = clean(val('nom'))+'_'+clean(cls().short)+'_BADGE.png';
+  a.click();
+}
+
 function downloadZip() {
   const nom = clean(val("nom")||"ELEVE");
   const mat = clean(val("matricule")||cls().short);
@@ -2528,6 +2543,7 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
     </div>
     <div style="margin-top:8px">
       <button class="btn btn-outline" style="width:100%;margin-bottom:6px" onclick="downloadBoth()">&#11015;&#65039; PNG séparés</button>
+      <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#d97706,#92400e);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="downloadBadge()">&#127991;&#65039; Format Badge (2&times;)</button>
       <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="exportAllCardsZip()">&#128230; Exporter TOUTES les cartes (ZIP)</button>
       <button class="btn btn-outline" style="width:100%" onclick="downloadAllNine()">&#127891; 9 rectos toutes classes</button>
     </div>
