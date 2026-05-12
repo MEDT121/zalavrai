@@ -681,6 +681,10 @@ window.NAV = {
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'teacher_comm',i:'💬',l:'Communication co-titulaire'},
+      {s:'Mon compte'},
+      {id:'mes_primes',i:'💰',l:'Mes primes'},
+      {id:'mes_absences',i:'📅',l:'Mes absences'},
+      {id:'profil_enseignant',i:'👤',l:'Mon profil'},
       {s:'Infos'},
       {id:'messages',i:'✉️',l:'Messages'},
       {id:'calendar',i:'📅',l:'Calendrier'},
@@ -1499,7 +1503,7 @@ function dashboardEnseignant() {
   <div class="premium-section">
     <div class="premium-section-title">⚡ Actions</div>
     <div class="quick-grid">
-      ${[['cahier_texte','📖','Cahier'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['calendar','📅','Calendrier'],['notifications','🔔','Alertes']]
+      ${[['cahier_texte','📖','Cahier'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['mes_primes','💰','Primes'],['mes_absences','📅','Absences'],['profil_enseignant','👤','Mon profil']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
   </div>
@@ -8086,6 +8090,126 @@ window.deleteEvent = (eid) => {
     DB.events=DB.events.filter(e=>e.id!==eid);
     saveToCrypt(); toast('🗑️ Événement supprimé','info'); render();
   });
+};
+
+// ── MES PRIMES (ENSEIGNANT) ──
+R.mes_primes = () => {
+  const u=S.user;
+  const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const earned=myRats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
+  const due=myRats.filter(r=>!r.paid&&r.validated_by&&r.amount>0).reduce((s,r)=>s+Number(r.amount||0),0);
+  const pending=myRats.filter(r=>!r.validated_by&&r.status!=='refused').length;
+  const statusLabel={pending:'⏳ En attente Direction',validated:'✅ Validé — à percevoir',paid:'💰 Prime versée',refused:'❌ Refusé'};
+  const statusColor={pending:'#d97706',validated:'#2563eb',paid:'#059669',refused:'#dc2626'};
+  const statusBg={pending:'#fef3c7',validated:'#dbeafe',paid:'#d1fae5',refused:'#fee2e2'};
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💰 Mes primes — Rattrapages</span></div>
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">💰</div><div class="ww-stat-val">$${earned}</div><div class="ww-stat-label">Primes reçues</div></div>
+    <div class="ww-stat" style="border-left-color:#2563eb"><div class="ww-stat-icon">⏳</div><div class="ww-stat-val">$${due}</div><div class="ww-stat-label">À percevoir</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${myRats.length}</div><div class="ww-stat-label">Signalements</div></div>
+  </div>
+  ${pending>0?`<div style="padding:12px 14px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;margin-bottom:14px">⏳ ${pending} signalement${pending>1?'s':''} en attente de validation par la Direction</div>`:''}
+  <div class="ww-section">
+    ${myRats.length?myRats.map((r,i)=>{
+      const s=DB.students.find(x=>x.id===r.sid);
+      const st=r.paid?'paid':r.validated_by?'validated':r.status==='refused'?'refused':'pending';
+      return `<div class="ww-item" style="animation-delay:${i*.04}s">
+        <div class="ww-item-icon" style="background:${statusBg[st]}"><span style="font-size:18px">${st==='paid'?'💰':st==='validated'?'✅':st==='refused'?'❌':'📚'}</span></div>
+        <div class="ww-item-content">
+          <div class="ww-item-title">${s?s.name:'?'} — ${r.matiere||'—'}</div>
+          <div class="ww-item-sub">${r.date||''}${r.motif?' · '+r.motif:''}</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${statusBg[st]};color:${statusColor[st]}">${statusLabel[st]}</span>
+            ${r.amount>0?`<span style="font-size:12px;font-weight:800;color:${st==='paid'?'#059669':'#1d4ed8'}">$${r.amount}</span>`:'<span style="font-size:11px;color:var(--text-muted)">Montant non fixé</span>'}
+          </div>
+          ${st==='validated'&&!r.payment_signaled?`<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">📲 Signaler mon paiement</button>`:''}
+          ${r.payment_signaled&&!r.paid?`<div style="font-size:11px;color:#059669;margin-top:4px">✅ Paiement signalé — en attente confirmation Direction</div>`:''}
+        </div>
+      </div>`;
+    }).join(''):`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun rattrapage signalé</div>`}
+  </div>`;
+};
+
+// ── MES ABSENCES (ENSEIGNANT) ──
+R.mes_absences = () => {
+  const u=S.user;
+  if(!DB.teacher_absences) DB.teacher_absences=[];
+  const myAbs=DB.teacher_absences.filter(a=>a.uid===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const thisMonth=today().slice(0,7);
+  const monthCount=myAbs.filter(a=>(a.date||'').startsWith(thisMonth)).length;
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">📅 Mes absences déclarées</span>
+    <button class="btn btn-primary btn-sm" onclick="declareTeacherAbsence()">➕ Déclarer</button>
+  </div>
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📅</div><div class="ww-stat-val">${myAbs.length}</div><div class="ww-stat-label">Total déclarées</div></div>
+    <div class="ww-stat" style="border-left-color:#ef4444"><div class="ww-stat-icon">📆</div><div class="ww-stat-val">${monthCount}</div><div class="ww-stat-label">Ce mois</div></div>
+  </div>
+  <div class="ww-section">
+    ${myAbs.length?myAbs.map((a,i)=>{
+      const isToday=a.date===today();
+      return `<div class="ww-item" style="animation-delay:${i*.04}s;${isToday?'background:#fef9c3;':''}">
+        <div class="ww-item-icon" style="background:#fef3c7">🏠</div>
+        <div class="ww-item-content">
+          <div class="ww-item-title">${a.date?new Date(a.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—'}</div>
+          <div class="ww-item-sub">${a.motif||'—'}${a.duree?' · '+a.duree:''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Signalé à ${a.time||'—'}${isToday?' · <strong style="color:#059669">Aujourd\'hui</strong>':''}</div>
+        </div>
+        ${isToday?`<span class="pill" style="background:#d1fae5;color:#065f46;flex-shrink:0">✅ En cours</span>`:''}
+      </div>`;
+    }).join(''):`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📅</div>Aucune absence déclarée<br><button class="btn btn-primary" style="margin-top:16px" onclick="declareTeacherAbsence()">➕ Déclarer une absence</button></div>`}
+  </div>`;
+};
+
+// ── PROFIL ENSEIGNANT ──
+R.profil_enseignant = () => {
+  const u=S.user;
+  const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+  const lang=cl?(cl.teacher_id===u.id?'Français 🇫🇷':'Anglais 🇬🇧'):'—';
+  const isTitulaire=cl&&cl.titulaire_id===u.id;
+  const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+  const myDevoirs=DB.devoirs.filter(d=>d.cid===(cl?.id)).length;
+  const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).length;
+  const myCahier=DB.cahier_texte.filter(e=>e.by===u.id).length;
+  const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
+  <div class="premium-section">
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
+      <div style="width:64px;height:64px;border-radius:18px;background:${cbg};color:${cc};font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">${u.name}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">Enseignant · Section ${lang}</div>
+        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${cl.name} · ${students.length} élèves${isTitulaire?' · ⭐ Titulaire':''}</div>`:'<div style="font-size:12px;color:#dc2626">Aucune classe assignée</div>'}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">Devoirs</div></div>
+      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">Cahier entrées</div></div>
+      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+      <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">💾 Enregistrer</button>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #e2e8f0">
+    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+    <div style="font-size:12px;color:var(--text-muted);padding:8px 0">Pour modifier votre nom, votre code PIN ou votre affectation de classe, contactez la Direction.</div>
+  </div>`;
+};
+
+window.saveTeacherProfile = () => {
+  const phone=(document.getElementById('tp_phone')?.value||'').trim();
+  if(!phone){toast('Numéro de téléphone requis','error');return;}
+  S.user.phone=phone;
+  const u=DB.users.find(x=>x.id===S.user.id);
+  if(u) u.phone=phone;
+  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
+  saveToCrypt();
+  toast('✅ Profil mis à jour','success');
 };
 
 // ── HISTORIQUE ENTRÉES / SORTIES PARENT ──
