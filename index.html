@@ -93,7 +93,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 /* ── TOPBAR ── */
 .topbar{height:56px;background:var(--bg-card);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;box-shadow:0 1px 6px rgba(0,0,0,.05)}
-.topbar-menu-btn{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text);display:none}
+.topbar-menu-btn{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text);display:none;transition:transform .15s;min-width:32px;text-align:center}.topbar-menu-btn:active{transform:scale(.85)}
 .topbar-title{flex:1;font-size:17px;font-weight:700;color:var(--text)}
 .topbar-right{display:flex;align-items:center;gap:8px}
 .topbar-date{font-size:12px;color:var(--text-muted);display:none}
@@ -389,7 +389,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   </aside>
   <div class="main-content">
     <header class="topbar">
-      <button class="topbar-menu-btn" onclick="toggleSidebar()">☰</button>
+      <button class="topbar-menu-btn" id="TOPBTN" onclick="toggleSidebar()" title="Menu">☰</button>
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
         <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre">🌙</button>
@@ -1032,7 +1032,7 @@ window.getPendingCount = () => {
 };
 
 // ── STATE ──
-window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false };
+window.S = { user:null, page:'dashboard', sbOpen:false, editId:null, lockdown:false, _history:[] };
 
 // ── PAGE TITLES ──
 window.PT = {
@@ -1067,8 +1067,8 @@ window.render = () => {
   const fn = R[S.page];
   $('PC').innerHTML = fn ? fn() : ph(S.page);
   if (typeof animateCounters === 'function') setTimeout(animateCounters, 100);
-  // Update approval badges
   updateBadges();
+  _updateTopBtn();
 };
 
 window.updateBadges = () => {
@@ -1077,13 +1077,37 @@ window.updateBadges = () => {
   document.querySelectorAll('.bnav-badge').forEach(b => { b.textContent = cnt; b.style.display = cnt > 0 ? '' : 'none'; });
 };
 
-window.go = p => {
+window.go = (p, noHistory) => {
+  if(!noHistory && S.page && S.page !== p) S._history.push(S.page);
   S.page = p;
   closeSB();
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.p === p));
   document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.toggle('active', n.dataset.p === p));
+  _updateTopBtn();
+  history.pushState({page:p}, '', '');
   render();
 };
+
+window.goBack = () => {
+  const prev = S._history.pop();
+  if(prev) { go(prev, true); }
+  else if(S.page !== 'dashboard') { go('dashboard', true); }
+  else { showC('Quitter l\'application ?', 'Vous allez fermer SchoolSafe.', () => { window.close(); history.back(); }); }
+};
+
+window._updateTopBtn = () => {
+  const btn = document.getElementById('TOPBTN');
+  if(!btn) return;
+  const onHome = S.page === 'dashboard';
+  btn.innerHTML = onHome ? '☰' : '←';
+  btn.onclick = onHome ? toggleSidebar : goBack;
+  btn.title = onHome ? 'Menu' : 'Retour';
+};
+
+window.addEventListener('popstate', () => {
+  if(S._history.length) { const prev=S._history.pop(); S.page=prev; _updateTopBtn(); render(); }
+  else if(S.page !== 'dashboard') { S.page='dashboard'; _updateTopBtn(); render(); }
+});
 
 window.toggleSidebar = () => { S.sbOpen=!S.sbOpen; $('SB').classList.toggle('open',S.sbOpen); $('SO').classList.toggle('show',S.sbOpen); };
 window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO').classList.remove('show'); };
@@ -1113,9 +1137,9 @@ window.demoLogin = (name, pin) => {
   tryLogin();
 };
 window.loginAs = user => {
-  S.user=user; S.page='dashboard';
+  S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
-  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); },450);
+  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); },450);
 };
 window.logout = () => {
   S.user=null; $('LN').value=''; $('LP').value=''; $('PM').textContent='';
