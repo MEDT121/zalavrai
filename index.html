@@ -3284,7 +3284,8 @@ R.approbations = () => {
   const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
+  const pendingConvs = DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingConvs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -3310,7 +3311,7 @@ R.approbations = () => {
   ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
-      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.reason}</div></div>
+      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.motif||''}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div></div>`;
     }).join('')}</div>`:''}
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
@@ -3394,7 +3395,6 @@ R.approbations = () => {
     </div>`;
   })()}
   ${(()=>{
-    const pendingConvs=DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
     if(!pendingConvs.length) return '';
     const statusLabel={pending:'⏳ À planifier',scheduled:'📅 RDV fixé',completed:'✅ Parent venu',missed:'❌ Absent au RDV'};
     const statusColor={pending:'#f59e0b',scheduled:'#2563eb',completed:'#059669',missed:'#dc2626'};
@@ -3408,7 +3408,7 @@ R.approbations = () => {
           <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}">${conv.status==='scheduled'?'📅':'📋'}</div>
           <div style="flex:1;min-width:150px">
             <div class="pi-title">${s?s.name:'?'} ${cl?'— '+cl.name:''}</div>
-            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · Score: ${conv.score!=null?conv.score+'%':'?'}</div>
+            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · ${conv.reason||''}</div>
             ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>`:''}
             <div style="font-size:11px;color:var(--text-muted)">${conv.date}</div>
           </div>
