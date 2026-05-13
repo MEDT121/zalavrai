@@ -7159,7 +7159,7 @@ R.statistiques = () => {
   // Paiements par trimestre
   const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
   const payStats = ['T1','T2','T3'].map(t=>{
-    const paid = DB.payments.filter(p=>p[t.toLowerCase()+'_paid']||p[t]).length;
+    const paid = DB.payments.filter(p=>p.t===t&&p.paid).length;
     const total = DB.students.length;
     const amount = paid * Number(fees[t]||0);
     return {t, paid, total, pct: total>0?Math.round(paid/total*100):0, amount};
@@ -7169,8 +7169,8 @@ R.statistiques = () => {
   const classAvgs = DB.classes.map(cl=>{
     const studs = DB.students.filter(s=>s.cid===cl.id);
     const grades = DB.grades.filter(g=>studs.some(s=>s.id===g.sid));
-    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+Number(g.pct||0),0)/grades.length) : null;
-    const paidCount = DB.payments.filter(p=>studs.some(s=>s.id===p.sid)&&(p.t1_paid||p.T1||p.t2_paid||p.T2||p.t3_paid||p.T3)).length;
+    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+gradePct(g),0)/grades.length) : null;
+    const paidCount = studs.filter(s=>DB.payments.some(p=>p.sid===s.id&&p.paid)).length;
     return {cl, count:studs.length, avg, paidCount};
   });
 
@@ -8593,8 +8593,8 @@ R.audit_log = () => {
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const shown=filter?all.filter(e=>e.action===filter):all;
-  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️'};
-  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée'};
+  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋'};
+  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé'};
   const cats=[...new Set(all.map(e=>e.action))];
   return `
   <div class="ww-toolbar">
