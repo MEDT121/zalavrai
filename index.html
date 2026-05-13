@@ -6002,7 +6002,7 @@ window.confirmExitWith = async (sid,personIdx) => {
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today()};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`✅ ${s.name} a quitté l'école à ${time} avec ${a.name} (${a.relation||'Tutelle'})`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);
   toast(`${s.name} — Sortie avec ${a.name} ✅`,'success');
@@ -6013,7 +6013,7 @@ window.confirmExitAlone = async sid => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today()};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`ℹ️ ${s.name} a quitté l'école seul(e) à ${time}`);
   showExitDone('orange','🚶','Part seul',s.name,'L\'enfant quitte seul',time);
   toast(`${s.name} — Part seul`,'info');
