@@ -7584,6 +7584,7 @@ R.year_mgmt = () => {
 };
 
 window.openYearConfig = () => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
   openM('✏️ Configurer l\'année scolaire',`
 <div class="form-group"><label class="form-label">Année scolaire</label><input class="form-input" id="yr_name" value="${DB.settings.year||'2025-2026'}" placeholder="Ex: 2025-2026"></div>
 <div class="form-group"><label class="form-label">Visibilité</label>
@@ -7595,6 +7596,7 @@ window.openYearConfig = () => {
 };
 
 window.saveYearConfig = () => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
   DB.settings.year = ($('yr_name').value||'').trim()||DB.settings.year;
   ['palmares','notes_parent','devoirs','cahier_texte','presences'].forEach(k=>{
     DB.settings.toggles[k] = !!document.getElementById('tog_'+k)?.checked;
