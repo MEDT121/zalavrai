@@ -6038,7 +6038,9 @@ function showExitDone(color,icon,title,name,sub,time) {
 
 // ── HISTORIQUE SCANS ──
 R.scan_log = () => {
-  const logs=DB.scan_log.filter(l=>l.date===today()).reverse();
+  const isDir=S.user.role==='direction'||S.user.role==='direction2';
+  const selDate=isDir?(window._scanLogDate||today()):today();
+  const logs=DB.scan_log.filter(l=>l.date===selDate).slice().reverse();
   const entries=logs.filter(l=>l.type==='entry');
   const exits=logs.filter(l=>l.type==='exit');
   const ontime=entries.filter(l=>l.status==='ontime').length;
@@ -6046,9 +6048,10 @@ R.scan_log = () => {
   const refused=entries.filter(l=>l.status==='refused').length;
   const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',authorized:'pill-green',unauthorized:'pill-red'};
   const typeIcon={entry:'📥',exit:'🚪'};
-
+  const datePicker=isDir?`<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;render()" style="flex:1;max-width:180px"><span style="font-size:13px;color:var(--text-muted)">${selDate===today()?'Aujourd\'hui':new Date(selDate).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>`:''
   const incidents=logs.filter(l=>l.status==='unauthorized'||l.status==='refused');
   return `
+  ${datePicker}
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${ontime}</div><div class="ww-stat-label">À l'heure</div></div>
     <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late}</div><div class="ww-stat-label">Retards</div></div>
