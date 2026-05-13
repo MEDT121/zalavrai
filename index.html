@@ -933,6 +933,8 @@ window.forceSyncNow = async () => {
     {t:'cahier_texte', d:DB.cahier_texte},
     {t:'matieres', d:DB.matieres},
     {t:'aps', d:DB.aps},
+    {t:'attendance', d:DB.attendance},
+    {t:'scan_log', d:DB.scan_log.slice(0,200)},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -5829,7 +5831,7 @@ window.processScanEntry = async code => {
     const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
       const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry'};
-      DB.scan_log.unshift(log);
+      DB.scan_log.unshift(log); pushSync('scan_log','post',log);
       // Notifier Direction
       DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
@@ -5847,7 +5849,7 @@ window.processScanEntry = async code => {
   // Check per-student access block set by Direction
   if(student.access_blocked){
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué 🔒',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
         msg:`🔒 Accès bloqué — ${student.name} (${cls?cls.name:''}) refusé(e) à l'entrée`,
@@ -5868,9 +5870,9 @@ window.processScanEntry = async code => {
   if(res.level===1){
     // Enter + notify parent
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime'};
-    DB.attendance.push(att);
+    DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure ✅',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','⚠️','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
     else showScanResult('green','✅','À l\'heure',student.name,cls?cls.name:'',time);
@@ -5881,9 +5883,9 @@ window.processScanEntry = async code => {
   // ── NIVEAU 2 : RETARD LÉGER ──
   if(res.level===2){
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late'};
-    DB.attendance.push(att);
+    DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
     showScanResult('orange','⚠️','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré`,time);
     saveToCrypt();
@@ -5893,7 +5895,7 @@ window.processScanEntry = async code => {
   // ── NIVEAU 3 : RETARD GRAVE — REFUSÉ ──
   // L'enfant NE RENTRE PAS — alerte Direction
   const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry'};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   await pushNotif('u1',`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
   showScanResult('red','🚫','RETARD GRAVE — REFUSÉ',student.name,'En attente de décision de la Direction',time);
 
