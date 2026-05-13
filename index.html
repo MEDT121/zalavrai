@@ -6446,7 +6446,7 @@ window.toggleTutelle = (tid, newActive) => {
     const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
       msg:`🔑 ${S.user.name} a ${newActive?'activé':'désactivé'} l'autorisation de ${t.name} pour ${s.name}`,
       time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif);
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   });
   toast(`${newActive?'✅ Autorisé':'🚫 Désactivé'} — ${t.name}`,'success');
   saveToCrypt(); render();
