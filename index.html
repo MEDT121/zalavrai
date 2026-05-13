@@ -3446,6 +3446,19 @@ window.approveApr = (id, status) => {
     const teacher = gu(a.by);
     if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
+  if(a.type==='retard_grave' && a.sid) {
+    const s=DB.students.find(x=>x.id===a.sid);
+    if(status==='approved') {
+      const existing=DB.attendance.find(x=>x.sid===a.sid&&x.date===a.date);
+      if(!existing){
+        const att={id:'a'+Date.now(),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late'};
+        DB.attendance.push(att); pushSync('attendance','post',att);
+      }
+      if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`✅ ${s.name} a été autorisé(e) à entrer malgré le retard — décision de la Direction.`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+    } else {
+      if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`🚫 ${s.name} n'a pas été autorisé(e) à entrer — retard grave refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'alert'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+    }
+  }
   toast(status==='approved'?'✅ Approuvé':'❌ Refusé', status==='approved'?'success':'info');
   saveToCrypt(); render();
 };
@@ -4396,7 +4409,7 @@ window.confirmerRattrapage = (rid) => {
   const amount=parseFloat($('rat_amount').value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
   r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
-  pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by},'id=eq.'+rid);
+  pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
   const s=DB.students.find(x=>x.id===r.sid);
   const teacher=gu(r.teacher_id);
   // Notifier le parent
@@ -5914,7 +5927,7 @@ window.processScanEntry = async code => {
     DB.approbations.push({
       id:'apr'+Date.now(), type:'retard_grave', status:'pending',
       content:`${student.name} — Retard grave à ${time}`,
-      sid:student.id, date:today(), time
+      sid:student.id, date:today(), time, by:S.user.id
     });
   }
   saveToCrypt();
