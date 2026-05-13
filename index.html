@@ -3411,7 +3411,7 @@ R.approbations = () => {
           <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}">${conv.status==='scheduled'?'📅':'📋'}</div>
           <div style="flex:1;min-width:150px">
             <div class="pi-title">${s?s.name:'?'} ${cl?'— '+cl.name:''}</div>
-            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · ${conv.reason||''}</div>
+            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · ${conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:'')}</div>
             ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>`:''}
             <div style="font-size:11px;color:var(--text-muted)">${conv.date}</div>
           </div>
@@ -3796,7 +3796,6 @@ window.saveFeesConfig = () => {
 window.openAssignCaissePayment = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const pays=DB.payments.filter(p=>p.sid===sid&&!p.paid);
-  const unvalidated=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   const unassigned=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`💵 Affecter paiement — ${s.name}`,`
@@ -4295,6 +4294,7 @@ window.autoCheckRattrapage = (sid, teacherId) => {
   const conv = {
     id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
     sid, rat_id: rat.id, date: today(),
+    reason: 'Résultats scolaires insuffisants',
     status: 'pending', rdv_date: null, note: '', score: globalAvg
   };
   DB.convocations.push(conv);
@@ -7479,7 +7479,7 @@ R.convocations = () => {
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?s.name:'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${cl.name}</span>`:''}</div>
           <div class="pi-sub">${parent?`Parent: ${parent.name}${parent.phone?' · '+parent.phone:''}`:''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.reason||''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:'')}</div>
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+conv.note:''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
