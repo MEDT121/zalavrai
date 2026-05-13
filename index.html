@@ -3526,6 +3526,7 @@ window.approveDevoir = (did, status) => {
 
 window.validateDailyReport = (rid) => {
   const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
+  if(rep.status==='validated'){toast('Rapport déjà validé','info');return;}
   rep.status = 'validated';
   rep.validatedAt = nowTime();
   pushSync('daily_reports','patch',{status:'validated',validatedAt:rep.validatedAt},'id=eq.'+rid);
@@ -3825,7 +3826,7 @@ window.assignTrimestre = (sid) => {
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
   pushSync('payments','patch',{paid:true},'sid=eq.'+sid+'&t=eq.'+t);
-  const rec=DB.daily_records.find(r=>r.sid===sid&&r.validated&&!r.assigned);
+  const rec=DB.daily_records.find(r=>r.sid===sid&&r.trimestre===t&&r.validated&&!r.assigned);
   if(rec){rec.assigned=true;pushSync('daily_records','patch',{assigned:true},'id=eq.'+rec.id);}
   const s=DB.students.find(x=>x.id===sid);
   toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
@@ -6757,7 +6758,7 @@ window.viewReceipt = (nid) => {
     const n=Math.round(Number(v));
     if(n===0) return 'zéro';
     if(n<20) return units[n];
-    if(n<100){const t=Math.floor(n/10),u=n%10;if(t===7||t===9)return tens[t]+(u===1&&t===7?'-et-':'-')+(u?units[10+u]:(t===8?'s':''));return tens[t]+(u?(t===8?'-':u===1?'-et-':'-')+units[u]:(t===8?'s':''));}
+    if(n<100){const t=Math.floor(n/10),u=n%10;if(t===7||t===9)return tens[t]+(u===1&&t===7?'-et-':'-')+(u?units[10+u]:units[10]);return tens[t]+(u?(t===8?'-':u===1?'-et-':'-')+units[u]:(t===8?'s':''));}
     if(n<1000){const c=Math.floor(n/100),r2=n%100;return(c>1?units[c]+'-':'')+'cent'+(r2?'-'+numToWords(r2):'s');}
     const m=Math.floor(n/1000),r2=n%1000;return(m>1?numToWords(m)+'-':'')+'mille'+(r2?'-'+numToWords(r2):'');
   };
