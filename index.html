@@ -966,6 +966,10 @@ window.saveToCrypt = () => {
       daily_expenses:DB.daily_expenses.slice(0,500),
       daily_reports:DB.daily_reports.slice(0,100),
       audit_log:DB.audit_log.slice(0,200),
+      rattrapages:DB.rattrapages.slice(0,200),
+      convocations:DB.convocations.slice(0,200),
+      timetables:DB.timetables||[],
+      teacher_absences:DB.teacher_absences||[],
       _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
     };
     localStorage.setItem(CRYPT_STORE, _xorEncrypt(snap, CRYPT_KEY));
@@ -3763,6 +3767,7 @@ window.toggleStudentAccess = sid => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   s.access_blocked=!s.access_blocked;
   pushSync('students','patch',{access_blocked:s.access_blocked},'id=eq.'+sid);
+  logAudit(s.access_blocked?'student_block':'student_unblock', s.name, sid);
   toast(s.access_blocked?`🔒 ${s.name} — accès bloqué`:`🔓 ${s.name} — accès autorisé`, s.access_blocked?'info':'success');
   saveToCrypt(); render();
 };
@@ -8627,8 +8632,8 @@ R.audit_log = () => {
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const shown=filter?all.filter(e=>e.action===filter):all;
-  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋'};
-  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé'};
+  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋'};
+  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé'};
   const cats=[...new Set(all.map(e=>e.action))];
   return `
   <div class="ww-toolbar">
