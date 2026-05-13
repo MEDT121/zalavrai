@@ -3454,7 +3454,7 @@ window.validateAbs = (id, status) => {
   pushSync('absences','patch',{status},'id=eq.'+id);
   // If approved, mark matching attendance records as excused
   if(status==='approved') {
-    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&(x.status==='absent'||x.status==='late'||!x.status));
+    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&x.status==='late');
     affectedAtt.forEach(att=>{
       att.excused=true; att.status='excused';
       pushSync('attendance','patch',{excused:true,status:'excused'},'id=eq.'+att.id);
@@ -7899,10 +7899,10 @@ window.printReport = (type) => {
     const byDate={};
     DB.attendance.forEach(a=>{if(!byDate[a.date])byDate[a.date]=[];byDate[a.date].push(a);});
     const dates=Object.keys(byDate).sort().slice(-30);
-    const totP=DB.attendance.filter(a=>a.status==='present'||a.status==='late').length;
-    const totA=DB.attendance.filter(a=>a.status==='absent'||a.status==='sick').length;
+    const totP=DB.attendance.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const totA=DB.attendance.filter(a=>a.status==='sick').length;
     const totE=DB.attendance.filter(a=>a.status==='excused').length;
-    html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Absences</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Excusées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Absents</th><th>Excusés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='present'||a.status==='late').length;const ab=e.filter(a=>a.status==='absent'||a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#16a34a;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d97706;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
+    html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Malades</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Justifiées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Malades</th><th>Justifiés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='ontime'||a.status==='late').length;const ab=e.filter(a=>a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#16a34a;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d97706;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
 
   } else if(type==='caisse'){
     title='Rapport de Caisse — ' + today();
