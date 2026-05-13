@@ -543,6 +543,7 @@ window.DB = {
   devoirs:[], cahier_texte:[], matieres:[], approbations:[], teacher_notes:[],
   _sid:6, _uid:6, _apid:1,
   settings: {
+    id: 'main',
     horaires: {
       primaire: { ontime:455, late:480 },
       maternelle: { ontime:485, late:510 },
@@ -843,7 +844,7 @@ window.loadFromSupabase = async () => {
     window.DB_ONLINE = true;
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
-           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables] = await Promise.all([
+           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -866,6 +867,7 @@ window.loadFromSupabase = async () => {
       _get('rattrapages','select=*&order=date.desc&limit=200'),
       _get('convocations','select=*&order=date.desc&limit=200'),
       _get('timetables','select=*'),
+      _get('settings','select=*&id=eq.main&limit=1'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -883,6 +885,8 @@ window.loadFromSupabase = async () => {
     if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     if(safe(convocations).length) DB.convocations=fd(convocations);
     if(safe(timetables).length) DB.timetables=safe(timetables);
+    const sRow=safe(settings_rows)[0];
+    if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -942,6 +946,9 @@ window.forceSyncNow = async () => {
     const res = await _upsert(t, d);
     res ? ok++ : fail++;
   }
+  // Sync settings (single object, not array)
+  const sRes = await _upsert('settings', DB.settings);
+  sRes ? ok++ : fail++;
   // Flush queue
   const flushed = await syncQueue.flush();
   toast(`✅ ${ok} tables synchronisées${flushed?' · '+flushed+' opérations en attente envoyées':''}${fail?' · ⚠️ '+fail+' erreur(s)':''}`, fail?'info':'success');
