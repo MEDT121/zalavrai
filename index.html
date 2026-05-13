@@ -4104,15 +4104,19 @@ window.getClassMatieres = (cid) => {
 // ── PRÉSENCES (enseignant: validation depuis scan automatique) ──
 R.attendance = () => {
   const role=S.user.role;
+  const isDir=role==='direction'||role==='direction2';
   let students=DB.students, myClass=null;
   if(role==='enseignant') { const mc=getMyClass(); myClass=mc.cl; students=myClass?DB.students.filter(s=>s.cid===myClass.id):[]; }
   if(role==='parent') students=DB.students.filter(s=>s.pid===S.user.id);
-  if(!students.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucun élève</div>`;
+  // Direction: filter by class if selected
+  if(isDir && window._attClassFilter) students=DB.students.filter(s=>s.cid===window._attClassFilter);
+  if(!students.length && !isDir) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucun élève</div>`;
   const att=DB.attendance.filter(a=>a.date===today());
   const present=students.filter(s=>att.find(a=>a.sid===s.id&&(a.status==='ontime'||a.status==='late')));
   const late=students.filter(s=>att.find(a=>a.sid===s.id&&a.status==='late'));
   const absent=students.filter(s=>!att.find(a=>a.sid===s.id));
   const canModify=role==='enseignant';
+  const dirClassFilter=isDir?`<div style="margin-bottom:12px"><select class="form-select" onchange="window._attClassFilter=this.value;render()" style="width:100%"><option value="">Toutes les classes (${DB.students.length} élèves)</option>${DB.classes.map(c=>`<option value="${c.id}" ${window._attClassFilter===c.id?'selected':''}>${c.name} (${DB.students.filter(s=>s.cid===c.id).length})</option>`).join('')}</select></div>`:'';
 
   // Teacher scan validation block
   let teacherScanBlock='';
@@ -4141,13 +4145,15 @@ R.attendance = () => {
 
   return `
   ${teacherScanBlock}
+  ${dirClassFilter}
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${present.length}</div><div class="ww-stat-label">Présents</div></div>
     <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late.length}</div><div class="ww-stat-label">Retards</div></div>
     <div class="ww-stat" style="border-left-color:#6366f1"><div class="ww-stat-icon">❌</div><div class="ww-stat-val">${absent.length}</div><div class="ww-stat-label">Absents</div></div>
   </div>
+  ${students.length?'':`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">📋</div>Aucun élève dans cette classe</div>`}
   <div class="ww-section">
-    <div class="ww-section-header"><span class="ww-section-title">📋 Présence du jour</span></div>
+    <div class="ww-section-header"><span class="ww-section-title">📋 Présence du jour${isDir&&window._attClassFilter?(()=>{const cl=DB.classes.find(c=>c.id===window._attClassFilter);return cl?' — '+cl.name:'';})():''}</span></div>
     ${students.map((s,i)=>{
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
       const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
