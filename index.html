@@ -4290,15 +4290,18 @@ window.autoCheckRattrapage = (sid, teacherId) => {
   DB.rattrapages.push(rat);
   pushSync('rattrapages', 'post', rat);
 
-  // Convocation liée
-  const conv = {
-    id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid, rat_id: rat.id, date: today(),
-    reason: 'Résultats scolaires insuffisants',
-    status: 'pending', rdv_date: null, note: '', score: globalAvg
-  };
-  DB.convocations.push(conv);
-  pushSync('convocations', 'post', conv);
+  // Convocation liée — skip if one already pending for this student (auto-triggered)
+  const convAlready = DB.convocations.find(c => c.sid === sid && c.status === 'pending' && c.rat_id);
+  if(!convAlready) {
+    const conv = {
+      id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
+      sid, rat_id: rat.id, date: today(),
+      reason: 'Résultats scolaires insuffisants',
+      status: 'pending', rdv_date: null, note: '', score: globalAvg
+    };
+    DB.convocations.push(conv);
+    pushSync('convocations', 'post', conv);
+  }
 
   // Alert Direction
   const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières faibles: ${weakMatsStr}`;
@@ -7887,7 +7890,7 @@ window.printReport = (type) => {
       const studs=DB.students.filter(s=>s.cid===cl.id);
       if(!studs.length) return '';
       const mats=[...new Set(DB.grades.filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere))];
-      const ranked=studs.map(s=>{const avg=mats.length?Math.round(mats.reduce((a,mt)=>{const v=matAvgPct(s.id,mt);return v!==null?a+v:a;},0)/mats.filter(mt=>matAvgPct(s.id,mt)!==null).length||1):0;return{s,avg};}).sort((a,b)=>b.avg-a.avg);
+      const ranked=studs.map(s=>{const avg=mats.length?Math.round(mats.reduce((a,mt)=>{const v=matAvgPct(s.id,mt);return v!==null?a+v:a;},0)/(mats.filter(mt=>matAvgPct(s.id,mt)!==null).length||1)):0;return{s,avg};}).sort((a,b)=>b.avg-a.avg);
       return `<div class="ch">🏆 ${cl.name}</div><table><tr><th>Rang</th><th>Nom</th>${mats.map(m=>`<th style="font-size:10px">${m}</th>`).join('')}<th>Moy.</th><th>Mention</th></tr>${ranked.map(({s,avg},i)=>{const m=avg>=90?'Excellent':avg>=75?'Bien':avg>=60?'Assez bien':avg>=50?'Passable':'Insuffisant';const mc=avg>=75?'paid':avg>=50?'warn':'unpaid';return`<tr><td style="font-weight:700;color:${i<3?'#d97706':'#aaa'}">${['🥇','🥈','🥉'][i]||i+1}</td><td style="font-weight:600">${s.name}</td>${mats.map(mt=>{const a=matAvgPct(s.id,mt);return`<td style="text-align:center;color:${a!==null&&a>=50?'#16a34a':'#dc2626'};font-weight:600">${a!==null?a+'%':'—'}</td>`;}).join('')}<td style="font-weight:800;text-align:center;color:${avg>=50?'#16a34a':'#dc2626'}">${avg}%</td><td><span class="pill ${mc}">${m}</span></td></tr>`;}).join('')}</table>`;
     }).join('');
 
