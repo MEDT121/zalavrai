@@ -844,7 +844,8 @@ window.loadFromSupabase = async () => {
     window.DB_ONLINE = true;
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
-           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows] = await Promise.all([
+           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
+           approbations,teacher_notes,audit_log,teacher_absences] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -868,6 +869,10 @@ window.loadFromSupabase = async () => {
       _get('convocations','select=*&order=date.desc&limit=200'),
       _get('timetables','select=*'),
       _get('settings','select=*&id=eq.main&limit=1'),
+      _get('approbations','select=*&order=date.desc&limit=300'),
+      _get('teacher_notes','select=*&order=date.desc&limit=200'),
+      _get('audit_log','select=*&order=date.desc&limit=200'),
+      _get('teacher_absences','select=*&order=date.desc&limit=200'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -887,6 +892,10 @@ window.loadFromSupabase = async () => {
     if(safe(timetables).length) DB.timetables=safe(timetables);
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
+    if(safe(approbations).length) DB.approbations=fd(approbations);
+    if(safe(teacher_notes).length) DB.teacher_notes=fd(teacher_notes);
+    if(safe(audit_log).length) DB.audit_log=fd(audit_log);
+    if(safe(teacher_absences).length) DB.teacher_absences=fd(teacher_absences);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -939,6 +948,10 @@ window.forceSyncNow = async () => {
     {t:'aps', d:DB.aps},
     {t:'attendance', d:DB.attendance},
     {t:'scan_log', d:DB.scan_log.slice(0,200)},
+    {t:'approbations', d:DB.approbations||[]},
+    {t:'teacher_notes', d:DB.teacher_notes||[]},
+    {t:'audit_log', d:(DB.audit_log||[]).slice(0,200)},
+    {t:'teacher_absences', d:DB.teacher_absences||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -8632,6 +8645,7 @@ window.logAudit = (action, detail, targetId) => {
   if(!DB.audit_log) DB.audit_log=[];
   DB.audit_log.unshift(entry);
   if(DB.audit_log.length>500) DB.audit_log=DB.audit_log.slice(0,500);
+  pushSync('audit_log','post',entry);
 };
 
 R.audit_log = () => {
@@ -8639,8 +8653,8 @@ R.audit_log = () => {
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const shown=filter?all.filter(e=>e.action===filter):all;
-  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋'};
-  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé'};
+  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋',teacher_absence:'🏠'};
+  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé',teacher_absence:'Absence enseignant'};
   const cats=[...new Set(all.map(e=>e.action))];
   return `
   <div class="ww-toolbar">
@@ -8928,6 +8942,7 @@ window.saveTeacherAbsence = async () => {
   const entry={id:'ta'+Date.now(),uid:S.user.id,name:S.user.name,date,motif,duree,time:nowTime(),cid:cl?cl.id:null};
   if(!DB.teacher_absences) DB.teacher_absences=[];
   DB.teacher_absences.push(entry);
+  pushSync('teacher_absences','post',entry);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
       msg:`🏠 ${S.user.name} absent(e) le ${date} (${duree}) — ${motif}${cl?' · Classe: '+cl.name:''}`,
