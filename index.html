@@ -7155,11 +7155,11 @@ window.approveMsg = (mid, status) => {
         msg:`✉️ ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(n);pushSync('notifs','post',n);
     });
-    const sn={id:'n'+Date.now(),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
+    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(sn); pushSync('notifs','post',sn);
     toast('✅ Message approuvé et envoyé','success');
   } else {
-    const sn={id:'n'+Date.now(),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
+    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(sn); pushSync('notifs','post',sn);
     toast('❌ Message refusé','info');
   }
