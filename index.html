@@ -4943,7 +4943,7 @@ window.openAddMatiere = cid => {
 };
 
 window.submitMatiere = cid => {
-  const name=$('matName')?.value.trim();
+  const name=($('matName')?.value||'').trim();
   const lang=$('matLang')?.value;
   if(!name){toast('Nom obligatoire','error');return;}
   const apr={id:'apr'+Date.now(),type:'matiere',status:'pending',
@@ -5567,7 +5567,7 @@ window.openCahierM = () => {
 window.saveCahier = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const matiere=$('ctMatiere')?.value;
-  const content=$('ctContent')?.value.trim();
+  const content=($('ctContent')?.value||'').trim();
   const date=$('ctDate')?.value||today();
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
@@ -5644,7 +5644,7 @@ R.teacher_comm = () => {
 
 window.sendTeacherNote = () => {
   const mc=getMyClass(); if(!mc.cl) return;
-  const msg=$('commMsg')?.value.trim();
+  const msg=($('commMsg')?.value||'').trim();
   if(!msg){toast('Écrivez un message','error');return;}
   const note={
     id:'tn'+Date.now(), cid:mc.cl.id, by:S.user.id,
@@ -5802,7 +5802,7 @@ R.scanner = () => `
 </div>`;
 
 window.manualScanEntry = () => {
-  const code=$('scanInput')?.value.trim().toUpperCase();
+  const code=($('scanInput')?.value||'').trim().toUpperCase();
   if(!code){toast('Entrez un matricule','error');return;}
   processScanEntry(code);
   if($('scanInput')) $('scanInput').value='';
@@ -6043,7 +6043,7 @@ window.previewRefPhoto = (input) => {
 };
 window.doExitRefused = async (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const desc=document.getElementById('refDesc')?.value.trim();
+  const desc=(document.getElementById('refDesc')?.value||'').trim();
   if(!desc){toast('Décrivez la personne','error');return;}
   const photo=window._refPhotoData||null;
   window._refPhotoData=null;
@@ -7431,7 +7431,7 @@ window.openConductM = (sid) => {
    <button class="btn btn-primary" onclick="saveConductEntry()">💾 Enregistrer</button>`);
 };
 window.saveConductEntry = () => {
-  const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=$('cdRemark')?.value.trim(); const date=$('cdDate')?.value;
+  const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
   if(!sid||!score||!date){toast('Remplir tous les champs','error');return;}
   const entry={id:'cd'+Date.now(),sid,score,remark,date,by:S.user.id};
   DB.conduct.push(entry);
@@ -7525,7 +7525,7 @@ window.openConvocationM = () => {
    <button class="btn btn-primary" onclick="saveConvocation()">📋 Créer la convocation</button>`);
 };
 window.saveConvocation = () => {
-  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=$('convNote')?.value.trim();
+  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
   if(!sid){toast('Sélectionner un élève','error');return;}
   const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id};
   DB.convocations.push(conv);
