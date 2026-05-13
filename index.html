@@ -2178,6 +2178,7 @@ function drawBack() {
 function renderAll() {
   drawFront();
   drawBack();
+  window._cardReady = true;
   const st=$("status");
   if(st) st.textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
   if(window._cardRenderCallback){
@@ -2205,6 +2206,7 @@ function downloadBoth() {
 }
 
 function downloadBadge() {
+  if(!window._cardReady){ toast('⚠️ Cliquez d\'abord sur "Générer" pour dessiner la carte','error'); return; }
   const src = $('front'); if(!src) return;
   const badge = document.createElement('canvas');
   badge.width  = src.width  * 2;   // 2032px = 171mm à 300 DPI
@@ -2487,6 +2489,7 @@ function initCardSystem() {
 
 // ── CARDS PREVIEW (Direction) ──
 R.cards = () => {
+  window._cardReady = false;
   setTimeout(initCardSystem, 100);
   return `
 <style>
