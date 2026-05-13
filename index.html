@@ -3253,12 +3253,14 @@ window.saveClass = () => {
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
+    logAudit('class_edit', name, cid);
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
     const nc={id:'c'+Date.now(),...data};
     DB.classes.push(nc);
     pushSync('classes','upsert',nc);
+    logAudit('class_add', name, nc.id);
     toast(`🎉 Classe ${name} créée`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -3269,6 +3271,7 @@ window.deleteClass = (cid) => {
   const cnt=DB.students.filter(s=>s.cid===cid).length;
   if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
   showC(`Supprimer la classe ${c.name} ?`,'Cette action est irréversible.',()=>{
+    logAudit('class_delete', c.name, cid);
     DB.classes=DB.classes.filter(x=>x.id!==cid);
     pushSync('classes','delete',{},'id=eq.'+cid);
     toast(`🗑️ ${c.name} supprimée`,'info');
@@ -3541,6 +3544,7 @@ window.validateDailyReport = (rid) => {
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   }
+  logAudit('report_validate', `Rapport du ${rep.date} validé`, rid);
   toast('✅ Rapport validé — paiements frais scolaires mis à jour','success');
   saveToCrypt(); render();
 };
@@ -3784,6 +3788,7 @@ window.saveFeesConfig = () => {
   DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
   DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
   DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
+  logAudit('fees_control', `T1:$${DB.settings.fees.T1} · T2:$${DB.settings.fees.T2} · T3:$${DB.settings.fees.T3}`);
   toast('✅ Frais scolaires mis à jour','success');
   closeModal(); saveToCrypt(); render();
 };
@@ -4347,6 +4352,7 @@ window.submitRattrapage = (sid) => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   });
+  logAudit('rattrapage_signal', `${s.name} · ${mat} · "${motif.slice(0,40)}"`, rat.id);
   toast('✅ Signalement envoyé à la Direction','success');
   closeModal(); saveToCrypt(); render();
 };
@@ -4395,6 +4401,7 @@ window.confirmerRattrapage = (rid) => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   }
+  logAudit('rattrapage_validate', `${s?s.name:''} · ${r.matiere} · $${amount}`, rid);
   toast(`✅ Parent notifié — $${amount} de rattrapage pour ${s?s.name:''}`, 'success');
   closeModal(); saveToCrypt(); render();
 };
@@ -4413,6 +4420,7 @@ window.marquerRattrapage = (rid, paid) => {
         time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     }
+    logAudit('rattrapage_pay', `Prime versée — ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere}) $${r.amount}`, rid);
     toast('✅ Rattrapage marqué payé — prime enseignant notifiée','success');
   }
   pushSync('rattrapages','patch',{status:r.status,paid:r.paid},'id=eq.'+rid);
@@ -5372,6 +5380,7 @@ window.saveDevoir = () => {
     }
   });
   window._devoirPhoto=null; window._devoirPdf=null; window._devoirCategory='devoir';
+  logAudit('devoir_add', `${mc.cl.name} · ${matiere} · "${title.slice(0,40)}"`, devoir.id);
   toast(`${cm.icon} ${cm.notif} publié — parents notifiés directement`,'success');
   saveToCrypt(); closeModal(); render();
 };
@@ -5576,6 +5585,7 @@ window.saveCahier = () => {
       time:nowTime(),date:today(),read:false,type:'academic'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
+  logAudit('cahier_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
   toast('📖 Cahier publié — parents notifiés','success');
   saveToCrypt(); closeModal(); render();
 };
@@ -7426,10 +7436,12 @@ window.saveConductEntry = () => {
   const entry={id:'cd'+Date.now(),sid,score,remark,date,by:S.user.id};
   DB.conduct.push(entry);
   pushSync('conduct','post',entry);
+  logAudit('conduct_add', `${DB.students.find(x=>x.id===sid)?.name||''} · ${score}${remark?' — '+remark:''}`, entry.id);
   saveToCrypt(); toast('📊 Note de conduite enregistrée','success'); closeModal(); render();
 };
 window.deleteConductEntry = (cid) => {
   showC('Supprimer cette note de conduite ?','',()=>{
+    logAudit('conduct_delete', `Conduite supprimée`, cid);
     pushSync('conduct','delete',{},'id=eq.'+cid);
     DB.conduct=DB.conduct.filter(c=>c.id!==cid);
     saveToCrypt(); toast('🗑️ Supprimé','info'); render();
@@ -7525,6 +7537,7 @@ window.saveConvocation = () => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   }
+  logAudit('convocation_create', `${DB.students.find(x=>x.id===sid)?.name||''} · ${reason}`, conv.id);
   saveToCrypt(); toast('📋 Convocation créée — parent notifié','success'); closeModal(); render();
 };
 
