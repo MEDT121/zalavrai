@@ -4532,7 +4532,7 @@ R.palmares = () => {
 
 // ── Parent palmarès (same but read-only, respects toggles and payment) ──
 R.palmares_parent = () => {
-  if(!DB.settings.toggles.palmares) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
+  if(!(DB.settings.toggles?.palmares ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>Aucun enfant lié</div>`;
 
@@ -4661,7 +4661,7 @@ R.palmares_parent = () => {
         </div>`;
       })()}
       ${(()=>{
-        const bulletinOn=DB.settings.toggles.bulletin;
+        const bulletinOn=DB.settings.toggles?.bulletin ?? false;
         const allPaid=DB.payments.filter(p=>p.sid===k.id).every(p=>p.paid);
         const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
         if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
@@ -5023,7 +5023,7 @@ R.devoirs = () => {
 
 // ── Parent: devoirs (respecte toggle + paiement) ──
 R.devoirs_parent = () => {
-  if(!DB.settings.toggles.devoirs) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
+  if(!(DB.settings.toggles?.devoirs ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié à votre profil</div>`;
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
@@ -5133,7 +5133,7 @@ R.devoirs_parent = () => {
       }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
     </div>`;
     // ── Section Notes (frais + toggle requis) ──
-    if(DB.settings.toggles.notes_parent) {
+    if(DB.settings.toggles?.notes_parent) {
       if(!hasPaid) {
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #ef4444">
           <div style="display:flex;align-items:center;gap:14px;padding:6px 0">
