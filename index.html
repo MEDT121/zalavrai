@@ -895,7 +895,7 @@ window.loadFromSupabase = async () => {
   } catch(e) {
     console.warn('[SB] ❌', e.message);
     window.DB_ONLINE = false;
-    if (loadFromCrypt()) { console.log('[CRYPT] 🟡 Mode hors ligne'); toast('🟡 Mode hors ligne','info'); }
+    if (await loadFromCrypt()) { console.log('[CRYPT] 🟡 Mode hors ligne'); toast('🟡 Mode hors ligne','info'); }
     return false;
   }
 };
@@ -957,40 +957,94 @@ window.forceSyncNow = async () => {
   saveToCrypt();
 };
 
-// ── ENCRYPTED LOCAL STORAGE ──
-const CRYPT_KEY = 'SchoolSafe2026!TWSI';
-const CRYPT_STORE = 'schoolsafe_db_v3';
-function _xorEncrypt(data, key) { const e = encodeURIComponent(JSON.stringify(data)); let r = ''; for (let i=0;i<e.length;i++) r += String.fromCharCode(e.charCodeAt(i)^key.charCodeAt(i%key.length)); return btoa(r); }
-function _xorDecrypt(enc, key) { try { const d = atob(enc); let r = ''; for (let i=0;i<d.length;i++) r += String.fromCharCode(d.charCodeAt(i)^key.charCodeAt(i%key.length)); return JSON.parse(decodeURIComponent(r)); } catch(e) { return null; } }
+// ── ENCRYPTED LOCAL STORAGE (AES-256-GCM) ──
+const CRYPT_STORE = 'schoolsafe_db_v4';
+const CRYPT_KEY_STORE = 'schoolsafe_crypt_key';
+const CRYPT_XOR_LEGACY = 'schoolsafe_db_v3';
+const CRYPT_XOR_KEY = 'SchoolSafe2026!TWSI';
+let _aesKey = null;
+async function _initAESKey() {
+  if (_aesKey) return;
+  try {
+    const stored = localStorage.getItem(CRYPT_KEY_STORE);
+    if (stored) {
+      const raw = Uint8Array.from(atob(stored), c => c.charCodeAt(0));
+      _aesKey = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+    } else {
+      _aesKey = await crypto.subtle.generateKey({name:'AES-GCM',length:256}, true, ['encrypt','decrypt']);
+      const exp = await crypto.subtle.exportKey('raw', _aesKey);
+      localStorage.setItem(CRYPT_KEY_STORE, btoa(String.fromCharCode(...new Uint8Array(exp))));
+    }
+  } catch(e) { console.warn('[CRYPT] key init failed', e.message); }
+}
+function _xorDecryptLegacy(enc) {
+  try {
+    const d = atob(enc); let r = '';
+    for (let i=0;i<d.length;i++) r += String.fromCharCode(d.charCodeAt(i)^CRYPT_XOR_KEY.charCodeAt(i%CRYPT_XOR_KEY.length));
+    return JSON.parse(decodeURIComponent(r));
+  } catch(e) { return null; }
+}
+function _cryptSnap() {
+  return {
+    users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
+    attendance:DB.attendance.slice(0,300), scan_log:DB.scan_log.slice(0,200),
+    conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,200),
+    notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,100),
+    aps:DB.aps, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
+    approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
+    daily_records:DB.daily_records.slice(0,500),
+    daily_expenses:DB.daily_expenses.slice(0,500),
+    daily_reports:DB.daily_reports.slice(0,100),
+    audit_log:DB.audit_log.slice(0,200),
+    rattrapages:DB.rattrapages.slice(0,200),
+    convocations:DB.convocations.slice(0,200),
+    timetables:DB.timetables||[],
+    teacher_absences:DB.teacher_absences||[],
+    _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
+  };
+}
 window.saveToCrypt = () => {
-  try {
-    const snap = {
-      users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
-      attendance:DB.attendance.slice(0,300), scan_log:DB.scan_log.slice(0,200),
-      conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,200),
-      notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,100),
-      aps:DB.aps, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
-      approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
-      daily_records:DB.daily_records.slice(0,500),
-      daily_expenses:DB.daily_expenses.slice(0,500),
-      daily_reports:DB.daily_reports.slice(0,100),
-      audit_log:DB.audit_log.slice(0,200),
-      rattrapages:DB.rattrapages.slice(0,200),
-      convocations:DB.convocations.slice(0,200),
-      timetables:DB.timetables||[],
-      teacher_absences:DB.teacher_absences||[],
-      _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
-    };
-    localStorage.setItem(CRYPT_STORE, _xorEncrypt(snap, CRYPT_KEY));
-    localStorage.setItem('schoolsafe_db_ts', Date.now().toString());
-  } catch(e) { console.warn('[CRYPT]', e.message); }
+  (async () => {
+    try {
+      await _initAESKey();
+      const snap = _cryptSnap();
+      const plain = new TextEncoder().encode(JSON.stringify(snap));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const cipher = await crypto.subtle.encrypt({name:'AES-GCM',iv}, _aesKey, plain);
+      const buf = new Uint8Array(12 + cipher.byteLength);
+      buf.set(iv); buf.set(new Uint8Array(cipher), 12);
+      localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...buf)));
+      localStorage.setItem('schoolsafe_db_ts', Date.now().toString());
+    } catch(e) { console.warn('[CRYPT]', e.message); }
+  })();
 };
-window.loadFromCrypt = () => {
+window.loadFromCrypt = async () => {
   try {
-    const enc = localStorage.getItem(CRYPT_STORE); if (!enc) return false;
-    const d = _xorDecrypt(enc, CRYPT_KEY); if (!d || !d.users) return false;
-    Object.keys(d).forEach(k => { if (k.startsWith('_') && typeof d[k]==='number') DB[k]=d[k]; else if (Array.isArray(d[k])) DB[k]=d[k]; else if (typeof d[k]==='object') DB[k]=d[k]; });
-    return true;
+    await _initAESKey();
+    const enc = localStorage.getItem(CRYPT_STORE);
+    if (enc && _aesKey) {
+      try {
+        const buf = Uint8Array.from(atob(enc), c => c.charCodeAt(0));
+        const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)}, _aesKey, buf.slice(12));
+        const d = JSON.parse(new TextDecoder().decode(plain));
+        if (d && d.users) {
+          Object.keys(d).forEach(k => { if (k.startsWith('_') && typeof d[k]==='number') DB[k]=d[k]; else if (Array.isArray(d[k])) DB[k]=d[k]; else if (typeof d[k]==='object'&&d[k]) DB[k]=d[k]; });
+          return true;
+        }
+      } catch(_) { /* fall through to legacy */ }
+    }
+    // Migration: try legacy XOR store
+    const legacyEnc = localStorage.getItem(CRYPT_XOR_LEGACY);
+    if (legacyEnc) {
+      const d = _xorDecryptLegacy(legacyEnc);
+      if (d && d.users) {
+        Object.keys(d).forEach(k => { if (k.startsWith('_') && typeof d[k]==='number') DB[k]=d[k]; else if (Array.isArray(d[k])) DB[k]=d[k]; else if (typeof d[k]==='object'&&d[k]) DB[k]=d[k]; });
+        localStorage.removeItem(CRYPT_XOR_LEGACY);
+        saveToCrypt();
+        return true;
+      }
+    }
+    return false;
   } catch(e) { return false; }
 };
 setInterval(() => { if (DB.users.length > 0) saveToCrypt(); }, 30000);
