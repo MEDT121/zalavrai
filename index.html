@@ -2205,14 +2205,17 @@ function drawBack() {
 function renderAll() {
   drawFront();
   drawBack();
-  window._cardReady = true;
   const st=$("status");
   if(st) st.textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
-  if(window._cardRenderCallback){
-    const cb=window._cardRenderCallback;
-    window._cardRenderCallback=null;
-    cb();
-  }
+  // Delay _cardReady and callback by 80ms to let setTimeout(0) QR draws finish
+  setTimeout(() => {
+    window._cardReady = true;
+    if(window._cardRenderCallback){
+      const cb=window._cardRenderCallback;
+      window._cardRenderCallback=null;
+      cb();
+    }
+  }, 80);
 }
 
 function downloadCanvas(id, name) {
@@ -2336,11 +2339,14 @@ function downloadAllNine() {
   cardClasses.forEach((c,i)=> {
     setTimeout(()=> {
       setClass(i);
-      downloadCanvas("front", clean(val("nom"))+"_"+clean(c.short)+"_RECTO.png");
-      if(i===cardClasses.length-1) {
-        setTimeout(()=>{ $("classe").value=old; setClass(Number(old)); },350);
-      }
-    }, i*500);
+      // Wait 150ms after setClass so QR has time to render before capturing
+      setTimeout(()=>{
+        downloadCanvas("front", clean(val("nom"))+"_"+clean(c.short)+"_RECTO.png");
+        if(i===cardClasses.length-1) {
+          setTimeout(()=>{ $("classe").value=old; setClass(Number(old)); },400);
+        }
+      }, 150);
+    }, i*900);
   });
 }
 
