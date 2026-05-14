@@ -355,17 +355,6 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <div class="pin-message" id="PM"></div>
     <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:8px" onclick="tryLogin()">🔓 Connexion</button>
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)">
-      <div style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Connexion rapide</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px">
-        <button type="button" onclick="quickLogin('Admin','123456')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">🏢<br>Direction 1</button>
-        <button type="button" onclick="quickLogin('Direction2','555555')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">🏫<br>Direction 2</button>
-        <button type="button" onclick="quickLogin('Caisse','666666')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">💵<br>Caisse</button>
-        <button type="button" onclick="quickLogin('Kabongo','111111')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">👨‍🏫<br>Enseignant</button>
-        <button type="button" onclick="quickLogin('Mbuyi','333333')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">🛡️<br>Gardien</button>
-        <button type="button" onclick="quickLogin('Lomela','444444')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 4px;border-radius:10px;font-size:10px;cursor:pointer;font-family:inherit;line-height:1.4">👨‍👩‍👧<br>Parent</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -478,13 +467,13 @@ window.compressWithProfile = (file, profile, cb) => {
 // ── DATABASE ──
 window.DB = {
   users: [
-    { id:'u1', name:'Admin', role:'direction', pin:'123456', initials:'AD', phone:'+243 816 722 901' },
-    { id:'u2', name:'Kabongo', role:'enseignant', pin:'111111', initials:'KB', phone:'+243 978 111 111', class_id:'c4', lang:'fr' },
-    { id:'u3', name:'Okonkwo', role:'enseignant', pin:'222222', initials:'OK', phone:'+243 978 222 222', class_id:'c4', lang:'en' },
-    { id:'u4', name:'Mbuyi', role:'gardien', pin:'333333', initials:'MB', phone:'+243 978 333 333' },
-    { id:'u5', name:'Lomela', role:'parent', pin:'444444', initials:'LO', phone:'+243 978 444 444' },
-    { id:'u6', name:'Direction2', role:'direction2', pin:'555555', initials:'D2', phone:'+243 816 000 002' },
-    { id:'u7', name:'Caisse', role:'direction3', pin:'666666', initials:'CA', phone:'+243 816 000 003' },
+    { id:'u1', name:'Admin', role:'direction', pin:'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', pin_hashed:true, initials:'AD', phone:'+243 816 722 901' },
+    { id:'u2', name:'Kabongo', role:'enseignant', pin:'bcb15f821479b4d5772bd0ca866c00ad5f926e3580720659cc80d39c9d09802a', pin_hashed:true, initials:'KB', phone:'+243 978 111 111', class_id:'c4', lang:'fr' },
+    { id:'u3', name:'Okonkwo', role:'enseignant', pin:'4cc8f4d609b717356701c57a03e737e5ac8fe885da8c7163d3de47e01849c635', pin_hashed:true, initials:'OK', phone:'+243 978 222 222', class_id:'c4', lang:'en' },
+    { id:'u4', name:'Mbuyi', role:'gardien', pin:'68487dc295052aa79c530e283ce698b8c6bb1b42ff0944252e1910dbecdc5425', pin_hashed:true, initials:'MB', phone:'+243 978 333 333' },
+    { id:'u5', name:'Lomela', role:'parent', pin:'69f7f7a7f8bca9970fa6f9c0b8dad06901d3ef23fd599d3213aa5eee5621c3e3', pin_hashed:true, initials:'LO', phone:'+243 978 444 444' },
+    { id:'u6', name:'Direction2', role:'direction2', pin:'af41e68e1309fa29a5044cbdc36b90a3821d8807e68c7675a6c495112bc8a55f', pin_hashed:true, initials:'D2', phone:'+243 816 000 002' },
+    { id:'u7', name:'Caisse', role:'direction3', pin:'94edf28c6d6da38fd35d7ad53e485307f89fbeaf120485c8d17a43f323deee71', pin_hashed:true, initials:'CA', phone:'+243 816 000 003' },
   ],
   classes: [
     { id:'c1', name:'Petite Section',  cycle:'maternelle', teacher_id:null, teacher_id_en:null },
@@ -1165,23 +1154,23 @@ window.showLogin = () => {
   if(sp) sp.style.display='none';
   if(ls){ ls.style.display=''; ls.style.opacity='1'; }
 };
-window.tryLogin = () => {
-  const name = ($('LN').value||'').trim().toLowerCase();
-  const pin = ($('LP').value||'').trim();
+async function _hashPin(pin) {
+  const enc = new TextEncoder().encode(pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+window.tryLogin = async () => {
+  const name = ($('LN')?.value||'').trim().toLowerCase();
+  const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin||pin.length!==6) { $('PM').textContent='Entrez un code de 6 chiffres'; return; }
-  const user = DB.users.find(u => u.name.toLowerCase()===name && u.pin===pin);
-  if (user) loginAs(user);
-  else { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); }
-};
-window.quickLogin = (name, pin) => {
-  $('LN').value = name; $('LP').value = pin;
-  setTimeout(tryLogin, 100);
-};
-window.demoLogin = (name, pin) => {
-  $('LN').value = name;
-  $('LP').value = pin;
-  tryLogin();
+  const u = DB.users.find(u => u.name.toLowerCase()===name);
+  if (!u) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
+  const hash = await _hashPin(pin);
+  const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
+  if (!match) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
+  if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); saveToCrypt(); }
+  loginAs(u);
 };
 window.loginAs = user => {
   S.user=user; S.page='dashboard'; S._history=[];
@@ -1244,16 +1233,19 @@ window.openProfile = () => {
   `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>
   <button class="btn btn-primary" onclick="saveProfile()">💾 Enregistrer</button>`);
 };
-window.saveProfile = () => {
+window.saveProfile = async () => {
   const u=S.user, op=$('oldPin').value, np=$('newPin').value, cp=$('confirmPin').value;
   if (!op&&!np&&!cp) { closeModal(); return; }
   if (!op) { toast('Entrez votre code actuel','error'); return; }
-  if (op!==u.pin) { toast('Code actuel incorrect','error'); return; }
+  const opHash = await _hashPin(op);
+  const currentMatch = u.pin_hashed ? u.pin===opHash : u.pin===op;
+  if (!currentMatch) { toast('Code actuel incorrect','error'); return; }
   if (!np||np.length!==6||!/^\d{6}$/.test(np)) { toast('6 chiffres requis','error'); return; }
   if (np!==cp) { toast('Les codes ne correspondent pas','error'); return; }
-  if (DB.users.some(x=>x.id!==u.id&&x.pin===np)) { toast('Code déjà utilisé','error'); return; }
-  u.pin = np;
-  pushSync('users','patch',{pin:np},'id=eq.'+u.id);
+  const npHash = await _hashPin(np);
+  if (DB.users.some(x=>x.id!==u.id&&x.pin===npHash)) { toast('Code déjà utilisé','error'); return; }
+  u.pin = npHash; u.pin_hashed = true;
+  pushSync('users','patch',{pin:npHash,pin_hashed:true},'id=eq.'+u.id);
   saveToCrypt();
   toast('PIN mis à jour ✅','success'); closeModal();
 };
