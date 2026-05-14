@@ -2273,6 +2273,15 @@ function printBadge() {
   w.onload = () => setTimeout(() => w.print(), 300);
 }
 
+function makeBadgeB64(srcCanvas) {
+  const b = document.createElement('canvas');
+  b.width = srcCanvas.width * 2; b.height = srcCanvas.height * 2;
+  const bx = b.getContext('2d');
+  bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = 'high';
+  bx.drawImage(srcCanvas, 0, 0, b.width, b.height);
+  return b.toDataURL('image/png').split(',')[1];
+}
+
 function downloadZip() {
   const nom = clean(val("nom")||"ELEVE");
   const mat = clean(val("matricule")||cls().short);
@@ -2282,16 +2291,16 @@ function downloadZip() {
   if(!_fc||!_fc.width||!_bc||!_bc.width){ toast('⚠️ Générez d\'abord la carte','error'); return; }
   const zip = new JSZip();
   const folder = zip.folder(folderName);
-  const frontB64 = _fc.toDataURL('image/png').split(',')[1];
-  const backB64  = _bc.toDataURL('image/png').split(',')[1];
-  folder.file('RECTO.png', frontB64, {base64:true});
-  folder.file('VERSO.png',  backB64,  {base64:true});
+  folder.file('RECTO.png',       _fc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('VERSO.png',       _bc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('BADGE_RECTO.png', makeBadgeB64(_fc),                        {base64:true});
+  folder.file('BADGE_VERSO.png', makeBadgeB64(_bc),                        {base64:true});
   zip.generateAsync({type:'blob'}).then(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = folderName + '.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    toast('ZIP créé : '+folderName+'.zip','success');
+    toast('ZIP créé : '+folderName+'.zip (carte + badge)','success');
   });
 }
 
@@ -2305,7 +2314,7 @@ function fillCardAsync(sid) {
   });
 }
 
-// Export ALL students' cards as a single ZIP (RECTO+VERSO per student, organised by class)
+// Export ALL students' cards as a single ZIP (RECTO+VERSO+BADGE per student, organised by class)
 window.exportAllCardsZip = async () => {
   if(typeof JSZip==='undefined'){toast('JSZip non chargé — vérifiez la connexion','error');return;}
   const students=DB.students;
@@ -2319,8 +2328,11 @@ window.exportAllCardsZip = async () => {
     const folder=clean(cl?cl.name:'CLASSE');
     const name=clean(s.name||'ELEVE')+'_'+clean(s.mat||s.id);
     try{
-      zip.file(folder+'/'+name+'_RECTO.png',$('front').toDataURL('image/png').split(',')[1],{base64:true});
-      zip.file(folder+'/'+name+'_VERSO.png',$('back').toDataURL('image/png').split(',')[1],{base64:true});
+      const fc=$('front'), bc=$('back');
+      zip.file(folder+'/'+name+'_RECTO.png',      fc.toDataURL('image/png').split(',')[1], {base64:true});
+      zip.file(folder+'/'+name+'_VERSO.png',      bc.toDataURL('image/png').split(',')[1], {base64:true});
+      zip.file(folder+'/'+name+'_BADGE_RECTO.png', makeBadgeB64(fc),                        {base64:true});
+      zip.file(folder+'/'+name+'_BADGE_VERSO.png', makeBadgeB64(bc),                        {base64:true});
       count++;
     }catch(e){console.warn('Carte ignorée:',s.name,e);}
   }
@@ -2330,7 +2342,7 @@ window.exportAllCardsZip = async () => {
     const a=document.createElement('a');
     a.href=url; a.download='Cartes_Eleves_'+today()+'.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),3000);
-    toast('✅ ZIP créé — '+count+' cartes (RECTO+VERSO)','success');
+    toast('✅ ZIP créé — '+count+' élèves · carte + badge','success');
   });
 };
 
@@ -2618,13 +2630,9 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
       <button class="btn btn-gold" onclick="downloadZip()">&#128230; ZIP élève</button>
     </div>
     <div style="margin-top:8px">
-      <button class="btn btn-outline" style="width:100%;margin-bottom:6px" onclick="downloadBoth()">&#11015;&#65039; PNG séparés</button>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        <button class="btn" style="background:linear-gradient(135deg,#d97706,#92400e);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:12px" onclick="downloadBadge()">&#127991; PNG Badge</button>
-        <button class="btn" style="background:linear-gradient(135deg,#0f2557,#1e40af);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:12px" onclick="printBadge()">&#128424; Imprimer Badge</button>
-      </div>
-      <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="exportAllCardsZip()">&#128230; Exporter TOUTES les cartes (ZIP)</button>
-      <button class="btn btn-outline" style="width:100%" onclick="downloadAllNine()">&#127891; 9 rectos toutes classes</button>
+      <button class="btn btn-outline" style="width:100%;margin-bottom:6px" onclick="downloadBoth()">&#11015;&#65039; PNG séparés (carte standard)</button>
+      <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#d97706,#92400e);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="downloadBadge()">&#127991; PNG Badge 2× (haute résolution)</button>
+      <button class="btn" style="width:100%;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="exportAllCardsZip()">&#128230; Exporter TOUTES les cartes (ZIP)</button>
     </div>
   </aside>
   <main class="card-preview">
