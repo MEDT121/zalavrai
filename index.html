@@ -1922,6 +1922,7 @@ function strokeRound(ctx,x,y,w,h,r,color,lw=2) {
 }
 
 function cover(ctx,img,x,y,w,h,r=0) {
+  if(!img||!img.width||!img.height) return;
   const s = Math.max(w/img.width,h/img.height);
   const nw=img.width*s, nh=img.height*s;
   ctx.save();
@@ -1931,6 +1932,7 @@ function cover(ctx,img,x,y,w,h,r=0) {
 }
 
 function contain(ctx,img,x,y,w,h) {
+  if(!img||!img.width||!img.height) return;
   const s = Math.min(w/img.width,h/img.height);
   const nw=img.width*s, nh=img.height*s;
   ctx.drawImage(img,x+(w-nw)/2,y+(h-nh)/2,nw,nh);
@@ -1988,8 +1990,7 @@ function drawQrVisual(ctx, payload, x,y,size) {
       const qrImg = holder.querySelector("img");
 
       if (qrCanvas) {
-        ctx.drawImage(qrCanvas, x, y, size, size);
-        document.body.removeChild(holder);
+        setTimeout(() => { ctx.drawImage(qrCanvas, x, y, size, size); if(holder.parentNode) document.body.removeChild(holder); }, 0);
       } else if (qrImg) {
         qrImg.onload = function(){
           ctx.drawImage(qrImg, x, y, size, size);
@@ -2233,7 +2234,7 @@ function downloadBoth() {
 
 function downloadBadge() {
   if(!window._cardReady){ toast('⚠️ Cliquez d\'abord sur "Générer" pour dessiner la carte','error'); return; }
-  const src = $('front'); if(!src) return;
+  const src = $('front'); if(!src||!src.width||!src.height){ toast('❌ La carte n\'a pas pu être générée','error'); return; }
   const badge = document.createElement('canvas');
   badge.width  = src.width  * 2;
   badge.height = src.height * 2;
@@ -2249,7 +2250,7 @@ function downloadBadge() {
 
 function printBadge() {
   if(!window._cardReady){ toast('⚠️ Cliquez d\'abord sur "Générer" pour dessiner la carte','error'); return; }
-  const src = $('front'); if(!src) return;
+  const src = $('front'); if(!src||!src.width||!src.height){ toast('❌ La carte n\'a pas pu être générée','error'); return; }
   const imgData = src.toDataURL('image/png');
   const name = val('nom')||'Élève';
   const w = window.open('','_blank','width=600,height=400');
@@ -2274,10 +2275,12 @@ function downloadZip() {
   const mat = clean(val("matricule")||cls().short);
   const folderName = nom + "_" + mat;
   if (typeof JSZip === 'undefined') { toast('JSZip non chargé — vérifiez la connexion','error'); return; }
+  const _fc=$('front'),_bc=$('back');
+  if(!_fc||!_fc.width||!_bc||!_bc.width){ toast('⚠️ Générez d\'abord la carte','error'); return; }
   const zip = new JSZip();
   const folder = zip.folder(folderName);
-  const frontB64 = $('front').toDataURL('image/png').split(',')[1];
-  const backB64  = $('back').toDataURL('image/png').split(',')[1];
+  const frontB64 = _fc.toDataURL('image/png').split(',')[1];
+  const backB64  = _bc.toDataURL('image/png').split(',')[1];
   folder.file('RECTO.png', frontB64, {base64:true});
   folder.file('VERSO.png',  backB64,  {base64:true});
   zip.generateAsync({type:'blob'}).then(blob => {
@@ -2386,9 +2389,11 @@ function closeCropModal() {
 
 function applyCrop() {
   const cc = document.getElementById('cropCanvas');
+  if(!cc||!cc.width||!cc.height){ toast('❌ Zone de découpe invalide','error'); closeCropModal(); return; }
   const data = cc.toDataURL('image/jpeg', 0.92);
   const img = new Image();
   img.onload = () => { cardPhotoImg = img; renderAll(); };
+  img.onerror = () => { toast('❌ Erreur de traitement de la photo','error'); renderAll(); };
   img.src = data;
   closeCropModal();
   // Update photo thumbnail
@@ -2517,14 +2522,11 @@ function initCardSystem() {
     reader.onload = () => openCropModal(reader.result);
     reader.readAsDataURL(file);
   });
-  if (safeImg.complete && safeImg.naturalWidth) {
-    renderAll();
-  } else {
-    safeImg.onload = renderAll;
-  }
-  if (!schoolImg.complete || !schoolImg.naturalWidth) {
-    schoolImg.onload = renderAll;
-  }
+  let _imgReady = 0;
+  const _onImgReady = () => { _imgReady++; if(_imgReady >= 2) renderAll(); };
+  if (safeImg.complete && safeImg.naturalWidth) { _imgReady++; } else { safeImg.onload = _onImgReady; safeImg.onerror = _onImgReady; }
+  if (schoolImg.complete && schoolImg.naturalWidth) { _imgReady++; } else { schoolImg.onload = _onImgReady; schoolImg.onerror = _onImgReady; }
+  if (_imgReady >= 2) renderAll();
   setClass(0);
   // Auto-remplir avec le premier élève
   if (DB.students.length) {
