@@ -543,6 +543,7 @@ window.DB = {
   devoirs:[], cahier_texte:[], matieres:[], approbations:[], teacher_notes:[],
   _sid:6, _uid:6, _apid:1,
   settings: {
+    id: 'main',
     horaires: {
       primaire: { ontime:455, late:480 },
       maternelle: { ontime:485, late:510 },
@@ -843,7 +844,8 @@ window.loadFromSupabase = async () => {
     window.DB_ONLINE = true;
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
-           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables] = await Promise.all([
+           devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
+           approbations,teacher_notes,audit_log,teacher_absences] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -866,6 +868,11 @@ window.loadFromSupabase = async () => {
       _get('rattrapages','select=*&order=date.desc&limit=200'),
       _get('convocations','select=*&order=date.desc&limit=200'),
       _get('timetables','select=*'),
+      _get('settings','select=*&id=eq.main&limit=1'),
+      _get('approbations','select=*&order=date.desc&limit=300'),
+      _get('teacher_notes','select=*&order=date.desc&limit=200'),
+      _get('audit_log','select=*&order=date.desc&limit=200'),
+      _get('teacher_absences','select=*&order=date.desc&limit=200'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -883,6 +890,12 @@ window.loadFromSupabase = async () => {
     if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     if(safe(convocations).length) DB.convocations=fd(convocations);
     if(safe(timetables).length) DB.timetables=safe(timetables);
+    const sRow=safe(settings_rows)[0];
+    if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
+    if(safe(approbations).length) DB.approbations=fd(approbations);
+    if(safe(teacher_notes).length) DB.teacher_notes=fd(teacher_notes);
+    if(safe(audit_log).length) DB.audit_log=fd(audit_log);
+    if(safe(teacher_absences).length) DB.teacher_absences=fd(teacher_absences);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -933,6 +946,12 @@ window.forceSyncNow = async () => {
     {t:'cahier_texte', d:DB.cahier_texte},
     {t:'matieres', d:DB.matieres},
     {t:'aps', d:DB.aps},
+    {t:'attendance', d:DB.attendance},
+    {t:'scan_log', d:DB.scan_log.slice(0,200)},
+    {t:'approbations', d:DB.approbations||[]},
+    {t:'teacher_notes', d:DB.teacher_notes||[]},
+    {t:'audit_log', d:(DB.audit_log||[]).slice(0,200)},
+    {t:'teacher_absences', d:DB.teacher_absences||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -940,6 +959,9 @@ window.forceSyncNow = async () => {
     const res = await _upsert(t, d);
     res ? ok++ : fail++;
   }
+  // Sync settings (single object, not array)
+  const sRes = await _upsert('settings', DB.settings);
+  sRes ? ok++ : fail++;
   // Flush queue
   const flushed = await syncQueue.flush();
   toast(`✅ ${ok} tables synchronisées${flushed?' · '+flushed+' opérations en attente envoyées':''}${fail?' · ⚠️ '+fail+' erreur(s)':''}`, fail?'info':'success');
@@ -964,6 +986,10 @@ window.saveToCrypt = () => {
       daily_expenses:DB.daily_expenses.slice(0,500),
       daily_reports:DB.daily_reports.slice(0,100),
       audit_log:DB.audit_log.slice(0,200),
+      rattrapages:DB.rattrapages.slice(0,200),
+      convocations:DB.convocations.slice(0,200),
+      timetables:DB.timetables||[],
+      teacher_absences:DB.teacher_absences||[],
       _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
     };
     localStorage.setItem(CRYPT_STORE, _xorEncrypt(snap, CRYPT_KEY));
@@ -1896,6 +1922,7 @@ function strokeRound(ctx,x,y,w,h,r,color,lw=2) {
 }
 
 function cover(ctx,img,x,y,w,h,r=0) {
+  if(!img||!img.width||!img.height) return;
   const s = Math.max(w/img.width,h/img.height);
   const nw=img.width*s, nh=img.height*s;
   ctx.save();
@@ -1905,6 +1932,7 @@ function cover(ctx,img,x,y,w,h,r=0) {
 }
 
 function contain(ctx,img,x,y,w,h) {
+  if(!img||!img.width||!img.height) return;
   const s = Math.min(w/img.width,h/img.height);
   const nw=img.width*s, nh=img.height*s;
   ctx.drawImage(img,x+(w-nw)/2,y+(h-nh)/2,nw,nh);
@@ -1962,8 +1990,7 @@ function drawQrVisual(ctx, payload, x,y,size) {
       const qrImg = holder.querySelector("img");
 
       if (qrCanvas) {
-        ctx.drawImage(qrCanvas, x, y, size, size);
-        document.body.removeChild(holder);
+        setTimeout(() => { ctx.drawImage(qrCanvas, x, y, size, size); if(holder.parentNode) document.body.removeChild(holder); }, 0);
       } else if (qrImg) {
         qrImg.onload = function(){
           ctx.drawImage(qrImg, x, y, size, size);
@@ -2181,11 +2208,15 @@ function renderAll() {
   window._cardReady = true;
   const st=$("status");
   if(st) st.textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
-  if(window._cardRenderCallback){
-    const cb=window._cardRenderCallback;
-    window._cardRenderCallback=null;
-    cb();
-  }
+  // Delay _cardReady and callback by 80ms to let setTimeout(0) QR draws finish
+  setTimeout(() => {
+    window._cardReady = true;
+    if(window._cardRenderCallback){
+      const cb=window._cardRenderCallback;
+      window._cardRenderCallback=null;
+      cb();
+    }
+  }, 80);
 }
 
 function downloadCanvas(id, name) {
@@ -2248,18 +2279,20 @@ function downloadZip() {
   const mat = clean(val("matricule")||cls().short);
   const folderName = nom + "_" + mat;
   if (typeof JSZip === 'undefined') { toast('JSZip non chargé — vérifiez la connexion','error'); return; }
+  const _fc=$('front'),_bc=$('back');
+  if(!_fc||!_fc.width||!_bc||!_bc.width){ toast('⚠️ Générez d\'abord la carte','error'); return; }
   const zip = new JSZip();
   const folder = zip.folder(folderName);
-  const frontB64 = $('front').toDataURL('image/png').split(',')[1];
-  const backB64  = $('back').toDataURL('image/png').split(',')[1];
-  folder.file('RECTO.png', frontB64, {base64:true});
-  folder.file('VERSO.png',  backB64,  {base64:true});
+  folder.file('RECTO.png',       _fc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('VERSO.png',       _bc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('BADGE_RECTO.png', makeBadgeB64(_fc),                        {base64:true});
+  folder.file('BADGE_VERSO.png', makeBadgeB64(_bc),                        {base64:true});
   zip.generateAsync({type:'blob'}).then(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = folderName + '.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    toast('ZIP créé : '+folderName+'.zip','success');
+    toast('ZIP créé : '+folderName+'.zip (carte + badge)','success');
   });
 }
 
@@ -2273,7 +2306,7 @@ function fillCardAsync(sid) {
   });
 }
 
-// Export ALL students' cards as a single ZIP (RECTO+VERSO per student, organised by class)
+// Export ALL students' cards as a single ZIP (RECTO+VERSO+BADGE per student, organised by class)
 window.exportAllCardsZip = async () => {
   if(typeof JSZip==='undefined'){toast('JSZip non chargé — vérifiez la connexion','error');return;}
   const students=DB.students;
@@ -2287,8 +2320,11 @@ window.exportAllCardsZip = async () => {
     const folder=clean(cl?cl.name:'CLASSE');
     const name=clean(s.name||'ELEVE')+'_'+clean(s.mat||s.id);
     try{
-      zip.file(folder+'/'+name+'_RECTO.png',$('front').toDataURL('image/png').split(',')[1],{base64:true});
-      zip.file(folder+'/'+name+'_VERSO.png',$('back').toDataURL('image/png').split(',')[1],{base64:true});
+      const fc=$('front'), bc=$('back');
+      zip.file(folder+'/'+name+'_RECTO.png',      fc.toDataURL('image/png').split(',')[1], {base64:true});
+      zip.file(folder+'/'+name+'_VERSO.png',      bc.toDataURL('image/png').split(',')[1], {base64:true});
+      zip.file(folder+'/'+name+'_BADGE_RECTO.png', makeBadgeB64(fc),                        {base64:true});
+      zip.file(folder+'/'+name+'_BADGE_VERSO.png', makeBadgeB64(bc),                        {base64:true});
       count++;
     }catch(e){console.warn('Carte ignorée:',s.name,e);}
   }
@@ -2298,7 +2334,7 @@ window.exportAllCardsZip = async () => {
     const a=document.createElement('a');
     a.href=url; a.download='Cartes_Eleves_'+today()+'.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),3000);
-    toast('✅ ZIP créé — '+count+' cartes (RECTO+VERSO)','success');
+    toast('✅ ZIP créé — '+count+' élèves · carte + badge','success');
   });
 };
 
@@ -2307,11 +2343,14 @@ function downloadAllNine() {
   cardClasses.forEach((c,i)=> {
     setTimeout(()=> {
       setClass(i);
-      downloadCanvas("front", clean(val("nom"))+"_"+clean(c.short)+"_RECTO.png");
-      if(i===cardClasses.length-1) {
-        setTimeout(()=>{ $("classe").value=old; setClass(Number(old)); },350);
-      }
-    }, i*500);
+      // Wait 150ms after setClass so QR has time to render before capturing
+      setTimeout(()=>{
+        downloadCanvas("front", clean(val("nom"))+"_"+clean(c.short)+"_RECTO.png");
+        if(i===cardClasses.length-1) {
+          setTimeout(()=>{ $("classe").value=old; setClass(Number(old)); },400);
+        }
+      }, 150);
+    }, i*900);
   });
 }
 
@@ -2360,9 +2399,11 @@ function closeCropModal() {
 
 function applyCrop() {
   const cc = document.getElementById('cropCanvas');
+  if(!cc||!cc.width||!cc.height){ toast('❌ Zone de découpe invalide','error'); closeCropModal(); return; }
   const data = cc.toDataURL('image/jpeg', 0.92);
   const img = new Image();
   img.onload = () => { cardPhotoImg = img; renderAll(); };
+  img.onerror = () => { toast('❌ Erreur de traitement de la photo','error'); renderAll(); };
   img.src = data;
   closeCropModal();
   // Update photo thumbnail
@@ -2491,14 +2532,11 @@ function initCardSystem() {
     reader.onload = () => openCropModal(reader.result);
     reader.readAsDataURL(file);
   });
-  if (safeImg.complete && safeImg.naturalWidth) {
-    renderAll();
-  } else {
-    safeImg.onload = renderAll;
-  }
-  if (!schoolImg.complete || !schoolImg.naturalWidth) {
-    schoolImg.onload = renderAll;
-  }
+  let _imgReady = 0;
+  const _onImgReady = () => { _imgReady++; if(_imgReady >= 2) renderAll(); };
+  if (safeImg.complete && safeImg.naturalWidth) { _imgReady++; } else { safeImg.onload = _onImgReady; safeImg.onerror = _onImgReady; }
+  if (schoolImg.complete && schoolImg.naturalWidth) { _imgReady++; } else { schoolImg.onload = _onImgReady; schoolImg.onerror = _onImgReady; }
+  if (_imgReady >= 2) renderAll();
   setClass(0);
   // Auto-remplir avec le premier élève
   if (DB.students.length) {
@@ -3253,12 +3291,14 @@ window.saveClass = () => {
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
+    logAudit('class_edit', name, cid);
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
     const nc={id:'c'+Date.now(),...data};
     DB.classes.push(nc);
     pushSync('classes','upsert',nc);
+    logAudit('class_add', name, nc.id);
     toast(`🎉 Classe ${name} créée`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -3269,6 +3309,7 @@ window.deleteClass = (cid) => {
   const cnt=DB.students.filter(s=>s.cid===cid).length;
   if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
   showC(`Supprimer la classe ${c.name} ?`,'Cette action est irréversible.',()=>{
+    logAudit('class_delete', c.name, cid);
     DB.classes=DB.classes.filter(x=>x.id!==cid);
     pushSync('classes','delete',{},'id=eq.'+cid);
     toast(`🗑️ ${c.name} supprimée`,'info');
@@ -3284,7 +3325,8 @@ R.approbations = () => {
   const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
   const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length;
+  const pendingConvs = DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
+  const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingConvs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -3310,7 +3352,7 @@ R.approbations = () => {
   ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
-      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.reason}</div></div>
+      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.motif||''}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div></div>`;
     }).join('')}</div>`:''}
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
@@ -3394,7 +3436,6 @@ R.approbations = () => {
     </div>`;
   })()}
   ${(()=>{
-    const pendingConvs=DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
     if(!pendingConvs.length) return '';
     const statusLabel={pending:'⏳ À planifier',scheduled:'📅 RDV fixé',completed:'✅ Parent venu',missed:'❌ Absent au RDV'};
     const statusColor={pending:'#f59e0b',scheduled:'#2563eb',completed:'#059669',missed:'#dc2626'};
@@ -3408,7 +3449,7 @@ R.approbations = () => {
           <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}">${conv.status==='scheduled'?'📅':'📋'}</div>
           <div style="flex:1;min-width:150px">
             <div class="pi-title">${s?s.name:'?'} ${cl?'— '+cl.name:''}</div>
-            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · Score: ${conv.score!=null?conv.score+'%':'?'}</div>
+            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · ${conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:'')}</div>
             ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>`:''}
             <div style="font-size:11px;color:var(--text-muted)">${conv.date}</div>
           </div>
@@ -3441,6 +3482,19 @@ window.approveApr = (id, status) => {
     const teacher = gu(a.by);
     if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
+  if(a.type==='retard_grave' && a.sid) {
+    const s=DB.students.find(x=>x.id===a.sid);
+    if(status==='approved') {
+      const existing=DB.attendance.find(x=>x.sid===a.sid&&x.date===a.date);
+      if(!existing){
+        const att={id:'a'+Date.now(),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late'};
+        DB.attendance.push(att); pushSync('attendance','post',att);
+      }
+      if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`✅ ${s.name} a été autorisé(e) à entrer malgré le retard — décision de la Direction.`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+    } else {
+      if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`🚫 ${s.name} n'a pas été autorisé(e) à entrer — retard grave refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'alert'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+    }
+  }
   toast(status==='approved'?'✅ Approuvé':'❌ Refusé', status==='approved'?'success':'info');
   saveToCrypt(); render();
 };
@@ -3451,7 +3505,7 @@ window.validateAbs = (id, status) => {
   pushSync('absences','patch',{status},'id=eq.'+id);
   // If approved, mark matching attendance records as excused
   if(status==='approved') {
-    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&(x.status==='absent'||x.status==='late'||!x.status));
+    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&x.status==='late');
     affectedAtt.forEach(att=>{
       att.excused=true; att.status='excused';
       pushSync('attendance','patch',{excused:true,status:'excused'},'id=eq.'+att.id);
@@ -3508,6 +3562,7 @@ window.approveDevoir = (did, status) => {
 
 window.validateDailyReport = (rid) => {
   const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
+  if(rep.status==='validated'){toast('Rapport déjà validé','info');return;}
   rep.status = 'validated';
   rep.validatedAt = nowTime();
   pushSync('daily_reports','patch',{status:'validated',validatedAt:rep.validatedAt},'id=eq.'+rid);
@@ -3541,6 +3596,7 @@ window.validateDailyReport = (rid) => {
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   }
+  logAudit('report_validate', `Rapport du ${rep.date} validé`, rid);
   toast('✅ Rapport validé — paiements frais scolaires mis à jour','success');
   saveToCrypt(); render();
 };
@@ -3743,6 +3799,7 @@ window.toggleStudentAccess = sid => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   s.access_blocked=!s.access_blocked;
   pushSync('students','patch',{access_blocked:s.access_blocked},'id=eq.'+sid);
+  logAudit(s.access_blocked?'student_block':'student_unblock', s.name, sid);
   toast(s.access_blocked?`🔒 ${s.name} — accès bloqué`:`🔓 ${s.name} — accès autorisé`, s.access_blocked?'info':'success');
   saveToCrypt(); render();
 };
@@ -3784,6 +3841,7 @@ window.saveFeesConfig = () => {
   DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
   DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
   DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
+  logAudit('fees_control', `T1:$${DB.settings.fees.T1} · T2:$${DB.settings.fees.T2} · T3:$${DB.settings.fees.T3}`);
   toast('✅ Frais scolaires mis à jour','success');
   closeModal(); saveToCrypt(); render();
 };
@@ -3791,7 +3849,6 @@ window.saveFeesConfig = () => {
 window.openAssignCaissePayment = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const pays=DB.payments.filter(p=>p.sid===sid&&!p.paid);
-  const unvalidated=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   const unassigned=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`💵 Affecter paiement — ${s.name}`,`
@@ -3806,7 +3863,7 @@ window.assignTrimestre = (sid) => {
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
   pushSync('payments','patch',{paid:true},'sid=eq.'+sid+'&t=eq.'+t);
-  const rec=DB.daily_records.find(r=>r.sid===sid&&r.validated&&!r.assigned);
+  const rec=DB.daily_records.find(r=>r.sid===sid&&r.trimestre===t&&r.validated&&!r.assigned);
   if(rec){rec.assigned=true;pushSync('daily_records','patch',{assigned:true},'id=eq.'+rec.id);}
   const s=DB.students.find(x=>x.id===sid);
   toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
@@ -4286,14 +4343,18 @@ window.autoCheckRattrapage = (sid, teacherId) => {
   DB.rattrapages.push(rat);
   pushSync('rattrapages', 'post', rat);
 
-  // Convocation liée
-  const conv = {
-    id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid, rat_id: rat.id, date: today(),
-    status: 'pending', rdv_date: null, note: '', score: globalAvg
-  };
-  DB.convocations.push(conv);
-  pushSync('convocations', 'post', conv);
+  // Convocation liée — skip if one already pending for this student (auto-triggered)
+  const convAlready = DB.convocations.find(c => c.sid === sid && c.status === 'pending' && c.rat_id);
+  if(!convAlready) {
+    const conv = {
+      id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
+      sid, rat_id: rat.id, date: today(),
+      reason: 'Résultats scolaires insuffisants',
+      status: 'pending', rdv_date: null, note: '', score: globalAvg
+    };
+    DB.convocations.push(conv);
+    pushSync('convocations', 'post', conv);
+  }
 
   // Alert Direction
   const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières faibles: ${weakMatsStr}`;
@@ -4347,6 +4408,7 @@ window.submitRattrapage = (sid) => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   });
+  logAudit('rattrapage_signal', `${s.name} · ${mat} · "${motif.slice(0,40)}"`, rat.id);
   toast('✅ Signalement envoyé à la Direction','success');
   closeModal(); saveToCrypt(); render();
 };
@@ -4385,7 +4447,7 @@ window.confirmerRattrapage = (rid) => {
   const amount=parseFloat($('rat_amount').value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
   r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
-  pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by},'id=eq.'+rid);
+  pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
   const s=DB.students.find(x=>x.id===r.sid);
   const teacher=gu(r.teacher_id);
   // Notifier le parent
@@ -4395,6 +4457,7 @@ window.confirmerRattrapage = (rid) => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   }
+  logAudit('rattrapage_validate', `${s?s.name:''} · ${r.matiere} · $${amount}`, rid);
   toast(`✅ Parent notifié — $${amount} de rattrapage pour ${s?s.name:''}`, 'success');
   closeModal(); saveToCrypt(); render();
 };
@@ -4413,6 +4476,7 @@ window.marquerRattrapage = (rid, paid) => {
         time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     }
+    logAudit('rattrapage_pay', `Prime versée — ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere}) $${r.amount}`, rid);
     toast('✅ Rattrapage marqué payé — prime enseignant notifiée','success');
   }
   pushSync('rattrapages','patch',{status:r.status,paid:r.paid},'id=eq.'+rid);
@@ -4524,7 +4588,7 @@ R.palmares = () => {
 
 // ── Parent palmarès (same but read-only, respects toggles and payment) ──
 R.palmares_parent = () => {
-  if(!DB.settings.toggles.palmares) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
+  if(!(DB.settings.toggles?.palmares ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>Aucun enfant lié</div>`;
 
@@ -4653,7 +4717,7 @@ R.palmares_parent = () => {
         </div>`;
       })()}
       ${(()=>{
-        const bulletinOn=DB.settings.toggles.bulletin;
+        const bulletinOn=DB.settings.toggles?.bulletin ?? false;
         const allPaid=DB.payments.filter(p=>p.sid===k.id).every(p=>p.paid);
         const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
         if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
@@ -4935,7 +4999,7 @@ window.openAddMatiere = cid => {
 };
 
 window.submitMatiere = cid => {
-  const name=$('matName')?.value.trim();
+  const name=($('matName')?.value||'').trim();
   const lang=$('matLang')?.value;
   if(!name){toast('Nom obligatoire','error');return;}
   const apr={id:'apr'+Date.now(),type:'matiere',status:'pending',
@@ -5015,7 +5079,7 @@ R.devoirs = () => {
 
 // ── Parent: devoirs (respecte toggle + paiement) ──
 R.devoirs_parent = () => {
-  if(!DB.settings.toggles.devoirs) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
+  if(!(DB.settings.toggles?.devoirs ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié à votre profil</div>`;
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
@@ -5125,7 +5189,7 @@ R.devoirs_parent = () => {
       }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
     </div>`;
     // ── Section Notes (frais + toggle requis) ──
-    if(DB.settings.toggles.notes_parent) {
+    if(DB.settings.toggles?.notes_parent) {
       if(!hasPaid) {
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #ef4444">
           <div style="display:flex;align-items:center;gap:14px;padding:6px 0">
@@ -5372,6 +5436,7 @@ window.saveDevoir = () => {
     }
   });
   window._devoirPhoto=null; window._devoirPdf=null; window._devoirCategory='devoir';
+  logAudit('devoir_add', `${mc.cl.name} · ${matiere} · "${title.slice(0,40)}"`, devoir.id);
   toast(`${cm.icon} ${cm.notif} publié — parents notifiés directement`,'success');
   saveToCrypt(); closeModal(); render();
 };
@@ -5558,7 +5623,7 @@ window.openCahierM = () => {
 window.saveCahier = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const matiere=$('ctMatiere')?.value;
-  const content=$('ctContent')?.value.trim();
+  const content=($('ctContent')?.value||'').trim();
   const date=$('ctDate')?.value||today();
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
@@ -5576,6 +5641,7 @@ window.saveCahier = () => {
       time:nowTime(),date:today(),read:false,type:'academic'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
+  logAudit('cahier_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
   toast('📖 Cahier publié — parents notifiés','success');
   saveToCrypt(); closeModal(); render();
 };
@@ -5634,7 +5700,7 @@ R.teacher_comm = () => {
 
 window.sendTeacherNote = () => {
   const mc=getMyClass(); if(!mc.cl) return;
-  const msg=$('commMsg')?.value.trim();
+  const msg=($('commMsg')?.value||'').trim();
   if(!msg){toast('Écrivez un message','error');return;}
   const note={
     id:'tn'+Date.now(), cid:mc.cl.id, by:S.user.id,
@@ -5792,7 +5858,7 @@ R.scanner = () => `
 </div>`;
 
 window.manualScanEntry = () => {
-  const code=$('scanInput')?.value.trim().toUpperCase();
+  const code=($('scanInput')?.value||'').trim().toUpperCase();
   if(!code){toast('Entrez un matricule','error');return;}
   processScanEntry(code);
   if($('scanInput')) $('scanInput').value='';
@@ -5816,7 +5882,7 @@ window.processScanEntry = async code => {
     const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
       const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry'};
-      DB.scan_log.unshift(log);
+      DB.scan_log.unshift(log); pushSync('scan_log','post',log);
       // Notifier Direction
       DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
@@ -5834,7 +5900,7 @@ window.processScanEntry = async code => {
   // Check per-student access block set by Direction
   if(student.access_blocked){
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué 🔒',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
         msg:`🔒 Accès bloqué — ${student.name} (${cls?cls.name:''}) refusé(e) à l'entrée`,
@@ -5855,9 +5921,9 @@ window.processScanEntry = async code => {
   if(res.level===1){
     // Enter + notify parent
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime'};
-    DB.attendance.push(att);
+    DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure ✅',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','⚠️','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
     else showScanResult('green','✅','À l\'heure',student.name,cls?cls.name:'',time);
@@ -5868,9 +5934,9 @@ window.processScanEntry = async code => {
   // ── NIVEAU 2 : RETARD LÉGER ──
   if(res.level===2){
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late'};
-    DB.attendance.push(att);
+    DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry'};
-    DB.scan_log.unshift(log);
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
     showScanResult('orange','⚠️','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré`,time);
     saveToCrypt();
@@ -5880,7 +5946,7 @@ window.processScanEntry = async code => {
   // ── NIVEAU 3 : RETARD GRAVE — REFUSÉ ──
   // L'enfant NE RENTRE PAS — alerte Direction
   const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry'};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   await pushNotif('u1',`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
   showScanResult('red','🚫','RETARD GRAVE — REFUSÉ',student.name,'En attente de décision de la Direction',time);
 
@@ -5899,7 +5965,7 @@ window.processScanEntry = async code => {
     DB.approbations.push({
       id:'apr'+Date.now(), type:'retard_grave', status:'pending',
       content:`${student.name} — Retard grave à ${time}`,
-      sid:student.id, date:today(), time
+      sid:student.id, date:today(), time, by:S.user.id
     });
   }
   saveToCrypt();
@@ -5987,7 +6053,7 @@ window.confirmExitWith = async (sid,personIdx) => {
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today()};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`✅ ${s.name} a quitté l'école à ${time} avec ${a.name} (${a.relation||'Tutelle'})`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);
   toast(`${s.name} — Sortie avec ${a.name} ✅`,'success');
@@ -5998,7 +6064,7 @@ window.confirmExitAlone = async sid => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today()};
-  DB.scan_log.unshift(log);
+  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`ℹ️ ${s.name} a quitté l'école seul(e) à ${time}`);
   showExitDone('orange','🚶','Part seul',s.name,'L\'enfant quitte seul',time);
   toast(`${s.name} — Part seul`,'info');
@@ -6033,7 +6099,7 @@ window.previewRefPhoto = (input) => {
 };
 window.doExitRefused = async (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const desc=document.getElementById('refDesc')?.value.trim();
+  const desc=(document.getElementById('refDesc')?.value||'').trim();
   if(!desc){toast('Décrivez la personne','error');return;}
   const photo=window._refPhotoData||null;
   window._refPhotoData=null;
@@ -6412,7 +6478,7 @@ window.toggleTutelle = (tid, newActive) => {
     const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
       msg:`🔑 ${S.user.name} a ${newActive?'activé':'désactivé'} l'autorisation de ${t.name} pour ${s.name}`,
       time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif);
+    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   });
   toast(`${newActive?'✅ Autorisé':'🚫 Désactivé'} — ${t.name}`,'success');
   saveToCrypt(); render();
@@ -6729,7 +6795,7 @@ window.viewReceipt = (nid) => {
     const n=Math.round(Number(v));
     if(n===0) return 'zéro';
     if(n<20) return units[n];
-    if(n<100){const t=Math.floor(n/10),u=n%10;if(t===7||t===9)return tens[t]+(u===1&&t===7?'-et-':'-')+(u?units[10+u]:(t===8?'s':''));return tens[t]+(u?(t===8?'-':u===1?'-et-':'-')+units[u]:(t===8?'s':''));}
+    if(n<100){const t=Math.floor(n/10),u=n%10;if(t===7||t===9)return tens[t]+(u===1&&t===7?'-et-':'-')+(u?units[10+u]:units[10]);return tens[t]+(u?(t===8?'-':u===1?'-et-':'-')+units[u]:(t===8?'s':''));}
     if(n<1000){const c=Math.floor(n/100),r2=n%100;return(c>1?units[c]+'-':'')+'cent'+(r2?'-'+numToWords(r2):'s');}
     const m=Math.floor(n/1000),r2=n%1000;return(m>1?numToWords(m)+'-':'')+'mille'+(r2?'-'+numToWords(r2):'');
   };
@@ -7121,11 +7187,11 @@ window.approveMsg = (mid, status) => {
         msg:`✉️ ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(n);pushSync('notifs','post',n);
     });
-    const sn={id:'n'+Date.now(),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
+    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(sn); pushSync('notifs','post',sn);
     toast('✅ Message approuvé et envoyé','success');
   } else {
-    const sn={id:'n'+Date.now(),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
+    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(sn); pushSync('notifs','post',sn);
     toast('❌ Message refusé','info');
   }
@@ -7159,7 +7225,7 @@ R.statistiques = () => {
   // Paiements par trimestre
   const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
   const payStats = ['T1','T2','T3'].map(t=>{
-    const paid = DB.payments.filter(p=>p[t.toLowerCase()+'_paid']||p[t]).length;
+    const paid = DB.payments.filter(p=>p.t===t&&p.paid).length;
     const total = DB.students.length;
     const amount = paid * Number(fees[t]||0);
     return {t, paid, total, pct: total>0?Math.round(paid/total*100):0, amount};
@@ -7169,8 +7235,8 @@ R.statistiques = () => {
   const classAvgs = DB.classes.map(cl=>{
     const studs = DB.students.filter(s=>s.cid===cl.id);
     const grades = DB.grades.filter(g=>studs.some(s=>s.id===g.sid));
-    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+Number(g.pct||0),0)/grades.length) : null;
-    const paidCount = DB.payments.filter(p=>studs.some(s=>s.id===p.sid)&&(p.t1_paid||p.T1||p.t2_paid||p.T2||p.t3_paid||p.T3)).length;
+    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+gradePct(g),0)/grades.length) : null;
+    const paidCount = studs.filter(s=>DB.payments.some(p=>p.sid===s.id&&p.paid)).length;
     return {cl, count:studs.length, avg, paidCount};
   });
 
@@ -7421,15 +7487,17 @@ window.openConductM = (sid) => {
    <button class="btn btn-primary" onclick="saveConductEntry()">💾 Enregistrer</button>`);
 };
 window.saveConductEntry = () => {
-  const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=$('cdRemark')?.value.trim(); const date=$('cdDate')?.value;
+  const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
   if(!sid||!score||!date){toast('Remplir tous les champs','error');return;}
   const entry={id:'cd'+Date.now(),sid,score,remark,date,by:S.user.id};
   DB.conduct.push(entry);
   pushSync('conduct','post',entry);
+  logAudit('conduct_add', `${DB.students.find(x=>x.id===sid)?.name||''} · ${score}${remark?' — '+remark:''}`, entry.id);
   saveToCrypt(); toast('📊 Note de conduite enregistrée','success'); closeModal(); render();
 };
 window.deleteConductEntry = (cid) => {
   showC('Supprimer cette note de conduite ?','',()=>{
+    logAudit('conduct_delete', `Conduite supprimée`, cid);
     pushSync('conduct','delete',{},'id=eq.'+cid);
     DB.conduct=DB.conduct.filter(c=>c.id!==cid);
     saveToCrypt(); toast('🗑️ Supprimé','info'); render();
@@ -7467,7 +7535,7 @@ R.convocations = () => {
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?s.name:'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${cl.name}</span>`:''}</div>
           <div class="pi-sub">${parent?`Parent: ${parent.name}${parent.phone?' · '+parent.phone:''}`:''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.reason||''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:'')}</div>
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+conv.note:''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
@@ -7513,7 +7581,7 @@ window.openConvocationM = () => {
    <button class="btn btn-primary" onclick="saveConvocation()">📋 Créer la convocation</button>`);
 };
 window.saveConvocation = () => {
-  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=$('convNote')?.value.trim();
+  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
   if(!sid){toast('Sélectionner un élève','error');return;}
   const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id};
   DB.convocations.push(conv);
@@ -7525,6 +7593,7 @@ window.saveConvocation = () => {
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   }
+  logAudit('convocation_create', `${DB.students.find(x=>x.id===sid)?.name||''} · ${reason}`, conv.id);
   saveToCrypt(); toast('📋 Convocation créée — parent notifié','success'); closeModal(); render();
 };
 
@@ -7571,6 +7640,7 @@ R.year_mgmt = () => {
 };
 
 window.openYearConfig = () => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
   openM('✏️ Configurer l\'année scolaire',`
 <div class="form-group"><label class="form-label">Année scolaire</label><input class="form-input" id="yr_name" value="${DB.settings.year||'2025-2026'}" placeholder="Ex: 2025-2026"></div>
 <div class="form-group"><label class="form-label">Visibilité</label>
@@ -7582,6 +7652,7 @@ window.openYearConfig = () => {
 };
 
 window.saveYearConfig = () => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
   DB.settings.year = ($('yr_name').value||'').trim()||DB.settings.year;
   ['palmares','notes_parent','devoirs','cahier_texte','presences'].forEach(k=>{
     DB.settings.toggles[k] = !!document.getElementById('tog_'+k)?.checked;
@@ -7872,7 +7943,7 @@ window.printReport = (type) => {
       const studs=DB.students.filter(s=>s.cid===cl.id);
       if(!studs.length) return '';
       const mats=[...new Set(DB.grades.filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere))];
-      const ranked=studs.map(s=>{const avg=mats.length?Math.round(mats.reduce((a,mt)=>{const v=matAvgPct(s.id,mt);return v!==null?a+v:a;},0)/mats.filter(mt=>matAvgPct(s.id,mt)!==null).length||1):0;return{s,avg};}).sort((a,b)=>b.avg-a.avg);
+      const ranked=studs.map(s=>{const avg=mats.length?Math.round(mats.reduce((a,mt)=>{const v=matAvgPct(s.id,mt);return v!==null?a+v:a;},0)/(mats.filter(mt=>matAvgPct(s.id,mt)!==null).length||1)):0;return{s,avg};}).sort((a,b)=>b.avg-a.avg);
       return `<div class="ch">🏆 ${cl.name}</div><table><tr><th>Rang</th><th>Nom</th>${mats.map(m=>`<th style="font-size:10px">${m}</th>`).join('')}<th>Moy.</th><th>Mention</th></tr>${ranked.map(({s,avg},i)=>{const m=avg>=90?'Excellent':avg>=75?'Bien':avg>=60?'Assez bien':avg>=50?'Passable':'Insuffisant';const mc=avg>=75?'paid':avg>=50?'warn':'unpaid';return`<tr><td style="font-weight:700;color:${i<3?'#d97706':'#aaa'}">${['🥇','🥈','🥉'][i]||i+1}</td><td style="font-weight:600">${s.name}</td>${mats.map(mt=>{const a=matAvgPct(s.id,mt);return`<td style="text-align:center;color:${a!==null&&a>=50?'#16a34a':'#dc2626'};font-weight:600">${a!==null?a+'%':'—'}</td>`;}).join('')}<td style="font-weight:800;text-align:center;color:${avg>=50?'#16a34a':'#dc2626'}">${avg}%</td><td><span class="pill ${mc}">${m}</span></td></tr>`;}).join('')}</table>`;
     }).join('');
 
@@ -7881,10 +7952,10 @@ window.printReport = (type) => {
     const byDate={};
     DB.attendance.forEach(a=>{if(!byDate[a.date])byDate[a.date]=[];byDate[a.date].push(a);});
     const dates=Object.keys(byDate).sort().slice(-30);
-    const totP=DB.attendance.filter(a=>a.status==='present'||a.status==='late').length;
-    const totA=DB.attendance.filter(a=>a.status==='absent'||a.status==='sick').length;
+    const totP=DB.attendance.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const totA=DB.attendance.filter(a=>a.status==='sick').length;
     const totE=DB.attendance.filter(a=>a.status==='excused').length;
-    html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Absences</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Excusées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Absents</th><th>Excusés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='present'||a.status==='late').length;const ab=e.filter(a=>a.status==='absent'||a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#16a34a;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d97706;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
+    html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Malades</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Justifiées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Malades</th><th>Justifiés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='ontime'||a.status==='late').length;const ab=e.filter(a=>a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#16a34a;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d97706;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
 
   } else if(type==='caisse'){
     title='Rapport de Caisse — ' + today();
@@ -8096,7 +8167,7 @@ R.settings = () => {
     <div class="premium-section-title">🪪 Cartes scolaires</div>
     <div class="premium-item" onclick="go('cards')" style="cursor:pointer">
       <div class="pi-icon" style="background:#dbeafe">🪪</div>
-      <div style="flex:1"><div class="pi-title">9 templates + 1 verso</div><div class="pi-sub">${CARDS.isReady()?'✅ Prêts à imprimer':'⏳ Chargement...'}</div></div>
+      <div style="flex:1"><div class="pi-title">9 templates + 1 verso</div><div class="pi-sub">${window._cardReady?'✅ Prêts à imprimer':'⏳ Chargement...'}</div></div>
       <span class="premium-badge" style="background:#dbeafe;color:#1e40af">Ouvrir →</span>
     </div>
   </div>
@@ -8586,6 +8657,7 @@ window.logAudit = (action, detail, targetId) => {
   if(!DB.audit_log) DB.audit_log=[];
   DB.audit_log.unshift(entry);
   if(DB.audit_log.length>500) DB.audit_log=DB.audit_log.slice(0,500);
+  pushSync('audit_log','post',entry);
 };
 
 R.audit_log = () => {
@@ -8593,8 +8665,8 @@ R.audit_log = () => {
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const shown=filter?all.filter(e=>e.action===filter):all;
-  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️'};
-  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée'};
+  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋',teacher_absence:'🏠'};
+  const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé',teacher_absence:'Absence enseignant'};
   const cats=[...new Set(all.map(e=>e.action))];
   return `
   <div class="ww-toolbar">
@@ -8882,6 +8954,7 @@ window.saveTeacherAbsence = async () => {
   const entry={id:'ta'+Date.now(),uid:S.user.id,name:S.user.name,date,motif,duree,time:nowTime(),cid:cl?cl.id:null};
   if(!DB.teacher_absences) DB.teacher_absences=[];
   DB.teacher_absences.push(entry);
+  pushSync('teacher_absences','post',entry);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
       msg:`🏠 ${S.user.name} absent(e) le ${date} (${duree}) — ${motif}${cl?' · Classe: '+cl.name:''}`,
