@@ -1189,6 +1189,7 @@ window.loginAs = user => {
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); },450);
 };
 window.logout = () => {
+  if(window._autoReportTimerID){ clearInterval(window._autoReportTimerID); window._autoReportTimerID=null; }
   S.user=null; $('LN').value=''; $('LP').value=''; $('PM').textContent='';
   $('APP').classList.remove('active'); $('LS').style.display='none';
   $('SPLASH').classList.remove('hidden'); closeSB();
@@ -2252,27 +2253,6 @@ function downloadBadge() {
   a.click();
 }
 
-function printBadge() {
-  if(!window._cardReady){ toast('⚠️ Cliquez d\'abord sur "Générer" pour dessiner la carte','error'); return; }
-  const src = $('front'); if(!src) return;
-  const imgData = src.toDataURL('image/png');
-  const name = val('nom')||'Élève';
-  const w = window.open('','_blank','width=600,height=400');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Badge — ${name}</title>
-  <style>
-    @page { size: 171.2mm 108mm; margin: 0; }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { width: 171.2mm; height: 108mm; display: flex; align-items: center; justify-content: center; background: #fff; }
-    img { width: 171.2mm; height: 108mm; display: block; }
-    .btn { display: block; margin: 20px auto; padding: 10px 28px; background: #0f2557; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
-    @media print { .btn { display: none; } body { margin: 0; } }
-  </style></head><body>
-  <img src="${imgData}" alt="Badge ${name}">
-  <button class="btn" onclick="window.print()">🖨️ Imprimer le badge</button>
-  </body></html>`);
-  w.document.close();
-  w.onload = () => setTimeout(() => w.print(), 300);
-}
 
 function downloadZip() {
   const nom = clean(val("nom")||"ELEVE");
@@ -2338,21 +2318,6 @@ window.exportAllCardsZip = async () => {
   });
 };
 
-function downloadAllNine() {
-  const old = $("classe").value;
-  cardClasses.forEach((c,i)=> {
-    setTimeout(()=> {
-      setClass(i);
-      // Wait 150ms after setClass so QR has time to render before capturing
-      setTimeout(()=>{
-        downloadCanvas("front", clean(val("nom"))+"_"+clean(c.short)+"_RECTO.png");
-        if(i===cardClasses.length-1) {
-          setTimeout(()=>{ $("classe").value=old; setClass(Number(old)); },400);
-        }
-      }, 150);
-    }, i*900);
-  });
-}
 
 // ── Crop Photo ──
 let _cropImg = null, _cropScale = 1, _cropX = 0, _cropY = 0;
@@ -3641,7 +3606,7 @@ window.sendDailyReportNow = () => {
   saveToCrypt(); render();
 };
 
-setInterval(() => {
+window._autoReportTimerID = setInterval(() => {
   if (!S.user) return;
   const now = new Date();
   const hh = now.getHours(), mm = now.getMinutes();
@@ -5822,7 +5787,17 @@ function getArrivalStatus(cycle) {
 
 function showScanResult(color,icon,title,name,sub,time) {
   const el=$('scanResult'); if(!el) return;
-  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${title}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${name}</div><div class="sr-sub">${sub}</div>${time?`<div class="sr-time">${time}</div>`:''}</div>`;
+  const wrap=document.createElement('div'); wrap.className='scan-result '+color;
+  const parts=[
+    `<div class="sr-icon">${icon}</div>`,
+    `<div class="sr-title">${title}</div>`,
+  ];
+  const nameEl=document.createElement('div'); nameEl.className='sr-sub'; nameEl.style.cssText='font-size:20px;font-weight:700;margin:8px 0'; nameEl.textContent=name;
+  const subEl=document.createElement('div'); subEl.className='sr-sub'; subEl.textContent=sub;
+  wrap.innerHTML=parts.join('');
+  wrap.appendChild(nameEl); wrap.appendChild(subEl);
+  if(time){const t=document.createElement('div');t.className='sr-time';t.textContent=time;wrap.appendChild(t);}
+  el.innerHTML=''; el.appendChild(wrap);
   setTimeout(()=>{if(el) el.innerHTML='';},6000);
 }
 
@@ -6118,7 +6093,13 @@ window.doExitRefused = async (sid) => {
 
 function showExitDone(color,icon,title,name,sub,time) {
   const el=$('exitResult'); if(!el) return;
-  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${title}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${name}</div><div class="sr-sub">${sub}</div><div class="sr-time">${time}</div></div>`;
+  const wrap=document.createElement('div'); wrap.className='scan-result '+color;
+  wrap.innerHTML=`<div class="sr-icon">${icon}</div><div class="sr-title">${title}</div>`;
+  const nameEl=document.createElement('div'); nameEl.className='sr-sub'; nameEl.style.cssText='font-size:20px;font-weight:700;margin:8px 0'; nameEl.textContent=name;
+  const subEl=document.createElement('div'); subEl.className='sr-sub'; subEl.textContent=sub;
+  const timeEl=document.createElement('div'); timeEl.className='sr-time'; timeEl.textContent=time;
+  wrap.appendChild(nameEl); wrap.appendChild(subEl); wrap.appendChild(timeEl);
+  el.innerHTML=''; el.appendChild(wrap);
   if($('exitCode')) $('exitCode').value='';
   setTimeout(()=>{if(el) el.innerHTML='';},6000);
 }
