@@ -1567,7 +1567,7 @@ function dashboardEnseignant() {
     ${students.slice(0,6).map(s=>{
       const [cc,cbg]=clsColor(cl?cl.name:'');
       const hasAtt=todayAtt.find(a=>a.sid===s.id);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px">❌</span>`}</div>`;
+      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px" title="Pas encore arrivé">⏳</span>`}</div>`;
     }).join('')}
     ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
   </div>
@@ -5529,12 +5529,30 @@ window.deleteDevoir = dvId => {
 
 window.printDevoir = (dvId, kidName) => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+
+  // PDF with stored content: open the PDF directly for printing
+  if(d.type==='pdf' && d.content) {
+    try {
+      const b64=d.content.split(',')[1]||d.content;
+      const bin=atob(b64);
+      const arr=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+      const blob=new Blob([arr],{type:'application/pdf'});
+      const url=URL.createObjectURL(blob);
+      const w2=window.open(url,'_blank');
+      if(w2) w2.addEventListener('load',()=>{w2.print();},true);
+      setTimeout(()=>URL.revokeObjectURL(url),120000);
+    } catch(e){ window.open(d.content,'_blank'); }
+    return;
+  }
+
   const school=DB.settings.school_name||'The Wise School International';
   const catLabel={devoir:'DEVOIR À LA MAISON',interro:'INTERROGATION',examen:'EXAMEN'}[d.category]||'DEVOIR';
   const catColor={devoir:'#1d4ed8',interro:'#b45309',examen:'#6d28d9'}[d.category]||'#1d4ed8';
   const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
   const imgBlock=d.type==='photo'&&d.content?`<div style="text-align:center;margin:20px 0"><img src="${d.content}" style="max-width:100%;max-height:400px;border:1px solid #e2e8f0;border-radius:8px"></div>`:'';
-  const pdfNote=d.type==='pdf'?`<p style="font-style:italic;color:#64748b">📄 Document PDF joint — ouvrez l'application pour le consulter.</p>`:'';
+  // PDF stored only on teacher's device — show instructions instead of blank
+  const pdfNote=d.type==='pdf'?`<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14px;line-height:1.7"><strong>📄 Ce devoir est sous forme de PDF.</strong><br>Le document original est conservé sur l'appareil de l'enseignant.<br>Veuillez contacter l'enseignant ou demander une copie imprimée directement à l'école.</div>`:'';
   const w=window.open('','_blank','width=720,height=900');
   w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
   <title>${catLabel} — ${d.title}</title>
