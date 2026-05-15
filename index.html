@@ -8236,6 +8236,7 @@ window.deleteConductEntry = (cid) => {
 R.convocations = () => {
   const role=S.user.role;
   const isDir=role==='direction'||role==='direction2';
+  const tab=window._convTab||'convocations';
   const filter=window._convFilter||'active';
   const myKidIds=role==='parent'?DB.students.filter(s=>s.pid===S.user.id).map(s=>s.id):null;
   const all=(myKidIds?DB.convocations.filter(c=>myKidIds.includes(c.sid)):DB.convocations).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -8244,15 +8245,37 @@ R.convocations = () => {
   const active=all.filter(c=>c.status==='pending'||c.status==='scheduled');
   const closed=all.filter(c=>c.status==='completed'||c.status==='missed');
   const shown=filter==='active'?active:filter==='closed'?closed:all;
+  // Communiqués: messages with type communique
+  const communiques=DB.messages.filter(m=>m.type==='communique').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📋 Convocations parents</span>
-    ${isDir?`<button class="btn btn-primary btn-sm" onclick="openConvocationM()">➕ Nouveau</button>`:''}
+    <span style="font-size:16px;font-weight:700">📋 ${tab==='communiques'?'Communiqués':'Convocations parents'}</span>
+    ${isDir&&tab==='convocations'?`<button class="btn btn-primary btn-sm" onclick="openConvocationM()">➕ Convocation</button>`:''}
+    ${isDir&&tab==='communiques'?`<button class="btn btn-primary btn-sm" onclick="openCommuniqueM()">📣 Nouveau communiqué</button>`:''}
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+  ${isDir?`<div style="display:flex;gap:6px;margin-bottom:14px">
+    <button class="pill ${tab==='convocations'?'pill-blue':''}" onclick="window._convTab='convocations';render()" style="cursor:pointer;border:none">📋 Convocations (${all.length})</button>
+    <button class="pill ${tab==='communiques'?'pill-blue':''}" onclick="window._convTab='communiques';render()" style="cursor:pointer;border:none">📣 Communiqués (${communiques.length})</button>
+  </div>`:''}
+  ${isDir&&tab==='communiques'?`
+  ${!communiques.length?`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📣</div>Aucun communiqué envoyé</div>`:`
+  <div class="premium-section">
+    ${communiques.map(m=>{
+      const targetLabel=m.to==='role:parent'?'Tous les parents':(DB.classes.find(c=>c.id===m.to_class)?.name||'Classe inconnue')+' — parents';
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
+        <div class="pi-icon" style="background:#dbeafe;color:#2563eb;font-size:20px">📣</div>
+        <div style="flex:1;min-width:180px">
+          <div class="pi-title">${esc(m.subject||'Communiqué')}</div>
+          <div class="pi-sub">📢 ${targetLabel} · ${m.date||''}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;white-space:pre-line">${esc((m.body||'').slice(0,120))}${(m.body||'').length>120?'…':''}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`:''}
+  ${tab==='convocations'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     ${[['active','En cours'],['closed','Clôturées'],['all','Toutes']].map(([v,l])=>`<button class="pill ${filter===v?'pill-blue':''}" onclick="window._convFilter='${v}';render()" style="cursor:pointer;border:none">${l} ${v==='active'?`(${active.length})`:v==='closed'?`(${closed.length})`:''}</button>`).join('')}
-  </div>
-  ${shown.length?`
+  </div>`:''}
+  ${tab==='convocations'?shown.length?`
   <div class="premium-section">
     ${shown.map(conv=>{
       const s=DB.students.find(x=>x.id===conv.sid);
@@ -8278,7 +8301,63 @@ R.convocations = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`:`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucune convocation ${filter==='active'?'en cours':filter==='closed'?'clôturée':''}</div>`}`;
+  </div>`:`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucune convocation ${filter==='active'?'en cours':filter==='closed'?'clôturée':''}</div>`:''}`
+  ;
+};
+window.openCommuniqueM = () => {
+  const classOpts=DB.classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  openM('📣 Nouveau communiqué',`
+  <div class="form-group"><label class="form-label">Destinataires *</label>
+    <select class="form-select" id="cq_target" onchange="document.getElementById('cq_class_row').style.display=this.value==='class'?'block':'none'">
+      <option value="all">📢 Tous les parents</option>
+      <option value="class">🏫 Parents d'une classe précise</option>
+    </select>
+  </div>
+  <div class="form-group" id="cq_class_row" style="display:none"><label class="form-label">Classe *</label>
+    <select class="form-select" id="cq_class"><option value="">— Choisir une classe —</option>${classOpts}</select>
+  </div>
+  <div class="form-group"><label class="form-label">Objet *</label>
+    <input class="form-input" id="cq_subject" placeholder="Ex: Réunion de parents — vendredi 20h">
+  </div>
+  <div class="form-group"><label class="form-label">Message *</label>
+    <textarea class="form-input" id="cq_body" rows="5" style="resize:vertical" placeholder="Chers parents,\n\n..."></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="sendCommunique()">📣 Envoyer</button>`);
+};
+window.sendCommunique = () => {
+  const target=$('cq_target')?.value||'all';
+  const cid=target==='class'?($('cq_class')?.value||''):'';
+  const subject=($('cq_subject')?.value||'').trim();
+  const body=($('cq_body')?.value||'').trim();
+  if(!subject){toast('Objet requis','error');return;}
+  if(!body){toast('Message requis','error');return;}
+  if(target==='class'&&!cid){toast('Sélectionnez une classe','error');return;}
+  // Find target parents
+  let targetParentIds=[];
+  if(target==='all'){
+    targetParentIds=[...new Set(DB.students.filter(s=>s.pid).map(s=>s.pid))];
+  } else {
+    targetParentIds=[...new Set(DB.students.filter(s=>s.cid===cid&&s.pid).map(s=>s.pid))];
+  }
+  if(!targetParentIds.length){toast('Aucun parent trouvé pour cette cible','info');return;}
+  const cl=cid?DB.classes.find(c=>c.id===cid):null;
+  const toLabel=target==='all'?'role:parent':('class:'+cid);
+  const msg={id:'m'+Date.now(),from:S.user.id,from_role:S.user.role,to:toLabel,to_class:cid||null,type:'communique',subject,body,date:today(),status:'sent',read:false};
+  if(!DB.messages) DB.messages=[];
+  DB.messages.unshift(msg);
+  pushSync('messages','post',msg);
+  // In-app notification for each parent
+  targetParentIds.forEach(pid=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,6),uid:pid,
+      msg:`📣 ${subject} — ${body.slice(0,80)}${body.length>80?'…':''}`,
+      time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  const targetDesc=cl?`parents de ${cl.name}`:`tous les parents (${targetParentIds.length})`;
+  logAudit('broadcast',`📣 ${subject} → ${targetDesc}`,msg.id);
+  saveToCrypt(); closeModal(); window._convTab='communiques'; render();
+  toast(`📣 Communiqué envoyé à ${targetParentIds.length} parent(s)`,'success');
 };
 window.openConvocationM = () => {
   openM('📋 Nouvelle convocation',`
@@ -9219,7 +9298,8 @@ R.profil_enseignant = () => {
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
     <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre affectation de classe, contactez la Direction.</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 
@@ -9325,7 +9405,8 @@ R.profil_parent = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 
@@ -9651,7 +9732,8 @@ R.profil_gardien = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 window.saveGardienProfile = () => {
@@ -9707,7 +9789,8 @@ R.profil_caisse = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 window.saveCaisseProfile = () => {
@@ -9795,7 +9878,8 @@ R.profil_direction = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 
@@ -9832,7 +9916,8 @@ R.profil_direction2 = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
   </div>`;
 };
 
