@@ -1276,7 +1276,7 @@ window.openProfile = () => {
   openM('⚙️ Mon Profil', `
   <div style="text-align:center;margin-bottom:20px">
     <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);color:#fff;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;overflow:hidden">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:(u.initials||ini(u.name))}</div>
-    <div style="font-size:18px;font-weight:700">${u.name}</div>
+    <div style="font-size:18px;font-weight:700">${esc(u.name)}</div>
     <div class="pill pill-blue" style="margin-top:6px">${u.role}</div>
   </div>
   <div style="background:var(--bg);border-radius:14px;padding:16px">
@@ -1427,7 +1427,7 @@ function dashboardDirection() {
   ${noCahierToday.length?`
   <div class="premium-section" style="border-left:4px solid #8b5cf6">
     <div class="premium-section-title">📖 Cahier de texte — Non rempli aujourd'hui</div>
-    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${u.name}</div><div class="pi-sub">${cl?cl.name:'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
+    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${cl?esc(cl.name):'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
     <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('cahier_texte')">Voir le suivi complet →</div>
   </div>`:''}
 
@@ -1500,8 +1500,8 @@ function dashboardEnseignant() {
   return `
   <div class="hero-premium" style="background:linear-gradient(160deg,${clColor}dd,${clColor}99,var(--navy))">
     <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">${cl?cl.name:'Ma Classe'}</div>
-    <div class="hero-sub">${u.name}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves</div>
+    <div class="hero-title">${cl?esc(cl.name):'Ma Classe'}</div>
+    <div class="hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${scannedToday.length}</div><div class="hero-stat-lbl">Scannés</div></div>
@@ -1582,7 +1582,7 @@ function dashboardEnseignant() {
         const status=r.validated_by?'validated':r.status==='refused'?'refused':'pending';
         return `<div class="premium-item">
           <div class="pi-icon" style="background:${statusColor[status]+'22'};font-size:14px">⚠️</div>
-          <div style="flex:1"><div class="pi-title" style="font-size:13px">${s?s.name:'?'} — ${r.matiere}</div>
+          <div style="flex:1"><div class="pi-title" style="font-size:13px">${s?esc(s.name):'?'} — ${esc(r.matiere)}</div>
             <div class="pi-sub">${r.date}${r.amount>0?` · Prime: $${r.amount}`:''}${r.paid?' · ✅ Versée':r.validated_by&&r.amount>0?' · ⏳ À percevoir':''}</div>
           </div>
           <span style="font-size:10px;font-weight:700;color:${statusColor[status]}">${statusLabel[status]}</span>
@@ -1672,7 +1672,7 @@ function dashboardDirection2() {
   ${noCahierToday.length?`
   <div class="premium-section" style="border-left:4px solid #8b5cf6">
     <div class="premium-section-title">📖 Cahier de texte — Non rempli aujourd'hui</div>
-    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${u.name}</div><div class="pi-sub">${cl?cl.name:'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
+    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${cl?esc(cl.name):'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
     <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('cahier_texte')">Voir le suivi complet →</div>
   </div>`:''}
   <div class="premium-section">
@@ -1764,7 +1764,7 @@ function dashboardGardien() {
   <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#1a3a7a,#f97316bb)">
     <div class="hero-school">The Wise School International</div>
     <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'🛡️ Portail SchoolSafe'}</div>
-    <div class="hero-sub">${S.lockdown?'AUCUNE SORTIE AUTORISÉE':'Gardien '+S.user.name+' — Sécurité active'}</div>
+    <div class="hero-sub">${S.lockdown?'AUCUNE SORTIE AUTORISÉE':'Gardien '+esc(S.user.name)+' — Sécurité active'}</div>
     <div class="hero-bar" style="background:linear-gradient(90deg,#f97316,#fbbf24)"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${ontime}</div><div class="hero-stat-lbl">À l'heure</div></div>
@@ -1825,7 +1825,7 @@ function dashboardParent() {
   return `
   <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#2555a8,#4f46e5)">
     <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">Bonjour ${u.name.split(' ')[0]} 👋</div>
+    <div class="hero-title">Bonjour ${esc(u.name.split(' ')[0])} 👋</div>
     <div class="hero-sub">${kids.length} enfant${kids.length>1?'s':''} inscrit${kids.length>1?'s':''}</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
@@ -2895,9 +2895,9 @@ R.students = () => {
               ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:`<span style="font-size:18px">${ini(s.name)}</span>`}
             </div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?c.name:'—'}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${s.mat}${s.dob?' · '+new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+              <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):'—'}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${esc(s.mat)}${s.dob?' · '+new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
             </div>
           </div>
           ${pays.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
@@ -2917,8 +2917,8 @@ R.students = () => {
 window.openStudentForm = (sid) => {
   const s = sid ? DB.students.find(x=>x.id===sid) : null;
   const mat = s ? s.mat : genMat();
-  const classOpts = DB.classes.map(c=>`<option value="${c.id}" ${s&&s.cid===c.id?'selected':''}>${c.name}</option>`).join('');
-  const parentOpts = `<option value="">— Aucun parent —</option>`+DB.users.filter(u=>u.role==='parent').map(u=>`<option value="${u.id}" ${s&&s.pid===u.id?'selected':''}>${u.name}${u.phone?' ('+u.phone+')':''}</option>`).join('');
+  const classOpts = DB.classes.map(c=>`<option value="${c.id}" ${s&&s.cid===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const parentOpts = `<option value="">— Aucun parent —</option>`+DB.users.filter(u=>u.role==='parent').map(u=>`<option value="${u.id}" ${s&&s.pid===u.id?'selected':''}>${esc(u.name)}${u.phone?' ('+esc(u.phone)+')':''}</option>`).join('');
   openM(s?`✏️ Modifier — ${s.name}`:'➕ Inscrire un élève',`
 <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
   <div id="stu_photo_preview" onclick="$('stu_photo_input').click()" style="width:80px;height:80px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden;margin-bottom:8px;cursor:pointer;border:3px dashed var(--border)">
@@ -3035,11 +3035,11 @@ window._simpleList = (role, icon, gradient) => {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
           <div style="width:48px;height:48px;border-radius:14px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px">${u.initials||ini(u.name)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:15px">${u.name}</div>
-            <div style="font-size:12px;color:var(--text-secondary)">${u.phone||'—'}</div>
+            <div style="font-weight:700;font-size:15px">${esc(u.name)}</div>
+            <div style="font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')}</div>
           </div>
         </div>
-        ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>c.name).join(', ')||'Aucune classe assignée'}</div>`:''}
+        ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>esc(c.name)).join(', ')||'Aucune classe assignée'}</div>`:''}
         <div style="display:flex;gap:6px;align-items:center">
           <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin}</span>
           <span style="flex:1"></span>
@@ -3161,8 +3161,8 @@ R.parents = () => {
             ${u.initials||ini(u.name)}
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:16px">${u.name}</div>
-            <div style="font-size:13px;color:var(--text-secondary)">${u.phone||'—'}</div>
+            <div style="font-weight:700;font-size:16px">${esc(u.name)}</div>
+            <div style="font-size:13px;color:var(--text-secondary)">${esc(u.phone||'—')}</div>
             <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
@@ -3191,8 +3191,8 @@ R.parents = () => {
                     ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:ini(s.name)}
                   </div>
                   <div style="flex:1;min-width:0">
-                    <div style="font-weight:700;font-size:14px">${s.name}</div>
-                    <div style="font-size:12px;color:var(--text-secondary)">${cl?cl.name:''} · ${s.mat}</div>
+                    <div style="font-weight:700;font-size:14px">${esc(s.name)}</div>
+                    <div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):''} · ${esc(s.mat)}</div>
                   </div>
                   <div style="display:flex;align-items:center;gap:6px">
                     <span class="pill" style="background:${activeTuts.length>0?'#d1fae5':'#fef3c7'};color:${activeTuts.length>0?'#065f46':'#92400e'};font-size:11px">
@@ -3205,7 +3205,7 @@ R.parents = () => {
                 <!-- Parent principal (toujours autorisé) -->
                 <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#d1fae511;border:1px solid #10b98133;border-radius:10px;margin-bottom:8px">
                   <span style="font-size:16px">👑</span>
-                  <div style="flex:1;font-size:13px"><strong>${u.name}</strong> <span style="color:var(--text-muted);font-size:11px">Parent principal · ${u.phone||'—'}</span></div>
+                  <div style="flex:1;font-size:13px"><strong>${esc(u.name)}</strong> <span style="color:var(--text-muted);font-size:11px">Parent principal · ${esc(u.phone||'—')}</span></div>
                   <span class="pill" style="background:#d1fae5;color:#065f46;font-size:10px">Toujours autorisé</span>
                 </div>
 
@@ -3257,7 +3257,7 @@ R.classes = () => {
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
             <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${classDot(c.name)}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:16px">${c.name}</div>
+              <div style="font-weight:700;font-size:16px">${esc(c.name)}</div>
               <div style="font-size:12px;color:var(--text-secondary);text-transform:capitalize">${c.cycle||'—'}</div>
             </div>
             <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
@@ -3279,8 +3279,8 @@ R.classes = () => {
 
 window.openClassForm = (cid) => {
   const c = cid ? DB.classes.find(x=>x.id===cid) : null;
-  const teacherOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id===u.id?'selected':''}>${u.name}</option>`).join('');
-  const teacherEnOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id_en===u.id?'selected':''}>${u.name}</option>`).join('');
+  const teacherOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
+  const teacherEnOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id_en===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
   const isMaternelle = c?.cycle==='maternelle';
   openM(c?`✏️ Modifier — ${c.name}`:'➕ Créer une classe',`
 <input type="hidden" id="cls_id" value="${c?c.id:''}">
@@ -3399,11 +3399,11 @@ R.approbations = () => {
   ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
-      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?s.name:''}</div><div class="pi-sub">${a.dates} — ${a.motif||''}</div></div>
+      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?esc(s.name):''}</div><div class="pi-sub">${esc(a.dates)} — ${esc(a.motif||'')}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div></div>`;
     }).join('')}</div>`:''}
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
-    ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${m.subject}</div><div class="pi-sub">${m.body.slice(0,80)}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?from.name:'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
+    ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${esc(m.subject)}</div><div class="pi-sub">${esc(m.body.slice(0,80))}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?esc(from.name):'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">❌</button></div></div>`;}).join('')}
   </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Approbations (${apr.length})</div>
     ${apr.map(a=>{
@@ -3432,11 +3432,11 @@ R.approbations = () => {
         <div class="pi-icon" style="background:${r.auto_triggered?'#fee2e2':'#fef3c7'}">${r.auto_triggered?'🔴':'📚'}</div>
         <div style="flex:1;min-width:150px">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div class="pi-title">${s?s.name:'?'}</div>
+            <div class="pi-title">${s?esc(s.name):'?'}</div>
             ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">AUTO</span>`:`<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px">Manuel</span>`}
             ${r.d2_validated?`<span style="font-size:10px;background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:10px;font-weight:700">D2 ✅</span>`:''}
           </div>
-          <div class="pi-sub">${r.matiere} · ${cl?cl.name:'?'}</div>
+          <div class="pi-sub">${esc(r.matiere)} · ${cl?esc(cl.name):'?'}</div>
           ${r.score!=null?`<div style="margin-top:4px;display:flex;align-items:center;gap:6px">
             <span style="font-size:11px;font-weight:700;color:${scoreColor}">📊 Moyenne: ${r.score}%</span>
             <div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden">
@@ -3467,10 +3467,10 @@ R.approbations = () => {
         <div class="pi-icon" style="background:${priority?'#d1fae5':'#dbeafe'}">${priority?'💰':'💳'}</div>
         <div style="flex:1;min-width:150px">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div class="pi-title">${s?s.name:'?'}</div>
+            <div class="pi-title">${s?esc(s.name):'?'}</div>
             ${priority?`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 7px;border-radius:10px;font-weight:700">💰 Parent dit : payé</span>`:''}
           </div>
-          <div class="pi-sub">${r.matiere} · <strong>$${r.amount}</strong> · Prof: ${t?t.name:'?'}</div>
+          <div class="pi-sub">${esc(r.matiere)} · <strong>$${r.amount}</strong> · Prof: ${t?esc(t.name):'?'}</div>
           <div style="font-size:11px;color:var(--text-muted)">Notifié le ${r.validated_date||r.date}</div>
         </div>
         <button class="btn btn-success btn-sm" onclick="marquerRattrapage('${r.id}',true)">✅ Confirmer payé</button>
@@ -3495,8 +3495,8 @@ R.approbations = () => {
         return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
           <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}">${conv.status==='scheduled'?'📅':'📋'}</div>
           <div style="flex:1;min-width:150px">
-            <div class="pi-title">${s?s.name:'?'} ${cl?'— '+cl.name:''}</div>
-            <div class="pi-sub">Parent: ${parent?parent.name:'—'} · ${conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:'')}</div>
+            <div class="pi-title">${s?esc(s.name):'?'} ${cl?'— '+esc(cl.name):''}</div>
+            <div class="pi-sub">Parent: ${parent?esc(parent.name):'—'} · ${esc(conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:''))}</div>
             ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>`:''}
             <div style="font-size:11px;color:var(--text-muted)">${conv.date}</div>
           </div>
@@ -3752,7 +3752,7 @@ R.payments = () => {
       return `<div class="ww-section" style="margin-bottom:14px">
         <div style="display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border-light)">
           <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
-          <div style="flex:1"><div style="font-size:16px;font-weight:700">${s.name}</div><div style="font-size:13px;color:var(--text-secondary)">${c?c.name:''}</div></div>
+          <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
           ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'✅ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">sur $${total}</div></div>`:''}
         </div>
         ${pays.map(p=>`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d1fae5':'#fee2e2'}">${p.paid?'✅':'❌'}</div><div class="ww-item-content"><div class="ww-item-title">Trimestre ${p.t}</div><div class="ww-item-sub">${p.paid?'Réglé — $'+(fees[p.t]||'?'):'À payer — $'+(fees[p.t]||'?')}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`).join('')}
@@ -3809,7 +3809,7 @@ R.payments = () => {
         <div class="ww-card-body">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
             <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
-            <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?c.name:''}</div></div>
+            <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):''}</div></div>
             ${s.access_blocked?`<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:#ede9fe;color:#5b21b6;font-weight:700">🔒 Bloqué</span>`:(totalFees>0?`<div style="font-weight:700;font-size:13px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'✅'}</div>`:'')}
           </div>
           <div style="display:flex;gap:5px;margin-bottom:8px">
@@ -3964,9 +3964,9 @@ R.children = () => {
           ${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:ini(k.name)}
         </div>
         <div style="flex:1">
-          <div style="font-size:19px;font-weight:800">${k.name}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">${k.mat} · ${c?c.name:''} · ${c?c.cycle:''}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Matricule : ${k.mat}</div>
+          <div style="font-size:19px;font-weight:800">${esc(k.name)}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${esc(k.mat)} · ${c?esc(c.name):''} · ${c?c.cycle:''}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Matricule : ${esc(k.mat)}</div>
         </div>
         <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none;flex-shrink:0" onclick="showChildQR('${k.id}')">🪪 Carte</button>
       </div>
@@ -4119,7 +4119,7 @@ R.children = () => {
             const scoreColor=r.score!=null?(r.score<30?'#dc2626':r.score<50?'#d97706':'#374151'):null;
             return `<div style="padding:10px;background:#fff;border-radius:10px;border-left:3px solid ${r.status==='paid'?'#10b981':'#f59e0b'};margin-bottom:8px">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-weight:700;font-size:13px">${r.matiere}</span>
+              <span style="font-weight:700;font-size:13px">${esc(r.matiere)}</span>
               ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">Automatique</span>`:''}
             </div>
             ${r.score!=null?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -4177,8 +4177,8 @@ window.showChildQR = (sid) => {
     <div style="width:160px;height:160px;margin:0 auto 16px;background:${cbg};border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${cc};overflow:hidden">
       ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:20px">`:`<div style="font-size:48px">${ini(s.name)}</div>`}
     </div>
-    <div style="font-size:20px;font-weight:800;margin-bottom:4px">${s.name}</div>
-    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">${cl?cl.name:''} · ${s.mat}</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">${esc(s.name)}</div>
+    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px">${cl?esc(cl.name):''} · ${esc(s.mat)}</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">The Wise School International</div>
     <div id="childQRCanvas" style="display:flex;justify-content:center;margin-bottom:12px"></div>
     <div style="font-size:12px;color:var(--text-muted)">Présentez cette carte au gardien lors du retrait de l'enfant</div>
@@ -4290,7 +4290,7 @@ R.attendance = () => {
       const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:'À l\'heure',i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:'Retard',i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:'Justifié',i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:'Malade',i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:'Refusé',i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:'Absent',i:'❌'};
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
-        <div class="ww-item-content"><div class="ww-item-title">${s.name}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
+        <div class="ww-item-content"><div class="ww-item-title">${esc(s.name)}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.i} ${st.l}</span>
         ${canModify&&!a?`<button class="action-btn" onclick="manualMarkPresent('${s.id}')" title="Marquer présent manuellement" style="flex-shrink:0;background:#d1fae5;border-color:#6ee7b7;color:#065f46">✏️</button><button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd">📄</button>`:''}
         ${canModify&&a&&a.status!=='excused'&&a.status!=='sick'?`<button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0">🤒</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd">📄</button>`:''}
@@ -4585,7 +4585,7 @@ R.palmares = () => {
     <div style="margin-bottom:24px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <div style="width:14px;height:14px;border-radius:50%;background:${cc}"></div>
-        <h3 style="font-size:16px;font-weight:700">${cl.name}</h3>
+        <h3 style="font-size:16px;font-weight:700">${esc(cl.name)}</h3>
         <span class="pill pill-gray">${ranked.length} élèves</span>
         ${isTeacher&&mc.lang?`<span class="pill" style="background:${mc.lang==='fr'?'#dbeafe':'#d1fae5'};color:${mc.lang==='fr'?'#1d4ed8':'#065f46'}">${mc.lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>`:''}
         ${isTeacher?`<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openGradePanel('${cl.id}')">📝 Saisir notes</button>`:''}
@@ -4600,7 +4600,7 @@ R.palmares = () => {
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
             <div style="font-size:${pos===0?'28':'22'}px">${medals[pos]}</div>
             <div style="width:44px;height:44px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(s.name)}</div>
-            <div style="font-size:11px;font-weight:700;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</div>
+            <div style="font-size:11px;font-weight:700;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
             <div style="width:70px;height:${heights[pos]}px;border-radius:10px 10px 0 0;background:${colors[pos]};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff">${s.total}</div>
           </div>`;
         }).join('')}
@@ -4614,7 +4614,7 @@ R.palmares = () => {
             <span style="font-size:${i<3?20:15}px;width:32px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div class="ww-item-content">
-              <div class="ww-item-title">${s.name}</div>
+              <div class="ww-item-title">${esc(s.name)}</div>
               <div class="ww-item-sub">Moy: ${s.moyPct}% · ${condEmoji} · ${s.retards} retard${s.retards>1?'s':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
@@ -4880,7 +4880,7 @@ window.openGradePanel = cid => {
     ${students.map(s => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
       <div style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
-      <div style="flex:1;font-size:13px;font-weight:600">${s.name}</div>
+      <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
       <input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="20" step="0.5" placeholder="—">
       <span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>
     </div>`).join('')}
@@ -5006,7 +5006,7 @@ R.matieres = () => {
 
   return `
   <div class="premium-section">
-    <div class="premium-section-title">📐 Mes matières — ${cl.name} (${langLabel})</div>
+    <div class="premium-section-title">📐 Mes matières — ${esc(cl.name)} (${langLabel})</div>
     ${myMat.map((m,i)=>`
     <div class="premium-item" style="animation-delay:${i*.04}s">
       <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d1fae5':'#fef3c7'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
@@ -5080,7 +5080,7 @@ R.devoirs = () => {
 
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📚 Devoirs${cl?' — '+cl.name:''}</span>
+    <span style="font-size:16px;font-weight:700">📚 Devoirs${cl?' — '+esc(cl.name):''}</span>
     ${isTeacher?`<button class="btn btn-primary" onclick="openDevoirM()">➕ Publier</button>`:''}
   </div>
   ${sorted.length?sorted.map((d,i)=>{
@@ -5162,8 +5162,8 @@ R.devoirs_parent = () => {
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${kidColor}18;border-radius:14px;border-left:4px solid ${kidColor};margin-bottom:10px">
         <div style="font-size:28px">${kidEmojis[ki%kidEmojis.length]}</div>
         <div>
-          <div style="font-weight:700;font-size:16px">${k.name}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${cl?cl.name:''}</div>
+          <div style="font-weight:700;font-size:16px">${esc(k.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${cl?esc(cl.name):''}</div>
         </div>
 
       </div>`;
@@ -5559,7 +5559,7 @@ R.cahier_texte = () => {
       if(!teachers.length) return;
       const [cc]=clsColor(cl.name);
       html+=`<div class="ww-section" style="margin-bottom:14px">
-        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${cl.name}</span><span style="font-size:11px;color:var(--text-muted)">${cl.cycle}</span></div>`;
+        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(cl.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl.cycle}</span></div>`;
       teachers.forEach(({u,lang})=>{
         const filled=weekDays.map(d=>DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d));
         const total=filled.filter(Boolean).length;
@@ -5568,7 +5568,7 @@ R.cahier_texte = () => {
         html+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);${consec2?'background:#fff1f2;':''}">
           <div style="width:36px;height:36px;border-radius:10px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(u.name)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:600;font-size:13px;margin-bottom:5px">${u.name} <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};color:${lang==='fr'?'#1e40af':'#065f46'}">${lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>${consec2?` <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700">⚠️ 2j sans entrée</span>`:''}</div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:5px">${esc(u.name)} <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:${lang==='fr'?'#dbeafe':'#d1fae5'};color:${lang==='fr'?'#1e40af':'#065f46'}">${lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>${consec2?` <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:#fee2e2;color:#991b1b;font-weight:700">⚠️ 2j sans entrée</span>`:''}</div>
             <div style="display:flex;gap:6px">
               ${weekDays.map((d,i)=>`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
                 <div style="font-size:10px;color:var(--text-muted)">${dayNames[i]}</div>
@@ -5591,7 +5591,7 @@ R.cahier_texte = () => {
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
     return `
     <div class="ww-toolbar">
-      <span style="font-size:16px;font-weight:700">📖 Cahier de texte — ${mc.cl.name}</span>
+      <span style="font-size:16px;font-weight:700">📖 Cahier de texte — ${esc(mc.cl.name)}</span>
       <button class="btn btn-primary" onclick="openCahierM()">➕ Ajouter</button>
     </div>
     ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
@@ -5626,7 +5626,7 @@ R.cahier_texte = () => {
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${cc}18;border-radius:14px;border-left:4px solid ${cc};margin-bottom:10px">
         <span style="font-size:24px">📖</span>
-        <div><div style="font-weight:700;font-size:15px">${k.name}</div><div style="font-size:12px;color:var(--text-muted)">${cl.name}</div></div>
+        <div><div style="font-weight:700;font-size:15px">${esc(k.name)}</div><div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)}</div></div>
       </div>
       ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
         const d=new Date(date);
@@ -5708,15 +5708,15 @@ R.teacher_comm = () => {
 
   return `
   <div class="premium-section">
-    <div class="premium-section-title">💬 Communication — ${cl.name}</div>
+    <div class="premium-section-title">💬 Communication — ${esc(cl.name)}</div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;background:var(--bg);border-radius:12px">
       <div style="width:44px;height:44px;border-radius:12px;background:${mc.lang==='fr'?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(S.user.name)}</div>
-      <div><div style="font-weight:700">${S.user.name}</div><div style="font-size:12px;color:var(--text-secondary)">Titulaire ${mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
+      <div><div style="font-weight:700">${esc(S.user.name)}</div><div style="font-size:12px;color:var(--text-secondary)">Titulaire ${mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
     </div>
     ${coTeacher?`
     <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;background:var(--bg);border-radius:12px">
       <div style="width:44px;height:44px;border-radius:12px;background:${mc.lang==='fr'?'#d1fae5':'#dbeafe'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(coTeacher.name)}</div>
-      <div><div style="font-weight:700">${coTeacher.name}</div><div style="font-size:12px;color:var(--text-secondary)">Co-titulaire ${mc.lang==='fr'?'🇬🇧 English':'🇫🇷 Français'}</div></div>
+      <div><div style="font-weight:700">${esc(coTeacher.name)}</div><div style="font-size:12px;color:var(--text-secondary)">Co-titulaire ${mc.lang==='fr'?'🇬🇧 English':'🇫🇷 Français'}</div></div>
     </div>`:`<div style="padding:12px;color:var(--text-muted);font-size:13px;margin-top:8px">Pas de co-titulaire assigné</div>`}
     <div style="font-size:12px;color:var(--text-muted);margin-top:10px;padding:8px;background:#fef3c7;border-radius:8px">🔒 Ces notes sont privées — invisibles pour les parents et la Direction.</div>
   </div>
@@ -5873,7 +5873,7 @@ function getArrivalStatus(cycle) {
 
 function showScanResult(color,icon,title,name,sub,time) {
   const el=$('scanResult'); if(!el) return;
-  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${title}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${name}</div><div class="sr-sub">${sub}</div>${time?`<div class="sr-time">${time}</div>`:''}</div>`;
+  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${esc(title)}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div><div class="sr-sub">${esc(sub)}</div>${time?`<div class="sr-time">${esc(time)}</div>`:''}</div>`;
   setTimeout(()=>{if(el) el.innerHTML='';},6000);
 }
 
@@ -6003,7 +6003,7 @@ window.processScanEntry = async code => {
     pd.innerHTML=`
     <div style="background:var(--bg-card);border:2px solid #ef4444;border-radius:16px;padding:20px;text-align:center;animation:popIn .3s ease">
       <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#dc2626">⏳ En attente de la Direction</div>
-      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">${student.name} attend au portail. La Direction a été alertée dans l'application.</div>
+      <div style="font-size:14px;color:var(--text-secondary);margin-bottom:16px">${esc(student.name)} attend au portail. La Direction a été alertée dans l'application.</div>
       <div style="font-size:13px;color:var(--text-muted);padding:12px;background:var(--bg);border-radius:10px">
         Le gardien ne peut pas décider.<br>Seule la Direction peut autoriser ou refuser l'entrée.
       </div>
@@ -6041,8 +6041,8 @@ R.scanner_exit = () => `
 window.scanExit = () => {
   const code=($('exitCode')?.value||'').trim().toUpperCase();
   const s=DB.students.find(x=>x.mat===code);
-  if(!s){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">❌</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${code}</div></div>`;return;}
-  if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">🔴</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${s.name}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">⚡ Exception urgence médicale</button></div>`;return;}
+  if(!s){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">❌</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${esc(code)}</div></div>`;return;}
+  if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">🔴</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${esc(s.name)}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">⚡ Exception urgence médicale</button></div>`;return;}
 
   const c=gc(s.cid);
   const parent=gu(s.pid);
@@ -6059,16 +6059,16 @@ window.scanExit = () => {
     <div style="width:90px;height:110px;border-radius:12px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
       ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:30px;font-weight:700;color:#64748b">${ini(a.name)}</span>`}
     </div>
-    <div style="font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.name.split(' ')[0]}</div>
-    <div style="font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.relation||'Tutelle'}</div>
-    ${a.phone?`<div style="font-size:10px;color:var(--text-muted)">${a.phone}</div>`:''}
+    <div style="font-weight:700;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name.split(' ')[0])}</div>
+    <div style="font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.relation||'Tutelle')}</div>
+    ${a.phone?`<div style="font-size:10px;color:var(--text-muted)">${esc(a.phone)}</div>`:''}
   </div>`).join('');
 
   $('exitResult').innerHTML=`
   <div style="text-align:center;animation:popIn .3s ease">
     <div class="scan-result green" style="padding:14px;margin-bottom:12px">
-      <div style="font-size:20px;font-weight:700">${s.name}</div>
-      <div style="font-size:13px;opacity:.9">${c?c.name:''} — ${s.mat}</div>
+      <div style="font-size:20px;font-weight:700">${esc(s.name)}</div>
+      <div style="font-size:13px;opacity:.9">${c?esc(c.name):''} — ${esc(s.mat)}</div>
     </div>
     <div style="font-size:15px;font-weight:700;margin-bottom:10px">👥 Qui récupère l'enfant ?</div>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">${thumbs||'<p style="color:var(--text-muted)">Aucune personne autorisée enregistrée</p>'}</div>
@@ -6089,9 +6089,9 @@ window.selectExitPerson = idx => {
     <div style="width:140px;height:180px;border-radius:14px;overflow:hidden;margin:0 auto 12px;border:3px solid #2563eb;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
       ${a.photo?`<img src="${a.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:44px;font-weight:700;color:#64748b">${ini(a.name)}</span>`}
     </div>
-    <div style="font-size:18px;font-weight:800;margin-bottom:4px">${a.name}</div>
-    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:14px">${a.relation||'Tutelle'}</div>
-    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="confirmExitWith('${window._exitStudent.id}',${idx})">✅ ${a.name.split(' ')[0]} a pris l'enfant</button>
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px">${esc(a.name)}</div>
+    <div style="font-size:14px;color:var(--text-secondary);margin-bottom:14px">${esc(a.relation||'Tutelle')}</div>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="confirmExitWith('${window._exitStudent.id}',${idx})">✅ ${esc(a.name.split(' ')[0])} a pris l'enfant</button>
   </div>`;
 };
 
@@ -6169,7 +6169,7 @@ window.doExitRefused = async (sid) => {
 
 function showExitDone(color,icon,title,name,sub,time) {
   const el=$('exitResult'); if(!el) return;
-  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${title}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${name}</div><div class="sr-sub">${sub}</div><div class="sr-time">${time}</div></div>`;
+  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${esc(title)}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div><div class="sr-sub">${esc(sub)}</div><div class="sr-time">${esc(time)}</div></div>`;
   if($('exitCode')) $('exitCode').value='';
   setTimeout(()=>{if(el) el.innerHTML='';},6000);
 }
@@ -6764,7 +6764,7 @@ window.caisseSearch = () => {
     const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
     return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
       <div class="pi-icon" style="background:${cbg};color:${cc}">${ini(s.name)}</div>
-      <div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat} · ${cl?cl.name:'?'}</div></div>
+      <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
       <span class="premium-badge" style="background:#d1fae5;color:#065f46">Sélectionner</span>
     </div>`;
   }).join('');
@@ -6782,14 +6782,14 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_student_info').innerHTML=`
     <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:10px">
       <div class="pi-icon" style="background:${cbg};color:${cc}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
-      <div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat} · ${cl?cl.name:'?'}</div></div>
+      <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px">
       ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const f=fees[t]||0;return`<div style="flex:1;padding:8px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:10px;color:var(--text-muted)">${f?'$'+f:'—'}</div></div>`;}).join('')}
     </div>
     ${recentRecs.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px">📋 Derniers paiements enregistrés</div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-      ${recentRecs.map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px"><span>${r.date} · ${r.type_label}${r.trimestre?' ('+r.trimestre+')':''}</span><span style="font-weight:700;color:#059669">+$${r.amount}</span></div>`).join('')}
+      ${recentRecs.map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px"><span>${esc(r.date)} · ${esc(r.type_label)}${r.trimestre?' ('+esc(r.trimestre)+')':''}</span><span style="font-weight:700;color:#059669">+$${r.amount}</span></div>`).join('')}
     </div>`:''}
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Sélectionnez le type de paiement ci-dessous</div>`;
 };
@@ -6848,7 +6848,7 @@ window.viewReceipt = (nid) => {
   };
   const amtWords=(numToWords(r.amount)||'').charAt(0).toUpperCase()+(numToWords(r.amount)||'').slice(1)+' dollars américains';
   const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;align-items:flex-start;padding:20px;min-height:100vh}.page{background:#fff;width:100%;max-width:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#0f2557;padding:20px 24px;display:flex;align-items:center;gap:16px}.logo{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;flex-shrink:0}.school-name{color:#fff}.school-name h1{font-size:14px;font-weight:800;line-height:1.2}.school-name p{font-size:10px;opacity:.8;margin-top:3px}.badge{margin-top:16px;text-align:center;padding:12px 20px;background:#f8faff;border-bottom:2px dashed #cbd5e1}.badge .num{font-size:11px;color:#6b7280;letter-spacing:1px;text-transform:uppercase}.badge .title{font-size:18px;font-weight:800;color:#0f2557;margin-top:4px;text-transform:uppercase;letter-spacing:2px}.body{padding:20px 24px}.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9}.row:last-child{border-bottom:none}.lbl{font-size:12px;color:#6b7280;font-weight:500}.val{font-size:13px;font-weight:700;color:#1a1a1a;text-align:right}.amount-box{background:#0f2557;color:#fff;border-radius:10px;padding:16px 20px;text-align:center;margin:16px 0}.amount-box .av{font-size:28px;font-weight:900;letter-spacing:1px}.amount-box .aw{font-size:11px;opacity:.8;margin-top:6px;font-style:italic}.stamp{display:flex;align-items:center;gap:10px;background:#d1fae5;border-radius:8px;padding:10px 14px;margin-top:14px}.stamp .icon{font-size:24px}.stamp .txt{font-size:11px;color:#065f46;font-weight:600}.footer{background:#f8faff;border-top:1px solid #e5e7eb;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#9ca3af}.pbtn{display:block;margin:16px auto;padding:11px 32px;background:#0f2557;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:10mm}}`;
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau ${r.num}</title><style>${CSS}</style></head><body><div class="page"><div class="hdr"><img src="${window.SCHOOL_LOGO}" class="logo" alt=""><div class="school-name"><h1>${school}</h1><p>Complexe Scolaire Le Sage — Kinshasa, RDC</p><p>📞 +243 978 444 167</p></div></div><div class="badge"><div class="num">Bordereau officiel de paiement · N° ${r.num}</div><div class="title">🧾 Reçu de paiement</div></div><div class="body"><div class="row"><span class="lbl">👶 Élève</span><span class="val">${r.student}</span></div><div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${r.mat||'—'}</span></div><div class="row"><span class="lbl">🎓 Classe</span><span class="val">${r.classe||'—'}</span></div><div class="row"><span class="lbl">📋 Type de paiement</span><span class="val">${r.type_label}${r.trimestre?' · '+r.trimestre:''}</span></div><div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div><div class="row"><span class="lbl">⏰ Heure</span><span class="val">${r.time}</span></div><div class="row"><span class="lbl">💼 Reçu par</span><span class="val" style="color:#0f2557">${r.by}</span></div>${r.note?`<div class="row"><span class="lbl">📝 Note</span><span class="val">${r.note}</span></div>`:''}<div class="amount-box"><div class="av">$${r.amount}</div><div class="aw">${amtWords}</div></div><div class="stamp"><span class="icon">✅</span><div class="txt">Paiement reçu et enregistré dans le système SchoolSafe<br>The Wise School International — Année ${DB.settings.year||'2025-2026'}</div></div></div><div class="footer"><span>© ${new Date().getFullYear()} ${school}</span><span>🛡️ SchoolSafe — Document officiel</span></div></div><button class="pbtn" onclick="window.print()">🖨️ Enregistrer / Imprimer</button><p style="text-align:center;font-size:11px;color:#9ca3af;margin:8px 0 20px">📱 Sur téléphone : appuyez sur le bouton ci-dessus puis choisissez <strong>«&nbsp;Enregistrer en PDF&nbsp;»</strong> pour conserver ce bordereau</p></body></html>`;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau ${esc(r.num)}</title><style>${CSS}</style></head><body><div class="page"><div class="hdr"><img src="${window.SCHOOL_LOGO}" class="logo" alt=""><div class="school-name"><h1>${school}</h1><p>Complexe Scolaire Le Sage — Kinshasa, RDC</p><p>📞 +243 978 444 167</p></div></div><div class="badge"><div class="num">Bordereau officiel de paiement · N° ${esc(r.num)}</div><div class="title">🧾 Reçu de paiement</div></div><div class="body"><div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(r.student)}</span></div><div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${esc(r.mat||'—')}</span></div><div class="row"><span class="lbl">🎓 Classe</span><span class="val">${esc(r.classe||'—')}</span></div><div class="row"><span class="lbl">📋 Type de paiement</span><span class="val">${esc(r.type_label)}${r.trimestre?' · '+esc(r.trimestre):''}</span></div><div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div><div class="row"><span class="lbl">⏰ Heure</span><span class="val">${r.time}</span></div><div class="row"><span class="lbl">💼 Reçu par</span><span class="val" style="color:#0f2557">${esc(r.by)}</span></div>${r.note?`<div class="row"><span class="lbl">📝 Note</span><span class="val">${esc(r.note)}</span></div>`:''}<div class="amount-box"><div class="av">$${r.amount}</div><div class="aw">${amtWords}</div></div><div class="stamp"><span class="icon">✅</span><div class="txt">Paiement reçu et enregistré dans le système SchoolSafe<br>The Wise School International — Année ${DB.settings.year||'2025-2026'}</div></div></div><div class="footer"><span>© ${new Date().getFullYear()} ${school}</span><span>🛡️ SchoolSafe — Document officiel</span></div></div><button class="pbtn" onclick="window.print()">🖨️ Enregistrer / Imprimer</button><p style="text-align:center;font-size:11px;color:#9ca3af;margin:8px 0 20px">📱 Sur téléphone : appuyez sur le bouton ci-dessus puis choisissez <strong>«&nbsp;Enregistrer en PDF&nbsp;»</strong> pour conserver ce bordereau</p></body></html>`;
   const win=window.open('','_blank');
   if(!win){toast('Popup bloqué — autorisez les popups','error');return;}
   win.document.write(html); win.document.close();
@@ -6965,12 +6965,12 @@ R.messages = () => {
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
         <div style="width:38px;height:38px;border-radius:10px;background:${isNew?'#dbeafe':'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${TI[m.msg_type]||'✉️'}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:${isNew?700:600};font-size:14px">${m.subject||'(Sans objet)'} ${isNew?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px">NEW</span>':''}</div>
-          <div style="font-size:11px;color:#6b7280;margin-top:2px">${from?from.name:'?'} → ${destLabel} · ${m.date} ${m.time}</div>
+          <div style="font-weight:${isNew?700:600};font-size:14px">${esc(m.subject||'(Sans objet)')} ${isNew?'<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px">NEW</span>':''}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px">${from?esc(from.name):'?'} → ${esc(destLabel)} · ${m.date} ${m.time}</div>
         </div>
         <span style="background:#f1f5f9;color:#6b7280;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap">${TL[m.msg_type]||'Message'}</span>
       </div>
-      <div style="font-size:13px;color:#374151;line-height:1.5;padding:8px 10px;background:#f8faff;border-radius:8px;white-space:pre-wrap">${m.body}</div>
+      <div style="font-size:13px;color:#374151;line-height:1.5;padding:8px 10px;background:#f8faff;border-radius:8px;white-space:pre-wrap">${esc(m.body)}</div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         ${isNew?`<button class="btn btn-outline btn-sm" onclick="markMsgRead('${m.id}')">✓ Marquer lu</button>`:''}
         ${showReply?`<button class="btn btn-primary btn-sm" onclick="${isDir?'replyToParent':'replyToDirection'}('${m.id}')">↩️ Répondre</button>`:''}
@@ -7074,11 +7074,11 @@ window.openComposeMsg = () => {
       <option value="">— Choisir un destinataire —</option>
       <optgroup label="👨‍👩‍👧 Parents">
         <option value="role:parent">📢 Tous les parents</option>
-        ${parents.map(u=>{const k=DB.students.filter(s=>s.pid===u.id);return`<option value="uid:${u.id}">👤 ${u.name}${k.length?' ('+k[0].name+')':''}`;}).join('')}
+        ${parents.map(u=>{const k=DB.students.filter(s=>s.pid===u.id);return`<option value="uid:${u.id}">👤 ${esc(u.name)}${k.length?' ('+esc(k[0].name)+')':''}`;}).join('')}
       </optgroup>
       ${teachers.length?`<optgroup label="👨‍🏫 Enseignants">
         <option value="role:enseignant">📢 Tous les enseignants</option>
-        ${teachers.map(u=>`<option value="uid:${u.id}">👤 ${u.name}</option>`).join('')}
+        ${teachers.map(u=>`<option value="uid:${u.id}">👤 ${esc(u.name)}</option>`).join('')}
       </optgroup>`:''}
     </select>
   </div>
@@ -7417,8 +7417,8 @@ R.teacher_activity = () => {
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div style="width:48px;height:48px;border-radius:14px;background:${alert?'#fee2e2':'#d1fae5'};color:${alert?'#ef4444':'#059669'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px">${u.initials||ini(u.name)}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:15px">${u.name}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${cl?cl.name:'— Aucune classe'}</div>
+              <div style="font-weight:700;font-size:15px">${esc(u.name)}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'— Aucune classe'}</div>
             </div>
             ${alert?`<span class="pill pill-red">⚠️ Inactif</span>`:`<span class="pill pill-green">✅ Actif</span>`}
           </div>
@@ -7469,7 +7469,7 @@ R.primes = () => {
         <div class="ww-card-body">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:44px;height:44px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${u.initials||ini(u.name)}</div>
-            <div><div style="font-weight:700">${u.name}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div>
+            <div><div style="font-weight:700">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div>
           </div>
         </div>
       </div>`;
@@ -7483,8 +7483,8 @@ R.primes = () => {
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fef3c7':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u.initials||ini(u.name)}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:15px">${u.name}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${cl?cl.name:'—'}</div>
+              <div style="font-weight:700;font-size:15px">${esc(u.name)}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div>
             </div>
             ${due>0?`<span class="pill" style="background:#fef3c7;color:#92400e;font-weight:700">⏳ $${due}</span>`:''}
           </div>
@@ -8403,9 +8403,9 @@ R.profil_enseignant = () => {
     <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
       <div style="width:64px;height:64px;border-radius:18px;background:${cbg};color:${cc};font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
       <div>
-        <div style="font-size:18px;font-weight:800">${u.name}</div>
+        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
         <div style="font-size:13px;color:var(--text-secondary)">Enseignant · Section ${lang}</div>
-        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${cl.name} · ${students.length} élèves${isTitulaire?' · ⭐ Titulaire':''}</div>`:'<div style="font-size:12px;color:#dc2626">Aucune classe assignée</div>'}
+        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} élèves${isTitulaire?' · ⭐ Titulaire':''}</div>`:'<div style="font-size:12px;color:#dc2626">Aucune classe assignée</div>'}
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -8493,7 +8493,7 @@ R.profil_parent = () => {
     <div class="premium-section-title">👤 Mes informations</div>
     <div style="display:flex;align-items:center;gap:14px;padding:12px 0 16px">
       <div style="width:60px;height:60px;border-radius:18px;background:#ede9fe;color:#7c3aed;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(u.name)}</div>
-      <div><div style="font-size:18px;font-weight:800">${u.name}</div><div style="font-size:12px;color:var(--text-muted)">Parent / Tuteur · ID ${u.id}</div></div>
+      <div><div style="font-size:18px;font-weight:800">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Parent / Tuteur · ID ${u.id}</div></div>
     </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="pp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
@@ -8621,7 +8621,7 @@ R.timetable = () => {
     <span style="font-size:16px;font-weight:700">🗓️ Emploi du temps</span>
   </div>
   <div style="padding:0 0 12px 0;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch">
-    ${clsList.map(cl=>{const[c]=clsColor(cl.name);return`<button onclick="window._edtCid='${cl.id}';render()" style="display:inline-block;margin:0 4px 4px 0;padding:5px 12px;border-radius:20px;border:2px solid ${cl.id===selCl.id?c:'var(--border)'};background:${cl.id===selCl.id?c:'var(--bg-card)'};color:${cl.id===selCl.id?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">${cl.name}</button>`;}).join('')}
+    ${clsList.map(cl=>{const[c]=clsColor(cl.name);return`<button onclick="window._edtCid='${cl.id}';render()" style="display:inline-block;margin:0 4px 4px 0;padding:5px 12px;border-radius:20px;border:2px solid ${cl.id===selCl.id?c:'var(--border)'};background:${cl.id===selCl.id?c:'var(--bg-card)'};color:${cl.id===selCl.id?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer">${esc(cl.name)}</button>`;}).join('')}
   </div>
   <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
   <table style="width:100%;border-collapse:collapse;min-width:520px;font-size:12px">
@@ -8665,7 +8665,7 @@ window.editTimetableSlot = (cid, day, period) => {
   <div class="form-group"><label class="form-label">Professeur</label>
     <select class="form-input" id="edtTeacher">
       <option value="">— Aucun —</option>
-      ${teachers.map(u=>`<option value="${u.id}" ${slot?.teacher_id===u.id?'selected':''}>${u.name}</option>`).join('')}
+      ${teachers.map(u=>`<option value="${u.id}" ${slot?.teacher_id===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}
     </select>
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
@@ -8753,7 +8753,7 @@ R.profil_gardien = () => {
     <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
       <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
       <div>
-        <div style="font-size:18px;font-weight:800">${u.name}</div>
+        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
         <div style="font-size:13px;color:var(--text-secondary)">🛡️ Gardien de sécurité</div>
         <div style="font-size:12px;color:var(--text-muted)">Portail SchoolSafe</div>
       </div>
@@ -8853,7 +8853,7 @@ window.renderGSearch = () => {
   let items=[];
   DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).forEach(s=>{
     const cl=DB.classes.find(c=>c.id===s.cid);
-    items.push({icon:'🎓',title:s.name,sub:`${s.mat} · ${cl?cl.name:'?'}`,action:`go('students');closeModal();window._studentQ='${s.name}';render()`});
+    items.push({icon:'🎓',title:s.name,sub:`${s.mat} · ${cl?cl.name:'?'}`,sid:s.id,action:`go('students');closeModal();window._studentQ='${s.id}';render()`});
   });
   if(canSeeUsers){
     DB.users.filter(u=>u.name.toLowerCase().includes(q)||(u.phone&&u.phone.toLowerCase().includes(q))).forEach(u=>{
@@ -8865,10 +8865,10 @@ window.renderGSearch = () => {
       items.push({icon:'🏫',title:c.name,sub:`${c.cycle} · ${DB.students.filter(s=>s.cid===c.id).length} élèves`,action:`go('classes');closeModal()`});
     });
   }
-  if(!items.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun résultat pour "${q}"</div>`;return;}
+  if(!items.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun résultat pour "${esc(q)}"</div>`;return;}
   res.innerHTML=items.slice(0,12).map(it=>`<div onclick="${it.action}" style="display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
     <div style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${it.icon}</div>
-    <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${it.title}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${it.sub}</div></div>
+    <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:14px">${esc(it.title)}</div><div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.sub)}</div></div>
     <span style="color:var(--text-muted);font-size:18px">›</span>
   </div>`).join('')+(items.length>12?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">${items.length-12} autres résultats — affinez la recherche</div>`:'');
 };
@@ -8961,7 +8961,7 @@ window.doEmergencyExit = async (sid) => {
   if(s.pid) await pushNotif(s.pid,`⚡ ${s.name} a quitté l'école (exception urgence lockdown) à ${time} — ${motif}`);
   logAudit('emergency_exit',`${s.name} — ${motif} — ${note}`,sid);
   closeModal();
-  $('exitResult').innerHTML=`<div class="scan-result orange" style="margin-top:8px"><div class="sr-icon">⚡</div><div class="sr-title">Exception enregistrée</div><div class="sr-sub">${s.name} — ${motif} · Direction alertée</div></div>`;
+  $('exitResult').innerHTML=`<div class="scan-result orange" style="margin-top:8px"><div class="sr-icon">⚡</div><div class="sr-title">Exception enregistrée</div><div class="sr-sub">${esc(s.name)} — ${esc(motif)} · Direction alertée</div></div>`;
   toast(`⚡ Exception lockdown enregistrée — Direction notifiée`,'info');
   saveToCrypt();
 };
