@@ -5942,6 +5942,36 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
   });
   const teacherName=teacherUser?teacherUser.name:(DB.users.find(u=>u.id===d.by)||{}).name||'';
 
+  // Detect numbered questions in description
+  const parseQuestions=(text)=>{
+    if(!text||text.trim().length<10) return null;
+    const lines=text.split('\n');
+    const qs=[];let preamble='';let cur=null;
+    for(const line of lines){
+      const m=line.match(/^(\d+[.)]\s+|[a-zA-Z][.)]\s+|[Qq]uestion\s+\d+\s*[:.]\s*)/);
+      if(m){if(cur)qs.push(cur);cur={num:m[1].replace(/[.)]/,'').trim(),text:line.slice(m[0].length).trim()};}
+      else if(cur){cur.text+=(cur.text?'\n':'')+line;}
+      else{preamble+=line+'\n';}
+    }
+    if(cur)qs.push(cur);
+    return qs.length>=2?{questions:qs,preamble:preamble.trim()}:null;
+  };
+  const parsed=d.type==='text'?parseQuestions(d.description):null;
+  const qCount=parsed?parsed.questions.length:0;
+  const linesPer=qCount<=3?7:qCount<=6?5:3;
+  const ansLines=()=>Array(linesPer).fill('<div class="aline"></div>').join('');
+  const contentBlock=parsed?`
+    ${parsed.preamble?`<div class="section-title">Instructions</div><div class="body-box" style="margin-bottom:16px">${parsed.preamble}</div>`:''}
+    <div class="section-title">Questions &amp; Réponses (${qCount})</div>
+    ${parsed.questions.map(q=>`<div class="q-item"><div class="q-num">${q.num}</div><div class="q-body"><div class="q-text">${q.text}</div><div class="q-ans">${ansLines()}</div></div></div>`).join('')}
+  `:`
+    <div class="section-title">Consignes / Énoncé</div>
+    ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
+    ${imgBlock}${pdfNote}
+    <div class="section-title">Travail de l'élève</div>
+    <div class="answer-zone"><div class="answer-title">✏️ Espace de réponse</div></div>
+  `;
+
   const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${catLabel} — ${d.title}</title>
   <style>
@@ -5952,6 +5982,13 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
     .print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}
     .page{max-width:680px;margin:0 auto;padding:24px}
     .school-header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:3px solid ${catColor};margin-bottom:20px}
+    .q-item{display:flex;gap:12px;margin-bottom:18px;align-items:flex-start;break-inside:avoid}
+    .q-num{width:30px;height:30px;border-radius:50%;background:${catColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;margin-top:2px}
+    .q-body{flex:1}
+    .q-text{font-size:14px;line-height:1.75;color:#1e293b;margin-bottom:8px;white-space:pre-wrap;font-weight:500}
+    .q-ans{margin-top:2px}
+    .aline{border-bottom:1px solid #cbd5e1;height:26px}
+    .q-points{font-size:10px;color:#94a3b8;float:right;font-style:italic}
     .school-logo{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #e2e8f0}
     .school-info{flex:1}
     .school-name{font-size:15px;font-weight:900;color:#0f2557;letter-spacing:.5px}
@@ -5998,11 +6035,8 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
       <span class="chip">🗓️ Donné le ${d.date||new Date().toLocaleDateString('fr-FR')}</span>
       ${dateLabel?`<span class="chip ${d.deadline&&new Date(d.deadline)<new Date()?'urgent':'ok'}">📅 À remettre : ${dateLabel}</span>`:''}
     </div>
-    <div class="section-title">Consignes / Énoncé</div>
-    ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
-    ${imgBlock}${pdfNote}
-    <div class="section-title">Travail de l'élève</div>
-    <div class="answer-zone"><div class="answer-title">✏️ Espace de réponse</div></div>
+    ${contentBlock}
+    ${parsed?'':`${imgBlock}${pdfNote}`}
     <div class="signature">
       <div class="sig-box">Signature de l'élève</div>
       <div class="sig-box">Signature du parent / tuteur</div>
