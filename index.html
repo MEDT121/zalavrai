@@ -1481,6 +1481,62 @@ function dashboardDirection() {
   </div>`;
 }
 
+window.showStudentInfo = (sid) => {
+  const s = DB.students.find(x => x.id === sid); if (!s) return;
+  const cl = DB.classes.find(x => x.id === s.cid);
+  const parent = s.pid ? DB.users.find(x => x.id === s.pid) : null;
+  const ta = DB.attendance.find(a => a.sid === sid && a.date === today());
+  const ex = (DB.exit_scans||[]).find(e => e.sid === sid && e.date === today());
+  const pays = DB.payments.filter(p => p.sid === sid);
+  const allPaid = pays.length > 0 && pays.every(p => p.paid);
+  const partPaid = pays.some(p => p.paid) && !allPaid;
+  const dob = s.dob ? new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : null;
+
+  let attBg, attEmoji, attLabel, attTime;
+  if      (ex)                          { attBg='#fef3c7'; attEmoji='🏠'; attLabel='Sorti(e) de l\'école';    attTime=ex.time; }
+  else if (ta?.status==='ontime')       { attBg='#d1fae5'; attEmoji='✅'; attLabel='À l\'heure';              attTime=ta.arr_time; }
+  else if (ta?.status==='late')         { attBg='#fef3c7'; attEmoji='⚠️'; attLabel='Arrivé(e) en retard';    attTime=ta.arr_time; }
+  else if (ta?.status==='excused')      { attBg='#dbeafe'; attEmoji='📄'; attLabel='Absent(e) — justifié';   attTime=''; }
+  else if (ta?.status==='sick')         { attBg='#fce7f3'; attEmoji='🤒'; attLabel='Sorti(e) pour maladie';  attTime=''; }
+  else                                  { attBg='#f1f5f9'; attEmoji='⏳'; attLabel='Pas encore arrivé(e)';   attTime=''; }
+
+  const body = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="width:80px;height:80px;border-radius:50%;background:#e2e8f0;overflow:hidden;margin:0 auto 10px;border:3px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;color:#475569">
+        ${s.photo?`<img src="${esc(s.photo)}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}
+      </div>
+      <div style="font-weight:800;font-size:18px;margin-bottom:2px">${esc(s.name)}</div>
+      <div style="font-size:13px;color:var(--text-muted)">${esc(s.mat)}${cl?' · '+esc(cl.name):''}</div>
+      ${dob?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">🎂 ${dob}</div>`:''}
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Présence aujourd'hui</div>
+    <div style="background:${attBg};border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:28px">${attEmoji}</span>
+      <div><div style="font-weight:700;font-size:14px">${attLabel}</div>${attTime?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">🕐 ${attTime}</div>`:''}</div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Famille</div>
+    <div style="background:var(--bg);border-radius:12px;padding:12px 16px;margin-bottom:14px">
+      ${s.nom_papa?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👨 Papa</span><span style="font-weight:600">${esc(s.nom_papa)}</span></div>`:''}
+      ${s.nom_maman?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👩 Maman</span><span style="font-weight:600">${esc(s.nom_maman)}</span></div>`:''}
+      ${parent?.phone?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Téléphone</span><a href="tel:${esc(parent.phone)}" style="font-weight:700;color:#2563eb">${esc(parent.phone)}</a></div>`:''}
+      ${s.adresse?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px"><span style="color:var(--text-muted)">📍 Adresse</span><span style="font-weight:600;text-align:right;max-width:170px;line-height:1.3">${esc(s.adresse)}</span></div>`:''}
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Frais scolaires</div>
+    <div style="background:var(--bg);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">${allPaid?'✅':partPaid?'⚠️':'❌'}</span>
+      <span style="font-size:13px;font-weight:600;color:${allPaid?'#059669':partPaid?'#b45309':'#dc2626'}">${allPaid?'Frais entièrement payés':partPaid?'Partiellement payés':'Frais non payés'}</span>
+    </div>`;
+
+  openM(`👤 ${esc(s.name)}`, body,
+    `<button class="btn btn-primary btn-sm" onclick="closeModal();openStudentGrades('${sid}','${esc(s.cid)}')">📝 Notes</button>
+     <button class="btn btn-outline btn-sm" onclick="closeModal();go('attendance')">📋 Présences</button>
+     <button class="btn btn-outline btn-sm" onclick="closeModal()">Fermer</button>`
+  );
+};
+
 function dashboardEnseignant() {
   const u = S.user;
   const cl = DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
@@ -1567,7 +1623,9 @@ function dashboardEnseignant() {
     ${students.slice(0,6).map(s=>{
       const [cc,cbg]=clsColor(cl?cl.name:'');
       const hasAtt=todayAtt.find(a=>a.sid===s.id);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px" title="Pas encore arrivé">⏳</span>`}</div>`;
+      const attIcon=hasAtt?(hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':hasAtt.status==='sick'?'🤒':hasAtt.status==='excused'?'📄':'📄'):'⏳';
+      const attTip=hasAtt?(hasAtt.status==='ontime'?'À l\'heure — '+hasAtt.arr_time:hasAtt.status==='late'?'Retard — '+hasAtt.arr_time:hasAtt.status==='sick'?'Maladie':hasAtt.status==='excused'?'Absent justifié':'Autre'):'Pas encore arrivé';
+      return `<div class="premium-item" style="cursor:pointer" onclick="showStudentInfo('${s.id}')"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div><span style="font-size:18px" title="${attTip}">${attIcon}</span></div>`;
     }).join('')}
     ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
   </div>
