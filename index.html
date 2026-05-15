@@ -1244,7 +1244,11 @@ window.tryLogin = async () => {
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin||pin.length!==6) { $('PM').textContent='Entrez un code de 6 chiffres'; return; }
-  const u = DB.users.find(u => normName(u.name)===name || (u.initials && normName(u.initials)===name));
+  const u = DB.users.find(u =>
+    normName(u.name)===name ||
+    (u.initials && normName(u.initials)===name) ||
+    normName(ini(u.name))===name
+  );
   if (!u) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
   const hash = await _hashPin(pin);
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
@@ -3156,7 +3160,7 @@ ${photoOpts}
 </div>
 <div class="form-row">
   <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?u.phone:''}" placeholder="+243 8XX XXX XXX"></div>
-  <div class="form-group"><label class="form-label">PIN (6 chiffres) *</label><input class="form-input" id="usr_pin" type="password" maxlength="6" value="${u?u.pin:''}" placeholder="••••••"></div>
+  <div class="form-group"><label class="form-label">PIN (6 chiffres)${u?' — laisser vide pour conserver':' *'}</label><input class="form-input" id="usr_pin" type="password" maxlength="6" placeholder="••••••"></div>
 </div>
 ${classOpts}`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveUser()">💾 ${u?'Mettre à jour':'Ajouter'}</button>`);
@@ -3165,13 +3169,17 @@ ${classOpts}`,
 window.saveUser = () => {
   const name=($('usr_name').value||'').trim();
   if(!name){toast('Entrez le nom','error');return;}
-  const pin=($('usr_pin').value||'').trim();
-  if(!pin||pin.length<4){toast('PIN invalide (min 4 chiffres)','error');return;}
+  const pinInput=($('usr_pin').value||'').trim();
   const uid=$('usr_id').value;
   const role=$('usr_role').value;
+  if(!uid && (!pinInput||pinInput.length!==6)){toast('PIN requis : exactement 6 chiffres','error');return;}
+  if(pinInput && pinInput.length!==6){toast('PIN invalide : exactement 6 chiffres','error');return;}
   const initials=($('usr_init').value||'').trim()||ini(name);
   const photo=window._userPhoto||null;
-  const data={name,pin,role,initials,phone:($('usr_phone').value||'').trim()||null,...(photo?{photo_url:photo}:{})};
+  const existingUser=uid?DB.users.find(x=>x.id===uid):null;
+  const pin=pinInput||existingUser?.pin||'';
+  const pinHashed=pinInput?false:(existingUser?.pin_hashed||false);
+  const data={name,pin,pin_hashed:pinHashed,role,initials,phone:($('usr_phone').value||'').trim()||null,...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
   if(uid){
     const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
