@@ -1236,7 +1236,7 @@ window.tryLogin = async () => {
 window.loginAs = user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
-  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); },450);
+  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); },450);
 };
 window.logout = () => {
   S.user=null; $('LN').value=''; $('LP').value=''; $('PM').textContent='';
@@ -3534,7 +3534,10 @@ R.approbations = () => {
           <div class="pi-sub">${esc(r.matiere)} · <strong>$${r.amount}</strong> · Prof: ${t?esc(t.name):'?'}</div>
           <div style="font-size:11px;color:var(--text-muted)">Notifié le ${r.validated_date||r.date}</div>
         </div>
-        <button class="btn btn-success btn-sm" onclick="marquerRattrapage('${r.id}',true)">✅ Confirmer payé</button>
+        <div style="display:flex;gap:6px;flex-direction:column">
+          <button class="btn btn-success btn-sm" onclick="marquerRattrapage('${r.id}',true)">✅ Confirmer payé</button>
+          ${!r.session_date?`<button class="btn btn-sm" style="background:#dbeafe;border-color:#93c5fd;color:#1e40af;font-size:11px" onclick="planifierRattrapage('${r.id}')">📅 Planifier séance</button>`:`<div style="font-size:10px;color:#1e40af;font-weight:700">📅 ${new Date(r.session_date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>`}
+        </div>
       </div>`;
     };
     return `<div class="premium-section" style="border-left:4px solid #3b82f6">
@@ -4215,6 +4218,8 @@ R.children = () => {
               📲 Signaler mon paiement à la Direction
             </button>`:''}
             ${r.payment_signaled&&r.status!=='paid'?`<div style="font-size:11px;color:#059669;margin-top:6px;text-align:center">✅ Paiement signalé — en attente de confirmation Direction</div>`:''}
+            ${r.session_date?`<div style="margin-top:8px;background:#dbeafe;border-radius:8px;padding:8px 10px;font-size:12px;color:#1e40af;font-weight:600">📅 Séance prévue : ${new Date(r.session_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}${r.session_time?' à '+r.session_time:''}${r.session_place?' — '+esc(r.session_place):''}</div>`:''}
+            ${r.done?`<div style="margin-top:6px;background:#d1fae5;border-radius:8px;padding:8px 10px;font-size:12px;color:#065f46;font-weight:600">✅ Cours effectué le ${r.done_date||''}${r.done_note?' · '+esc(r.done_note.slice(0,80)):''}</div>`:''}
           </div>`;}).join('')}
         </div>`;
       })()}
@@ -4443,36 +4448,37 @@ window.autoCheckRattrapage = (sid, teacherId) => {
 
   if(!weakDetails.length) return;
 
-  // Global average
   const globalAvg = Math.round(allGrades.reduce((a, g) => a + gradePct(g), 0) / allGrades.length);
-  const weakMatsStr = weakDetails.map(w => `${w.mat} (${w.avg}%)`).join(', ');
+  const newRats = [];
 
-  // Don't create a duplicate if already pending for this student
-  const already = DB.rattrapages.find(r => r.sid === sid && (r.status === 'pending' || r.status === 'notified'));
-  if(already) { already.score = globalAvg; already.matiere = weakMatsStr; return; }
+  // One rattrapage per weak subject (skip if already pending for that subject)
+  weakDetails.forEach(w => {
+    const alreadyForMat = DB.rattrapages.find(r =>
+      r.sid === sid && r.matiere === w.mat && !r.archived &&
+      (r.status === 'pending' || r.status === 'notified')
+    );
+    if(alreadyForMat) { alreadyForMat.score = w.avg; return; }
+    const rat = {
+      id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+      sid, teacher_id: teacherId,
+      matiere: w.mat,
+      motif: `Moyenne insuffisante : ${w.avg}% — ${w.evals}`,
+      date: today(), status: 'pending', amount: 0, paid: false,
+      score: w.avg, auto_triggered: true
+    };
+    DB.rattrapages.push(rat);
+    pushSync('rattrapages', 'post', rat);
+    newRats.push(rat);
+  });
 
-  // Build detailed motif
-  const motifLines = weakDetails.map(w => `• ${w.mat}: moy. ${w.avg}% — ${w.evals}`).join('\n');
-  const motif = `Matières insuffisantes (< 50%) :\n${motifLines}`;
+  if(!newRats.length) return;
 
-  const rat = {
-    id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid, teacher_id: teacherId,
-    matiere: weakMatsStr,
-    motif,
-    date: today(), status: 'pending', amount: 0, paid: false,
-    score: globalAvg, auto_triggered: true,
-    weak_details: weakDetails
-  };
-  DB.rattrapages.push(rat);
-  pushSync('rattrapages', 'post', rat);
-
-  // Convocation liée — skip if one already pending for this student (auto-triggered)
+  // One convocation linked to the first new rattrapage (if none already pending)
   const convAlready = DB.convocations.find(c => c.sid === sid && c.status === 'pending' && c.rat_id);
   if(!convAlready) {
     const conv = {
       id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
-      sid, rat_id: rat.id, date: today(),
+      sid, rat_id: newRats[0].id, date: today(),
       reason: 'Résultats scolaires insuffisants',
       status: 'pending', rdv_date: null, note: '', score: globalAvg
     };
@@ -4480,19 +4486,17 @@ window.autoCheckRattrapage = (sid, teacherId) => {
     pushSync('convocations', 'post', conv);
   }
 
-  // Alert Direction
-  const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières faibles: ${weakMatsStr}`;
-  DB.users.filter(u => u.role === 'direction' || u.role === 'direction2').forEach(u => {
-    const n = {id:'n'+Date.now()+Math.random().toString(36).slice(2,5), uid:u.id,
-      msg: dirMsg, time:nowTime(), date:today(), read:false, type:'alert'};
+  const weakMatsStr = weakDetails.map(w => `${w.mat} (${w.avg}%)`).join(', ');
+  const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières: ${weakMatsStr}`;
+  DB.users.filter(u => u.role==='direction'||u.role==='direction2').forEach(u => {
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+      msg:dirMsg,time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
-
-  // Alert parent — free access
   if(s.pid) {
-    const parentMsg = `📚 ${s.name} a besoin de cours de rattrapage — Matières en difficulté : ${weakDetails.map(w=>`${w.mat} (${w.avg}%)`).join(', ')}. La Direction vous contactera pour organiser le suivi.`;
-    const np = {id:'n'+Date.now()+Math.random().toString(36).slice(2,5), uid:s.pid,
-      msg: parentMsg, time:nowTime(), date:today(), read:false, type:'alert'};
+    const np={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+      msg:`📚 ${s.name} a besoin de cours de rattrapage — Matières en difficulté : ${weakMatsStr}. La Direction vous contactera.`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(np); pushSync('notifs','post',np);
   }
 };
@@ -4605,6 +4609,97 @@ window.marquerRattrapage = (rid, paid) => {
   }
   pushSync('rattrapages','patch',{status:r.status,paid:r.paid},'id=eq.'+rid);
   saveToCrypt(); render();
+};
+
+// Direction: planifier la séance après paiement
+window.planifierRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const s=DB.students.find(x=>x.id===r.sid);
+  openM(`📅 Planifier la séance — ${s?esc(s.name):''} · ${esc(r.matiere)}`,`
+  <div class="form-group"><label class="form-label">Date de la séance *</label>
+    <input class="form-input" id="sessDate" type="date" value="${r.session_date||''}">
+  </div>
+  <div class="form-group"><label class="form-label">Heure de début</label>
+    <input class="form-input" id="sessTime" type="time" value="${r.session_time||''}">
+  </div>
+  <div class="form-group"><label class="form-label">Lieu</label>
+    <input class="form-input" id="sessPlace" placeholder="Ex: Salle 12, local de l'école..." value="${esc(r.session_place||'')}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="savePlanRattrapage('${rid}')">📅 Confirmer la séance</button>`);
+};
+
+window.savePlanRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const d=($('sessDate')?.value||'').trim();
+  if(!d){toast('Date obligatoire','error');return;}
+  r.session_date=d; r.session_time=$('sessTime')?.value||''; r.session_place=($('sessPlace')?.value||'').trim();
+  pushSync('rattrapages','patch',{session_date:r.session_date,session_time:r.session_time,session_place:r.session_place},'id=eq.'+rid);
+  const s=DB.students.find(x=>x.id===r.sid);
+  const teacher=gu(r.teacher_id);
+  const dateLabel=new Date(d).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  const timeLabel=r.session_time?` à ${r.session_time}`:'';
+  const placeLabel=r.session_place?` — ${r.session_place}`:'';
+  const msg=`📅 Séance de rattrapage planifiée — ${s?s.name:''} · ${r.matiere} · ${dateLabel}${timeLabel}${placeLabel}`;
+  if(teacher){const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:teacher.id,msg,time:nowTime(),date:today(),read:false,type:'info'};DB.notifs.unshift(n);pushSync('notifs','post',n);}
+  if(s?.pid){const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,msg,time:nowTime(),date:today(),read:false,type:'info'};DB.notifs.unshift(n);pushSync('notifs','post',n);}
+  toast('✅ Séance planifiée — enseignant et parent notifiés','success');
+  closeModal(); saveToCrypt(); render();
+};
+
+// Enseignant: marquer séance effectuée
+window.marquerSeanceEffectuee = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const s=DB.students.find(x=>x.id===r.sid);
+  openM(`✅ Séance effectuée — ${s?esc(s.name):''} · ${esc(r.matiere)}`,`
+  <div class="form-group"><label class="form-label">Observations / Compte-rendu (optionnel)</label>
+    <textarea class="form-input" id="sessNote" rows="3" placeholder="Ex: Bonne progression, révision des fractions couverte..."></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveSeanceEffectuee('${rid}')">✅ Confirmer</button>`);
+};
+
+window.saveSeanceEffectuee = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const note=($('sessNote')?.value||'').trim();
+  r.done=true; r.done_date=today(); r.done_note=note;
+  pushSync('rattrapages','patch',{done:true,done_date:r.done_date,done_note:note},'id=eq.'+rid);
+  const s=DB.students.find(x=>x.id===r.sid);
+  if(s?.pid){
+    const msg=`✅ Cours de rattrapage terminé — ${s.name} · ${r.matiere}${note?' · '+note.slice(0,80):''}`;
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,msg,time:nowTime(),date:today(),read:false,type:'info'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  }
+  logAudit('rattrapage_done',`${s?.name||''} · ${r.matiere}`,rid);
+  toast('✅ Séance confirmée — parent notifié','success');
+  closeModal(); saveToCrypt(); render();
+};
+
+// Archiver un rattrapage terminé
+window.archiverRattrapage = (rid) => {
+  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  r.archived=true;
+  pushSync('rattrapages','patch',{archived:true},'id=eq.'+rid);
+  toast('📦 Rattrapage archivé','info');
+  saveToCrypt(); render();
+};
+
+// Rappels automatiques : paiements en retard > 7 jours
+window.checkRattrapageReminders = () => {
+  if(!S.user||(S.user.role!=='direction'&&S.user.role!=='direction2')) return;
+  const limit=new Date(); limit.setDate(limit.getDate()-7);
+  DB.rattrapages.filter(r=>
+    r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled&&!r.paid&&!r.archived&&
+    r.validated_date&&new Date(r.validated_date)<limit&&!r.reminder_sent
+  ).forEach(r=>{
+    const s=DB.students.find(x=>x.id===r.sid); if(!s?.pid) return;
+    r.reminder_sent=true;
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+      msg:`⏰ Rappel — Frais de rattrapage non réglés : ${s.name} · ${r.matiere} · $${r.amount}. Merci de régulariser à la Direction.`,
+      time:nowTime(),date:today(),read:false,type:'alert'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+    pushSync('rattrapages','patch',{reminder_sent:true},'id=eq.'+r.id);
+  });
 };
 
 window.markAttendance = (sid,status) => {
@@ -8496,33 +8591,56 @@ R.mes_primes = () => {
   const statusLabel={pending:'⏳ En attente Direction',validated:'✅ Validé — à percevoir',paid:'💰 Prime versée',refused:'❌ Refusé'};
   const statusColor={pending:'#d97706',validated:'#2563eb',paid:'#059669',refused:'#dc2626'};
   const statusBg={pending:'#fef3c7',validated:'#dbeafe',paid:'#d1fae5',refused:'#fee2e2'};
+  const activeRats=myRats.filter(r=>!r.archived);
+  const archivedRats=myRats.filter(r=>r.archived);
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💰 Mes primes — Rattrapages</span></div>
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">💰</div><div class="ww-stat-val">$${earned}</div><div class="ww-stat-label">Primes reçues</div></div>
     <div class="ww-stat" style="border-left-color:#2563eb"><div class="ww-stat-icon">⏳</div><div class="ww-stat-val">$${due}</div><div class="ww-stat-label">À percevoir</div></div>
-    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${myRats.length}</div><div class="ww-stat-label">Signalements</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${activeRats.length}</div><div class="ww-stat-label">En cours</div></div>
   </div>
   ${pending>0?`<div style="padding:12px 14px;background:#fef3c7;border-radius:10px;font-size:13px;color:#92400e;margin-bottom:14px">⏳ ${pending} signalement${pending>1?'s':''} en attente de validation par la Direction</div>`:''}
   <div class="ww-section">
-    ${myRats.length?myRats.map((r,i)=>{
+    ${activeRats.length?activeRats.map((r,i)=>{
       const s=DB.students.find(x=>x.id===r.sid);
       const st=r.paid?'paid':r.validated_by?'validated':r.status==='refused'?'refused':'pending';
+      const sessInfo=r.session_date?`<div style="margin-top:6px;background:#dbeafe;border-radius:8px;padding:6px 10px;font-size:12px;color:#1e40af;font-weight:600">📅 Séance : ${new Date(r.session_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${r.session_time?' à '+r.session_time:''}${r.session_place?' — '+esc(r.session_place):''}</div>`:'';
+      const doneInfo=r.done?`<div style="margin-top:6px;background:#d1fae5;border-radius:8px;padding:6px 10px;font-size:12px;color:#065f46;font-weight:600">✅ Séance effectuée le ${r.done_date||''}${r.done_note?' · '+esc(r.done_note.slice(0,60)):''}</div>`:'';
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div class="ww-item-icon" style="background:${statusBg[st]}"><span style="font-size:18px">${st==='paid'?'💰':st==='validated'?'✅':st==='refused'?'❌':'📚'}</span></div>
         <div class="ww-item-content">
           <div class="ww-item-title">${s?esc(s.name):'?'} — ${esc(r.matiere||'—')}</div>
-          <div class="ww-item-sub">${r.date||''}${r.motif?' · '+esc(r.motif):''}</div>
+          <div class="ww-item-sub">${r.date||''}${r.score!=null?' · Moy: '+r.score+'%':''}</div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${statusBg[st]};color:${statusColor[st]}">${statusLabel[st]}</span>
             ${r.amount>0?`<span style="font-size:12px;font-weight:800;color:${st==='paid'?'#059669':'#1d4ed8'}">$${r.amount}</span>`:'<span style="font-size:11px;color:var(--text-muted)">Montant non fixé</span>'}
           </div>
-          ${st==='validated'&&!r.payment_signaled?`<button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">📲 Signaler mon paiement</button>`:''}
-          ${r.payment_signaled&&!r.paid?`<div style="font-size:11px;color:#059669;margin-top:4px">✅ Paiement signalé — en attente confirmation Direction</div>`:''}
+          ${sessInfo}${doneInfo}
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            ${st==='validated'&&!r.payment_signaled?`<button class="btn btn-primary btn-sm" onclick="signalerPaiementRattrapage('${r.id}')">📲 Signaler mon paiement</button>`:''}
+            ${r.payment_signaled&&!r.paid?`<div style="font-size:11px;color:#059669;padding:4px 0">✅ Paiement signalé — en attente Direction</div>`:''}
+            ${r.session_date&&!r.done?`<button class="btn btn-sm" style="background:#d1fae5;border-color:#6ee7b7;color:#065f46" onclick="marquerSeanceEffectuee('${r.id}')">✅ Séance effectuée</button>`:''}
+            ${(r.done||r.status==='refused')?`<button class="btn btn-outline btn-sm" onclick="archiverRattrapage('${r.id}')">📦 Archiver</button>`:''}
+          </div>
         </div>
       </div>`;
-    }).join(''):`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun rattrapage signalé</div>`}
-  </div>`;
+    }).join(''):`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📚</div>Aucun rattrapage actif</div>`}
+  </div>
+  ${archivedRats.length?`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px;color:var(--text-muted);padding:8px 0">📦 Rattrapages archivés (${archivedRats.length})</summary>
+  <div class="ww-section" style="margin-top:8px">
+    ${archivedRats.map((r,i)=>{
+      const s=DB.students.find(x=>x.id===r.sid);
+      return `<div class="ww-item" style="opacity:.7">
+        <div class="ww-item-icon" style="background:#f1f5f9"><span>📦</span></div>
+        <div class="ww-item-content">
+          <div class="ww-item-title">${s?esc(s.name):'?'} — ${esc(r.matiere||'—')}</div>
+          <div class="ww-item-sub">${r.date||''} · ${r.amount>0?`$${r.amount}`:'Sans frais'}${r.done?' · ✅ Séance effectuée':''}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div></details>`:''}
+  `;
 };
 
 // ── MES ABSENCES (ENSEIGNANT) ──
