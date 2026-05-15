@@ -671,7 +671,9 @@ window.NAV = {
       {id:'audit_log',i:'🕐',l:'Historique'},
       {id:'year_mgmt',i:'📆',l:'Année Scolaire'},
       {id:'export',i:'📤',l:'Export Données'},
+      {id:'accounts',i:'👥',l:'Comptes Accès'},
       {id:'settings',i:'⚙️',l:'Paramètres'},
+      {id:'profil_direction',i:'👤',l:'Mon profil'},
     ],
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
@@ -801,6 +803,7 @@ window.NAV = {
       {id:'year_mgmt',i:'📆',l:'Année Scolaire'},
       {id:'export',i:'📤',l:'Export Données'},
       {id:'settings',i:'⚙️',l:'Paramètres'},
+      {id:'profil_direction2',i:'👤',l:'Mon profil'},
     ],
     bn:[
       {id:'dashboard',i:'📊',l:'Accueil'},
@@ -1156,6 +1159,8 @@ window.PT = {
   caisse_paiement:'💵 Enregistrer Paiement', caisse_depense:'💸 Enregistrer Dépense',
   caisse_rapport:'📋 Rapport du Jour',
   profil_gardien:'👤 Mon profil', profil_caisse:'👤 Mon profil',
+  profil_direction:'👤 Mon profil', profil_direction2:'👤 Mon profil',
+  accounts:'👥 Comptes Accès',
   mes_primes:'💰 Mes primes', mes_absences:'📅 Mes absences',
   profil_enseignant:'👤 Mon profil', profil_parent:'👤 Mon profil',
   scan_history:'🚪 Entrées / Sorties', convocations:'📋 Convocations',
@@ -3081,11 +3086,12 @@ window.deleteStudent = (sid) => {
 
 // ── TEACHERS / GUARDIANS / PARENTS — CRUD ──
 const ROLE_META = {
+  direction:{label:'Direction 1',icon:'🏛️',color:'#0f2557',bg:'#dbeafe'},
+  direction2:{label:'Direction 2',icon:'🏫',color:'#2563eb',bg:'#e0e7ff'},
+  direction3:{label:'Caisse',icon:'💵',color:'#059669',bg:'#d1fae5'},
   enseignant:{label:'Enseignant',icon:'👨‍🏫',color:'#10b981',bg:'#d1fae5'},
   gardien:{label:'Gardien',icon:'🛡️',color:'#f97316',bg:'#ffedd5'},
   parent:{label:'Parent',icon:'👨‍👩‍👧',color:'#8b5cf6',bg:'#ede9fe'},
-  direction2:{label:'Direction 2',icon:'🏫',color:'#2563eb',bg:'#dbeafe'},
-  direction3:{label:'Caisse',icon:'💵',color:'#059669',bg:'#d1fae5'},
 };
 
 window._simpleList = (role, icon, gradient) => {
@@ -3123,7 +3129,15 @@ window._simpleList = (role, icon, gradient) => {
 window.openUserForm = (role, uid) => {
   const u = uid ? DB.users.find(x=>x.id===uid) : null;
   const meta = ROLE_META[role]||{label:role,icon:'👤'};
-  const classOpts = role==='enseignant' ? `<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${DB.classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
+  const existingLang = uid ? (()=>{ const c=DB.classes.find(x=>x.teacher_id_en===uid); return c?'en':'fr'; })() : 'fr';
+  const classOpts = role==='enseignant' ? `
+<div class="form-group"><label class="form-label">Section d'enseignement</label>
+  <div style="display:flex;gap:12px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="radio" name="usr_lang" id="usr_lang_fr" value="fr" ${existingLang==='fr'?'checked':''} style="accent-color:#2563eb"> 🇫🇷 Français</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="radio" name="usr_lang" id="usr_lang_en" value="en" ${existingLang==='en'?'checked':''} style="accent-color:#2563eb"> 🇬🇧 Anglais</label>
+  </div>
+</div>
+<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${DB.classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
   const photoOpts = role==='parent' ? `<div class="form-group"><label class="form-label">Photo d'identité</label>
     <div style="display:flex;align-items:center;gap:14px">
       <div id="usr_photo_preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">
@@ -3162,10 +3176,13 @@ window.saveUser = () => {
   if(uid){
     const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
     if(role==='enseignant'){
+      const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
       document.querySelectorAll('[data-cid]').forEach(cb=>{
         const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
-        if(cb.checked){if(c.teacher_id!==uid&&c.teacher_id_en!==uid) c.teacher_id=uid;}
-        else{if(c.teacher_id===uid) c.teacher_id=null; if(c.teacher_id_en===uid) c.teacher_id_en=null;}
+        if(cb.checked){
+          if(langEn){if(c.teacher_id_en!==uid){if(c.teacher_id===uid)c.teacher_id=null;c.teacher_id_en=uid;}}
+          else{if(c.teacher_id!==uid){if(c.teacher_id_en===uid)c.teacher_id_en=null;c.teacher_id=uid;}}
+        } else{if(c.teacher_id===uid) c.teacher_id=null; if(c.teacher_id_en===uid) c.teacher_id_en=null;}
       });
       DB.classes.forEach(c=>pushSync('classes','upsert',c));
     }
@@ -3175,6 +3192,15 @@ window.saveUser = () => {
   } else {
     const ns={id:'u'+Date.now(),...data};
     DB.users.push(ns);
+    if(role==='enseignant'){
+      const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
+      document.querySelectorAll('[data-cid]').forEach(cb=>{
+        if(!cb.checked) return;
+        const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
+        if(langEn) c.teacher_id_en=ns.id; else c.teacher_id=ns.id;
+      });
+      DB.classes.forEach(c=>pushSync('classes','upsert',c));
+    }
     pushSync('users','upsert',ns);
     logAudit('user_add', `${name} — ${role}`, ns.id);
     toast(`🎉 ${name} ajouté`,'success');
@@ -9219,6 +9245,122 @@ R.profil_caisse = () => {
 };
 window.saveCaisseProfile = () => {
   const phone=(document.getElementById('ca_phone')?.value||'').trim();
+  if(!phone){toast('Numéro de téléphone requis','error');return;}
+  S.user.phone=phone;
+  const u=DB.users.find(x=>x.id===S.user.id);
+  if(u) u.phone=phone;
+  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
+  saveToCrypt();
+  toast('✅ Profil mis à jour','success');
+};
+
+// ── COMPTES ACCÈS (Direction 1 seulement) ──
+R.accounts = () => {
+  const mkSection = (role, gradient) => {
+    const meta=ROLE_META[role]||{label:role,icon:'👤',color:'#64748b',bg:'#f1f5f9'};
+    const users=DB.users.filter(u=>u.role===role);
+    return `
+    <div class="premium-section" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700">${meta.icon} ${meta.label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${users.length})</span></div>
+        <button class="btn btn-primary btn-sm" onclick="openUserForm('${role}')">➕ Ajouter</button>
+      </div>
+      ${!users.length?`<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">${meta.icon} Aucun compte — cliquez ➕ pour créer</div>`:`
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${users.map(u=>`
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:12px">
+          <div style="width:44px;height:44px;border-radius:12px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0">${u.initials||ini(u.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
+          </div>
+        </div>`).join('')}
+      </div>`}
+    </div>`;
+  };
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👥 Comptes Accès</span></div>
+  ${mkSection('direction','linear-gradient(90deg,#0f2557,#1e40af)')}
+  ${mkSection('direction2','linear-gradient(90deg,#2563eb,#7c3aed)')}
+  ${mkSection('direction3','linear-gradient(90deg,#059669,#10b981)')}`;
+};
+
+// ── PROFIL DIRECTION 1 ──
+R.profil_direction = () => {
+  const u=S.user;
+  const totalStudents=DB.students.length;
+  const totalUsers=DB.users.length;
+  const totalClasses=DB.classes.length;
+  const pendingPay=DB.students.filter(s=>(s.fee||0)>(s.paid||0)).length;
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
+  <div class="premium-section">
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
+      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#0f2557,#1e40af);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">🏛️ Direction 1 — Administrateur</div>
+        <div style="font-size:12px;color:var(--text-muted)">The Wise School International</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#8b5cf6">${totalUsers}</div><div style="font-size:10px;color:var(--text-muted)">Utilisateurs</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#ef4444">${pendingPay}</div><div style="font-size:10px;color:var(--text-muted)">Impayés</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+      <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir1_phone')">💾 Enregistrer</button>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #e2e8f0">
+    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+  </div>`;
+};
+
+// ── PROFIL DIRECTION 2 ──
+R.profil_direction2 = () => {
+  const u=S.user;
+  const totalStudents=DB.students.length;
+  const totalClasses=DB.classes.length;
+  const teachers=DB.users.filter(x=>x.role==='enseignant').length;
+  return `
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
+  <div class="premium-section">
+    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
+      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:13px;color:var(--text-secondary)">🏫 Direction 2 — Pédagogie</div>
+        <div style="font-size:12px;color:var(--text-muted)">The Wise School International</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${teachers}</div><div style="font-size:10px;color:var(--text-muted)">Enseignants</div></div>
+    </div>
+    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+      <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir2_phone')">💾 Enregistrer</button>
+  </div>
+  <div class="premium-section" style="border-left:4px solid #e2e8f0">
+    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom, contactez la Direction 1.</div>
+    <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
+  </div>`;
+};
+
+window.saveDirProfile = (inputId) => {
+  const phone=(document.getElementById(inputId)?.value||'').trim();
   if(!phone){toast('Numéro de téléphone requis','error');return;}
   S.user.phone=phone;
   const u=DB.users.find(x=>x.id===S.user.id);
