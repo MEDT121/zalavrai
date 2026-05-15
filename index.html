@@ -502,19 +502,19 @@ window.DB = {
   students:[
     { id:'s1', mat:'STU-0001', name:'Lomela Dodo', cid:'c4', pid:'u5', photo:null,
       dob:'2018-05-12', adresse:'Avenue Lukusa 12, Gombe', nom_papa:'Lomela Jean', nom_maman:'Lomela Marie',
-      access_bulletin:false },
+      access_bulletin:false, access_devoirs:false },
     { id:'s2', mat:'STU-0002', name:'Mukeba Jean-Paul', cid:'c4', pid:null, photo:null,
       dob:'2017-11-03', adresse:'Av. Kasa-Vubu 45', nom_papa:'Mukeba Paul', nom_maman:'Mukeba Anne',
-      access_bulletin:false },
+      access_bulletin:false, access_devoirs:false },
     { id:'s3', mat:'STU-0003', name:'Kabila Sarah', cid:'c4', pid:null, photo:null,
       dob:'2018-02-20', adresse:'Bd du 30 Juin 88', nom_papa:'Kabila Pierre', nom_maman:'Kabila Grâce',
-      access_bulletin:false },
+      access_bulletin:false, access_devoirs:false },
     { id:'s4', mat:'STU-0004', name:'Ngoy David', cid:'c4', pid:null, photo:null,
       dob:'2017-08-15', adresse:'Av. Victoire 33', nom_papa:'Ngoy Michel', nom_maman:'Ngoy Claire',
-      access_bulletin:false },
+      access_bulletin:false, access_devoirs:false },
     { id:'s5', mat:'STU-0005', name:'Tshilombo Ruth', cid:'c4', pid:null, photo:null,
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther',
-      access_bulletin:false },
+      access_bulletin:false, access_devoirs:false },
   ],
   aps:[],
   daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[],
@@ -3945,20 +3945,20 @@ window.togglePay = (sid, t) => {
   const s=DB.students.find(x=>x.id===sid);
   logAudit('payment_toggle', `${s?s.name:sid} — T${t} ${p.paid?'payé':'impayé'}`, sid);
   toast(p.paid?`T${t} activé ✅`:`T${t} désactivé ❌`, p.paid?'success':'info');
-  // Auto-activation access_bulletin quand tous les frais sont payés
+  // Auto-activation access_bulletin + access_devoirs quand tous les frais sont payés
   if (s) {
     const pays = DB.payments.filter(x=>x.sid===sid);
     const allPaid = pays.length > 0 && pays.every(x=>x.paid);
-    if (allPaid && !s.access_bulletin) {
-      s.access_bulletin = true;
-      pushSync('students','patch',{access_bulletin:true},'id=eq.'+sid);
+    if (allPaid && (!s.access_bulletin || !s.access_devoirs)) {
+      s.access_bulletin = true; s.access_devoirs = true;
+      pushSync('students','patch',{access_bulletin:true,access_devoirs:true},'id=eq.'+sid);
       if (s.pid) {
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
-          msg:`✅ Frais complets — accès aux résultats et bulletins activé pour ${s.name}.`,
+          msg:`✅ Frais complets — accès aux bulletins et devoirs activé pour ${s.name}.`,
           time:nowTime(),date:today(),read:false,type:'info',by:S.user.id};
         DB.notifs.unshift(n); pushSync('notifs','post',n);
       }
-      toast(`📋 Frais complets — accès bulletin activé pour ${s.name}`,'success');
+      toast(`✅ Frais complets — accès bulletins & devoirs activé pour ${s.name}`,'success');
     }
   }
   saveToCrypt(); render();
@@ -5393,7 +5393,6 @@ R.devoirs_parent = () => {
         </div>
 
       </div>`;
-    // Devoirs / dates / conduite : toujours accessibles au parent
     const _now=Date.now();
     const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
@@ -5411,9 +5410,9 @@ R.devoirs_parent = () => {
       <span style="padding:4px 10px;background:#dbeafe;border-radius:20px;font-size:12px;font-weight:600;color:#1e40af">📚 ${devoirsList.length} devoir${devoirsList.length!==1?'s':''}</span>
       <span style="padding:4px 10px;background:#fef3c7;border-radius:20px;font-size:12px;font-weight:600;color:#92400e">⚠️ ${interroList.length} interro${interroList.length!==1?'s':''}</span>
       <span style="padding:4px 10px;background:#ede9fe;border-radius:20px;font-size:12px;font-weight:600;color:#5b21b6">📝 ${examenList.length} examen${examenList.length!==1?'s':''}</span>
-      ${avgNote!==null?`<span style="padding:4px 10px;background:${avgNote>=70?'#d1fae5':avgNote>=50?'#fef3c7':'#fee2e2'};border-radius:20px;font-size:12px;font-weight:600;color:${avgNote>=70?'#065f46':avgNote>=50?'#92400e':'#991b1b'}">📊 Moy. ${avgNote}%</span>`:''}
+      ${k.access_devoirs&&avgNote!==null?`<span style="padding:4px 10px;background:${avgNote>=70?'#d1fae5':avgNote>=50?'#fef3c7':'#fee2e2'};border-radius:20px;font-size:12px;font-weight:600;color:${avgNote>=70?'#065f46':avgNote>=50?'#92400e':'#991b1b'}">📊 Moy. ${avgNote}%</span>`:''}
     </div>
-    ${(needsRat||badConduct)?`<div style="padding:12px 14px;background:#fef9c3;border-radius:12px;border-left:4px solid #f59e0b;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
+    ${k.access_devoirs&&(needsRat||badConduct)?`<div style="padding:12px 14px;background:#fef9c3;border-radius:12px;border-left:4px solid #f59e0b;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
       <span style="font-size:22px;flex-shrink:0">⚠️</span>
       <div>
         <div style="font-weight:700;font-size:13px;color:#92400e">Recommandation — Cours de rattrapage</div>
@@ -5461,15 +5460,15 @@ R.devoirs_parent = () => {
         </div>`;
       }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
     </div>`;
-    // ── Section Notes (frais + toggle requis) ──
+    // ── Section Notes/Côtes — verrouillé si Direction n'a pas activé access_devoirs ──
     if(DB.settings.toggles?.notes_parent) {
-      if(!hasPaid) {
-        html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #ef4444">
+      if(!k.access_devoirs) {
+        html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
           <div style="display:flex;align-items:center;gap:14px;padding:6px 0">
             <div style="font-size:36px">🔒</div>
             <div>
-              <div style="font-weight:700;font-size:14px">Notes / Côtes — Accès bloqué</div>
-              <div style="font-size:13px;color:#dc2626;margin-top:4px">Réglez les frais scolaires pour voir les notes de ${esc(k.name)}</div>
+              <div style="font-weight:700;font-size:14px">Corrections & Côtes — Accès bloqué</div>
+              <div style="font-size:13px;color:#92400e;margin-top:4px">La Direction n'a pas encore activé l'accès aux corrections pour ${esc(k.name)}.<br><span style="font-size:11px;color:#78350f">Cet accès dépend du règlement des frais scolaires.</span></div>
             </div>
           </div>
         </div>`;
@@ -9380,56 +9379,133 @@ window.saveDirProfile = (inputId) => {
 
 // ── ACCÈS PARENTS PAR ÉLÈVE ──
 R.acces_parents = () => {
-  const rows = DB.students.map(s => {
-    const parent = DB.users.find(u => u.id === s.pid);
-    const cl = DB.classes.find(c => c.id === s.cid);
-    const paid = DB.payments.filter(p => p.sid === s.id && p.paid).reduce((a,p) => a + (p.amount||0), 0);
-    const total = DB.payments.filter(p => p.sid === s.id).reduce((a,p) => a + (p.amount||0), 0);
-    const pct = total > 0 ? Math.round(paid/total*100) : 0;
-    const fraisLabel = total === 0 ? '—' : pct >= 100 ? '✅ Complet' : pct > 0 ? `⚠️ ${pct}%` : '❌ Non payé';
-    return `<tr>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9">
-        <div style="font-weight:700;font-size:14px">${esc(s.name)}</div>
-        <div style="font-size:11px;color:#64748b">${esc(s.mat)}</div>
-      </td>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(parent ? parent.name : '—')}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(cl ? cl.name : '—')}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(fraisLabel)}</td>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;text-align:center">
-        <button onclick="toggleStudentAccessFlag('${s.id}','bulletin')" style="background:${s.access_bulletin?'#22c55e':'#e2e8f0'};color:${s.access_bulletin?'#fff':'#64748b'};border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">
-          ${s.access_bulletin ? 'ON' : 'OFF'}
-        </button>
-      </td>
-    </tr>`;
-  }).join('');
-
-  return `<div style="padding:16px">
-    <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px">🔐 Accès parents</div>
-    <div style="font-size:13px;color:#64748b;margin-bottom:16px">Activez l'accès aux résultats et bulletins selon le paiement des frais scolaires.</div>
-    <div style="overflow-x:auto;border-radius:14px;border:1px solid #e2e8f0;background:#fff">
-      <table style="width:100%;border-collapse:collapse;min-width:600px">
-        <thead>
-          <tr style="background:#f8fafc">
-            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">ÉLÈVE</th>
-            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">PARENT</th>
-            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">CLASSE</th>
-            <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">FRAIS</th>
-            <th style="padding:10px 8px;text-align:center;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">📋 BULLETIN</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+  const q=(window._accParQ||'').toLowerCase();
+  const filter=window._accParFilter||'tous';
+  const getPayInfo=sid=>{
+    const pays=DB.payments.filter(p=>p.sid===sid);
+    const total=pays.length, paid=pays.filter(p=>p.paid).length;
+    const pct=total>0?Math.round(paid/total*100):0;
+    return{total,paid,pct,allPaid:total>0&&paid===total,anyPaid:paid>0};
+  };
+  let students=DB.students.filter(s=>{
+    if(!q) return true;
+    const par=DB.users.find(u=>u.id===s.pid);
+    return s.name.toLowerCase().includes(q)||(par&&par.name.toLowerCase().includes(q));
+  });
+  if(filter==='complets') students=students.filter(s=>getPayInfo(s.id).allPaid);
+  else if(filter==='partiels') students=students.filter(s=>{const p=getPayInfo(s.id);return p.anyPaid&&!p.allPaid;});
+  else if(filter==='impayés') students=students.filter(s=>!getPayInfo(s.id).anyPaid);
+  const allCount=DB.students.length;
+  const paidCount=DB.students.filter(s=>getPayInfo(s.id).allPaid).length;
+  const bulletinOn=DB.students.filter(s=>s.access_bulletin).length;
+  const devoirsOn=DB.students.filter(s=>s.access_devoirs).length;
+  const mkToggle=(sid,flag,active,icon,label)=>`
+    <div onclick="toggleStudentAccessFlag('${sid}','${flag}')" style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:8px 10px;border-radius:10px;background:${active?'#d1fae5':'#f1f5f9'};flex:1;min-width:0;border:1px solid ${active?'#6ee7b7':'#e2e8f0'};transition:background .15s">
+      <div style="width:36px;height:20px;border-radius:10px;background:${active?'#22c55e':'#cbd5e1'};position:relative;flex-shrink:0;transition:background .15s">
+        <div style="position:absolute;top:2px;left:${active?'16px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:800;color:${active?'#065f46':'#64748b'}">${icon} ${label}</div>
+        <div style="font-size:10px;color:${active?'#059669':'#94a3b8'}">${active?'Activé':'Désactivé'}</div>
+      </div>
+    </div>`;
+  const filterLabels={tous:'Tous',complets:'✅ Payés',partiels:'⚠️ Partiels',impayés:'❌ Impayés'};
+  return `
+  <div class="ww-toolbar">
+    <div class="ww-search" style="flex:1"><span style="color:var(--text-muted);margin-right:8px">🔍</span>
+      <input placeholder="Nom élève ou parent..." oninput="window._accParQ=this.value;render()" value="${window._accParQ||''}">
     </div>
-  </div>`;
+    <button onclick="autoActivatePaid()" style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;border-radius:10px;padding:7px 11px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚡ Auto payés</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="flex:1;min-width:80px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#2563eb">${paidCount}<span style="font-size:12px;font-weight:600;color:var(--text-muted)">/${allCount}</span></div>
+      <div style="font-size:10px;color:var(--text-muted)">Frais complets</div>
+    </div>
+    <div style="flex:1;min-width:80px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#22c55e">${bulletinOn}</div>
+      <div style="font-size:10px;color:var(--text-muted)">📋 Bulletins ON</div>
+    </div>
+    <div style="flex:1;min-width:80px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#8b5cf6">${devoirsOn}</div>
+      <div style="font-size:10px;color:var(--text-muted)">📊 Corrections ON</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${Object.entries(filterLabels).map(([f,l])=>`
+      <button onclick="window._accParFilter='${f}';render()" style="padding:5px 13px;border-radius:20px;border:1px solid ${filter===f?'#2563eb':'var(--border)'};font-size:12px;font-weight:700;cursor:pointer;background:${filter===f?'#2563eb':'var(--bg)'};color:${filter===f?'#fff':'var(--text-secondary)'}">
+        ${l}
+      </button>`).join('')}
+  </div>
+  ${!students.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔍</div>Aucun résultat</div>`:`
+  <div style="display:flex;flex-direction:column;gap:12px">
+    ${students.map(s=>{
+      const par=DB.users.find(u=>u.id===s.pid);
+      const cl=DB.classes.find(c=>c.id===s.cid);
+      const {paid:pPaid,total:pTotal,pct,allPaid,anyPaid}=getPayInfo(s.id);
+      const [cc,cbg]=cl?clsColor(cl.name):['#64748b','#f1f5f9'];
+      const fc=allPaid?'#22c55e':anyPaid?'#f59e0b':'#ef4444';
+      const fb=allPaid?'#d1fae5':anyPaid?'#fef3c7':'#fee2e2';
+      const fl=pTotal===0?'—':allPaid?'✅ Frais complets':anyPaid?`⚠️ ${pct}% payé (${pPaid}/${pTotal} trim.)`:'❌ Non payé';
+      const bothOn=s.access_bulletin&&s.access_devoirs;
+      const noneOn=!s.access_bulletin&&!s.access_devoirs;
+      return `
+      <div class="premium-section" style="margin-bottom:0;border-left:4px solid ${fc};${bothOn?'box-shadow:0 2px 8px rgba(34,197,94,.15)':''}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};font-weight:700;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(s.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:15px">${esc(s.name)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${s.mat} · ${cl?esc(cl.name):'?'}</div>
+          </div>
+          <div style="padding:4px 10px;border-radius:20px;background:${fb};color:${fc};font-size:11px;font-weight:700;flex-shrink:0">${fl}</div>
+        </div>
+        ${par?`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:10px;margin-bottom:10px">
+          <span style="font-size:11px;color:var(--text-muted);flex-shrink:0">👨‍👩‍👧 Parent :</span>
+          <span style="font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(par.name)}</span>
+          ${par.phone?waBtn(par.phone,par.name):''}
+        </div>`:`<div style="font-size:12px;color:#f59e0b;margin-bottom:10px;padding:6px 10px;background:#fef9c3;border-radius:8px">⚠️ Aucun compte parent lié — les accès n'auront pas d'effet</div>`}
+        ${pTotal>0?`<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:3px"><span>Paiement des frais scolaires</span><span>${pct}%</span></div>
+          <div style="height:7px;border-radius:4px;background:#e2e8f0;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${fc};border-radius:4px;transition:width .4s"></div>
+          </div>
+        </div>`:''}
+        <div style="display:flex;gap:8px">
+          ${mkToggle(s.id,'bulletin',s.access_bulletin,'📋','Bulletins')}
+          ${mkToggle(s.id,'devoirs',s.access_devoirs,'📊','Corrections & Côtes')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`;
 };
 
 window.toggleStudentAccessFlag = (sid, type) => {
-  const s = DB.students.find(x => x.id === sid);
-  if (!s) return;
-  s.access_bulletin = !s.access_bulletin;
-  pushSync('students', 'patch', {access_bulletin: s.access_bulletin}, 'id=eq.' + sid);
-  saveToCrypt();
-  render();
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  if(type==='bulletin'){
+    s.access_bulletin=!s.access_bulletin;
+    pushSync('students','patch',{access_bulletin:s.access_bulletin},'id=eq.'+sid);
+    toast(s.access_bulletin?'📋 Bulletins activés':'📋 Bulletins désactivés',s.access_bulletin?'success':'info');
+  } else if(type==='devoirs'){
+    s.access_devoirs=!s.access_devoirs;
+    pushSync('students','patch',{access_devoirs:s.access_devoirs},'id=eq.'+sid);
+    toast(s.access_devoirs?'📚 Devoirs & Interros activés':'📚 Devoirs & Interros désactivés',s.access_devoirs?'success':'info');
+  }
+  saveToCrypt(); render();
+};
+
+window.autoActivatePaid = () => {
+  let count=0;
+  DB.students.forEach(s=>{
+    const pays=DB.payments.filter(p=>p.sid===s.id);
+    if(pays.length>0&&pays.every(p=>p.paid)){
+      const changed=!s.access_bulletin||!s.access_devoirs;
+      s.access_bulletin=true; s.access_devoirs=true;
+      if(changed){pushSync('students','patch',{access_bulletin:true,access_devoirs:true},'id=eq.'+s.id);count++;}
+    }
+  });
+  if(count>0){saveToCrypt();render();toast(`⚡ ${count} élève(s) — accès complets activés`,'success');}
+  else toast('Tous les élèves à jour sont déjà activés','info');
 };
 
 // ── RECHERCHE GLOBALE ──
