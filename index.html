@@ -3843,6 +3843,22 @@ window.togglePay = (sid, t) => {
   const s=DB.students.find(x=>x.id===sid);
   logAudit('payment_toggle', `${s?s.name:sid} — T${t} ${p.paid?'payé':'impayé'}`, sid);
   toast(p.paid?`T${t} activé ✅`:`T${t} désactivé ❌`, p.paid?'success':'info');
+  // Auto-activation access_bulletin quand tous les frais sont payés
+  if (s) {
+    const pays = DB.payments.filter(x=>x.sid===sid);
+    const allPaid = pays.length > 0 && pays.every(x=>x.paid);
+    if (allPaid && !s.access_bulletin) {
+      s.access_bulletin = true;
+      pushSync('students','patch',{access_bulletin:true},'id=eq.'+sid);
+      if (s.pid) {
+        const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+          msg:`✅ Frais complets — accès aux résultats et bulletins activé pour ${s.name}.`,
+          time:nowTime(),date:today(),read:false,type:'info',by:S.user.id};
+        DB.notifs.unshift(n); pushSync('notifs','post',n);
+      }
+      toast(`📋 Frais complets — accès bulletin activé pour ${s.name}`,'success');
+    }
+  }
   saveToCrypt(); render();
 };
 
