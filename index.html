@@ -1050,6 +1050,7 @@ window.loadFromCrypt = async () => {
 setInterval(() => { if (DB.users.length > 0) saveToCrypt(); }, 30000);
 
 // ── UI HELPERS ──
+function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
 window.toast = (msg, type='info') => {
   const icons = {success:'✅',error:'❌',info:'ℹ️'};
   const el = document.createElement('div');
@@ -1263,7 +1264,7 @@ window.buildUI = () => {
   // Dark toggle
   document.querySelector('.dark-toggle').textContent = document.body.classList.contains('dark')?'☀️':'🌙';
   // User photo
-  if (S.user.photo_url) $('SA').innerHTML = `<img src="${S.user.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`;
+  if (S.user.photo_url) { const safeUrl = /^(https?:|data:image\/)/.test(S.user.photo_url||'') ? S.user.photo_url : ''; if(safeUrl) $('SA').innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`; }
   // Vérifier alertes cahier de texte au login
   try { checkCahierAlerts(); } catch(e) {}
   render();
@@ -1377,8 +1378,8 @@ function dashboardDirection() {
   <div class="premium-section" style="border-left:4px solid #ef4444;padding-bottom:4px">
     <div class="premium-section-title" style="color:#991b1b">🚨 Alertes immédiates</div>
     ${pending>0?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fef3c7">⏳</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente d'approbation</div><div class="pi-sub">Messages, rapports, justifications...</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>`:''}
-    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?s.name:'?';}).slice(0,3).join(', ')}${pendingRats.length>3?` +${pendingRats.length-3}`:''}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
-    ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('payments')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''} à l'entrée</div><div class="pi-sub">${blockedStudents.slice(0,3).map(s=>s.name).join(', ')}${blockedStudents.length>3?` +${blockedStudents.length-3}`:''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
+    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).slice(0,3).join(', ')}${pendingRats.length>3?` +${pendingRats.length-3}`:''}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
+    ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('payments')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''} à l'entrée</div><div class="pi-sub">${blockedStudents.slice(0,3).map(s=>esc(s.name)).join(', ')}${blockedStudents.length>3?` +${blockedStudents.length-3}`:''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
   </div>`:''}
 
   <div class="premium-section">
@@ -3308,8 +3309,8 @@ window.updateTitulaireOpts = () => {
   const tfUser=tfVal?DB.users.find(u=>u.id===tfVal):null;
   const teUser=teVal?DB.users.find(u=>u.id===teVal):null;
   titEl.innerHTML=`<option value="">— Choisir le titulaire —</option>`+
-    (tfUser?`<option value="${tfVal}" ${current===tfVal?'selected':''}>${tfUser.name} (FR)</option>`:'')+
-    (teUser?`<option value="${teVal}" ${current===teVal?'selected':''}>${teUser.name} (EN)</option>`:'');
+    (tfUser?`<option value="${tfVal}" ${current===tfVal?'selected':''}>${esc(tfUser.name)} (FR)</option>`:'')+
+    (teUser?`<option value="${teVal}" ${current===teVal?'selected':''}>${esc(teUser.name)} (EN)</option>`:'');
 };
 
 window.updateClassCycleFields = () => {
@@ -5416,7 +5417,7 @@ window.previewDevoirPdf = input => {
       <div style="display:flex;align-items:center;gap:12px;padding:4px">
         <span style="font-size:32px">📄</span>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${file.name}</div>
+          <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(file.name)}</div>
           <div style="font-size:11px;color:var(--text-muted)">${(file.size/1024).toFixed(0)} Ko · PDF</div>
         </div>
         <button class="btn btn-sm btn-outline" onclick="document.getElementById('dvPdfInput').click()">Changer</button>
