@@ -1234,11 +1234,12 @@ async function _hashPin(pin) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 window.tryLogin = async () => {
-  const name = ($('LN')?.value||'').trim().toLowerCase();
+  const normName = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const name = normName($('LN')?.value||'');
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin||pin.length!==6) { $('PM').textContent='Entrez un code de 6 chiffres'; return; }
-  const u = DB.users.find(u => u.name.toLowerCase()===name);
+  const u = DB.users.find(u => normName(u.name)===name);
   if (!u) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
   const hash = await _hashPin(pin);
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
