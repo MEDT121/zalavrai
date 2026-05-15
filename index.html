@@ -6080,11 +6080,31 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
     </div>
     ${contentBlock}
     ${parsed?'':`${imgBlock}${pdfNote}`}
-    <div class="signature">
+    ${myGrade?(()=>{
+      const pct=Math.round(myGrade.note/myGrade.max*100);
+      const col=pct>=70?'#059669':pct>=50?'#d97706':'#dc2626';
+      const mention=pct>=90?'Excellent !':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Passable':'À améliorer';
+      const corrDate=myGrade.corrected_at?new Date(myGrade.corrected_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):myGrade.date||'';
+      return `<div class="correction-box">
+        <div class="corr-hdr"><span>✅ RÉSULTATS DE CORRECTION</span><span style="font-size:10px;opacity:.85">Corrigé le ${corrDate}</span></div>
+        <div class="corr-body">
+          <div class="corr-note">
+            <div class="corr-val" style="color:${col}">${myGrade.note}<span style="font-size:16px;color:#94a3b8">/${myGrade.max}</span></div>
+            <div class="corr-sub">${pct}%</div>
+          </div>
+          <div class="corr-info">
+            <div class="corr-mention" style="color:${col}">${mention}</div>
+            ${myGrade.comment?`<div class="corr-comment">"${myGrade.comment}"</div>`:''}
+            <div class="corr-meta">Corrigé par ${teacherName||'l\'enseignant'}</div>
+          </div>
+        </div>
+      </div>`;
+    })():''}
+    ${!myGrade?`<div class="signature">
       <div class="sig-box">Signature de l'élève</div>
       <div class="sig-box">Signature du parent / tuteur</div>
       <div class="sig-box">Visa de l'enseignant</div>
-    </div>
+    </div>`:''}
     <div class="footer">
       <span>${school} · ${schoolAddr}</span>
       <span>Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</span>
