@@ -1878,9 +1878,8 @@ function dashboardParent() {
     const trims=['T1','T2','T3'];
     let rows='';
     kids.forEach(k=>{
-      const pay=DB.payments.find(p=>p.sid===k.id)||{};
-      const paidTrims=trims.filter(t=>pay[t.toLowerCase()+'_paid']||pay[t]);
-      const totalPaid=paidTrims.reduce((s,t)=>s+Number(fees[t]||0),0);
+      const pays=DB.payments.filter(p=>p.sid===k.id);
+      const totalPaid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
       const totalDue=trims.reduce((s,t)=>s+Number(fees[t]||0),0);
       const balance=totalDue-totalPaid;
       rows+=`<div class="premium-item">
@@ -1888,7 +1887,7 @@ function dashboardParent() {
         <div style="flex:1">
           <div class="pi-title">${esc(k.name)}</div>
           <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
-            ${trims.map(t=>{const p=pay[t.toLowerCase()+'_paid']||pay[t];return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p?'#d1fae5':'#fee2e2'};color:${p?'#065f46':'#991b1b'};font-weight:600">${t} ${p?'✅':'$'+Number(fees[t]||0)}</span>`;}).join('')}
+            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};color:${p&&p.paid?'#065f46':'#991b1b'};font-weight:600">${t} ${p&&p.paid?'✅':'$'+Number(fees[t]||0)}</span>`;}).join('')}
           </div>
         </div>
         <div style="text-align:right">
