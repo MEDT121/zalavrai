@@ -684,33 +684,33 @@ window.NAV = {
     ]
   },
   enseignant: {
-    label:'Enseignant',
+    label:{fr:'Enseignant',en:'Teacher'},
     nav:[
-      {s:'Ma Classe'},
-      {id:'dashboard',i:'📊',l:'Tableau de bord'},
-      {id:'palmares',i:'🏆',l:'Palmarès'},
-      {id:'devoirs',i:'📚',l:'Devoirs'},
-      {id:'matieres',i:'📐',l:'Matières'},
-      {s:'Suivi'},
-      {id:'attendance',i:'📋',l:'Présences'},
-      {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
-      {id:'timetable',i:'🗓️',l:'Emploi du temps'},
-      {id:'teacher_comm',i:'💬',l:'Communication co-titulaire'},
-      {s:'Mon compte'},
-      {id:'mes_primes',i:'💰',l:'Mes primes'},
-      {id:'mes_absences',i:'📅',l:'Mes absences'},
-      {id:'profil_enseignant',i:'👤',l:'Mon profil'},
-      {s:'Infos'},
-      {id:'messages',i:'✉️',l:'Messages'},
-      {id:'calendar',i:'📅',l:'Calendrier'},
-      {id:'notifications',i:'🔔',l:'Notifications'},
+      {s:{fr:'Ma Classe',en:'My Class'}},
+      {id:'dashboard',i:'📊',l:{fr:'Tableau de bord',en:'Dashboard'}},
+      {id:'palmares',i:'🏆',l:{fr:'Palmarès',en:'Rankings'}},
+      {id:'devoirs',i:'📚',l:{fr:'Devoirs',en:'Assignments'}},
+      {id:'matieres',i:'📐',l:{fr:'Matières',en:'Subjects'}},
+      {s:{fr:'Suivi',en:'Tracking'}},
+      {id:'attendance',i:'📋',l:{fr:'Présences',en:'Attendance'}},
+      {id:'cahier_texte',i:'📖',l:{fr:'Cahier de texte',en:'Lesson Book'}},
+      {id:'timetable',i:'🗓️',l:{fr:'Emploi du temps',en:'Timetable'}},
+      {id:'teacher_comm',i:'💬',l:{fr:'Communication co-titulaire',en:'Co-teacher Chat'}},
+      {s:{fr:'Mon compte',en:'My Account'}},
+      {id:'mes_primes',i:'💰',l:{fr:'Mes primes',en:'My Bonuses'}},
+      {id:'mes_absences',i:'📅',l:{fr:'Mes absences',en:'My Absences'}},
+      {id:'profil_enseignant',i:'👤',l:{fr:'Mon profil',en:'My Profile'}},
+      {s:{fr:'Infos',en:'Info'}},
+      {id:'messages',i:'✉️',l:{fr:'Messages',en:'Messages'}},
+      {id:'calendar',i:'📅',l:{fr:'Calendrier',en:'Calendar'}},
+      {id:'notifications',i:'🔔',l:{fr:'Notifications',en:'Notifications'}},
     ],
     bn:[
-      {id:'dashboard',i:'📊',l:'Accueil'},
-      {id:'palmares',i:'🏆',l:'Palmarès'},
-      {id:'devoirs',i:'📚',l:'Devoirs'},
-      {id:'messages',i:'✉️',l:'Messages'},
-      {id:'notifications',i:'🔔',l:'Notifs'},
+      {id:'dashboard',i:'📊',l:{fr:'Accueil',en:'Home'}},
+      {id:'palmares',i:'🏆',l:{fr:'Palmarès',en:'Rankings'}},
+      {id:'devoirs',i:'📚',l:{fr:'Devoirs',en:'Tasks'}},
+      {id:'messages',i:'✉️',l:{fr:'Messages',en:'Messages'}},
+      {id:'notifications',i:'🔔',l:{fr:'Notifs',en:'Notifs'}},
     ]
   },
   gardien: {
@@ -1268,25 +1268,28 @@ window.logout = () => {
 };
 window.buildUI = () => {
   const r = S.user.role, c = NAV[r];
-  $('SR').textContent = c.label;
+  const _lang = getLang();
+  const gl = x => typeof x === 'object' ? (x[_lang] || x.fr || x) : (x || '');
+  const roleLabel = gl(c.label);
+  $('SR').textContent = roleLabel;
   $('SA').textContent = S.user.initials || ini(S.user.name);
   $('SUN').textContent = S.user.name;
-  $('SUR').textContent = c.label;
+  $('SUR').textContent = roleLabel;
   // Sidebar nav
   const sn = $('SN'); sn.innerHTML = '';
   const pending = getPendingCount();
   c.nav.forEach(x => {
-    if (x.s) { sn.innerHTML += `<div class="nav-section-label">${x.s}</div>`; }
+    if (x.s) { sn.innerHTML += `<div class="nav-section-label">${gl(x.s)}</div>`; }
     else {
       const badge = x.badge && pending > 0 ? `<span class="nav-badge">${pending}</span>` : '';
-      sn.innerHTML += `<div class="nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="nav-icon">${x.i}</span>${x.l}${badge}</div>`;
+      sn.innerHTML += `<div class="nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="nav-icon">${x.i}</span>${gl(x.l)}${badge}</div>`;
     }
   });
   // Bottom nav
   const bn = $('BN'); bn.innerHTML = '';
   c.bn.forEach(x => {
     const badge = x.badge && pending > 0 ? `<span class="bnav-badge">${pending}</span>` : '';
-    bn.innerHTML += `<button class="bottom-nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="bnav-icon">${x.i}</span>${x.l}${badge}</button>`;
+    bn.innerHTML += `<button class="bottom-nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="bnav-icon">${x.i}</span>${gl(x.l)}${badge}</button>`;
   });
   // Date
   $('TD').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
@@ -4366,6 +4369,13 @@ window.getMyClass = () => {
   return {cl:null,lang:null};
 };
 
+// ── BILINGUISME — Option A (par profil enseignant) ──
+window.getLang = () => {
+  try { if(!S.user||S.user.role!=='enseignant') return 'fr'; return getMyClass().lang||'fr'; }
+  catch(e){ return 'fr'; }
+};
+window.t = (fr, en) => getLang()==='en' ? en : fr;
+
 // ── Helper: get matières for a class ──
 window.getClassMatieres = (cid) => {
   const cl=gc(cid); if(!cl) return [];
@@ -4827,9 +4837,9 @@ R.palmares = () => {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <div style="width:14px;height:14px;border-radius:50%;background:${cc}"></div>
         <h3 style="font-size:16px;font-weight:700">${esc(cl.name)}</h3>
-        <span class="pill pill-gray">${ranked.length} élèves</span>
+        <span class="pill pill-gray">${ranked.length} ${t('élèves','students')}</span>
         ${isTeacher&&mc.lang?`<span class="pill" style="background:${mc.lang==='fr'?'#dbeafe':'#d1fae5'};color:${mc.lang==='fr'?'#1d4ed8':'#065f46'}">${mc.lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>`:''}
-        ${isTeacher?`<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openGradePanel('${cl.id}')">📝 Saisir notes</button>`:''}
+        ${isTeacher?`<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openGradePanel('${cl.id}')">${t('📝 Saisir notes','📝 Enter Grades')}</button>`:''}
       </div>
 
       ${ranked.length>=3?`
@@ -4848,7 +4858,7 @@ R.palmares = () => {
       </div>`:''}
 
       <div class="ww-section">
-        <div class="ww-section-header"><span class="ww-section-title">📊 Classement complet</span></div>
+        <div class="ww-section-header"><span class="ww-section-title">📊 ${t('Classement complet','Full Rankings')}</span></div>
         ${ranked.map((s,i)=>{
           const condEmoji={4:'🌟',3:'😊',2:'😐',1:'😞',0:'—'}[Math.round(s.condAvg)]||'—';
           return `<div class="ww-item" style="animation-delay:${i*.04}s">
@@ -4856,7 +4866,7 @@ R.palmares = () => {
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div class="ww-item-content">
               <div class="ww-item-title">${esc(s.name)}</div>
-              <div class="ww-item-sub">Moy: ${s.moyPct}% · ${condEmoji} · ${s.retards} retard${s.retards>1?'s':''}</div>
+              <div class="ww-item-sub">${t('Moy:','Avg:')} ${s.moyPct}% · ${condEmoji} · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-size:18px;font-weight:800;color:${s.total>=70?'#059669':s.total>=50?'#d97706':'#dc2626'}">${s.total}</div>
@@ -5082,23 +5092,24 @@ window.openGradePanel = cid => {
     mc.lang === 'en' ? (m.lang === 'en' || m.lang === 'commun') : true
   );
   const students = DB.students.filter(s => s.cid === cid);
-  if(!matieres.length){toast('Aucune matière configurée','error'); return;}
+  if(!matieres.length){toast(t('Aucune matière configurée','No subjects configured'),'error'); return;}
   if (!window._gradeTrimSet) { window._gradeTrim = DB.settings.currentTrimestre || 'T1'; window._gradeTrimSet = true; }
   window._gradeTrim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   window._gradeType = window._gradeType || 'devoir';
+  const _tp=[[`devoir`,t('📚 Devoir','📚 Assignment'),'#7c3aed'],[`interro`,t('⚠️ Interro','⚠️ Quiz'),'#f59e0b'],[`examen`,t('📝 Examen','📝 Exam'),'#dc2626']];
 
-  openM(`📝 Saisir notes — ${cl.name}`, `
+  openM(`${t('📝 Saisir notes','📝 Enter Grades')} — ${cl.name}`, `
   <div style="display:flex;gap:6px;margin-bottom:12px">
-    ${['T1','T2','T3'].map(t => {
-      const active = t === window._gradeTrim;
-      return `<button onclick="setGradeTrim('${t}')" id="gt_${t}"
+    ${['T1','T2','T3'].map(tr => {
+      const active = tr === window._gradeTrim;
+      return `<button onclick="setGradeTrim('${tr}')" id="gt_${tr}"
         style="flex:1;padding:8px;border-radius:10px;border:2px solid ${active?'#2563eb':'var(--border)'};
         background:${active?'#dbeafe':'transparent'};cursor:pointer;font-size:13px;font-weight:700;
-        color:${active?'#1d4ed8':'var(--text-secondary)'}">Trim. ${t}</button>`;
+        color:${active?'#1d4ed8':'var(--text-secondary)'}">${t('Trim.','Term')} ${tr}</button>`;
     }).join('')}
   </div>
   <div style="display:flex;gap:6px;margin-bottom:12px">
-    ${[['devoir','📚 Devoir','#7c3aed'],['interro','⚠️ Interro','#f59e0b'],['examen','📝 Examen','#dc2626']].map(([tp,lbl,col]) => {
+    ${_tp.map(([tp,lbl,col]) => {
       const active = tp === window._gradeType;
       return `<button onclick="setGradeType('${tp}')" id="gtp_${tp}"
         style="flex:1;padding:8px;border-radius:10px;border:2px solid ${active?col:'var(--border)'};
@@ -5109,7 +5120,7 @@ window.openGradePanel = cid => {
   </div>
   <div style="display:flex;gap:8px;margin-bottom:10px">
     <div class="form-group" style="flex:2;margin-bottom:0">
-      <label class="form-label">Matière</label>
+      <label class="form-label">${t('Matière','Subject')}</label>
       <select class="form-select" id="gradeMatiere">
         ${matieres.map(m => `<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
       </select>
@@ -5120,8 +5131,8 @@ window.openGradePanel = cid => {
     </div>
   </div>
   <div class="form-group" style="margin-bottom:10px">
-    <label class="form-label">Libellé (optionnel)</label>
-    <input class="form-input" id="gradeLabel" placeholder="Ex: Devoir 1, Interro mi-trimestre…">
+    <label class="form-label">${t('Libellé (optionnel)','Label (optional)')}</label>
+    <input class="form-input" id="gradeLabel" placeholder="${t('Ex: Devoir 1, Interro mi-trimestre…','Ex: Assignment 1, Mid-term Quiz…')}">
   </div>
   <div id="gradeInputs" style="margin-top:4px">
     ${students.map(s => `
@@ -5132,8 +5143,8 @@ window.openGradePanel = cid => {
       <span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>
     </div>`).join('')}
   </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-   <button class="btn btn-primary" onclick="saveGradePanel('${cid}')">💾 Enregistrer</button>`
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+   <button class="btn btn-primary" onclick="saveGradePanel('${cid}')">${t('💾 Enregistrer','💾 Save')}</button>`
   );
 };
 
@@ -5144,7 +5155,7 @@ window.saveGradePanel = cid => {
   const trim   = window._gradeTrim || 'T1';
   const type   = window._gradeType || 'devoir';
   const typeIcon= {devoir:'📚', interro:'⚠️', examen:'📝'}[type]||'📚';
-  if(!mat){toast('Choisissez une matière','error'); return;}
+  if(!mat){toast(t('Choisissez une matière','Choose a subject'),'error'); return;}
 
   const inputs = document.querySelectorAll('.grade-input');
   let saved = 0;
@@ -5167,11 +5178,11 @@ window.saveGradePanel = cid => {
     saved++;
   });
 
-  if(!saved){toast('Aucune note à enregistrer','error'); return;}
+  if(!saved){toast(t('Aucune note à enregistrer','No grades to save'),'error'); return;}
   // Auto-check rattrapage
   const sids = [...new Set(Array.from(inputs).map(i => i.dataset.sid))];
   sids.forEach(sid => autoCheckRattrapage(sid, S.user.id));
-  toast(`${saved} note${saved > 1 ? 's' : ''} enregistrée${saved > 1 ? 's' : ''} ✅`, 'success');
+  toast(t(`${saved} note${saved>1?'s':''} enregistrée${saved>1?'s':''} ✅`,`${saved} grade${saved>1?'s':''} saved ✅`), 'success');
   saveToCrypt(); closeModal(); render();
 };
 
@@ -5327,8 +5338,8 @@ R.devoirs = () => {
 
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📚 Devoirs${cl?' — '+esc(cl.name):''}</span>
-    ${isTeacher?`<button class="btn btn-primary" onclick="openDevoirM()">➕ Publier</button>`:''}
+    <span style="font-size:16px;font-weight:700">📚 ${t('Devoirs','Assignments')}${cl?' — '+esc(cl.name):''}</span>
+    ${isTeacher?`<button class="btn btn-primary" onclick="openDevoirM()">➕ ${t('Publier','Publish')}</button>`:''}
   </div>
   ${sorted.length?sorted.map((d,i)=>{
     const cls=gc(d.cid);
@@ -5346,7 +5357,7 @@ R.devoirs = () => {
             <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${cls?cls.name:''} · ${d.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'} · ${d.date}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            ${deadline?`<span class="pill ${overdue?'pill-red':daysLeft<=2?'pill-orange':'pill-blue'}">${overdue?'En retard':daysLeft===0?'Aujourd\'hui':daysLeft+' jour'+(daysLeft>1?'s':'')}</span>`:''}
+            ${deadline?`<span class="pill ${overdue?'pill-red':daysLeft<=2?'pill-orange':'pill-blue'}">${overdue?t('En retard','Overdue'):daysLeft===0?t("Aujourd'hui","Today"):daysLeft+t(' jour',' day')+(daysLeft>1?'s':'')}</span>`:''}
             ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="deleteDevoir('${d.id}')" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px" title="Supprimer ce devoir">🗑️</button>`:''}
           </div>
         </div>
@@ -5657,13 +5668,13 @@ window.openDevoirM = (category) => {
   window._devoirPhoto = null;
   window._devoirPdf = null;
   const catMeta = {
-    devoir:{icon:'📚',label:'Devoir maison',color:'#2563eb'},
-    interro:{icon:'⚠️',label:'Interrogation',color:'#f59e0b'},
-    examen:{icon:'📝',label:'Examen',color:'#7c3aed'},
+    devoir:{icon:'📚',label:t('Devoir maison','Homework'),color:'#2563eb'},
+    interro:{icon:'⚠️',label:t('Interrogation','Quiz'),color:'#f59e0b'},
+    examen:{icon:'📝',label:t('Examen','Exam'),color:'#7c3aed'},
   };
   const matOpts=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true).map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
   const cm=catMeta[window._devoirCategory]||catMeta.devoir;
-  openM(`${cm.icon} Publier`,`
+  openM(`${cm.icon} ${t('Publier','Publish')}`,`
   <div style="display:flex;gap:6px;margin-bottom:14px">
     ${Object.entries(catMeta).map(([k,m])=>`<button onclick="switchDevoirCat('${k}')" id="dvCat_${k}"
       style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid ${k===window._devoirCategory?m.color:'var(--border)'};
@@ -5671,52 +5682,51 @@ window.openDevoirM = (category) => {
       color:${k===window._devoirCategory?m.color:'var(--text-secondary)'}">
       ${m.icon} ${m.label}</button>`).join('')}
   </div>
-  <div class="form-group"><label class="form-label">Titre *</label>
-    <input class="form-input" id="dvTitle" placeholder="${window._devoirCategory==='devoir'?'Ex: Exercices p.42 — Calcul':'Ex: Interrogation de Mathématiques'}">
+  <div class="form-group"><label class="form-label">${t('Titre','Title')} *</label>
+    <input class="form-input" id="dvTitle" placeholder="${window._devoirCategory==='devoir'?t('Ex: Exercices p.42 — Calcul','Ex: Exercises p.42 — Maths'):t('Ex: Interrogation de Mathématiques','Ex: Mathematics Quiz')}">
   </div>
-  <div class="form-group"><label class="form-label">Matière *</label>
+  <div class="form-group"><label class="form-label">${t('Matière','Subject')} *</label>
     <select class="form-select" id="dvMatiere">${matOpts}</select>
   </div>
   <div id="dvDynamicFields">${_devoirDynamicFields(window._devoirCategory)}</div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-  <button class="btn btn-primary" onclick="saveDevoir()">📤 Publier</button>`);
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+  <button class="btn btn-primary" onclick="saveDevoir()">📤 ${t('Publier','Publish')}</button>`);
 };
 
 window._devoirDynamicFields = (cat) => {
   if(cat==='devoir') return `
   <div class="form-group">
-    <label class="form-label">📅 Date limite de remise *</label>
+    <label class="form-label">📅 ${t('Date limite de remise','Due Date')} *</label>
     <input class="form-input" id="dvDeadline" type="date" value="${today()}">
   </div>
   <div class="form-group">
-    <label class="form-label">Type de contenu</label>
+    <label class="form-label">${t('Type de contenu','Content Type')}</label>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button id="dvTypeText"  onclick="setDevoirType('text')"  class="btn btn-sm btn-primary"  style="flex:1">📝 Texte</button>
-      <button id="dvTypePhoto" onclick="setDevoirType('photo')" class="btn btn-sm btn-outline" style="flex:1">📷 Image</button>
+      <button id="dvTypeText"  onclick="setDevoirType('text')"  class="btn btn-sm btn-primary"  style="flex:1">📝 ${t('Texte','Text')}</button>
+      <button id="dvTypePhoto" onclick="setDevoirType('photo')" class="btn btn-sm btn-outline" style="flex:1">📷 ${t('Image','Image')}</button>
       <button id="dvTypePdf"   onclick="setDevoirType('pdf')"   class="btn btn-sm btn-outline" style="flex:1">📄 PDF</button>
     </div>
     <div id="dvContentArea">
-      <textarea class="form-input" id="dvText" style="height:90px;resize:vertical" placeholder="Décrivez le travail à faire à la maison : exercices, pages, consignes..."></textarea>
+      <textarea class="form-input" id="dvText" style="height:90px;resize:vertical" placeholder="${t('Décrivez le travail à faire à la maison : exercices, pages, consignes...','Describe the homework: exercises, pages, instructions...')}"></textarea>
     </div>
   </div>`;
-  const label = cat==='interro' ? '⚠️ Date de l\'interrogation *' : '📝 Date de l\'examen *';
-  const ph    = cat==='interro' ? 'Chapitres 3 et 4, leçon sur les fractions, vocabulaire...' : 'Toutes les leçons du trimestre, chapitres 1 à 6...';
+  const label = cat==='interro' ? `⚠️ ${t("Date de l'interrogation","Quiz Date")} *` : `📝 ${t("Date de l'examen","Exam Date")} *`;
+  const ph    = cat==='interro' ? t('Chapitres 3 et 4, leçon sur les fractions, vocabulaire...','Chapters 3 and 4, fractions lesson, vocabulary...') : t('Toutes les leçons du trimestre, chapitres 1 à 6...','All term lessons, chapters 1 to 6...');
   return `
   <div class="form-group">
     <label class="form-label">${label}</label>
     <input class="form-input" id="dvDeadline" type="date" value="${today()}">
   </div>
   <div class="form-group">
-    <label class="form-label">📖 Chapitres / Thèmes à réviser *</label>
+    <label class="form-label">📖 ${t('Chapitres / Thèmes à réviser','Chapters / Topics to revise')} *</label>
     <textarea class="form-input" id="dvChapters" style="height:80px;resize:vertical" placeholder="${ph}"></textarea>
   </div>
   <div class="form-group">
-    <label class="form-label">⏱️ Durée de l'épreuve <span style="font-size:11px;color:var(--text-muted);font-weight:400">(optionnel)</span></label>
-    <input class="form-input" id="dvDuration" placeholder="Ex: 45 minutes, 1h30...">
+    <label class="form-label">⏱️ ${t("Durée de l'épreuve","Test Duration")} <span style="font-size:11px;color:var(--text-muted);font-weight:400">(${t('optionnel','optional')})</span></label>
+    <input class="form-input" id="dvDuration" placeholder="${t('Ex: 45 minutes, 1h30...','Ex: 45 minutes, 1h30...')}">
   </div>
   <div style="padding:10px 14px;background:#fef9c3;border-radius:10px;border-left:3px solid #f59e0b;font-size:12px;color:#78350f;line-height:1.6">
-    ℹ️ Cette épreuve se déroule <strong>en classe</strong>. Les parents verront l'annonce avec les chapitres à réviser.<br>
-    Après l'épreuve, utilisez <strong>"✏️ Corriger"</strong> pour saisir les côtes directement.
+    ℹ️ ${t('Cette épreuve se déroule <strong>en classe</strong>. Les parents verront l\'annonce avec les chapitres à réviser.<br>Après l\'épreuve, utilisez <strong>"✏️ Corriger"</strong> pour saisir les côtes directement.','This test takes place <strong>in class</strong>. Parents will see the announcement with topics to revise.<br>After the test, use <strong>"✏️ Correct"</strong> to enter grades directly.')}
   </div>`;
 };
 
@@ -9263,7 +9273,7 @@ R.mes_absences = () => {
 R.profil_enseignant = () => {
   const u=S.user;
   const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-  const lang=cl?(cl.teacher_id===u.id?'Français 🇫🇷':'Anglais 🇬🇧'):'—';
+  const langLabel=cl?(cl.teacher_id===u.id?'Français 🇫🇷':'Anglais 🇬🇧'):'—';
   const isTitulaire=cl&&cl.titulaire_id===u.id;
   const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
   const myDevoirs=DB.devoirs.filter(d=>d.cid===(cl?.id)).length;
@@ -9271,35 +9281,35 @@ R.profil_enseignant = () => {
   const myCahier=DB.cahier_texte.filter(e=>e.by===u.id).length;
   const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
   <div class="premium-section">
     <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
       <div style="width:64px;height:64px;border-radius:18px;background:${cbg};color:${cc};font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
       <div>
         <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">Enseignant · Section ${lang}</div>
-        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} élèves${isTitulaire?' · ⭐ Titulaire':''}</div>`:'<div style="font-size:12px;color:#dc2626">Aucune classe assignée</div>'}
+        <div style="font-size:13px;color:var(--text-secondary)">${t('Enseignant · Section','Teacher · Section')} ${langLabel}</div>
+        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} ${t('élèves','students')}${isTitulaire?(' · ⭐ '+t('Titulaire','Class Teacher')):''}</div>`:`<div style="font-size:12px;color:#dc2626">${t('Aucune classe assignée','No class assigned')}</div>`}
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">Devoirs</div></div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">Cahier entrées</div></div>
+      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">${t('Devoirs','Assignments')}</div></div>
+      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">${t('Cahier entrées','Lesson entries')}</div></div>
       <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
     </div>
     <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
       <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
     </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+    <div class="form-group"><label class="form-label">📞 ${t('Numéro de téléphone','Phone Number')}</label>
       <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">💾 Enregistrer</button>
+    <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">${t('💾 Enregistrer','💾 Save')}</button>
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre affectation de classe, contactez la Direction.</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+    <div class="premium-section-title" style="color:var(--text-muted)">🔒 ${t('Sécurité','Security')}</div>
+    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 ${t('Changer mon code PIN','Change my PIN')}</button>
+    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ ${t('Se déconnecter','Log Out')}</button>
   </div>`;
 };
 
@@ -9307,14 +9317,14 @@ window.saveTeacherProfile = () => {
   const phone=(document.getElementById('tp_phone')?.value||'').trim();
   const name=(document.getElementById('tp_name')?.value||'').trim();
   const initials=(document.getElementById('tp_init')?.value||'').trim();
-  if(!name){toast('Entrez votre nom','error');return;}
+  if(!name){toast(t('Entrez votre nom','Enter your name'),'error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
   if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
   S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
   pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
-  toast('✅ Profil mis à jour','success');
+  toast(t('✅ Profil mis à jour','✅ Profile updated'),'success');
 };
 
 // ── HISTORIQUE ENTRÉES / SORTIES PARENT ──
