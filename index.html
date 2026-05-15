@@ -5350,6 +5350,14 @@ R.devoirs = () => {
           ${d.content?`<button onclick="openPdfDevoir('${d.id}')" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📄 Ouvrir</button>`:''}
         </div>`:''}
         ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">📅 À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
+        ${(()=>{
+          const corrCount=DB.grades.filter(g=>g.devoir_id===d.id).length;
+          const classSize=DB.students.filter(s=>s.cid===d.cid).length;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
+            ${corrCount>0?`<span style="font-size:11px;color:#059669;font-weight:700;padding:5px 10px;background:#d1fae5;border-radius:8px">✅ ${corrCount}/${classSize} corrigés</span>`:''}
+          </div>`;
+        })()}
         `}
       </div>
     </div>`;
@@ -5369,7 +5377,7 @@ R.devoirs_parent = () => {
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condColor={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
   const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
-  const renderDevoirItem = (d, kidName, kidMat, kidClass) => {
+  const renderDevoirItem = (d, kidName, kidMat, kidClass, kidId) => {
     const deadline=d.deadline?new Date(d.deadline):null;
     const now=new Date();
     const overdue=deadline&&deadline<now;
@@ -5397,6 +5405,18 @@ R.devoirs_parent = () => {
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${catBorder};margin-bottom:5px;letter-spacing:.6px">📖 À réviser</div>
           <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description)}</div>
         </div>`:''}
+        ${(()=>{
+          const g=kidId&&canSeeCorr?DB.grades.find(x=>x.devoir_id===d.id&&x.sid===kidId):null;
+          if(!g) return '';
+          const pct=Math.round(g.note/g.max*100);
+          const col=pct>=70?'#059669':pct>=50?'#d97706':'#dc2626';
+          const bg=pct>=70?'#d1fae5':pct>=50?'#fef3c7':'#fee2e2';
+          return `<div style="margin-top:8px;padding:10px 12px;background:${bg};border-radius:10px;border-left:3px solid ${col};display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div><div style="font-size:18px;font-weight:900;color:${col}">${g.note}<span style="font-size:12px;color:#64748b">/${g.max}</span></div><div style="font-size:10px;color:${col};font-weight:700">${pct}%</div></div>
+            ${g.comment?`<div style="flex:1;font-size:12px;color:#374151;font-style:italic">"${esc(g.comment)}"</div>`:'<div style="flex:1"></div>'}
+            <button onclick="printDevoir('${d.id}','${kidName}','${kidMat}','${kidClass}','${kidId}')" style="background:${col};color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📋 Feuille corrigée</button>
+          </div>`;
+        })()}
       </div>`;
     }
     return `<div class="premium-item" style="border-left:3px solid ${overdue?'#ef4444':catBorder};padding:14px">
@@ -5407,7 +5427,7 @@ R.devoirs_parent = () => {
             <div class="pi-title">${esc(d.title)}</div>
             <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · 📅 À remettre : '+dateLabel:''}${daysLeft!==null&&!overdue?' · '+daysLeft+' jour'+(daysLeft>1?'s':'')+' restant'+(daysLeft>1?'s':''):''}</div>
           </div>
-          <button onclick="printDevoir('${d.id}','${esc(kidName||'')}','${esc(kidMat||'')}','${esc(kidClass||'')}')" title="Télécharger ce devoir en PDF"
+          <button onclick="printDevoir('${d.id}','${esc(kidName||'')}','${esc(kidMat||'')}','${esc(kidClass||'')}','${kidId||''}')" title="Télécharger ce devoir en PDF"
             style="flex-shrink:0;background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">
             📥 PDF
           </button>
@@ -5471,17 +5491,17 @@ R.devoirs_parent = () => {
     // Devoirs section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
       <div class="premium-section-title">📚 Devoirs</div>
-      ${devoirsList.length?devoirsList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'')).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
+      ${devoirsList.length?devoirsList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
     </div>`;
     // Interrogations section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
       <div class="premium-section-title">⚠️ Interrogations</div>
-      ${interroList.length?interroList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'')).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
+      ${interroList.length?interroList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #7c3aed">
       <div class="premium-section-title">📝 Examens</div>
-      ${examenList.length?examenList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'')).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
+      ${examenList.length?examenList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
     </div>`;
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
@@ -5836,10 +5856,10 @@ window.deleteDevoir = dvId => {
 
 window.openCorrecteurDevoir = dvId => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
-  const mc=getMyClass(); if(!mc.cl) return;
+  const mc=getMyClass();
   const students=DB.students.filter(s=>s.cid===d.cid);
-  const catLabel={interro:'Interrogation',examen:'Examen'}[d.category]||d.category;
-  const catCol={interro:'#f59e0b',examen:'#7c3aed'}[d.category]||'#2563eb';
+  const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Évaluation';
+  const catCol={devoir:'#2563eb',interro:'#f59e0b',examen:'#7c3aed'}[d.category]||'#2563eb';
   const existingGrades=DB.grades.filter(g=>g.devoir_id===dvId);
   if(!window._gradeTrimSet){window._gradeTrim=DB.settings.currentTrimestre||'T1';window._gradeTrimSet=true;}
   openM(`✏️ Corriger — ${catLabel}`,`
@@ -5861,18 +5881,21 @@ window.openCorrecteurDevoir = dvId => {
     </div>
     <div class="form-group" style="flex:1;margin-bottom:0">
       <label class="form-label">Coeff.</label>
-      <input class="form-input" id="gcCoef" type="number" min="0.5" max="10" step="0.5" value="${d.category==='examen'?3:2}" style="text-align:center">
+      <input class="form-input" id="gcCoef" type="number" min="0.5" max="10" step="0.5" value="${d.category==='examen'?3:d.category==='interro'?2:1}" style="text-align:center">
     </div>
   </div>
   <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Côtes par élève</div>
   <div id="gcInputs">
     ${students.map(s=>{
       const ex=existingGrades.find(g=>g.sid===s.id);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
-        <div style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
-        <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
-        <input class="form-input gc-input" data-sid="${s.id}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" step="0.5" placeholder="—" value="${ex!==undefined?ex.note:''}">
-        <span id="gcMaxLabel_${s.id}" style="font-size:12px;color:var(--text-muted);min-width:28px">/20</span>
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border-light)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+          <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
+          <input class="form-input gc-input" data-sid="${s.id}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" step="0.5" placeholder="—" value="${ex!==undefined?ex.note:''}">
+          <span id="gcMaxLabel_${s.id}" style="font-size:12px;color:var(--text-muted);min-width:28px">/20</span>
+        </div>
+        <input class="form-input gc-comment" data-sid="${s.id}" style="width:100%;font-size:12px;padding:7px 10px" type="text" placeholder="Commentaire pour ${esc(s.name.split(' ')[0])} (optionnel)" value="${esc(ex?.comment||'')}">
       </div>`;
     }).join('')}
   </div>`,
@@ -5889,30 +5912,36 @@ window.saveCorrecteurDevoir = dvId => {
   const max=parseFloat(document.getElementById('gcMax')?.value)||20;
   const coef=parseFloat(document.getElementById('gcCoef')?.value)||1;
   const inputs=document.querySelectorAll('.gc-input');
+  const corrected_at=new Date().toISOString();
   let saved=0;
   inputs.forEach(inp=>{
     const sid=inp.dataset.sid;
     const raw=inp.value.trim(); if(raw==='') return;
     const note=parseFloat(raw);
     if(isNaN(note)||note<0||note>max) return;
+    const comment=(document.querySelector('.gc-comment[data-sid="'+sid+'"]')?.value||'').trim();
     const existing=DB.grades.find(g=>g.devoir_id===dvId&&g.sid===sid);
-    if(existing){existing.note=note;existing.max=max;existing.weight=coef;existing.trimester=trim;
-      pushSync('grades','patch',{note,max,weight:coef,trimester:trim},'id=eq.'+existing.id);
+    if(existing){
+      existing.note=note;existing.max=max;existing.weight=coef;existing.trimester=trim;
+      existing.comment=comment;existing.corrected_at=corrected_at;
+      pushSync('grades','patch',{note,max,weight:coef,trimester:trim,comment,corrected_at},'id=eq.'+existing.id);
     } else {
       const g={id:'g'+Date.now()+Math.random().toString(36).slice(2,5),sid,cid:d.cid,
         type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
-        date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id};
+        date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id,
+        comment,corrected_at};
       DB.grades.push(g); pushSync('grades','post',g);
     }
     saved++;
   });
   if(!saved){toast('Aucune note saisie','error');return;}
   saveToCrypt(); closeModal(); render();
-  toast(`✅ ${saved} côte(s) enregistrée(s) — parents notifiés si accès activé`,'success');
+  toast(`✅ ${saved} côte(s) enregistrée(s)`,'success');
 };
 
-window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
+window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const myGrade=kidId?DB.grades.find(g=>g.devoir_id===dvId&&g.sid===kidId):null;
 
   // Stored PDF: download directly as .pdf
   if(d.type==='pdf' && d.content) {
@@ -6014,6 +6043,16 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
     .signature{display:flex;gap:28px;margin-top:28px}
     .sig-box{flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center}
     .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
+    .correction-box{margin-top:20px;border:2px solid #22c55e;border-radius:12px;overflow:hidden;break-inside:avoid}
+    .corr-hdr{background:#22c55e;color:#fff;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;display:flex;justify-content:space-between;align-items:center}
+    .corr-body{padding:16px;display:flex;align-items:flex-start;gap:16px}
+    .corr-note{text-align:center;flex-shrink:0}
+    .corr-val{font-size:36px;font-weight:900;line-height:1}
+    .corr-sub{font-size:11px;color:#64748b;margin-top:3px}
+    .corr-info{flex:1}
+    .corr-mention{font-size:14px;font-weight:700;margin-bottom:6px}
+    .corr-comment{font-size:13px;color:#374151;font-style:italic;margin-bottom:4px}
+    .corr-meta{font-size:10px;color:#94a3b8}
     @media print{.print-bar{display:none}body{padding:0}.page{padding:0}}
   </style></head><body>
   <div class="print-bar">📄 Devoir téléchargé · <button onclick="window.print()">🖨️ Imprimer sur papier</button></div>
