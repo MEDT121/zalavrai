@@ -1932,7 +1932,8 @@ function dashboardParent() {
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?esc(gc(k.cid).name):''}</div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
           <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px" onclick="go('devoirs_parent')">📚 Devoirs</button>
-          ${k.access_bulletin?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('palmares_parent')">📋 Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — contactez la direction</span>`}
+          ${k.access_devoirs?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('devoirs_parent')">📊 Corrections</button>`:''}
+          ${k.access_bulletin?`<button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:none;font-size:11px" onclick="go('palmares_parent')">📋 Mon Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — contactez la direction</span>`}
         </div>
       </div>
       <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none" onclick="go('children')">Détails →</button>
@@ -4990,7 +4991,7 @@ R.palmares_parent = () => {
         const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
         if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
         if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
-        return `<button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${esc(k.name.split(' ')[0])}</button>`;
+        return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="printReport('bulletin','${k.id}')">📥 Télécharger Bulletin PDF — ${esc(k.name.split(' ')[0])}</button></div>`;
       })()}
     </div>`;
   }).join('');
@@ -5443,6 +5444,36 @@ R.devoirs_parent = () => {
       <div class="premium-section-title">📝 Examens</div>
       ${examenList.length?examenList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'')).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
     </div>`;
+    // Corrections récentes (access_devoirs requis)
+    if(k.access_devoirs){
+      const recentGrades=DB.grades.filter(g=>g.sid===k.id&&(g.type==='devoir'||g.type==='interro'||g.type==='examen')).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+      const tIcon2={devoir:'📚',interro:'⚠️',examen:'📝'};
+      const tCol2={devoir:'#1d4ed8',interro:'#b45309',examen:'#6d28d9'};
+      const gradeRows=recentGrades.map(g=>{
+        const note=g.note!==undefined?g.note:'—';
+        const max=g.max||20;
+        const pct=g.note!==undefined?Math.round((g.note/max)*100):null;
+        const col=pct===null?'#64748b':pct>=70?'#059669':pct>=50?'#d97706':'#dc2626';
+        const bg=pct===null?'#f1f5f9':pct>=70?'#d1fae5':pct>=50?'#fef3c7':'#fee2e2';
+        const pctDiv=pct!==null?'<div style="font-size:10px;font-weight:700;color:'+col+'">'+pct+'%</div>':'';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+bg+';border-radius:10px">'
+          +'<div style="font-size:20px;flex-shrink:0">'+(tIcon2[g.type]||'📝')+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div style="font-weight:700;font-size:13px;color:'+(tCol2[g.type]||'#374151')+'">'+esc(g.label||g.type)+' — '+esc(g.matiere||'')+'</div>'
+          +'<div style="font-size:11px;color:var(--text-muted)">'+(g.date||'')+' · Trimestre '+(g.trimester||'')+' · Coeff. '+(g.weight||1)+'</div>'
+          +'</div>'
+          +'<div style="text-align:right;flex-shrink:0">'
+          +'<div style="font-size:20px;font-weight:900;color:'+col+'">'+note+'<span style="font-size:12px;font-weight:600;color:var(--text-muted)">/'+ max+'</span></div>'
+          +pctDiv
+          +'</div></div>';
+      }).join('');
+      html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #10b981">
+        <div class="premium-section-title">📊 Corrections & Côtes — ${esc(k.name)}</div>
+        ${!recentGrades.length
+          ?'<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Aucune correction saisie par les enseignants pour l\'instant</div>'
+          :'<div style="display:flex;flex-direction:column;gap:8px">'+gradeRows+'</div>'}
+      </div>`;
+    }
     // Conduite section
     const canAddConduct = S.user.role==='enseignant'||S.user.role==='direction'||S.user.role==='direction2';
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #10b981">
@@ -5839,7 +5870,7 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
   </div>
   </body></html>`);
   w.document.close();
-  setTimeout(()=>w.print(),400);
+  setTimeout(()=>w.print(),500);
 };
 
 // ── CAHIER DE TEXTE (avec approbation Direction) ──
