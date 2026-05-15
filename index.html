@@ -489,19 +489,19 @@ window.DB = {
   students:[
     { id:'s1', mat:'STU-0001', name:'Lomela Dodo', cid:'c4', pid:'u5', photo:null,
       dob:'2018-05-12', adresse:'Avenue Lukusa 12, Gombe', nom_papa:'Lomela Jean', nom_maman:'Lomela Marie',
-      access_daily:false, access_bulletin:false },
+      access_bulletin:false },
     { id:'s2', mat:'STU-0002', name:'Mukeba Jean-Paul', cid:'c4', pid:null, photo:null,
       dob:'2017-11-03', adresse:'Av. Kasa-Vubu 45', nom_papa:'Mukeba Paul', nom_maman:'Mukeba Anne',
-      access_daily:false, access_bulletin:false },
+      access_bulletin:false },
     { id:'s3', mat:'STU-0003', name:'Kabila Sarah', cid:'c4', pid:null, photo:null,
       dob:'2018-02-20', adresse:'Bd du 30 Juin 88', nom_papa:'Kabila Pierre', nom_maman:'Kabila Grâce',
-      access_daily:false, access_bulletin:false },
+      access_bulletin:false },
     { id:'s4', mat:'STU-0004', name:'Ngoy David', cid:'c4', pid:null, photo:null,
       dob:'2017-08-15', adresse:'Av. Victoire 33', nom_papa:'Ngoy Michel', nom_maman:'Ngoy Claire',
-      access_daily:false, access_bulletin:false },
+      access_bulletin:false },
     { id:'s5', mat:'STU-0005', name:'Tshilombo Ruth', cid:'c4', pid:null, photo:null,
       dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther',
-      access_daily:false, access_bulletin:false },
+      access_bulletin:false },
   ],
   aps:[],
   daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[],
@@ -1849,10 +1849,10 @@ function dashboardParent() {
         <div style="font-size:17px;font-weight:800">${esc(k.name)}</div>
         <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${esc(k.status)}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?esc(gc(k.cid).name):''}</div>
-        ${(k.access_daily||k.access_bulletin)?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          ${k.access_daily?`<button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px" onclick="go('devoirs_parent')">📚 Cahier</button>`:''}
-          ${k.access_bulletin?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('palmares_parent')">📋 Bulletin</button>`:''}
-        </div>`:`<div style="font-size:11px;color:#94a3b8;margin-top:6px">🔒 Accès restreint — contactez la direction</div>`}
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px" onclick="go('devoirs_parent')">📚 Devoirs</button>
+          ${k.access_bulletin?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('palmares_parent')">📋 Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — contactez la direction</span>`}
+        </div>
       </div>
       <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none" onclick="go('children')">Détails →</button>
     </div>
@@ -1861,7 +1861,7 @@ function dashboardParent() {
   <div class="action-grid" style="grid-template-columns:repeat(4,1fr)">
     <button class="action-card" onclick="go('children')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">👶</span><span class="ac-label">Enfants</span></button>
     ${kids.some(k=>k.access_bulletin)?`<button class="action-card" onclick="go('palmares_parent')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>`:`<button class="action-card" style="background:#94a3b8;opacity:.6;cursor:not-allowed"><span class="ac-icon">🔒</span><span class="ac-label">Palmarès</span></button>`}
-    ${kids.some(k=>k.access_daily)?`<button class="action-card" onclick="go('devoirs_parent')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>`:`<button class="action-card" style="background:#94a3b8;opacity:.6;cursor:not-allowed"><span class="ac-icon">🔒</span><span class="ac-label">Devoirs</span></button>`}
+    <button class="action-card" onclick="go('devoirs_parent')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
     <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px">${unreadMsgs}</span>`:''}</button>
   </div>
 
@@ -5136,8 +5136,6 @@ R.devoirs_parent = () => {
   if(!(DB.settings.toggles?.devoirs ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié à votre profil</div>`;
-  const anyDailyAccess=kids.some(k=>k.access_daily);
-  if(!anyDailyAccess) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Accès restreint</div><div style="font-size:14px">Le cahier journalier n'est pas encore activé pour vos enfants.<br>Contactez la direction.</div></div>`;
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condColor={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
   const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
@@ -5176,8 +5174,7 @@ R.devoirs_parent = () => {
         </div>
 
       </div>`;
-    if(!k.access_daily){html+=`<div style="padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:13px;margin-bottom:10px">🔒 Accès au cahier journalier non activé pour ${esc(k.name)}</div></div>`;return;}
-    // Devoirs / dates / conduite : GRATUIT, accès direct sans frais
+    // Devoirs / dates / conduite : toujours accessibles au parent
     const _now=Date.now();
     const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
@@ -8864,11 +8861,6 @@ R.acces_parents = () => {
       <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(cl ? cl.name : '—')}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;font-size:13px">${esc(fraisLabel)}</td>
       <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;text-align:center">
-        <button onclick="toggleStudentAccessFlag('${s.id}','daily')" style="background:${s.access_daily?'#22c55e':'#e2e8f0'};color:${s.access_daily?'#fff':'#64748b'};border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">
-          ${s.access_daily ? 'ON' : 'OFF'}
-        </button>
-      </td>
-      <td style="padding:10px 8px;border-bottom:1px solid #f1f5f9;text-align:center">
         <button onclick="toggleStudentAccessFlag('${s.id}','bulletin')" style="background:${s.access_bulletin?'#22c55e':'#e2e8f0'};color:${s.access_bulletin?'#fff':'#64748b'};border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s">
           ${s.access_bulletin ? 'ON' : 'OFF'}
         </button>
@@ -8878,7 +8870,7 @@ R.acces_parents = () => {
 
   return `<div style="padding:16px">
     <div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px">🔐 Accès parents</div>
-    <div style="font-size:13px;color:#64748b;margin-bottom:16px">Activez l'accès au cahier journalier et aux bulletins par élève.</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:16px">Activez l'accès aux résultats et bulletins selon le paiement des frais scolaires.</div>
     <div style="overflow-x:auto;border-radius:14px;border:1px solid #e2e8f0;background:#fff">
       <table style="width:100%;border-collapse:collapse;min-width:600px">
         <thead>
@@ -8887,7 +8879,6 @@ R.acces_parents = () => {
             <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">PARENT</th>
             <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">CLASSE</th>
             <th style="padding:10px 8px;text-align:left;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">FRAIS</th>
-            <th style="padding:10px 8px;text-align:center;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">📚 CAHIER</th>
             <th style="padding:10px 8px;text-align:center;font-size:12px;color:#64748b;font-weight:700;border-bottom:2px solid #e2e8f0">📋 BULLETIN</th>
           </tr>
         </thead>
@@ -8900,13 +8891,8 @@ R.acces_parents = () => {
 window.toggleStudentAccessFlag = (sid, type) => {
   const s = DB.students.find(x => x.id === sid);
   if (!s) return;
-  if (type === 'daily') {
-    s.access_daily = !s.access_daily;
-    pushSync('students', 'patch', {access_daily: s.access_daily}, 'id=eq.' + sid);
-  } else {
-    s.access_bulletin = !s.access_bulletin;
-    pushSync('students', 'patch', {access_bulletin: s.access_bulletin}, 'id=eq.' + sid);
-  }
+  s.access_bulletin = !s.access_bulletin;
+  pushSync('students', 'patch', {access_bulletin: s.access_bulletin}, 'id=eq.' + sid);
   saveToCrypt();
   render();
 };
