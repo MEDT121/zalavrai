@@ -1561,7 +1561,7 @@ function dashboardEnseignant() {
     ${students.slice(0,6).map(s=>{
       const [cc,cbg]=clsColor(cl?cl.name:'');
       const hasAtt=todayAtt.find(a=>a.sid===s.id);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${s.name}</div><div class="pi-sub">${s.mat}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px">❌</span>`}</div>`;
+      return `<div class="premium-item"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div>${hasAtt?`<span style="font-size:18px">${hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':'📄'}</span>`:`<span style="font-size:18px">❌</span>`}</div>`;
     }).join('')}
     ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
   </div>
@@ -1651,7 +1651,7 @@ function dashboardDirection2() {
   <div class="premium-section" style="border-left:4px solid #ef4444;padding-bottom:4px">
     <div class="premium-section-title" style="color:#991b1b">🚨 Alertes immédiates</div>
     ${pending>0?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fef3c7">⏳</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente d'approbation</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>`:''}
-    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.slice(0,3).map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?s.name:'?';}).join(', ')}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
+    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.slice(0,3).map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).join(', ')}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
     ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('students')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
     ${pendingConvs.length?`<div class="premium-item" style="cursor:pointer" onclick="go('convocations')"><div class="pi-icon" style="background:#dbeafe">📋</div><div style="flex:1"><div class="pi-title">${pendingConvs.length} convocation${pendingConvs.length>1?'s':''} à planifier</div></div><span class="premium-badge" style="background:#dbeafe;color:#1e40af">Voir →</span></div>`:''}
   </div>`:''}
@@ -1795,7 +1795,7 @@ function dashboardGardien() {
   </div>
   ${todayScans.length?`<div class="premium-section"><div class="premium-section-title">📜 Derniers scans</div>${todayScans.slice(0,5).map(l=>{
     const cm={ontime:'#d1fae5',late:'#fef3c7',refused:'#fee2e2',authorized:'#d1fae5',unauthorized:'#fee2e2'};
-    return `<div class="premium-item"><div class="pi-icon" style="background:${cm[l.status]||'#f1f5f9'}">${{entry:'📥',exit:'🚪'}[l.type]||'📋'}</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.time} — ${l.label||''}</div></div></div>`;
+    return `<div class="premium-item"><div class="pi-icon" style="background:${cm[l.status]||'#f1f5f9'}">${{entry:'📥',exit:'🚪'}[l.type]||'📋'}</div><div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${l.time} — ${esc(l.label||'')}</div></div></div>`;
   }).join('')}</div>`:''}`;
 }
 
@@ -1840,9 +1840,9 @@ function dashboardParent() {
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:56px;height:56px;border-radius:16px;background:${k.bg};display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${k.emoji}</div>
       <div style="flex:1">
-        <div style="font-size:17px;font-weight:800">${k.name}</div>
-        <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${k.status}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?gc(k.cid).name:''}</div>
+        <div style="font-size:17px;font-weight:800">${esc(k.name)}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${esc(k.status)}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?esc(gc(k.cid).name):''}</div>
       </div>
       <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none" onclick="go('children')">Détails →</button>
     </div>
@@ -1876,7 +1876,7 @@ function dashboardParent() {
       rows+=`<div class="premium-item">
         <div class="pi-icon" style="background:${balance===0?'#d1fae5':'#fef3c7'}">${balance===0?'✅':'💰'}</div>
         <div style="flex:1">
-          <div class="pi-title">${k.name}</div>
+          <div class="pi-title">${esc(k.name)}</div>
           <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
             ${trims.map(t=>{const p=pay[t.toLowerCase()+'_paid']||pay[t];return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p?'#d1fae5':'#fee2e2'};color:${p?'#065f46':'#991b1b'};font-weight:600">${t} ${p?'✅':'$'+Number(fees[t]||0)}</span>`;}).join('')}
           </div>
@@ -2011,56 +2011,44 @@ function drawFlag(ctx,x,y,w,h) {
   ctx.strokeStyle="#facc15"; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(x+w*.24,y+h); ctx.lineTo(x+w*.94,y); ctx.stroke();
 }
 
-function drawQrVisual(ctx, payload, x,y,size) {
-  // VRAI QR SCANNABLE : utilise QRCode.js. Si la librairie n'est pas chargée, fallback visuel.
+function drawQrVisual(ctx, payload, x, y, size) {
   fillRound(ctx,x,y,size,size,14,"white");
-  try {
-    if (typeof QRCode !== "undefined") {
-      const holder = document.createElement("div");
-      holder.style.position = "fixed";
-      holder.style.left = "-9999px";
-      holder.style.top = "-9999px";
-      holder.style.width = size + "px";
-      holder.style.height = size + "px";
-      document.body.appendChild(holder);
-
-      new QRCode(holder, {
-        text: String(payload),
-        width: size,
-        height: size,
-        colorDark: "#0f172a",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.H : 2
-      });
-
-      const qrCanvas = holder.querySelector("canvas");
-      const qrImg = holder.querySelector("img");
-
-      if (qrCanvas) {
-        setTimeout(() => { ctx.drawImage(qrCanvas, x, y, size, size); if(holder.parentNode) document.body.removeChild(holder); }, 0);
-      } else if (qrImg) {
-        qrImg.onload = function(){
-          ctx.drawImage(qrImg, x, y, size, size);
+  return new Promise(resolve => {
+    try {
+      if (typeof QRCode !== "undefined") {
+        const holder = document.createElement("div");
+        holder.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:"+size+"px;height:"+size+"px";
+        document.body.appendChild(holder);
+        new QRCode(holder, {
+          text: String(payload), width: size, height: size,
+          colorDark: "#0f172a", colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel ? QRCode.CorrectLevel.H : 2
+        });
+        const qrCanvas = holder.querySelector("canvas");
+        const qrImg   = holder.querySelector("img");
+        const done = () => {
+          try {
+            if (qrCanvas) ctx.drawImage(qrCanvas, x, y, size, size);
+            else if (qrImg) ctx.drawImage(qrImg, x, y, size, size);
+          } catch(_) {}
+          strokeRound(ctx,x,y,size,size,14,cls().color,5);
           if (holder.parentNode) document.body.removeChild(holder);
+          resolve();
         };
-        if (qrImg.complete) {
-          ctx.drawImage(qrImg, x, y, size, size);
-          if (holder.parentNode) document.body.removeChild(holder);
+        if (qrCanvas) { setTimeout(done, 0); return; }
+        if (qrImg) {
+          if (qrImg.complete && qrImg.naturalWidth) { done(); return; }
+          qrImg.onload = done; qrImg.onerror = done;
+          return;
         }
-      } else {
         if (holder.parentNode) document.body.removeChild(holder);
         throw new Error("QR non généré");
       }
-
-      strokeRound(ctx,x,y,size,size,14,cls().color,5);
-      return;
+    } catch(e) {
+      console.warn("QR réel indisponible, fallback visuel", e);
     }
-  } catch(e) {
-    console.warn("QR réel indisponible, fallback visuel", e);
-  }
-
-  // Fallback visuel uniquement si la librairie QR n'est pas disponible.
-  strokeRound(ctx,x,y,size,size,14,cls().color,5);
+    // Fallback visuel
+    strokeRound(ctx,x,y,size,size,14,cls().color,5);
   let seed = 2166136261;
   for(let i=0;i<payload.length;i++) seed = Math.imul(seed ^ payload.charCodeAt(i), 16777619);
   function rnd() { seed = Math.imul(seed + 0x6D2B79F5, 1); seed ^= seed >>> 15; return ((seed>>>0) % 1000)/1000; }
@@ -2080,9 +2068,20 @@ function drawQrVisual(ctx, payload, x,y,size) {
       if(!f1&&!f2&&!f3 && rnd()>.56) ctx.fillRect(x+col*c,y+r*c,Math.ceil(c),Math.ceil(c));
     }
   }
+    resolve();
+  });
 }
 
-function drawFront() {
+function makeBadgeB64(canvas) {
+  const b = document.createElement('canvas');
+  b.width = canvas.width * 2; b.height = canvas.height * 2;
+  const ctx = b.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, 0, 0, b.width, b.height);
+  return b.toDataURL('image/png').split(',')[1];
+}
+
+async function drawFront() {
   const c = cls();
   const ctx = $("front").getContext("2d");
   ctx.clearRect(0,0,W,H);
@@ -2179,7 +2178,7 @@ function drawFront() {
 
   // QR box
   fillRound(ctx,792,298,156,190,18,"rgba(255,255,255,.88)");
-  drawQrVisual(ctx,"schoolsafe://student/"+val("sid")+"/"+val("matricule"),806,315,128);
+  await drawQrVisual(ctx,"schoolsafe://student/"+val("sid")+"/"+val("matricule"),806,315,128);
   ctx.fillStyle=c.dark; ctx.font="950 15px Arial"; ctx.textAlign="center"; ctx.fillText("SCAN GARDIEN",870,468);
 
   // bottom class strip
@@ -2187,7 +2186,7 @@ function drawFront() {
   ctx.font="950 21px Arial"; ctx.fillStyle="#fff"; ctx.textAlign="center"; ctx.fillText(c.label.toUpperCase()+"  •  "+devise.toUpperCase(),508,586);
 }
 
-function drawBack() {
+async function drawBack() {
   const c = cls();
   const ctx = $("back").getContext("2d");
   ctx.clearRect(0,0,W,H);
@@ -2237,7 +2236,7 @@ function drawBack() {
   // right QR
   fillRound(ctx,656,220,282,280,24,"#ffffff");
   strokeRound(ctx,656,220,282,280,24,c.color,5);
-  drawQrVisual(ctx,"schoolsafe://verify/"+val("sid")+"/"+val("matricule"),708,250,178);
+  await drawQrVisual(ctx,"schoolsafe://verify/"+val("sid")+"/"+val("matricule"),708,250,178);
   ctx.fillStyle="#0f172a"; ctx.font="950 21px Arial"; ctx.textAlign="center"; ctx.fillText("SCAN SORTIE",797,455);
   ctx.fillStyle="#475569"; ctx.font="800 15px Arial"; ctx.fillText("photos + personnes autorisées",797,480);
 
@@ -2249,21 +2248,16 @@ function drawBack() {
   ctx.fillText("Cette carte est strictement personnelle et doit être présentée au gardien.",507,582);
 }
 
-function renderAll() {
-  drawFront();
-  drawBack();
+async function renderAll() {
+  await Promise.all([drawFront(), drawBack()]);
   window._cardReady = true;
   const st=$("status");
   if(st) st.textContent = cls().label+" — QR réel : schoolsafe://student/"+val("sid");
-  // Delay _cardReady and callback by 80ms to let setTimeout(0) QR draws finish
-  setTimeout(() => {
-    window._cardReady = true;
-    if(window._cardRenderCallback){
-      const cb=window._cardRenderCallback;
-      window._cardRenderCallback=null;
-      cb();
-    }
-  }, 80);
+  if(window._cardRenderCallback){
+    const cb=window._cardRenderCallback;
+    window._cardRenderCallback=null;
+    cb();
+  }
 }
 
 function downloadCanvas(id, name) {
@@ -2340,7 +2334,7 @@ function downloadZip() {
     a.href = url; a.download = folderName + '.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
     toast('ZIP créé : '+folderName+'.zip (carte + badge)','success');
-  });
+  }).catch(e => { console.error('[ZIP]',e); toast('Erreur ZIP : '+e.message,'error'); });
 }
 
 // Fill card for a student and wait until renderAll completes
@@ -2349,7 +2343,7 @@ function fillCardAsync(sid) {
     window._cardRenderCallback = resolve;
     fillCardFromStudent(sid);
     // Safety timeout in case renderAll never fires (e.g. no photo)
-    setTimeout(() => { if(window._cardRenderCallback){ window._cardRenderCallback=null; resolve(); } }, 1500);
+    setTimeout(() => { if(window._cardRenderCallback){ window._cardRenderCallback=null; resolve(); } }, 3000);
   });
 }
 
@@ -2382,7 +2376,7 @@ window.exportAllCardsZip = async () => {
     a.href=url; a.download='Cartes_Eleves_'+today()+'.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),3000);
     toast('✅ ZIP créé — '+count+' élèves · carte + badge','success');
-  });
+  }).catch(e => { console.error('[ZIP]',e); toast('Erreur ZIP : '+e.message,'error'); });
 };
 
 function downloadAllNine() {
@@ -2631,7 +2625,7 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
     ${DB.classes.map(cl => {
       const studs = DB.students.filter(s => s.cid === cl.id).sort((a,b)=>a.name.localeCompare(b.name));
       if (!studs.length) return '';
-      return '<optgroup label="'+cl.name+'">' + studs.map(s => '<option value="'+s.id+'">'+s.name+'</option>').join('') + '</optgroup>';
+      return '<optgroup label="'+esc(cl.name)+'">' + studs.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('') + '</optgroup>';
     }).join('')}
   </select>
 </div>
@@ -3413,8 +3407,8 @@ R.approbations = () => {
         <div class="pi-icon" style="background:${a.type==='cahier_texte'?'#dbeafe':a.type==='matiere'?'#d1fae5':'#fef3c7'}">${a.type==='cahier_texte'?'📖':a.type==='matiere'?'📐':'⏰'}</div>
         <div style="flex:1;min-width:150px">
           <div class="pi-title">${typeLabel}</div>
-          <div class="pi-sub">${a.content||''}</div>
-          ${submitter?`<div style="font-size:11px;color:var(--text-muted)">${submitter.name} · ${a.date||''}</div>`:''}
+          <div class="pi-sub">${esc(a.content||'')}</div>
+          ${submitter?`<div style="font-size:11px;color:var(--text-muted)">${esc(submitter.name)} · ${a.date||''}</div>`:''}
         </div>
         ${a.type==='retard_grave'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveApr('${a.id}','approved')">✅ Autoriser</button><button class="btn btn-danger btn-sm" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
         ${a.type==='matiere'?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">✅ Approuver</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">❌ Refuser</button></div>`:''}
@@ -4082,9 +4076,9 @@ R.children = () => {
               <div style="width:64px;height:80px;border-radius:12px;background:#f1f5f9;margin:0 auto 6px;overflow:hidden;border:2px solid var(--border)">
                 ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#64748b">${ini(t.name)}</div>`}
               </div>
-              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
-              <div style="font-size:10px;color:var(--text-muted)">${t.relation}</div>
-              ${t.phone?`<div style="font-size:10px;color:var(--primary)">${t.phone}</div>`:''}
+              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
+              <div style="font-size:10px;color:var(--text-muted)">${esc(t.relation)}</div>
+              ${t.phone?`<div style="font-size:10px;color:var(--primary)">${esc(t.phone)}</div>`:''}
             </div>`).join('')}
           </div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:8px">⚠️ Ces personnes sont autorisées à récupérer l'enfant. Leur visage s'affiche lors du scan de sortie au gardien.</div>
@@ -4430,7 +4424,7 @@ window.signalerRattrapage = (sid) => {
   </div>
   <div class="form-group"><label class="form-label">Matière concernée *</label>
     <select class="form-select" id="rat_mat">
-      ${matieres.map(m=>`<option value="${m.name}">${m.name}</option>`).join('')}
+      ${matieres.map(m=>`<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('')}
     </select>
   </div>
   <div class="form-group"><label class="form-label">Motif / Observation *</label>
@@ -4641,7 +4635,7 @@ R.palmares_parent = () => {
 
   return kids.map(k=>{
     const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
-    if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef4444"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${k.name}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
+    if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef4444"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
 
     const cl=gc(k.cid); if(!cl) return '';
     const students=DB.students.filter(s=>s.cid===cl.id);
@@ -4690,7 +4684,7 @@ R.palmares_parent = () => {
           const bc=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
           return `<div style="margin-bottom:7px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${m.name}</span>
+              <span style="color:var(--text-secondary)">${esc(m.name)}</span>
               <span style="font-weight:700;color:${bc==='#e2e8f0'?'var(--text-muted)':bc}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${bc}"></div></div>
@@ -4708,8 +4702,8 @@ R.palmares_parent = () => {
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
         <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cc};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2)">${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}</div>
         <div>
-          <div style="font-size:20px;font-weight:800">${k.name}</div>
-          <div style="font-size:14px;color:var(--text-secondary)">${cl.name} — ${pos}${pos===1?'er':'ème'} sur ${ranked.length}</div>
+          <div style="font-size:20px;font-weight:800">${esc(k.name)}</div>
+          <div style="font-size:14px;color:var(--text-secondary)">${esc(cl.name)} — ${pos}${pos===1?'er':'ème'} sur ${ranked.length}</div>
           <div style="font-size:22px;font-weight:800;color:${me&&me.total>=70?'#059669':me&&me.total>=50?'#d97706':'#dc2626'};margin-top:4px">${me?me.total:0} pts</div>
         </div>
       </div>
@@ -4768,8 +4762,8 @@ R.palmares_parent = () => {
         const allPaid=DB.payments.filter(p=>p.sid===k.id).every(p=>p.paid);
         const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
         if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
-        if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${k.name.split(' ')[0]}.</div></div></div>`;
-        return `<button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${k.name.split(' ')[0]}</button>`;
+        if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
+        return `<button class="btn btn-outline" style="width:100%;margin-top:12px;font-size:13px" onclick="printReport('bulletin','${k.id}')">🖨️ Imprimer le bulletin de ${esc(k.name.split(' ')[0])}</button>`;
       })()}
     </div>`;
   }).join('');
@@ -5020,7 +5014,7 @@ R.matieres = () => {
     ${otherMat.map(m=>`
     <div class="premium-item" style="opacity:.6">
       <div class="pi-icon" style="background:#f1f5f9">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
-      <div style="flex:1"><div class="pi-title">${m.name}</div><div class="pi-sub">Géré par le co-titulaire</div></div>
+      <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">Géré par le co-titulaire</div></div>
       <span class="pill pill-gray">Autre prof</span>
     </div>`).join('')}
   </div>`:''}
@@ -5243,7 +5237,7 @@ R.devoirs_parent = () => {
             <div style="font-size:36px">🔒</div>
             <div>
               <div style="font-weight:700;font-size:14px">Notes / Côtes — Accès bloqué</div>
-              <div style="font-size:13px;color:#dc2626;margin-top:4px">Réglez les frais scolaires pour voir les notes de ${k.name}</div>
+              <div style="font-size:13px;color:#dc2626;margin-top:4px">Réglez les frais scolaires pour voir les notes de ${esc(k.name)}</div>
             </div>
           </div>
         </div>`;
@@ -5252,7 +5246,7 @@ R.devoirs_parent = () => {
         const matieres=cl2?getClassMatieres(cl2.id):[];
         const trimestres=['T1','T2','T3'];
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
-          <div class="premium-section-title">📊 Notes / Côtes — ${k.name}</div>
+          <div class="premium-section-title">📊 Notes / Côtes — ${esc(k.name)}</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr>
               <th style="text-align:left;padding:6px 8px;background:var(--bg);border-radius:8px 0 0 0;font-weight:700">Matière</th>
@@ -5265,7 +5259,7 @@ R.devoirs_parent = () => {
               const vals=avgs.filter(x=>x!==null);
               const avg=vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
               return `<tr style="background:${mi%2===0?'var(--bg-card)':'transparent'}">
-                <td style="padding:6px 8px;font-weight:600">${m.name}</td>
+                <td style="padding:6px 8px;font-weight:600">${esc(m.name)}</td>
                 ${avgs.map(a=>a!==null?`<td style="text-align:center;padding:6px 8px;font-weight:700;color:${a>=70?'#059669':a>=50?'#d97706':'#dc2626'}">${a}%</td>`:`<td style="text-align:center;padding:6px 8px;color:var(--text-muted)">—</td>`).join('')}
                 <td style="text-align:center;padding:6px 8px;font-weight:800;color:${avg===null?'var(--text-muted)':avg>=70?'#059669':avg>=50?'#d97706':'#dc2626'}">${avg!==null?avg+'%':'—'}</td>
               </tr>`;
@@ -6256,8 +6250,8 @@ R.authorized = () => {
               ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}
             </div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700">${s.name}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${s.mat} · ${c?c.name:''}</div>
+              <div style="font-weight:700">${esc(s.name)}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${esc(s.mat)} · ${c?esc(c.name):''}</div>
             </div>
             ${tuts.length<3?`<button class="btn btn-primary btn-sm" onclick="openTutelleForm('${s.id}')">➕ Tutelle</button>`:`<span class="pill pill-orange">Max 3</span>`}
           </div>
@@ -6266,8 +6260,8 @@ R.authorized = () => {
               ${parent&&parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:parent?ini(parent.name):'?'}
             </div>
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700">${parent?parent.name:'— Aucun parent principal'}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">👑 Parent principal · ${parent?parent.phone||'—':'Non lié'}</div>
+              <div style="font-size:13px;font-weight:700">${parent?esc(parent.name):'— Aucun parent principal'}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">👑 Parent principal · ${parent?esc(parent.phone||'—'):'Non lié'}</div>
             </div>
             <span class="pill" style="background:#dbeafe;color:#1e40af;font-size:10px">COMPTE APP</span>
           </div>
@@ -6308,8 +6302,8 @@ R.authorized = () => {
             ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}
           </div>
           <div>
-            <div style="font-weight:700">${s.name}</div>
-            <div style="font-size:12px;color:var(--text-secondary)">${c?c.name:''} · ${s.mat}</div>
+            <div style="font-weight:700">${esc(s.name)}</div>
+            <div style="font-size:12px;color:var(--text-secondary)">${c?esc(c.name):''} · ${esc(s.mat)}</div>
           </div>
         </div>
 
@@ -6321,8 +6315,8 @@ R.authorized = () => {
               ${parent&&parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:18px;font-weight:700;color:#10b981">${parent?ini(parent.name):'?'}</span>`}
             </div>
             <div style="flex:1">
-              <div style="font-weight:700;font-size:14px">${parent?parent.name:'Non lié'}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">${parent?parent.phone||'—':'—'}</div>
+              <div style="font-weight:700;font-size:14px">${parent?esc(parent.name):'Non lié'}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${parent?esc(parent.phone||'—'):'—'}</div>
             </div>
             <span class="pill" style="background:#d1fae5;color:#065f46;font-size:10px">✅ Toujours autorisé</span>
           </div>
@@ -6347,9 +6341,9 @@ R.authorized = () => {
                     ${!active?`<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:18px">🚫</div>`:''}
                   </div>
                   <div style="flex:1;min-width:0">
-                    <div style="font-weight:700;font-size:14px">${t.name}</div>
-                    <div style="font-size:12px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
-                    ${t.phone?`<div style="font-size:11px;color:var(--text-muted)">${t.phone}</div>`:''}
+                    <div style="font-weight:700;font-size:14px">${esc(t.name)}</div>
+                    <div style="font-size:12px;color:var(--text-secondary)">${esc(t.relation||'Tutelle')}</div>
+                    ${t.phone?`<div style="font-size:11px;color:var(--text-muted)">${esc(t.phone)}</div>`:''}
                     <div style="font-size:11px;margin-top:4px;color:${active?'#059669':'#dc2626'};font-weight:600">${active?'✅ Autorisé à récupérer':'🚫 Accès désactivé'}</div>
                   </div>
                   <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
@@ -6393,8 +6387,8 @@ R.authorized = () => {
           ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`:ini(s.name)}
         </div>
         <div style="flex:1">
-          <div style="font-weight:700">${s.name}</div>
-          <div style="font-size:12px;color:var(--text-secondary)">${c?c.name:''} · ${s.mat}</div>
+          <div style="font-weight:700">${esc(s.name)}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${c?esc(c.name):''} · ${esc(s.mat)}</div>
         </div>
         <span class="pill" style="background:${totalAps>0?'#d1fae5':'#fee2e2'};color:${totalAps>0?'#065f46':'#991b1b'}">${totalAps} autorisé${totalAps!==1?'s':''}</span>
       </div>
@@ -6403,17 +6397,17 @@ R.authorized = () => {
           <div style="width:56px;height:68px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
             ${parent.photo_url?`<img src="${parent.photo_url}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#10b981">${ini(parent.name)}</span>`}
           </div>
-          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${parent.name.split(' ')[0]}</div>
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(parent.name.split(' ')[0])}</div>
           <div style="font-size:10px;color:#10b981;font-weight:600">👑 Parent</div>
-          ${parent.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${parent.phone}</div>`:''}
+          ${parent.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(parent.phone)}</div>`:''}
         </div>`:''}
         ${tuts.map(t=>`<div style="flex:1;min-width:100px;max-width:130px;background:var(--bg);border-radius:12px;padding:10px;border:1px solid var(--border);text-align:center">
           <div style="width:56px;height:68px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#e2e8f0;display:flex;align-items:center;justify-content:center">
             ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#64748b">${ini(t.name)}</span>`}
           </div>
-          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name.split(' ')[0]}</div>
-          <div style="font-size:10px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
-          ${t.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${t.phone}</div>`:''}
+          <div style="font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name.split(' ')[0])}</div>
+          <div style="font-size:10px;color:var(--text-secondary)">${esc(t.relation||'Tutelle')}</div>
+          ${t.phone?`<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${esc(t.phone)}</div>`:''}
         </div>`).join('')}
         ${totalAps===0?`<div style="font-size:12px;color:#dc2626;padding:12px;background:#fee2e2;border-radius:10px;width:100%">⚠️ Aucune personne autorisée enregistrée</div>`:''}
       </div>
@@ -6622,10 +6616,10 @@ R.absences = () => {
         return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
           <div class="pi-icon" style="background:#fef3c7">📄</div>
           <div style="flex:1;min-width:150px">
-            <div class="pi-title">${s?s.name:'?'}</div>
-            <div class="pi-sub">${a.dates} · ${a.motif}</div>
-            ${a.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${a.note}</div>`:''}
-            <div style="font-size:11px;color:var(--text-muted)">Soumis par ${p?p.name:'?'} le ${a.submitted}</div>
+            <div class="pi-title">${s?esc(s.name):'?'}</div>
+            <div class="pi-sub">${esc(a.dates)} · ${esc(a.motif)}</div>
+            ${a.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(a.note)}</div>`:''}
+            <div style="font-size:11px;color:var(--text-muted)">Soumis par ${p?esc(p.name):'?'} le ${a.submitted}</div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
@@ -6669,7 +6663,7 @@ R.absences = () => {
       const s=DB.students.find(x=>x.id===a.sid);
       return `<div class="premium-item">
         <div class="pi-icon" style="background:#fef3c7">📄</div>
-        <div style="flex:1"><div class="pi-title">${s?s.name:'?'} — ${a.dates}</div><div class="pi-sub">${a.motif}${a.note?' · '+a.note:''}</div><div style="font-size:11px;color:var(--text-muted)">${a.submitted}</div></div>
+        <div style="flex:1"><div class="pi-title">${s?esc(s.name):'?'} — ${esc(a.dates)}</div><div class="pi-sub">${esc(a.motif)}${a.note?' · '+esc(a.note):''}</div><div style="font-size:11px;color:var(--text-muted)">${a.submitted}</div></div>
         <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
       </div>`;
     }).join('')}
@@ -7036,7 +7030,7 @@ window.openComposeMsg = () => {
     if(!mc.cl){toast('Aucune classe assignée','error');return;}
     openM('✉️ Message aux parents',`
     <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#78350f">
-      ⏳ Ce message sera soumis à la Direction avant envoi à tous les parents de <strong>${mc.cl.name}</strong>
+      ⏳ Ce message sera soumis à la Direction avant envoi à tous les parents de <strong>${esc(mc.cl.name)}</strong>
     </div>
     <div class="form-group"><label class="form-label">Type</label>
       <select class="form-select" id="msg_type" onchange="applyMsgTemplate()">
@@ -7183,8 +7177,8 @@ window.replyToParent = (mid) => {
   openM(`↩️ Répondre à ${parent.name}`,`
   <div style="background:#f8faff;border-left:3px solid #0f2557;border-radius:8px;padding:10px 12px;margin-bottom:14px">
     <div style="font-size:11px;color:#6b7280;margin-bottom:3px">Message original</div>
-    <div style="font-size:13px;font-weight:600;color:#374151">"${m.subject}"</div>
-    <div style="font-size:12px;color:#6b7280;margin-top:4px">${m.body.slice(0,120)}${m.body.length>120?'…':''}</div>
+    <div style="font-size:13px;font-weight:600;color:#374151">"${esc(m.subject)}"</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:4px">${esc(m.body.slice(0,120))}${m.body.length>120?'…':''}</div>
   </div>
   <div class="form-group"><label class="form-label">Objet</label>
     <input class="form-input" id="msg_subject" value="Re: ${m.subject}">
@@ -7204,8 +7198,8 @@ window.replyToDirection = (mid) => {
   openM(`↩️ Répondre à ${dirUser.name}`,`
   <div style="background:#f8faff;border-left:3px solid #0f2557;border-radius:8px;padding:10px 12px;margin-bottom:14px">
     <div style="font-size:11px;color:#6b7280;margin-bottom:3px">Message original</div>
-    <div style="font-size:13px;font-weight:600;color:#374151">"${m.subject}"</div>
-    <div style="font-size:12px;color:#6b7280;margin-top:4px">${m.body.slice(0,120)}${m.body.length>120?'…':''}</div>
+    <div style="font-size:13px;font-weight:600;color:#374151">"${esc(m.subject)}"</div>
+    <div style="font-size:12px;color:#6b7280;margin-top:4px">${esc(m.body.slice(0,120))}${m.body.length>120?'…':''}</div>
   </div>
   <div class="form-group"><label class="form-label">Votre réponse *</label>
     <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Réponse à la Direction..."></textarea>
@@ -7498,7 +7492,7 @@ R.primes = () => {
             const stColor=r.paid?'#d1fae5':r.validated_by?'#fef3c7':'#f1f5f9';
             const stText=r.paid?'✅ Versé':r.validated_by?'⏳ À verser':'🕐 En attente';
             return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">
-              <div style="font-size:12px;flex:1"><span style="font-weight:600">${s?s.name:'?'}</span><span style="color:var(--text-muted)"> · ${r.matiere}</span></div>
+              <div style="font-size:12px;flex:1"><span style="font-weight:600">${s?esc(s.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r.matiere)}</span></div>
               <span style="font-size:11px;font-weight:700;color:#059669">$${r.amount}</span>
               <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>
               ${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}
@@ -7580,10 +7574,10 @@ R.convocations = () => {
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
         <div class="pi-icon" style="background:${statusColor[conv.status]+'22'};color:${statusColor[conv.status]};font-size:20px">${conv.status==='scheduled'?'📅':conv.status==='completed'?'✅':conv.status==='missed'?'❌':'📋'}</div>
         <div style="flex:1;min-width:180px">
-          <div class="pi-title">${s?s.name:'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${cl.name}</span>`:''}</div>
-          <div class="pi-sub">${parent?`Parent: ${parent.name}${parent.phone?' · '+parent.phone:''}`:''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:'')}</div>
-          ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+conv.note:''}</div>`:''}
+          <div class="pi-title">${s?esc(s.name):'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div>
+          <div class="pi-sub">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
+          ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
           <span style="font-size:11px;font-weight:700;color:${statusColor[conv.status]||'#64748b'}">${statusLabel[conv.status]||conv.status}</span>
@@ -7607,7 +7601,7 @@ window.openConvocationM = () => {
       ${DB.classes.map(cl=>{
         const studs=DB.students.filter(s=>s.cid===cl.id).sort((a,b)=>a.name.localeCompare(b.name));
         if(!studs.length) return '';
-        return `<optgroup label="${cl.name}">${studs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</optgroup>`;
+        return `<optgroup label="${esc(cl.name)}">${studs.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`;
       }).join('')}
     </select>
   </div>
@@ -7725,8 +7719,8 @@ ${DB.classes.map(cl=>{
   if(!studs.length) return '';
   const nextIdx=classOrder.indexOf(cl.id)+1;
   const nextCl=nextIdx<classOrder.length?DB.classes.find(c=>c.id===classOrder[nextIdx]):null;
-  return `<div style="margin-bottom:12px"><div style="font-weight:700;font-size:13px;padding:6px 0;color:var(--text-secondary);border-bottom:1px solid var(--border)">${cl.name} → ${nextCl?nextCl.name:'🎓 Diplômé'}</div>
-  ${studs.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" checked style="accent-color:#2563eb"> ${s.name}</label>`).join('')}</div>`;
+  return `<div style="margin-bottom:12px"><div style="font-weight:700;font-size:13px;padding:6px 0;color:var(--text-secondary);border-bottom:1px solid var(--border)">${esc(cl.name)} → ${nextCl?esc(nextCl.name):'🎓 Diplômé'}</div>
+  ${studs.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" checked style="accent-color:#2563eb"> ${esc(s.name)}</label>`).join('')}</div>`;
 }).join('')}
 </div>`;
   openM('🎓 Passage de classe', body,
@@ -8340,8 +8334,8 @@ R.mes_primes = () => {
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div class="ww-item-icon" style="background:${statusBg[st]}"><span style="font-size:18px">${st==='paid'?'💰':st==='validated'?'✅':st==='refused'?'❌':'📚'}</span></div>
         <div class="ww-item-content">
-          <div class="ww-item-title">${s?s.name:'?'} — ${r.matiere||'—'}</div>
-          <div class="ww-item-sub">${r.date||''}${r.motif?' · '+r.motif:''}</div>
+          <div class="ww-item-title">${s?esc(s.name):'?'} — ${esc(r.matiere||'—')}</div>
+          <div class="ww-item-sub">${r.date||''}${r.motif?' · '+esc(r.motif):''}</div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${statusBg[st]};color:${statusColor[st]}">${statusLabel[st]}</span>
             ${r.amount>0?`<span style="font-size:12px;font-weight:800;color:${st==='paid'?'#059669':'#1d4ed8'}">$${r.amount}</span>`:'<span style="font-size:11px;color:var(--text-muted)">Montant non fixé</span>'}
@@ -8636,8 +8630,8 @@ R.timetable = () => {
       const t=slot?gu(slot.teacher_id):null;
       html+=`<td onclick="${canEdit?`editTimetableSlot('${selCl.id}','${day}',${pi})`:''}" style="padding:6px;text-align:center;vertical-align:middle;cursor:${canEdit?'pointer':'default'};background:${slot?'#f0f9ff':'transparent'};transition:background .15s" onmouseover="if(${canEdit})this.style.background='#e0f2fe'" onmouseout="this.style.background='${slot?'#f0f9ff':'transparent'}'">`;
       if(slot){
-        html+=`<div style="font-weight:600;font-size:11px;line-height:1.4;color:var(--text)">${slot.matiere||'—'}</div>`;
-        if(t) html+=`<div style="font-size:10px;color:#2563eb;margin-top:2px">${ini(t.name)} ${t.name.split(' ').pop()}</div>`;
+        html+=`<div style="font-weight:600;font-size:11px;line-height:1.4;color:var(--text)">${esc(slot.matiere||'—')}</div>`;
+        if(t) html+=`<div style="font-size:10px;color:#2563eb;margin-top:2px">${ini(t.name)} ${esc(t.name.split(' ').pop())}</div>`;
         if(canEdit) html+=`<div style="font-size:9px;color:var(--text-muted);margin-top:2px">✏️ modifier</div>`;
       } else if(canEdit) {
         html+=`<div style="font-size:18px;color:var(--border)">＋</div>`;
