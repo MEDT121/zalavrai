@@ -1836,7 +1836,29 @@ function dashboardDirection3() {
   </div>
   ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Derniers paiements</div>
     ${recs.slice(-4).reverse().map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
-  </div>`:''}`;
+  </div>`:''}
+  ${(()=>{
+    const cRecs=DB.daily_records.filter(r=>r.date===today());
+    const cExps=DB.daily_expenses.filter(e=>e.date===today());
+    const cIn=cRecs.reduce((s,r)=>s+Number(r.amount||0),0);
+    const cOut=cExps.reduce((s,e)=>s+Number(e.amount||0),0);
+    const cNet=cIn-cOut;
+    if(!cRecs.length&&!cExps.length) return '';
+    return `<div class="premium-section" style="border-left:4px solid #10b981">
+      <div class="premium-section-title">💰 Rapport Caisse du jour</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#059669">+$${cIn}</div><div style="font-size:10px;color:var(--text-muted)">Encaissé</div>
+        </div>
+        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+          <div style="font-size:16px;font-weight:800;color:#dc2626">-$${cOut}</div><div style="font-size:10px;color:var(--text-muted)">Dépensé</div>
+        </div>
+        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+          <div style="font-size:16px;font-weight:800;color:${cNet>=0?'#059669':'#dc2626'}">${cNet>=0?'+':''}$${cNet}</div><div style="font-size:10px;color:var(--text-muted)">Solde net</div>
+        </div>
+      </div>
+    </div>`;
+  })()}`;
 }
 
 function dashboardGardien() {
@@ -5555,7 +5577,7 @@ R.devoirs_parent = () => {
       }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
     </div>`;
     // ── Section Notes/Côtes — verrouillé si Direction n'a pas activé les corrections ──
-    if(DB.settings.toggles?.notes_parent) {
+    if(true) {
       if(!canSeeCorr) {
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
           <div style="display:flex;align-items:center;gap:14px;padding:6px 0">
@@ -5935,8 +5957,42 @@ window.saveCorrecteurDevoir = dvId => {
     saved++;
   });
   if(!saved){toast('Aucune note saisie','error');return;}
+  // Create in-app notifications for parents + collect WhatsApp links
+  const waLinks=[];
+  document.querySelectorAll('.gc-input').forEach(inp=>{
+    const sid=inp.dataset.sid;
+    const raw=inp.value.trim(); if(raw==='') return;
+    const s=DB.students.find(x=>x.id===sid); if(!s||!s.pid) return;
+    const par=DB.users.find(u=>u.id===s.pid); if(!par) return;
+    // In-app notif
+    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,type:'correction',
+      msg:`✅ Correction disponible : ${d.title}${d.matiere?' — '+d.matiere:''}`,read:false,date:today(),devoir_id:dvId};
+    if(!DB.notifs) DB.notifs=[];
+    DB.notifs.push(notif);
+    pushSync('notifs','post',notif);
+    // WhatsApp
+    if(par.phone){
+      const pct=Math.round(parseFloat(inp.value)/(parseFloat(document.getElementById('gcMax')?.value)||20)*100);
+      const msg=encodeURIComponent(`Bonjour ${par.name.split(' ')[0]}, la correction de "${d.title}"${d.matiere?' ('+d.matiere+')':''} de ${s.name.split(' ')[0]} est disponible sur SchoolSafe. Note : ${inp.value}/${document.getElementById('gcMax')?.value||20} (${pct}%). Connectez-vous pour voir la feuille corrigée.`);
+      waLinks.push({name:s.name.split(' ')[0],phone:par.phone.replace(/\s+/g,''),msg});
+    }
+  });
   saveToCrypt(); closeModal(); render();
   toast(`✅ ${saved} côte(s) enregistrée(s)`,'success');
+  if(waLinks.length){
+    setTimeout(()=>{
+      openM('📱 Notifier les parents via WhatsApp',`
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Cliquez sur chaque bouton pour envoyer le résultat au parent via WhatsApp :</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${waLinks.map(w=>`<a href="https://wa.me/${w.phone}?text=${w.msg}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#d1fae5;border-radius:10px;text-decoration:none;color:#065f46;font-weight:700">
+          <span style="font-size:18px">📱</span>
+          <span style="flex:1">Notifier le parent de ${w.name}</span>
+          <span style="font-size:11px;background:#059669;color:#fff;padding:3px 8px;border-radius:6px">WhatsApp →</span>
+        </a>`).join('')}
+      </div>`,
+      `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+    },600);
+  }
 };
 
 window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
@@ -8332,7 +8388,7 @@ window.openYearConfig = () => {
 <div class="form-group"><label class="form-label">Année scolaire</label><input class="form-input" id="yr_name" value="${DB.settings.year||'2025-2026'}" placeholder="Ex: 2025-2026"></div>
 <div class="form-group"><label class="form-label">Visibilité</label>
   <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
-    ${[['palmares','🏆 Palmarès visible par les parents'],['notes_parent','📊 Notes/côtes visibles par les parents (frais requis)'],['devoirs','📚 Devoirs / Interros / Examens visibles par les parents'],['cahier_texte','📖 Cahier de texte visible'],['presences','📋 Présences activées']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="tog_${k}" ${DB.settings.toggles[k]?'checked':''} style="accent-color:#2563eb"> ${lbl}</label>`).join('')}
+    ${[['devoirs','📚 Devoirs / Interros / Examens visibles par les parents'],['cahier_texte','📖 Cahier de texte visible'],['presences','📋 Présences activées']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="tog_${k}" ${DB.settings.toggles[k]?'checked':''} style="accent-color:#2563eb"> ${lbl}</label>`).join('')}
   </div>
 </div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveYearConfig()">💾 Sauvegarder</button>`);
@@ -8341,7 +8397,7 @@ window.openYearConfig = () => {
 window.saveYearConfig = () => {
   if(!DB.settings.toggles) DB.settings.toggles={};
   DB.settings.year = ($('yr_name').value||'').trim()||DB.settings.year;
-  ['palmares','notes_parent','devoirs','cahier_texte','presences'].forEach(k=>{
+  ['devoirs','cahier_texte','presences'].forEach(k=>{
     DB.settings.toggles[k] = !!document.getElementById('tog_'+k)?.checked;
   });
   toast('✅ Configuration sauvegardée','success');
@@ -8893,10 +8949,7 @@ R.settings = () => {
     <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Active ou désactive l'accès des parents et enseignants à ces sections.</div>
     <div style="display:flex;flex-direction:column;gap:0">
       ${[
-        ['palmares','🏆','Palmarès','Classement visible par les parents'],
-        ['bulletin','📄','Bulletins scolaires','Parents accèdent au bulletin (frais requis)'],
-        ['notes_parent','📊','Notes & Côtes','Parents voient les notes (frais requis)'],
-        ['devoirs','📚','Devoirs','Devoirs/interros publiés par les enseignants'],
+        ['devoirs','📚','Devoirs & Évaluations','Devoirs/interros publiés par les enseignants'],
         ['cahier_texte','📖','Cahier de texte','Enseignants remplissent, parents consultent'],
         ['presences','📋','Présences','Marquage des présences par les enseignants'],
       ].map(([k,ic,lbl,sub])=>`
