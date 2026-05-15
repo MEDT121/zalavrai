@@ -5154,23 +5154,31 @@ R.devoirs_parent = () => {
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condColor={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
   const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
-  const renderDevoirItem = (d) => {
+  const renderDevoirItem = (d, kidName) => {
     const deadline=d.deadline?new Date(d.deadline):null;
     const overdue=deadline&&deadline<new Date();
     const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
     const catBg={devoir:'#dbeafe',interro:'#fef3c7',examen:'#ede9fe'}[d.category]||'#dbeafe';
-    const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
-    return `<div class="premium-item" style="${overdue?'border-left:3px solid #ef4444;':''}">
-      <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg}">${overdue?'⏰':catIcon}</div>
-      <div style="flex:1">
-        <div class="pi-title">${d.title}</div>
-        <div class="pi-sub">${d.matiere||''}${dateLabel?' · '+dateLabel:''} · ${d.date}</div>
-        ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding:8px;background:var(--bg);border-radius:8px;line-height:1.6">${d.description}</div>`:''}
-        ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;margin-top:6px">`:''}
-        ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">📄 Ouvrir le PDF</button>`:''}
+    const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Devoir';
+    const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}):'';
+    return `<div class="premium-item" style="${overdue?'border-left:3px solid #ef4444;':'border-left:3px solid #3b82f6;'}padding:14px">
+      <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg};flex-shrink:0">${overdue?'⏰':catIcon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div>
+            <div class="pi-title">${esc(d.title)}</div>
+            <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · 📅 '+dateLabel:''}</div>
+          </div>
+          <button onclick="printDevoir('${d.id}','${esc(kidName||'')}')" title="Imprimer ce devoir"
+            style="flex-shrink:0;background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">
+            🖨️ Imprimer
+          </button>
+        </div>
+        ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:8px;padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;white-space:pre-wrap">${esc(d.description)}</div>`:''}
+        ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;margin-top:8px;border:1px solid var(--border)">`:''}
+        ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">📄 Ouvrir le PDF</button>`:''}
         ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📄 PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
       </div>
-      <span class="pill ${overdue?'pill-red':'pill-blue'}">${overdue?'⏰ Passé':'✅ À venir'}</span>
     </div>`;
   };
   let html='';
@@ -5224,17 +5232,17 @@ R.devoirs_parent = () => {
     // Devoirs section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
       <div class="premium-section-title">📚 Devoirs</div>
-      ${devoirsList.length?devoirsList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
+      ${devoirsList.length?devoirsList.map(d=>renderDevoirItem(d,k.name)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
     </div>`;
     // Interrogations section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
       <div class="premium-section-title">⚠️ Interrogations à venir</div>
-      ${interroList.length?interroList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
+      ${interroList.length?interroList.map(d=>renderDevoirItem(d,k.name)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #7c3aed">
       <div class="premium-section-title">📝 Examens</div>
-      ${examenList.length?examenList.map(renderDevoirItem).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
+      ${examenList.length?examenList.map(d=>renderDevoirItem(d,k.name)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
     </div>`;
     // Conduite section
     const canAddConduct = S.user.role==='enseignant'||S.user.role==='direction'||S.user.role==='direction2';
@@ -5517,6 +5525,71 @@ window.deleteDevoir = dvId => {
     toast('🗑️ Devoir supprimé','info');
     saveToCrypt(); render();
   });
+};
+
+window.printDevoir = (dvId, kidName) => {
+  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const school=DB.settings.school_name||'The Wise School International';
+  const catLabel={devoir:'DEVOIR À LA MAISON',interro:'INTERROGATION',examen:'EXAMEN'}[d.category]||'DEVOIR';
+  const catColor={devoir:'#1d4ed8',interro:'#b45309',examen:'#6d28d9'}[d.category]||'#1d4ed8';
+  const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
+  const imgBlock=d.type==='photo'&&d.content?`<div style="text-align:center;margin:20px 0"><img src="${d.content}" style="max-width:100%;max-height:400px;border:1px solid #e2e8f0;border-radius:8px"></div>`:'';
+  const pdfNote=d.type==='pdf'?`<p style="font-style:italic;color:#64748b">📄 Document PDF joint — ouvrez l'application pour le consulter.</p>`:'';
+  const w=window.open('','_blank','width=720,height=900');
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+  <title>${catLabel} — ${d.title}</title>
+  <style>
+    @page{size:A4;margin:20mm}
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;color:#0f172a;margin:0;padding:24px;max-width:680px;margin:0 auto}
+    .header{border-bottom:3px solid ${catColor};padding-bottom:16px;margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+    .school{font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+    .cat-badge{background:${catColor};color:#fff;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:800;white-space:nowrap}
+    h1{font-size:22px;font-weight:900;margin:0 0 6px;color:#0f172a}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+    .chip{background:#f1f5f9;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
+    .chip.red{background:#fee2e2;color:#991b1b}
+    .body-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin:20px 0;min-height:80px;font-size:14px;line-height:1.8;white-space:pre-wrap}
+    .answer-zone{border:2px dashed #cbd5e1;border-radius:12px;padding:16px;margin:20px 0;min-height:160px}
+    .answer-title{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+    .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between}
+    .signature{display:flex;gap:32px;margin-top:24px}
+    .sig-box{flex:1;border-top:1px solid #0f172a;padding-top:8px;font-size:11px;color:#64748b}
+    .no-print{text-align:center;margin:20px 0}
+    .btn-print{background:${catColor};color:#fff;border:none;padding:12px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer}
+    @media print{.no-print{display:none}}
+  </style></head><body>
+  <div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ Imprimer</button></div>
+  <div class="header">
+    <div>
+      <div class="school">${school}</div>
+      <h1>${d.title}</h1>
+      <div style="font-size:13px;color:#475569">${d.matiere||''}${d.matiere&&kidName?' — ':''} ${kidName||''}</div>
+    </div>
+    <div class="cat-badge">${catLabel}</div>
+  </div>
+  <div class="meta">
+    ${d.matiere?`<span class="chip">📐 ${d.matiere}</span>`:''}
+    ${dateLabel?`<span class="chip ${d.deadline&&new Date(d.deadline)<new Date()?'red':''}">📅 À remettre le ${dateLabel}</span>`:''}
+    <span class="chip">🗓️ Donné le ${d.date||''}</span>
+  </div>
+  ${d.description?`<div class="body-box">${d.description}</div>`:'<div class="body-box" style="color:#94a3b8;font-style:italic">Consulter les instructions sur l\'application ou auprès de l\'enseignant.</div>'}
+  ${imgBlock}${pdfNote}
+  <div class="answer-zone">
+    <div class="answer-title">✏️ Travail de l'élève</div>
+  </div>
+  <div class="signature">
+    <div class="sig-box">Signature de l'élève</div>
+    <div class="sig-box">Signature du parent</div>
+    <div class="sig-box">Signature de l'enseignant</div>
+  </div>
+  <div class="footer">
+    <span>${school} — SchoolSafe</span>
+    <span>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</span>
+  </div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),400);
 };
 
 // ── CAHIER DE TEXTE (avec approbation Direction) ──
