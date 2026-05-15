@@ -5326,17 +5326,29 @@ R.devoirs = () => {
             ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="deleteDevoir('${d.id}')" style="background:none;border:none;cursor:pointer;font-size:18px;padding:4px" title="Supprimer ce devoir">🗑️</button>`:''}
           </div>
         </div>
-        ${d.type==='text'?`<div style="font-size:14px;color:var(--text);line-height:1.7;padding:12px;background:var(--bg);border-radius:10px">${d.content}</div>`:''}
-        ${d.type==='photo'?`<div style="border-radius:10px;overflow:hidden;max-height:300px"><img src="${d.content}" style="width:100%;display:block;object-fit:contain"></div>`:''}
+        ${(d.category==='interro'||d.category==='examen')?(()=>{
+          const accentCol=d.category==='interro'?'#f59e0b':'#7c3aed';
+          const accentBg=d.category==='interro'?'#fef3c7':'#ede9fe';
+          return `
+          <div style="background:${accentBg};border-radius:10px;padding:12px 14px;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${accentCol};margin-bottom:6px">📖 Chapitres / Thèmes à réviser</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description||'—')}</div>
+            ${d.duration?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px">⏱️ Durée : ${esc(d.duration)}</div>`:''}
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:${accentCol};color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
+          </div>`;
+        })():`
+        ${d.type==='text'&&d.content?`<div style="font-size:14px;color:var(--text);line-height:1.7;padding:12px;background:var(--bg);border-radius:10px">${esc(d.content)}</div>`:''}
+        ${d.type==='photo'&&d.content?`<div style="border-radius:10px;overflow:hidden;max-height:300px"><img src="${d.content}" style="width:100%;display:block;object-fit:contain"></div>`:''}
         ${d.type==='pdf'?`<div style="padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;align-items:center;gap:12px">
           <span style="font-size:32px">📄</span>
-          <div style="flex:1">
-            <div style="font-weight:600">Document PDF</div>
-            <div style="font-size:12px;color:var(--text-muted)">${d.content?'Disponible':'Non disponible hors-ligne'}</div>
-          </div>
+          <div style="flex:1"><div style="font-weight:600">Document PDF</div>
+            <div style="font-size:12px;color:var(--text-muted)">${d.content?'Disponible':'Non disponible hors-ligne'}</div></div>
           ${d.content?`<button onclick="openPdfDevoir('${d.id}')" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📄 Ouvrir</button>`:''}
         </div>`:''}
         ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">📅 À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
+        `}
       </div>
     </div>`;
   }).join(''):`
@@ -5357,18 +5369,41 @@ R.devoirs_parent = () => {
   const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
   const renderDevoirItem = (d, kidName, kidMat, kidClass) => {
     const deadline=d.deadline?new Date(d.deadline):null;
-    const overdue=deadline&&deadline<new Date();
+    const now=new Date();
+    const overdue=deadline&&deadline<now;
+    const daysLeft=deadline?Math.ceil((deadline-now)/(1000*60*60*24)):null;
     const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
     const catBg={devoir:'#dbeafe',interro:'#fef3c7',examen:'#ede9fe'}[d.category]||'#dbeafe';
-    const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Devoir';
+    const catBorder={devoir:'#3b82f6',interro:'#f59e0b',examen:'#7c3aed'}[d.category]||'#3b82f6';
     const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}):'';
-    return `<div class="premium-item" style="${overdue?'border-left:3px solid #ef4444;':'border-left:3px solid #3b82f6;'}padding:14px">
+    const isEpreuve=d.category==='interro'||d.category==='examen';
+    if(isEpreuve){
+      const passed=deadline&&deadline<now;
+      return `<div style="border-left:4px solid ${catBorder};padding:14px;background:${catBg}80;border-radius:0 10px 10px 0;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-size:16px">${catIcon}</span>
+              <span style="font-weight:800;font-size:14px">${esc(d.title)}</span>
+              ${passed?`<span style="padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:700">Passé</span>`:`<span style="padding:2px 8px;background:${catBg};color:${catBorder};border-radius:8px;font-size:10px;font-weight:700">À venir</span>`}
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary)">📐 ${esc(d.matiere||'')} · 📅 ${dateLabel||d.date||''}</div>
+            ${d.duration?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">⏱️ Durée : ${esc(d.duration)}</div>`:''}
+          </div>
+        </div>
+        ${d.chapters||d.description?`<div style="padding:10px 12px;background:#fff;border-radius:8px;border:1px solid ${catBorder}40">
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${catBorder};margin-bottom:5px;letter-spacing:.6px">📖 À réviser</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description)}</div>
+        </div>`:''}
+      </div>`;
+    }
+    return `<div class="premium-item" style="border-left:3px solid ${overdue?'#ef4444':catBorder};padding:14px">
       <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg};flex-shrink:0">${overdue?'⏰':catIcon}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="pi-title">${esc(d.title)}</div>
-            <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · 📅 '+dateLabel:''}</div>
+            <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · 📅 À remettre : '+dateLabel:''}${daysLeft!==null&&!overdue?' · '+daysLeft+' jour'+(daysLeft>1?'s':'')+' restant'+(daysLeft>1?'s':''):''}</div>
           </div>
           <button onclick="printDevoir('${d.id}','${esc(kidName||'')}','${esc(kidMat||'')}','${esc(kidClass||'')}')" title="Télécharger ce devoir en PDF"
             style="flex-shrink:0;background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">
@@ -5436,7 +5471,7 @@ R.devoirs_parent = () => {
     </div>`;
     // Interrogations section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
-      <div class="premium-section-title">⚠️ Interrogations à venir</div>
+      <div class="premium-section-title">⚠️ Interrogations</div>
       ${interroList.length?interroList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'')).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
@@ -5568,7 +5603,7 @@ R.devoirs_parent = () => {
   return html;
 };
 
-// ── Modal: Publier un devoir ──
+// ── Modal: Publier un devoir / Annoncer une épreuve ──
 window.openDevoirM = (category) => {
   const mc=getMyClass(); if(!mc.cl) return;
   window._devoirCategory = category||'devoir';
@@ -5576,13 +5611,13 @@ window.openDevoirM = (category) => {
   window._devoirPhoto = null;
   window._devoirPdf = null;
   const catMeta = {
-    devoir:{icon:'📚',label:'Devoir',color:'#2563eb',ph:'Ex: Exercices page 42'},
-    interro:{icon:'⚠️',label:'Interrogation',color:'#f59e0b',ph:'Ex: Interrogation de Mathématiques'},
-    examen:{icon:'📝',label:'Examen',color:'#7c3aed',ph:'Ex: Examen de fin de trimestre T1'},
+    devoir:{icon:'📚',label:'Devoir maison',color:'#2563eb'},
+    interro:{icon:'⚠️',label:'Interrogation',color:'#f59e0b'},
+    examen:{icon:'📝',label:'Examen',color:'#7c3aed'},
   };
-  const cm=catMeta[window._devoirCategory]||catMeta.devoir;
   const matOpts=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true).map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
-  openM(`${cm.icon} Publier — ${cm.label}`,`
+  const cm=catMeta[window._devoirCategory]||catMeta.devoir;
+  openM(`${cm.icon} Publier`,`
   <div style="display:flex;gap:6px;margin-bottom:14px">
     ${Object.entries(catMeta).map(([k,m])=>`<button onclick="switchDevoirCat('${k}')" id="dvCat_${k}"
       style="flex:1;padding:8px 4px;border-radius:10px;border:2px solid ${k===window._devoirCategory?m.color:'var(--border)'};
@@ -5591,13 +5626,20 @@ window.openDevoirM = (category) => {
       ${m.icon} ${m.label}</button>`).join('')}
   </div>
   <div class="form-group"><label class="form-label">Titre *</label>
-    <input class="form-input" id="dvTitle" placeholder="${cm.ph}">
+    <input class="form-input" id="dvTitle" placeholder="${window._devoirCategory==='devoir'?'Ex: Exercices p.42 — Calcul':'Ex: Interrogation de Mathématiques'}">
   </div>
   <div class="form-group"><label class="form-label">Matière *</label>
     <select class="form-select" id="dvMatiere">${matOpts}</select>
   </div>
+  <div id="dvDynamicFields">${_devoirDynamicFields(window._devoirCategory)}</div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+  <button class="btn btn-primary" onclick="saveDevoir()">📤 Publier</button>`);
+};
+
+window._devoirDynamicFields = (cat) => {
+  if(cat==='devoir') return `
   <div class="form-group">
-    <label class="form-label" id="dvDeadlineLabel">${window._devoirCategory==='devoir'?'Date limite de remise *':'Date de l\'épreuve *'}</label>
+    <label class="form-label">📅 Date limite de remise *</label>
     <input class="form-input" id="dvDeadline" type="date" value="${today()}">
   </div>
   <div class="form-group">
@@ -5608,15 +5650,33 @@ window.openDevoirM = (category) => {
       <button id="dvTypePdf"   onclick="setDevoirType('pdf')"   class="btn btn-sm btn-outline" style="flex:1">📄 PDF</button>
     </div>
     <div id="dvContentArea">
-      <textarea class="form-input" id="dvText" style="height:90px;resize:vertical" placeholder="Description, chapitres à réviser, exercices..."></textarea>
+      <textarea class="form-input" id="dvText" style="height:90px;resize:vertical" placeholder="Décrivez le travail à faire à la maison : exercices, pages, consignes..."></textarea>
     </div>
-  </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-  <button class="btn btn-primary" onclick="saveDevoir()">📤 Publier</button>`);
+  </div>`;
+  const label = cat==='interro' ? '⚠️ Date de l\'interrogation *' : '📝 Date de l\'examen *';
+  const ph    = cat==='interro' ? 'Chapitres 3 et 4, leçon sur les fractions, vocabulaire...' : 'Toutes les leçons du trimestre, chapitres 1 à 6...';
+  return `
+  <div class="form-group">
+    <label class="form-label">${label}</label>
+    <input class="form-input" id="dvDeadline" type="date" value="${today()}">
+  </div>
+  <div class="form-group">
+    <label class="form-label">📖 Chapitres / Thèmes à réviser *</label>
+    <textarea class="form-input" id="dvChapters" style="height:80px;resize:vertical" placeholder="${ph}"></textarea>
+  </div>
+  <div class="form-group">
+    <label class="form-label">⏱️ Durée de l'épreuve <span style="font-size:11px;color:var(--text-muted);font-weight:400">(optionnel)</span></label>
+    <input class="form-input" id="dvDuration" placeholder="Ex: 45 minutes, 1h30...">
+  </div>
+  <div style="padding:10px 14px;background:#fef9c3;border-radius:10px;border-left:3px solid #f59e0b;font-size:12px;color:#78350f;line-height:1.6">
+    ℹ️ Cette épreuve se déroule <strong>en classe</strong>. Les parents verront l'annonce avec les chapitres à réviser.<br>
+    Après l'épreuve, utilisez <strong>"✏️ Corriger"</strong> pour saisir les côtes directement.
+  </div>`;
 };
 
 window.switchDevoirCat = (cat) => {
   window._devoirCategory = cat;
+  window._devoirType = 'text';
   const colors={devoir:'#2563eb',interro:'#f59e0b',examen:'#7c3aed'};
   Object.keys(colors).forEach(k=>{
     const btn=document.getElementById('dvCat_'+k); if(!btn) return;
@@ -5624,8 +5684,10 @@ window.switchDevoirCat = (cat) => {
     btn.style.background=k===cat?colors[k]+'18':'transparent';
     btn.style.color=k===cat?colors[k]:'var(--text-secondary)';
   });
-  const lbl=document.getElementById('dvDeadlineLabel');
-  if(lbl) lbl.textContent=cat==='devoir'?'Date limite de remise *':"Date de l'épreuve *";
+  const dynArea=document.getElementById('dvDynamicFields');
+  if(dynArea) dynArea.innerHTML=_devoirDynamicFields(cat);
+  const titleInput=document.getElementById('dvTitle');
+  if(titleInput) titleInput.placeholder=cat==='devoir'?'Ex: Exercices p.42 — Calcul':'Ex: '+(cat==='interro'?'Interrogation de Mathématiques':'Examen de fin de trimestre T1');
 };
 
 window._devoirType='text';
@@ -5712,17 +5774,27 @@ window.saveDevoir = () => {
   if(!title){toast('Titre obligatoire','error');return;}
   const category=window._devoirCategory||'devoir';
   const matiere=($('dvMatiere')?.value||'');
-  const description=($('dvText')?.value||'').trim();
+  if(!matiere){toast('Choisissez une matière','error');return;}
   const deadline=($('dvDeadline')?.value)||null;
-  const photo=window._devoirPhoto||null;
-  const pdf=window._devoirPdf||null;
-  const type = photo?'photo':pdf?'pdf':'text';
-  const content = photo||pdf||description;
   const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
   const cm=catMeta[category]||catMeta.devoir;
+  let type='text', content='', description='', chapters='', duration='';
+  if(category==='devoir'){
+    const photo=window._devoirPhoto||null;
+    const pdf=window._devoirPdf||null;
+    description=($('dvText')?.value||'').trim();
+    type=photo?'photo':pdf?'pdf':'text';
+    content=photo||pdf||description;
+  } else {
+    chapters=($('dvChapters')?.value||'').trim();
+    duration=($('dvDuration')?.value||'').trim();
+    if(!chapters){toast('Indiquez les chapitres à réviser','error');return;}
+    type='annonce'; content=chapters; description=chapters;
+  }
   const devoir={
     id:'dv'+Date.now(), cid:mc.cl.id, title, type, content, lang:mc.lang,
-    matiere, description, category, date:today(), deadline, teacher_id:S.user.id, status:'published',
+    matiere, description, chapters, duration, category, date:today(), deadline,
+    teacher_id:S.user.id, status:'published',
     expires_at: Date.now() + 90*24*60*60*1000
   };
   DB.devoirs.unshift(devoir);
@@ -5736,8 +5808,9 @@ window.saveDevoir = () => {
   kids.forEach(k=>{
     if(k.pid){
       const dateStr=deadline?new Date(deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+      const chapterNote=chapters?` · Réviser: ${chapters.slice(0,60)}${chapters.length>60?'…':''}` :'';
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,
-        msg:`${cm.icon} ${cm.notif} — ${k.name} · ${matiere} · ${title}${dateStr?' le '+dateStr:''}`,
+        msg:`${cm.icon} ${cm.notif} — ${k.name} · ${matiere} · ${title}${dateStr?' le '+dateStr:''}${category!=='devoir'?chapterNote:''}`,
         time:nowTime(),date:today(),read:false,type:'academic'};
       DB.notifs.unshift(n); pushSync('notifs','post',n);
     }
@@ -5755,6 +5828,83 @@ window.deleteDevoir = dvId => {
     toast('🗑️ Devoir supprimé','info');
     saveToCrypt(); render();
   });
+};
+
+window.openCorrecteurDevoir = dvId => {
+  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const mc=getMyClass(); if(!mc.cl) return;
+  const students=DB.students.filter(s=>s.cid===d.cid);
+  const catLabel={interro:'Interrogation',examen:'Examen'}[d.category]||d.category;
+  const catCol={interro:'#f59e0b',examen:'#7c3aed'}[d.category]||'#2563eb';
+  const existingGrades=DB.grades.filter(g=>g.devoir_id===dvId);
+  if(!window._gradeTrimSet){window._gradeTrim=DB.settings.currentTrimestre||'T1';window._gradeTrimSet=true;}
+  openM(`✏️ Corriger — ${catLabel}`,`
+  <div style="padding:10px 14px;background:${catCol}18;border-radius:10px;border-left:4px solid ${catCol};margin-bottom:14px">
+    <div style="font-weight:700;font-size:14px">${esc(d.title)}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">📐 ${esc(d.matiere||'')} · 📅 ${d.deadline||d.date||''}</div>
+    ${d.chapters?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">📖 ${esc(d.chapters.slice(0,80))}${d.chapters.length>80?'…':''}</div>`:''}
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <div class="form-group" style="flex:1;margin-bottom:0">
+      <label class="form-label">Trimestre</label>
+      <select class="form-select" id="gcTrim">
+        ${['T1','T2','T3'].map(t=>`<option value="${t}" ${t===window._gradeTrim?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group" style="flex:1;margin-bottom:0">
+      <label class="form-label">Note max</label>
+      <input class="form-input" id="gcMax" type="number" min="5" max="100" step="5" value="20" style="text-align:center">
+    </div>
+    <div class="form-group" style="flex:1;margin-bottom:0">
+      <label class="form-label">Coeff.</label>
+      <input class="form-input" id="gcCoef" type="number" min="0.5" max="10" step="0.5" value="${d.category==='examen'?3:2}" style="text-align:center">
+    </div>
+  </div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Côtes par élève</div>
+  <div id="gcInputs">
+    ${students.map(s=>{
+      const ex=existingGrades.find(g=>g.sid===s.id);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
+        <div style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+        <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
+        <input class="form-input gc-input" data-sid="${s.id}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" step="0.5" placeholder="—" value="${ex!==undefined?ex.note:''}">
+        <span id="gcMaxLabel_${s.id}" style="font-size:12px;color:var(--text-muted);min-width:28px">/20</span>
+      </div>`;
+    }).join('')}
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveCorrecteurDevoir('${dvId}')">💾 Enregistrer les côtes</button>`);
+  document.getElementById('gcMax')?.addEventListener('input',e=>{
+    document.querySelectorAll('[id^="gcMaxLabel_"]').forEach(el=>el.textContent='/'+e.target.value);
+  });
+};
+
+window.saveCorrecteurDevoir = dvId => {
+  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const trim=document.getElementById('gcTrim')?.value||window._gradeTrim||'T1';
+  const max=parseFloat(document.getElementById('gcMax')?.value)||20;
+  const coef=parseFloat(document.getElementById('gcCoef')?.value)||1;
+  const inputs=document.querySelectorAll('.gc-input');
+  let saved=0;
+  inputs.forEach(inp=>{
+    const sid=inp.dataset.sid;
+    const raw=inp.value.trim(); if(raw==='') return;
+    const note=parseFloat(raw);
+    if(isNaN(note)||note<0||note>max) return;
+    const existing=DB.grades.find(g=>g.devoir_id===dvId&&g.sid===sid);
+    if(existing){existing.note=note;existing.max=max;existing.weight=coef;existing.trimester=trim;
+      pushSync('grades','patch',{note,max,weight:coef,trimester:trim},'id=eq.'+existing.id);
+    } else {
+      const g={id:'g'+Date.now()+Math.random().toString(36).slice(2,5),sid,cid:d.cid,
+        type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
+        date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id};
+      DB.grades.push(g); pushSync('grades','post',g);
+    }
+    saved++;
+  });
+  if(!saved){toast('Aucune note saisie','error');return;}
+  saveToCrypt(); closeModal(); render();
+  toast(`✅ ${saved} côte(s) enregistrée(s) — parents notifiés si accès activé`,'success');
 };
 
 window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
