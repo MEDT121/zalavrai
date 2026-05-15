@@ -8712,15 +8712,37 @@ const EDT_DAYS = ['lun','mar','mer','jeu','ven'];
 const EDT_DAY_LABELS = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
 const EDT_PERIODS = ['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
 
+// Maps EDT day keys to JS getDay() values (0=Sun,1=Mon...)
+const EDT_DAY_JS = {lun:1,mar:2,mer:3,jeu:4,ven:5};
+
+// Returns upcoming interros/examens for a class on a given EDT day within 14 days
+function edtUpcoming(cid, day) {
+  const dayN = EDT_DAY_JS[day];
+  const now = new Date(); now.setHours(0,0,0,0);
+  const in14 = new Date(now); in14.setDate(in14.getDate()+14);
+  return DB.devoirs.filter(d =>
+    d.cid===cid && (d.category==='interro'||d.category==='examen') &&
+    d.deadline && (() => { const dd=new Date(d.deadline); return dd>=now && dd<=in14 && dd.getDay()===dayN; })()
+  );
+}
+
 R.timetable = () => {
   const role=S.user.role;
   const canEdit=role==='direction'||role==='direction2';
 
   if(role==='enseignant') {
     const mc=getMyClass(); if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🗓️</div>Aucune classe assignée</div>`;
-    const clSlots=DB.timetables.filter(t=>t.cid===mc.cl.id);
+    const cid=mc.cl.id;
+    const clSlots=DB.timetables.filter(t=>t.cid===cid);
     const [cc]=clsColor(mc.cl.name);
-    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ Emploi du temps — ${mc.cl.name}</span></div>
+    let html=`<div class="ww-toolbar">
+      <span style="font-size:16px;font-weight:700">🗓️ ${mc.cl.name}</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="background:#fef3c7;border-color:#f59e0b;color:#92400e" onclick="openDevoirM('interro')">⚠️ Interro</button>
+        <button class="btn btn-sm" style="background:#ede9fe;border-color:#7c3aed;color:#5b21b6" onclick="openDevoirM('examen')">📝 Examen</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#2563eb;padding:0 0 8px 0;font-weight:600">✏️ Appuyez sur un créneau vide ou le vôtre pour le remplir</div>
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table style="width:100%;border-collapse:collapse;min-width:480px;font-size:12px">
       <thead><tr style="background:var(--bg-card)">
@@ -8732,12 +8754,17 @@ R.timetable = () => {
       EDT_DAYS.forEach(day=>{
         const slot=clSlots.find(t=>t.day===day&&t.period===pi);
         const isMe=slot&&slot.teacher_id===S.user.id;
-        html+=`<td style="padding:6px;text-align:center;vertical-align:middle;background:${isMe?'#dbeafe':slot?'#f8fafc':'transparent'}">`;
+        const canEditCell=!slot||isMe; // can edit if empty or my slot
+        const upcoming=edtUpcoming(cid,day).filter(d=>!slot||!slot.matiere||!d.matiere||d.matiere.toLowerCase()===slot.matiere.toLowerCase());
+        const badge=upcoming.length?upcoming.map(d=>`<div style="margin-top:3px;background:${d.category==='interro'?'#fef3c7':'#ede9fe'};color:${d.category==='interro'?'#92400e':'#5b21b6'};border-radius:6px;padding:2px 5px;font-size:9px;font-weight:700">${d.category==='interro'?'⚠️':'📝'} ${new Date(d.deadline).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>`).join(''):'';
+        html+=`<td onclick="${canEditCell?`editTimetableSlotTeacher('${cid}','${day}',${pi})`:''}" style="padding:6px;text-align:center;vertical-align:middle;cursor:${canEditCell?'pointer':'default'};background:${isMe?'#dbeafe':slot?'#f8fafc':'transparent'};transition:background .15s" ${canEditCell?`onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='${isMe?'#dbeafe':slot?'#f8fafc':'transparent'}'"`:''}>`;
         if(slot){
-          html+=`<div style="font-weight:${isMe?'700':'500'};font-size:11px;color:${isMe?'#1e40af':'var(--text)'};line-height:1.3">${slot.matiere||'—'}</div>`;
+          html+=`<div style="font-weight:${isMe?'700':'500'};font-size:11px;color:${isMe?'#1e40af':'var(--text)'};line-height:1.3">${esc(slot.matiere||'—')}</div>`;
           const t=gu(slot.teacher_id); if(t) html+=`<div style="font-size:10px;color:var(--text-muted)">${ini(t.name)}</div>`;
+        } else if(canEditCell) {
+          html+=`<div style="font-size:16px;color:var(--border)">＋</div>`;
         }
-        html+='</td>';
+        html+=badge+'</td>';
       });
       html+='</tr>';
     });
@@ -8748,13 +8775,14 @@ R.timetable = () => {
   if(role==='parent') {
     const kids=DB.students.filter(s=>s.pid===S.user.id);
     if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucun enfant lié à votre compte</div>`;
-    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ Emploi du temps</span></div>`;
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ Emploi du temps</span></div>
+    <div style="font-size:11px;color:#f59e0b;padding:0 0 8px 0;font-weight:600;display:flex;align-items:center;gap:6px"><span>⚠️</span> Les cases colorées indiquent une interro ou un examen dans les 14 prochains jours</div>`;
     kids.forEach(kid=>{
       const cl=DB.classes.find(c=>c.id===kid.cid); if(!cl) return;
       const [cc]=clsColor(cl.name);
       const clSlots=DB.timetables.filter(t=>t.cid===cl.id);
       html+=`<div class="ww-section" style="margin-bottom:18px">
-        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${kid.name} — ${cl.name}</span></div>
+        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(kid.name)} — ${esc(cl.name)}</span></div>
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table style="width:100%;border-collapse:collapse;min-width:480px;font-size:12px">
           <thead><tr style="background:var(--bg-card)">
@@ -8765,10 +8793,15 @@ R.timetable = () => {
         html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-size:11px;color:var(--text-muted);white-space:nowrap">${p}</td>`;
         EDT_DAYS.forEach(day=>{
           const slot=clSlots.find(t=>t.day===day&&t.period===pi);
-          html+=`<td style="padding:6px;text-align:center">`;
+          const upcoming=edtUpcoming(kid.cid,day).filter(d=>!slot||!slot.matiere||!d.matiere||d.matiere.toLowerCase()===slot.matiere.toLowerCase());
+          const hasAlert=upcoming.length>0;
+          html+=`<td style="padding:6px;text-align:center;background:${hasAlert?'#fffbeb':'transparent'}">`;
           if(slot){
-            html+=`<div style="font-weight:500;font-size:11px;line-height:1.3">${slot.matiere||'—'}</div>`;
+            html+=`<div style="font-weight:${hasAlert?'700':'500'};font-size:11px;line-height:1.3;color:${hasAlert?'#92400e':'var(--text)'}">${esc(slot.matiere||'—')}</div>`;
             const t=gu(slot.teacher_id); if(t) html+=`<div style="font-size:10px;color:var(--text-muted)">${ini(t.name)}</div>`;
+            if(hasAlert) upcoming.forEach(d=>{
+              html+=`<div style="margin-top:3px;background:${d.category==='interro'?'#fef3c7':'#ede9fe'};color:${d.category==='interro'?'#92400e':'#5b21b6'};border-radius:6px;padding:2px 4px;font-size:9px;font-weight:700">${d.category==='interro'?'⚠️ Interro':'📝 Examen'}<br>${new Date(d.deadline).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>`;
+            });
           }
           html+='</td>';
         });
@@ -8844,6 +8877,25 @@ window.editTimetableSlot = (cid, day, period) => {
    <button class="btn btn-primary" onclick="saveTimetableSlot('${cid}','${day}',${period},'${slot?.id||''}')">💾 Enregistrer</button>`);
 };
 
+// Version enseignant : pas de sélection de prof (s'assigne automatiquement)
+window.editTimetableSlotTeacher = (cid, day, period) => {
+  const slot=DB.timetables.find(t=>t.cid===cid&&t.day===day&&t.period===period);
+  if(slot && slot.teacher_id && slot.teacher_id!==S.user.id) return; // autre prof
+  const dayLabel=EDT_DAY_LABELS[EDT_DAYS.indexOf(day)];
+  const matieresList=['Mathématiques','Français','Lecture','Écriture','Sciences','Géographie','Histoire','Anglais','Arts plastiques','Musique','EPS','Informatique','Religion','Éveil','Autre'];
+  openM(`✏️ ${dayLabel} — ${EDT_PERIODS[period]}`,`
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Ce créneau vous sera attribué automatiquement.</div>
+  <div class="form-group"><label class="form-label">Matière</label>
+    <select class="form-input" id="edtMat">
+      <option value="">— Vide (effacer ce créneau) —</option>
+      ${matieresList.map(m=>`<option value="${m}" ${slot?.matiere===m?'selected':''}>${m}</option>`).join('')}
+    </select>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   ${slot?`<button class="btn btn-danger" onclick="deleteTimetableSlot('${slot.id}')">🗑️ Effacer</button>`:''}
+   <button class="btn btn-primary" onclick="saveTimetableSlotTeacher('${cid}','${day}',${period},'${slot?.id||''}')">💾 Enregistrer</button>`);
+};
+
 window.saveTimetableSlot = async (cid, day, period, existingId) => {
   const mat=(document.getElementById('edtMat')?.value||'').trim();
   const tid=document.getElementById('edtTeacher')?.value||'';
@@ -8859,6 +8911,23 @@ window.saveTimetableSlot = async (cid, day, period, existingId) => {
   }
   logAudit('timetable_edit',`${EDT_DAY_LABELS[EDT_DAYS.indexOf(day)]} p${period+1} — ${mat}`,cid);
   closeModal(); toast('✅ Emploi du temps mis à jour','success'); saveToCrypt(); render();
+};
+
+window.saveTimetableSlotTeacher = async (cid, day, period, existingId) => {
+  const mat=(document.getElementById('edtMat')?.value||'').trim();
+  const tid=S.user.id;
+  if(!mat){if(existingId) await deleteTimetableSlot(existingId); else closeModal(); return;}
+  if(existingId) {
+    const slot=DB.timetables.find(t=>t.id===existingId);
+    if(slot){slot.matiere=mat;slot.teacher_id=tid;}
+    pushSync('timetables','patch',{matiere:mat,teacher_id:tid},'id=eq.'+existingId);
+  } else {
+    const slot={id:'tt'+Date.now(),cid,day,period,matiere:mat,teacher_id:tid};
+    DB.timetables.push(slot);
+    pushSync('timetables','post',slot);
+  }
+  logAudit('timetable_edit',`${EDT_DAY_LABELS[EDT_DAYS.indexOf(day)]} p${period+1} — ${mat}`,cid);
+  closeModal(); toast('✅ Créneau enregistré','success'); saveToCrypt(); render();
 };
 
 window.deleteTimetableSlot = async (id) => {
