@@ -2382,25 +2382,29 @@ function printBadge() {
   w.onload = () => setTimeout(() => w.print(), 300);
 }
 
-function downloadZip() {
+async function downloadZip() {
+  if (typeof JSZip === 'undefined') { toast('JSZip non chargé — vérifiez la connexion','error'); return; }
+  if (!window._cardReady) {
+    toast('⏳ Génération de la carte...','info');
+    await renderAll();
+  }
   const nom = clean(val("nom")||"ELEVE");
   const mat = clean(val("matricule")||cls().short);
   const folderName = nom + "_" + mat;
-  if (typeof JSZip === 'undefined') { toast('JSZip non chargé — vérifiez la connexion','error'); return; }
-  const _fc=$('front'),_bc=$('back');
-  if(!_fc||!_fc.width||!_bc||!_bc.width){ toast('⚠️ Générez d\'abord la carte','error'); return; }
+  const _fc=$('front'), _bc=$('back');
+  if(!_fc||!_bc){ toast('⚠️ Erreur canvas','error'); return; }
   const zip = new JSZip();
   const folder = zip.folder(folderName);
-  folder.file('RECTO.png',       _fc.toDataURL('image/png').split(',')[1], {base64:true});
-  folder.file('VERSO.png',       _bc.toDataURL('image/png').split(',')[1], {base64:true});
-  folder.file('BADGE_RECTO.png', makeBadgeB64(_fc),                        {base64:true});
-  folder.file('BADGE_VERSO.png', makeBadgeB64(_bc),                        {base64:true});
+  folder.file('recto_carte.png',  _fc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('verso_carte.png',  _bc.toDataURL('image/png').split(',')[1], {base64:true});
+  folder.file('recto_badge.png',  makeBadgeB64(_fc),                        {base64:true});
+  folder.file('verso_badge.png',  makeBadgeB64(_bc),                        {base64:true});
   zip.generateAsync({type:'blob'}).then(blob => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = folderName + '.zip'; a.click();
     setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    toast('ZIP créé : '+folderName+'.zip (carte + badge)','success');
+    toast('✅ ZIP : '+folderName+'.zip (carte standard + badge)','success');
   }).catch(e => { console.error('[ZIP]',e); toast('Erreur ZIP : '+e.message,'error'); });
 }
 
@@ -2725,18 +2729,8 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
     <div class="photo-preview-thumb" onclick="document.getElementById('photo').click()" id="photoThumbBox" style="display:none">
       <img id="photoThumb" src="" alt="aperçu">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
-      <button class="btn btn-primary" onclick="renderAll()">&#128260; Générer</button>
-      <button class="btn btn-gold" onclick="downloadZip()">&#128230; ZIP élève</button>
-    </div>
-    <div style="margin-top:8px">
-      <button class="btn btn-outline" style="width:100%;margin-bottom:6px" onclick="downloadBoth()">&#11015;&#65039; PNG séparés</button>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
-        <button class="btn" style="background:linear-gradient(135deg,#d97706,#92400e);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:12px" onclick="downloadBadge()">&#127991; PNG Badge</button>
-        <button class="btn" style="background:linear-gradient(135deg,#0f2557,#1e40af);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:12px" onclick="printBadge()">&#128424; Imprimer Badge</button>
-      </div>
-      <button class="btn" style="width:100%;margin-bottom:6px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:700;cursor:pointer" onclick="exportAllCardsZip()">&#128230; Exporter TOUTES les cartes (ZIP)</button>
-      <button class="btn btn-outline" style="width:100%" onclick="downloadAllNine()">&#127891; 9 rectos toutes classes</button>
+    <div style="margin-top:12px">
+      <button class="btn btn-gold" style="width:100%;padding:14px;font-size:15px;font-weight:700;border-radius:14px" onclick="downloadZip()">&#128230; T&#233;l&#233;charger la carte</button>
     </div>
   </aside>
   <main class="card-preview">
