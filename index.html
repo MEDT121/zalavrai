@@ -3149,7 +3149,7 @@ window._simpleList = (role, icon, gradient) => {
         <div style="display:flex;gap:6px;align-items:center">
           <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin}</span>
           <span style="flex:1"></span>
-          <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️</button>
+          <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
         </div>
       </div>
@@ -3296,7 +3296,7 @@ R.parents = () => {
             <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="btn btn-outline btn-sm" onclick="openUserForm('parent','${u.id}')">✏️</button>
+            <button class="btn btn-outline btn-sm" onclick="openUserForm('parent','${u.id}')">✏️ Modifier</button>
             <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
           </div>
         </div>
@@ -9207,6 +9207,10 @@ R.profil_enseignant = () => {
       <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">Cahier entrées</div></div>
       <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9214,19 +9218,22 @@ R.profil_enseignant = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom ou votre affectation de classe, contactez la Direction.</div>
+    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre affectation de classe, contactez la Direction.</div>
     <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
   </div>`;
 };
 
 window.saveTeacherProfile = () => {
   const phone=(document.getElementById('tp_phone')?.value||'').trim();
-  if(!phone){toast('Numéro de téléphone requis','error');return;}
-  S.user.phone=phone;
+  const name=(document.getElementById('tp_name')?.value||'').trim();
+  const initials=(document.getElementById('tp_init')?.value||'').trim();
+  if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
-  if(u) u.phone=phone;
-  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
-  saveToCrypt();
+  const init=initials||ini(name);
+  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
+  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
 
@@ -9289,6 +9296,10 @@ R.profil_parent = () => {
       <div style="width:60px;height:60px;border-radius:18px;background:#ede9fe;color:#7c3aed;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(u.name)}</div>
       <div><div style="font-size:18px;font-weight:800">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Parent / Tuteur · ID ${u.id}</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="pp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="pp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="pp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9314,20 +9325,22 @@ R.profil_parent = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom, contactez la Direction.</div>
     <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
   </div>`;
 };
 
 window.saveParentProfile = () => {
   const phone=(document.getElementById('pp_phone')?.value||'').trim();
-  if(!phone){toast('Numéro de téléphone requis','error');return;}
-  S.user.phone=phone;
+  const name=(document.getElementById('pp_name')?.value||'').trim();
+  const initials=(document.getElementById('pp_init')?.value||'').trim();
+  if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
-  if(u) u.phone=phone;
-  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
-  saveToCrypt();
-  toast('✅ Numéro de téléphone mis à jour','success');
+  const init=initials||ini(name);
+  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
+  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  saveToCrypt();render();
+  toast('✅ Profil mis à jour','success');
 };
 
 // ── EMPLOI DU TEMPS ──
@@ -9627,6 +9640,10 @@ R.profil_gardien = () => {
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#ef4444">${refused}</div><div style="font-size:10px;color:var(--text-muted)">Refusés auj.</div></div>
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalAll}</div><div style="font-size:10px;color:var(--text-muted)">Total scans</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="gd_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9634,18 +9651,20 @@ R.profil_gardien = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom, contactez la Direction.</div>
     <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
   </div>`;
 };
 window.saveGardienProfile = () => {
   const phone=(document.getElementById('gd_phone')?.value||'').trim();
-  if(!phone){toast('Numéro de téléphone requis','error');return;}
-  S.user.phone=phone;
+  const name=(document.getElementById('gd_name')?.value||'').trim();
+  const initials=(document.getElementById('gd_init')?.value||'').trim();
+  if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
-  if(u) u.phone=phone;
-  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
-  saveToCrypt();
+  const init=initials||ini(name);
+  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
+  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
 
@@ -9677,6 +9696,10 @@ R.profil_caisse = () => {
       <div class="pi-icon" style="background:#d1fae5">💰</div>
       <div style="flex:1"><div class="pi-title">Total encaissé (global)</div><div style="font-size:13px;font-weight:700;color:#059669">${fmt(totalAllRec)}</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="ca_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9684,18 +9707,20 @@ R.profil_caisse = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom, contactez la Direction.</div>
     <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
   </div>`;
 };
 window.saveCaisseProfile = () => {
   const phone=(document.getElementById('ca_phone')?.value||'').trim();
-  if(!phone){toast('Numéro de téléphone requis','error');return;}
-  S.user.phone=phone;
+  const name=(document.getElementById('ca_name')?.value||'').trim();
+  const initials=(document.getElementById('ca_init')?.value||'').trim();
+  if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
-  if(u) u.phone=phone;
-  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
-  saveToCrypt();
+  const init=initials||ini(name);
+  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
+  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
 
@@ -9721,7 +9746,7 @@ R.accounts = () => {
             <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
           </div>
           <div style="display:flex;gap:5px;flex-shrink:0">
-            <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️</button>
+            <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
             <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
           </div>
         </div>`).join('')}
@@ -9759,6 +9784,10 @@ R.profil_direction = () => {
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#8b5cf6">${totalUsers}</div><div style="font-size:10px;color:var(--text-muted)">Utilisateurs</div></div>
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#ef4444">${pendingPay}</div><div style="font-size:10px;color:var(--text-muted)">Impayés</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9792,6 +9821,10 @@ R.profil_direction2 = () => {
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${teachers}</div><div style="font-size:10px;color:var(--text-muted)">Enseignants</div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+    </div>
     <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
       <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
     </div>
@@ -9799,19 +9832,21 @@ R.profil_direction2 = () => {
   </div>
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">Pour modifier votre nom, contactez la Direction 1.</div>
     <button class="btn btn-outline" style="width:100%" onclick="openProfile()">🔑 Changer mon code PIN</button>
   </div>`;
 };
 
 window.saveDirProfile = (inputId) => {
   const phone=(document.getElementById(inputId)?.value||'').trim();
-  if(!phone){toast('Numéro de téléphone requis','error');return;}
-  S.user.phone=phone;
+  const name=(document.getElementById('dir_name')?.value||'').trim();
+  const initials=(document.getElementById('dir_init')?.value||'').trim();
+  if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
-  if(u) u.phone=phone;
-  pushSync('users','patch',{phone},'id=eq.'+S.user.id);
-  saveToCrypt();
+  const init=initials||ini(name);
+  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
+  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
 
