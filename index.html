@@ -4991,7 +4991,7 @@ R.palmares_parent = () => {
         const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
         if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
         if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
-        return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="printReport('bulletin','${k.id}')">📥 Télécharger Bulletin PDF — ${esc(k.name.split(' ')[0])}</button></div>`;
+        return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
       })()}
     </div>`;
   }).join('');
@@ -5910,7 +5910,7 @@ window.saveCorrecteurDevoir = dvId => {
 window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
 
-  // PDF with stored content: open the PDF directly for printing
+  // Stored PDF: download directly as .pdf
   if(d.type==='pdf' && d.content) {
     try {
       const b64=d.content.split(',')[1]||d.content;
@@ -5919,9 +5919,11 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
       for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
       const blob=new Blob([arr],{type:'application/pdf'});
       const url=URL.createObjectURL(blob);
-      const w2=window.open(url,'_blank');
-      if(w2) w2.addEventListener('load',()=>{w2.print();},true);
-      setTimeout(()=>URL.revokeObjectURL(url),120000);
+      const a=document.createElement('a');
+      a.href=url; a.download=`Devoir-${d.title.replace(/[^a-z0-9]/gi,'_')}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      toast('PDF téléchargé ✓','success');
     } catch(e){ window.open(d.content,'_blank'); }
     return;
   }
@@ -5931,26 +5933,26 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
   const catColor={devoir:'#1d4ed8',interro:'#b45309',examen:'#6d28d9'}[d.category]||'#1d4ed8';
   const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'';
   const imgBlock=d.type==='photo'&&d.content?`<div style="text-align:center;margin:20px 0"><img src="${d.content}" style="max-width:100%;max-height:400px;border:1px solid #e2e8f0;border-radius:8px"></div>`:'';
-  // PDF stored only on teacher's device — show instructions instead of blank
-  const pdfNote=d.type==='pdf'?`<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14px;line-height:1.7"><strong>📄 Ce devoir est sous forme de PDF.</strong><br>Le document original est conservé sur l'appareil de l'enseignant.<br>Veuillez contacter l'enseignant ou demander une copie imprimée directement à l'école.</div>`:'';
-  const schoolAddr = DB.settings.school_address || 'Kinshasa, République Démocratique du Congo';
+  const pdfNote=d.type==='pdf'?`<div style="background:#fef9c3;border:1.5px solid #fde047;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:14px;line-height:1.7"><strong>📄 Ce devoir est sous forme de PDF.</strong><br>Le document original est conservé sur l'appareil de l'enseignant.<br>Veuillez contacter l'enseignant ou demander une copie imprimée.</div>`:'';
+  const schoolAddr=DB.settings.school?.sub||DB.settings.school_address||'Complexe Scolaire Le Sage — Kinshasa, RDC';
   const catIconP={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
-  const teacherUser = DB.users.find(u => {
-    const cl2 = DB.classes.find(c => c.id === (DB.students.find(s=>s.name===kidName)||{}).cid);
-    return cl2 && (u.id === cl2.teacher_id || u.id === cl2.teacher_id_en);
+  const teacherUser=DB.users.find(u=>{
+    const cl2=DB.classes.find(c=>c.id===(DB.students.find(s=>s.name===kidName)||{}).cid);
+    return cl2&&(u.id===cl2.teacher_id||u.id===cl2.teacher_id_en);
   });
-  const teacherName = teacherUser ? teacherUser.name : (DB.users.find(u=>u.id===d.by)||{}).name || '';
-  const w=window.open('','_blank','width=760,height=980');
-  if(!w){toast('Autorisez les popups pour télécharger','error');return;}
-  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+  const teacherName=teacherUser?teacherUser.name:(DB.users.find(u=>u.id===d.by)||{}).name||'';
+
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${catLabel} — ${d.title}</title>
   <style>
     @page{size:A4;margin:15mm 18mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff}
+    .print-bar{background:#0f2557;color:#fff;padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+    .print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}
     .page{max-width:680px;margin:0 auto;padding:24px}
     .school-header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:3px solid ${catColor};margin-bottom:20px}
-    .school-logo{width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,#0f2557,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0;letter-spacing:-1px}
+    .school-logo{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #e2e8f0}
     .school-info{flex:1}
     .school-name{font-size:15px;font-weight:900;color:#0f2557;letter-spacing:.5px}
     .school-sub{font-size:11px;color:#64748b;margin-top:2px}
@@ -5970,20 +5972,13 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
     .answer-title{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
     .signature{display:flex;gap:28px;margin-top:28px}
     .sig-box{flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center}
-    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center}
-    .no-print{text-align:center;padding:16px;background:#f0f9ff;border-bottom:1px solid #bae6fd}
-    .btn-dl{background:${catColor};color:#fff;border:none;padding:12px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-right:10px}
-    .btn-cl{background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;padding:12px 20px;border-radius:10px;font-size:14px;cursor:pointer}
-    @media print{.no-print{display:none}body{padding:0}.page{padding:0}}
+    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
+    @media print{.print-bar{display:none}body{padding:0}.page{padding:0}}
   </style></head><body>
-  <div class="no-print">
-    <button class="btn-dl" onclick="window.print()">📥 Télécharger / Imprimer le PDF</button>
-    <button class="btn-cl" onclick="window.close()">✕ Fermer</button>
-    <div style="font-size:11px;color:#0369a1;margin-top:8px">Sur mobile : appuyez "Télécharger / Imprimer" puis choisissez "Enregistrer en PDF"</div>
-  </div>
+  <div class="print-bar">📄 Devoir téléchargé · <button onclick="window.print()">🖨️ Imprimer sur papier</button></div>
   <div class="page">
     <div class="school-header">
-      <div class="school-logo">TWS</div>
+      <img class="school-logo" src="${window.SCHOOL_LOGO||''}" alt="Logo" style="width:100%;height:100%;object-fit:cover">
       <div class="school-info">
         <div class="school-name">${school}</div>
         <div class="school-sub">${schoolAddr}</div>
@@ -6004,7 +5999,7 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
       ${dateLabel?`<span class="chip ${d.deadline&&new Date(d.deadline)<new Date()?'urgent':'ok'}">📅 À remettre : ${dateLabel}</span>`:''}
     </div>
     <div class="section-title">Consignes / Énoncé</div>
-    ${d.description?`<div class="body-box">${d.description}</div>`:'<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l\'enseignant.</div>'}
+    ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
     ${imgBlock}${pdfNote}
     <div class="section-title">Travail de l'élève</div>
     <div class="answer-zone"><div class="answer-title">✏️ Espace de réponse</div></div>
@@ -6018,9 +6013,16 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass) => {
       <span>Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</span>
     </div>
   </div>
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>w.print(),500);
+  </body></html>`;
+
+  const fname=`Devoir-${(d.matiere||d.title).replace(/[^a-z0-9À-ɏ]/gi,'_').slice(0,30)}.html`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  toast('📥 Devoir téléchargé — ouvrez le fichier pour afficher','success');
 };
 
 // ── CAHIER DE TEXTE (avec approbation Direction) ──
@@ -8630,6 +8632,74 @@ window.printReport = (type) => {
   if(!win){toast('Popup bloqué — autorisez les popups dans votre navigateur','error');return;}
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${school} — ${title}</title><style>${CSS}</style></head><body>${hdr}<div class="dtitle"><h2>${title}</h2><div class="yr">Année scolaire ${yr}</div></div>${html}${ftr}<button class="pbtn" onclick="window.print()">🖨️ Imprimer / Enregistrer PDF</button></body></html>`);
   win.document.close();
+};
+
+window.downloadBulletin = (sid) => {
+  const k=DB.students.find(x=>x.id===sid);
+  if(!k){toast('Élève introuvable','error');return;}
+  const sc=DB.settings.school||{};
+  const school=sc.name||'The Wise School International';
+  const schoolSub=sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC';
+  const phone=sc.phone||'+243 978 444 167';
+  const yr=DB.settings.year||'2025-2026';
+  const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const logoSrc=window.SCHOOL_LOGO||'';
+  const cl=gc(k.cid);
+  const matieres=getClassMatieres(k.cid);
+  const isBilingual=cl&&cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+  const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
+  const profEN=isBilingual?gu(cl.teacher_id_en):null;
+  const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+  const ranked=students.map(s=>{
+    let tot=0,cnt=0;
+    matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){tot+=a;cnt++;}});
+    const conduct=DB.conduct.filter(c=>c.sid===s.id);
+    const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+    const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
+    return{id:s.id,moy:cnt?Math.round(tot/cnt):0,cond:Math.round(cAvg*25)};
+  }).sort((a,b)=>(b.moy*0.85+b.cond*0.15)-(a.moy*0.85+a.cond*0.15));
+  const pos=ranked.findIndex(r=>r.id===k.id)+1;
+  const me=ranked.find(r=>r.id===k.id);
+  const mention=me?(me.moy>=90?'Excellent':me.moy>=75?'Très Bien':me.moy>=60?'Bien':me.moy>=50?'Passable':'À améliorer'):'—';
+  const mColor=me&&me.moy>=75?'#059669':me&&me.moy>=50?'#d97706':'#dc2626';
+  const frMats=matieres.filter(m=>m.lang==='fr'||((!isBilingual)&&m.lang!=='en'));
+  const enMats=matieres.filter(m=>m.lang==='en');
+  const coMats=matieres.filter(m=>m.lang==='commun');
+  const sectionRows=(mats,flag)=>mats.map(m=>{
+    const t1=matAvgPct(k.id,m.name,'T1'),t2=matAvgPct(k.id,m.name,'T2'),t3=matAvgPct(k.id,m.name,'T3');
+    const avg=matAvgPct(k.id,m.name);
+    const col=avg===null?'#666':avg>=70?'#059669':avg>=50?'#d97706':'#dc2626';
+    return `<tr><td>${flag} ${esc(m.name)}</td><td style="text-align:center">${t1!==null?t1+'%':'—'}</td><td style="text-align:center">${t2!==null?t2+'%':'—'}</td><td style="text-align:center">${t3!==null?t3+'%':'—'}</td><td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td></tr>`;
+  }).join('');
+  const conductRows=(()=>{const c=DB.conduct.filter(x=>x.sid===k.id);if(!c.length)return '';const lbl={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};const latest=c[c.length-1];return`<table><tr><th colspan="3">📊 Conduite &amp; comportement</th></tr><tr><td>Note de conduite</td><td>${c.length} évaluation${c.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`;})();
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:22px;color:#1a1a1a;background:#fff;font-size:13px}.print-bar{background:#0f2557;color:#fff;padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:-22px -22px 22px}.print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #0f2557;margin-bottom:16px}.hl{display:flex;align-items:center;gap:14px}.logo{width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid #0f2557}.si h1{font-size:16px;font-weight:800;color:#0f2557;line-height:1.2}.si .s{font-size:10px;color:#666;margin-top:2px}.hr{text-align:right}.brand{font-size:13px;font-weight:700;color:#0f2557}.meta{font-size:10px;color:#777;margin-top:2px}.dtitle{text-align:center;margin:14px 0 16px}.dtitle h2{font-size:15px;font-weight:800;color:#0f2557;text-transform:uppercase;letter-spacing:1px}.dtitle .yr{font-size:11px;color:#888;margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#0f2557;color:#fff;padding:8px 7px;font-size:11px;text-align:left;font-weight:600}td{padding:6px 7px;font-size:12px;border-bottom:1px solid #eaecf0;vertical-align:middle}tr:nth-child(even) td{background:#f8faff}.footer{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}@media print{.print-bar{display:none}@page{margin:12mm}}`;
+  const hdr=`<div class="hdr"><div class="hl">${logoSrc?`<img src="${logoSrc}" class="logo" alt="">`:'<div style="width:54px;height:54px;background:#0f2557;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px">🏫</div>'}<div class="si"><h1>${esc(school)}</h1><div class="s">${esc(schoolSub)}</div><div class="s">📞 ${esc(phone)}</div></div></div><div class="hr"><div class="brand">🛡️ SchoolSafe</div><div class="meta">Année ${yr}</div><div class="meta">${printDate}</div></div></div>`;
+  const ftr=`<div class="footer"><span>© ${new Date().getFullYear()} ${esc(school)}</span><span>L'excellence au service de l'avenir</span><span>Document officiel SchoolSafe</span></div>`;
+  const bodyHtml=`
+  <div style="display:flex;align-items:center;gap:20px;padding:16px;background:#f8faff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:18px">
+    <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0;border:3px solid #0f2557">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:#64748b">'+ini(k.name)+'</span>'}</div>
+    <div style="flex:1"><div style="font-size:18px;font-weight:800;color:#0f2557">${esc(k.name)}</div><div style="font-size:12px;color:#666;margin-top:2px">${k.mat} · ${cl?esc(cl.name):'—'} · Année ${yr}</div><div style="font-size:12px;color:#666">Prof: ${profFR?esc(profFR.name):'—'}${profEN?' / '+esc(profEN.name):''}</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:${mColor}">${me?me.moy:0}%</div><div style="font-size:11px;color:#666">${pos}${pos===1?'er':'ème'} / ${students.length}</div><div style="font-size:12px;font-weight:700;color:${mColor}">${mention}</div></div>
+  </div>
+  <table><tr><th>Matière</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th></tr>
+    ${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:sectionRows(matieres,'')}
+    ${enMats.length?`<tr><td colspan="5" style="background:#eff6ff;font-weight:700;color:#1e40af;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:''}
+    ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}
+  </table>
+  ${conductRows}
+  <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:30px">
+    <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Cachet et signature Direction</div></div>
+    <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Signature Parent / Tuteur</div></div>
+  </div>`;
+  const fullHtml=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(school)} — Bulletin de ${esc(k.name)}</title><style>${CSS}</style></head><body><div class="print-bar">📋 Bulletin de ${esc(k.name.split(' ')[0])} · <button onclick="window.print()">🖨️ Imprimer</button></div>${hdr}<div class="dtitle"><h2>Bulletin de ${esc(k.name)}</h2><div class="yr">Année scolaire ${yr}</div></div>${bodyHtml}${ftr}</body></html>`;
+  const fname=`Bulletin-${k.name.replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()}-${yr}.html`;
+  const blob=new Blob([fullHtml],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  toast(`📥 Bulletin de ${esc(k.name.split(' ')[0])} téléchargé ✓`,'success');
 };
 
 // ── SETTINGS ──
