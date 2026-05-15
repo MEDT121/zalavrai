@@ -438,6 +438,19 @@ window.classDot = name => {
 window.gc = id => DB.classes.find(c => c.id === id);
 window.gu = id => DB.users.find(u => u.id === id);
 
+// ── WhatsApp helpers ──
+window.waLink = (phone, msg) => {
+  if (!phone) return null;
+  const d = phone.replace(/[^0-9]/g, '');
+  if (!d) return null;
+  return 'https://wa.me/' + d + (msg ? '?text=' + encodeURIComponent(msg) : '');
+};
+window.waBtn = (phone, name) => {
+  const url = waLink(phone, 'Bonjour ' + (name || '') + (name ? ' — ' : '') + 'The Wise School vous contacte.');
+  if (!url) return '';
+  return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0">💬 WA</a>`;
+};
+
 // ── CENTRALIZED COMPRESSION ──
 window.compressImage = (file, maxW, maxH, quality, cb) => {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -1520,7 +1533,7 @@ window.showStudentInfo = (sid) => {
     <div style="background:var(--bg);border-radius:12px;padding:12px 16px;margin-bottom:14px">
       ${s.nom_papa?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👨 Papa</span><span style="font-weight:600">${esc(s.nom_papa)}</span></div>`:''}
       ${s.nom_maman?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👩 Maman</span><span style="font-weight:600">${esc(s.nom_maman)}</span></div>`:''}
-      ${parent?.phone?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Téléphone</span><a href="tel:${esc(parent.phone)}" style="font-weight:700;color:#2563eb">${esc(parent.phone)}</a></div>`:''}
+      ${parent?.phone?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Téléphone</span><div style="display:flex;align-items:center;gap:6px"><a href="tel:${esc(parent.phone)}" style="font-weight:700;color:#2563eb">${esc(parent.phone)}</a>${waBtn(parent.phone,parent.name)}</div></div>`:''}
       ${s.adresse?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px"><span style="color:var(--text-muted)">📍 Adresse</span><span style="font-weight:600;text-align:right;max-width:170px;line-height:1.3">${esc(s.adresse)}</span></div>`:''}
     </div>
 
@@ -3091,7 +3104,7 @@ window._simpleList = (role, icon, gradient) => {
           <div style="width:48px;height:48px;border-radius:14px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px">${u.initials||ini(u.name)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:15px">${esc(u.name)}</div>
-            <div style="font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')}</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
           </div>
         </div>
         ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>esc(c.name)).join(', ')||'Aucune classe assignée'}</div>`:''}
@@ -3217,7 +3230,7 @@ R.parents = () => {
           </div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:16px">${esc(u.name)}</div>
-            <div style="font-size:13px;color:var(--text-secondary)">${esc(u.phone||'—')}</div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
             <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
@@ -3874,7 +3887,7 @@ R.payments = () => {
             ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" class="pill ${p.paid?'pill-green':'pill-red'}" style="border:none;cursor:pointer;flex:1">${p.t} ${p.paid?'✅':'❌'}</button>`).join('')}
           </div>
           <div class="ww-bar-wrap"><div class="ww-bar" style="width:${paidC/3*100}%;background:${barColor}"></div></div>
-          ${debt>0?`<button class="btn btn-outline btn-sm" style="width:100%;margin-top:8px" onclick="openAssignCaissePayment('${s.id}')">💵 Affecter paiement caisse</button>`:''}
+          ${debt>0?`<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-outline btn-sm" style="flex:1" onclick="openAssignCaissePayment('${s.id}')">💵 Affecter paiement caisse</button>${(()=>{const par=gu(s.pid);return par?.phone?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0">💬</a>`:'';})()} </div>`:''}
           <button onclick="toggleStudentAccess('${s.id}')"
             style="width:100%;margin-top:8px;padding:7px;border-radius:9px;border:1px solid ${s.access_blocked?'#7c3aed':'#e2e8f0'};
             background:${s.access_blocked?'#ede9fe':'transparent'};cursor:pointer;font-size:12px;font-weight:700;
@@ -7841,7 +7854,7 @@ R.convocations = () => {
         <div class="pi-icon" style="background:${statusColor[conv.status]+'22'};color:${statusColor[conv.status]};font-size:20px">${conv.status==='scheduled'?'📅':conv.status==='completed'?'✅':conv.status==='missed'?'❌':'📋'}</div>
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?esc(s.name):'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div>
-          <div class="pi-sub">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''}</div>
+          <div class="pi-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''} ${parent?.phone&&isDir?waBtn(parent.phone,parent.name):''}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
         </div>
