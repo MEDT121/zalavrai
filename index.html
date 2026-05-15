@@ -1377,7 +1377,7 @@ function dashboardDirection() {
   <div class="hero-premium">
     <div class="hero-school">The Wise School International</div>
     <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'SchoolSafe'}</div>
-    <div class="hero-sub">${S.lockdown?'Aucune sortie autorisée.':'Chaque enfant protégé, chaque parent informé'}</div>
+    <div class="hero-sub">${S.lockdown?'Aucune sortie autorisée.':'Chaque enfant protégé, chaque parent informé'}${DB.settings.currentTrimestre?' · <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:1px 8px;font-weight:800">'+DB.settings.currentTrimestre+'</span>':''}</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${ts}</div><div class="hero-stat-lbl">Élèves</div></div>
@@ -1576,7 +1576,7 @@ function dashboardEnseignant() {
   <div class="hero-premium" style="background:linear-gradient(160deg,${clColor}dd,${clColor}99,var(--navy))">
     <div class="hero-school">The Wise School International</div>
     <div class="hero-title">${cl?esc(cl.name):'Ma Classe'}</div>
-    <div class="hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves</div>
+    <div class="hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves${DB.settings.currentTrimestre?' · <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:1px 8px;font-weight:800">'+DB.settings.currentTrimestre+'</span>':''}</div>
     <div class="hero-bar"></div>
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num">${scannedToday.length}</div><div class="hero-stat-lbl">Scannés</div></div>
@@ -5019,7 +5019,8 @@ window.openGradePanel = cid => {
   );
   const students = DB.students.filter(s => s.cid === cid);
   if(!matieres.length){toast('Aucune matière configurée','error'); return;}
-  window._gradeTrim = window._gradeTrim || 'T1';
+  if (!window._gradeTrimSet) { window._gradeTrim = DB.settings.currentTrimestre || 'T1'; window._gradeTrimSet = true; }
+  window._gradeTrim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   window._gradeType = window._gradeType || 'devoir';
 
   openM(`📝 Saisir notes — ${cl.name}`, `
@@ -7932,6 +7933,21 @@ R.year_mgmt = () => {
     </div>
     <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">${DB.students.length} élève(s) · ${DB.classes.length} classe(s)</div>
   </div>
+  <div class="premium-section" style="border-left:4px solid #059669">
+    <div class="premium-section-title">📅 Trimestre en cours</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Définit le trimestre actif pour la saisie des notes par les enseignants.</div>
+    <div style="display:flex;gap:10px">
+      ${['T1','T2','T3'].map(t=>{
+        const active=s.currentTrimestre===t;
+        return `<button onclick="setCurrentTrimestre('${t}')"
+          style="flex:1;padding:14px;border-radius:12px;border:2px solid ${active?'#059669':'var(--border)'};
+          background:${active?'#d1fae5':'var(--bg)'};cursor:pointer;font-size:16px;font-weight:800;
+          color:${active?'#065f46':'var(--text-secondary)'};transition:all .2s">
+          ${active?'✅ ':''} ${t}
+        </button>`;
+      }).join('')}
+    </div>
+  </div>
   <div class="premium-section">
     <div class="premium-section-title">🔒 Verrouillage des trimestres</div>
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Un trimestre verrouillé empêche toute modification des notes par les enseignants.</div>
@@ -7986,6 +8002,16 @@ window.toggleTrimLock = (t) => {
   DB.settings.trimLocks[t] = !DB.settings.trimLocks[t];
   toast(`${DB.settings.trimLocks[t]?'🔒 Trimestre '+t+' verrouillé':'🔓 Trimestre '+t+' ouvert'}`, DB.settings.trimLocks[t]?'info':'success');
   saveToCrypt(); render();
+};
+
+window.setCurrentTrimestre = (t) => {
+  DB.settings.currentTrimestre = t;
+  window._gradeTrim = t;
+  window._gradeTrimSet = true;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  toast(`📅 Trimestre en cours : ${t}`, 'success');
+  render();
 };
 
 window.openPassageClasse = () => {
