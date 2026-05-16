@@ -3278,6 +3278,10 @@ window.saveUser = () => {
     toast(`✅ ${name} mis à jour`,'success');
   } else {
     // Create new user
+    if(role==='enseignant'){
+      const anyChecked=[...document.querySelectorAll('.usr_cid_cb')].some(cb=>cb.checked);
+      if(!anyChecked){toast('Sélectionnez au moins une classe pour cet enseignant','error');return;}
+    }
     const ns={id:'u'+Date.now(),...data};
     (DB.users=DB.users||[]).push(ns);
     if(role==='enseignant'){
@@ -4848,7 +4852,10 @@ R.palmares = () => {
   const role=S.user.role;
   let classes=DB.classes;
   const mc=role==='enseignant'?getMyClass():{cl:null,lang:null};
-  if(role==='enseignant') classes=mc.cl?[mc.cl]:[];
+  if(role==='enseignant'){
+    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏫</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">${t('Aucune classe assignée','No class assigned')}</div><div style="font-size:14px">${t('La Direction doit vous affecter à une classe.<br>Contactez l\'administration.','Management needs to assign you to a class.<br>Contact administration.')}</div></div>`;
+    classes=[mc.cl];
+  }
 
   const medals=['🥇','🥈','🥉'];
   let html='';
