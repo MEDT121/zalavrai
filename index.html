@@ -5107,6 +5107,23 @@ window.studentAvgPct = (sid, matieres, trimester) => {
   return count ? Math.round(total / count) : 0;
 };
 
+// School-wide top 10 for current trimester — used on parent profile
+window.getSchoolTop10 = () => {
+  const trim = DB.settings.currentTrimestre || 'T1';
+  const condMap = {Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+  return (DB.students||[]).map(s => {
+    const cl = gc(s.cid); if(!cl) return null;
+    const matieres = getClassMatieres(s.cid); if(!matieres.length) return null;
+    let total=0, count=0;
+    matieres.forEach(m => { const a=matAvgPct(s.id,m.name,trim); if(a!==null){total+=a;count++;} });
+    if(!count) return null;
+    const moyPct = Math.round(total/count);
+    const condAvg = (DB.conduct||[]).filter(c=>c.sid===s.id).reduce((sum,c,_,arr)=>sum+(condMap[c.score]||0)/arr.length,0);
+    const score = Math.round(moyPct*0.85 + Math.round(condAvg*25)*0.15);
+    return {id:s.id, name:s.name, cl, moyPct, score};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,10);
+};
+
 window._gradeTrim = 'T1';
 window._gradeType = 'devoir';
 
@@ -9487,6 +9504,54 @@ R.profil_parent = () => {
       </div>`;
     }).join(''):`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à ce compte</div>`}
   </div>
+  ${(()=>{
+    if(!(DB.settings.toggles?.palmares??true)) return `<div class="premium-section" style="border-left:4px solid #f59e0b"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🔒</div><div><div style="font-weight:700;font-size:14px">Tableau d'honneur</div><div style="font-size:12px;color:var(--text-muted)">La Direction n'a pas encore activé le palmarès.</div></div></div></div>`;
+    const trim=DB.settings.currentTrimestre||'T1';
+    const monthName=new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    const top=getSchoolTop10();
+    if(!top.length) return `<div class="premium-section"><div class="premium-section-title">🏆 Tableau d'honneur de l'école</div><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Les notes du trimestre ${trim} ne sont pas encore saisies.</div></div>`;
+    const medals=['🥇','🥈','🥉'];
+    const podium=top.slice(0,Math.min(3,top.length));
+    const rest=top.slice(3);
+    const clsC=s=>{const [cc,cbg]=clsColor(s.cl.name);return{cc,cbg};};
+    return `<div class="premium-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div class="premium-section-title" style="margin-bottom:0">🏆 Tableau d'honneur de l'école</div>
+        <span class="pill pill-blue" style="font-size:10px">${trim} · ${monthName}</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Top 10 tous niveaux confondus · Mis à jour en temps réel</div>
+      ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin:0 0 16px">
+        ${[1,0,2].map(pos=>{
+          const s=podium[pos]; if(!s) return '';
+          const {cc,cbg}=clsC(s);
+          const heights=[100,74,54];
+          const bgPodium=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
+          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}</div>
+            <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
+            <div style="font-size:11px;font-weight:700;text-align:center;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
+            <div style="font-size:10px;color:var(--text-muted)">${esc(s.cl.name)}</div>
+            <div style="width:64px;height:${heights[pos]}px;border-radius:8px 8px 0 0;background:${bgPodium[pos]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff">${s.score}</div>
+          </div>`;
+        }).join('')}
+      </div>`:''}
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${top.map((s,i)=>{
+          const {cc,cbg}=clsC(s);
+          const isKid=kids.some(k=>k.id===s.id);
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:${isKid?'#f0fdf4':'transparent'};border:${isKid?'1.5px solid #86efac':'1px solid transparent'}">
+            <span style="font-size:${i<3?18:14}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
+            <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700">${esc(s.name)}${isKid?' 👶':''}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
+            </div>
+            <div style="font-size:16px;font-weight:800;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  })()}
   <div class="premium-section" style="border-left:4px solid #e2e8f0">
     <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
     <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
