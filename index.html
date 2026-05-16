@@ -1305,20 +1305,20 @@ window.buildUI = () => {
 // ── PROFILE ──
 window.openProfile = () => {
   const u = S.user; if (!u) return;
-  openM('⚙️ Mon Profil', `
+  openM(`⚙️ ${t('Mon Profil','My Profile')}`, `
   <div style="text-align:center;margin-bottom:20px">
     <div style="width:80px;height:80px;border-radius:50%;background:var(--primary);color:#fff;font-size:28px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;overflow:hidden">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:(u.initials||ini(u.name))}</div>
     <div style="font-size:18px;font-weight:700">${esc(u.name)}</div>
     <div class="pill pill-blue" style="margin-top:6px">${u.role}</div>
   </div>
   <div style="background:var(--bg);border-radius:14px;padding:16px">
-    <div style="font-weight:700;margin-bottom:12px">🔒 Changer le code PIN</div>
-    <div class="form-group"><label class="form-label">Code actuel</label><input class="form-input" id="oldPin" type="password" maxlength="6" inputmode="numeric"></div>
-    <div class="form-group"><label class="form-label">Nouveau code</label><input class="form-input" id="newPin" type="password" maxlength="6" inputmode="numeric"></div>
-    <div class="form-group"><label class="form-label">Confirmer</label><input class="form-input" id="confirmPin" type="password" maxlength="6" inputmode="numeric"></div>
+    <div style="font-weight:700;margin-bottom:12px">🔒 ${t('Changer le code PIN','Change PIN code')}</div>
+    <div class="form-group"><label class="form-label">${t('Code actuel','Current code')}</label><input class="form-input" id="oldPin" type="password" maxlength="6" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label">${t('Nouveau code','New code')}</label><input class="form-input" id="newPin" type="password" maxlength="6" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label">${t('Confirmer','Confirm')}</label><input class="form-input" id="confirmPin" type="password" maxlength="6" inputmode="numeric"></div>
   </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>
-  <button class="btn btn-primary" onclick="saveProfile()">💾 Enregistrer</button>`);
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Fermer','Close')}</button>
+  <button class="btn btn-primary" onclick="saveProfile()">💾 ${t('Enregistrer','Save')}</button>`);
 };
 window.saveProfile = async () => {
   const u=S.user, op=$('oldPin').value, np=$('newPin').value, cp=$('confirmPin').value;
@@ -4421,15 +4421,15 @@ R.attendance = () => {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
         <span style="font-size:20px">🚪</span>
         <div>
-          <div style="font-weight:700;font-size:15px">Scan automatique du portail</div>
-          <div style="font-size:12px;color:#1d4ed8">${myScanned.length} élève${myScanned.length>1?'s':''} scanné${myScanned.length>1?'s':''} · ${notScanned.length} non scanné${notScanned.length>1?'s':''}</div>
+          <div style="font-weight:700;font-size:15px">${t('Scan automatique du portail','Automatic gate scan')}</div>
+          <div style="font-size:12px;color:#1d4ed8">${myScanned.length} ${t(`élève${myScanned.length>1?'s':''} scanné${myScanned.length>1?'s':''}`,`student${myScanned.length>1?'s':''} scanned`)} · ${notScanned.length} ${t(`non scanné${notScanned.length>1?'s':''}`,`not scanned`)}</div>
         </div>
-        ${validated?`<span class="pill" style="margin-left:auto;background:#d1fae5;color:#065f46">✅ Validé</span>`:`<span class="pill" style="margin-left:auto;background:#fef3c7;color:#92400e">⏳ En attente</span>`}
+        ${validated?`<span class="pill" style="margin-left:auto;background:#d1fae5;color:#065f46">✅ ${t('Validé','Validated')}</span>`:`<span class="pill" style="margin-left:auto;background:#fef3c7;color:#92400e">⏳ ${t('En attente','Pending')}</span>`}
       </div>
       ${!validated?`<div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="validateScanPresence()">✅ Valider les présences</button>
-        ${notScanned.length?`<button class="btn" style="flex:1;min-width:160px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="signalAbsencesToDir('${myClass.id}')">⚠️ Signaler à la Direction</button><button class="btn" style="flex:1;min-width:160px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="notifyAbsentParents('${myClass.id}')">📣 Notifier les parents</button>`:''}
-      </div>`:`<div style="font-size:12px;color:#065f46">Présences confirmées. ${notScanned.length?`<span style="color:#92400e;font-weight:600">${notScanned.length} élève${notScanned.length>1?'s':''} absent${notScanned.length>1?'s':''} signalé${notScanned.length>1?'s':''} automatiquement.</span>`:''}</div>`}
+        <button class="btn btn-primary" style="flex:1;min-width:140px" onclick="validateScanPresence()">✅ ${t('Valider les présences','Validate attendance')}</button>
+        ${notScanned.length?`<button class="btn" style="flex:1;min-width:160px;background:#fef3c7;color:#92400e;border-color:#fcd34d" onclick="signalAbsencesToDir('${myClass.id}')">⚠️ ${t('Signaler à la Direction','Report to Management')}</button><button class="btn" style="flex:1;min-width:160px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd" onclick="notifyAbsentParents('${myClass.id}')">📣 ${t('Notifier les parents','Notify parents')}</button>`:''}
+      </div>`:`<div style="font-size:12px;color:#065f46">${t('Présences confirmées.','Attendance confirmed.')} ${notScanned.length?`<span style="color:#92400e;font-weight:600">${notScanned.length} ${t(`élève${notScanned.length>1?'s':''} absent${notScanned.length>1?'s':''} signalé${notScanned.length>1?'s':''} automatiquement.`,`student${notScanned.length>1?'s':''} absent, reported automatically.`)}</span>`:''}</div>`}
     </div>`;
   }
 
@@ -4437,9 +4437,9 @@ R.attendance = () => {
   ${teacherScanBlock}
   ${dirClassFilter}
   <div class="ww-stats">
-    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${present.length}</div><div class="ww-stat-label">Présents</div></div>
-    <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late.length}</div><div class="ww-stat-label">Retards</div></div>
-    <div class="ww-stat" style="border-left-color:#6366f1"><div class="ww-stat-icon">❌</div><div class="ww-stat-val">${absent.length}</div><div class="ww-stat-label">Absents</div></div>
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${present.length}</div><div class="ww-stat-label">${t('Présents','Present')}</div></div>
+    <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late.length}</div><div class="ww-stat-label">${t('Retards','Late')}</div></div>
+    <div class="ww-stat" style="border-left-color:#6366f1"><div class="ww-stat-icon">❌</div><div class="ww-stat-val">${absent.length}</div><div class="ww-stat-label">${t('Absents','Absent')}</div></div>
   </div>
   ${students.length?'':`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">📋</div>Aucun élève dans cette classe</div>`}
   <div class="ww-section">
@@ -4448,7 +4448,7 @@ R.attendance = () => {
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
       const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
       const [cc,cbg]=clsColor(c?c.name:'');
-      const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:'À l\'heure',i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:'Retard',i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:'Justifié',i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:'Malade',i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:'Refusé',i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:'Absent',i:'❌'};
+      const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:t("À l'heure",'On time'),i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:t('Retard','Late'),i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:t('Justifié','Excused'),i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:t('Absent','Absent'),i:'❌'};
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${esc(s.name)}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
@@ -5209,7 +5209,7 @@ window.openStudentGrades = (sid, cid) => {
     <div style="margin-bottom:12px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border)">
         <span style="font-weight:700;font-size:13px">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
-        <span style="font-size:12px">Moy. ${avgDisp}</span>
+        <span style="font-size:12px">${t('Moy.','Avg.')} ${avgDisp}</span>
       </div>
       ${gs.length ? gs.map(g => {
         const note = g.note !== undefined ? g.note : '—';
@@ -5227,16 +5227,16 @@ window.openStudentGrades = (sid, cid) => {
           <span style="font-weight:700;font-size:15px;color:${pct>=50?'#059669':'#dc2626'}">${note}/${max}</span>
           <button style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px" onclick="deleteGrade('${g.id}','${sid}','${cid}')" title="Supprimer">🗑️</button>
         </div>`;
-      }).join('') : '<div style="padding:12px 14px;font-size:12px;color:var(--text-muted)">Aucune note</div>'}
+      }).join('') : `<div style="padding:12px 14px;font-size:12px;color:var(--text-muted)">${t('Aucune note','No grades')}</div>`}
     </div>`;
   }).join('');
 
   openM(`📝 ${s.name}`, `
   <div style="max-height:60vh;overflow-y:auto">
-    ${rows || '<div style="padding:20px;text-align:center;color:var(--text-muted)">Aucune note</div>'}
+    ${rows || `<div style="padding:20px;text-align:center;color:var(--text-muted)">${t('Aucune note','No grades')}</div>`}
   </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>
-   <button class="btn btn-primary" onclick="closeModal();openGradePanel('${cid}')">➕ Saisir note</button>`
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Fermer','Close')}</button>
+   <button class="btn btn-primary" onclick="closeModal();openGradePanel('${cid}')">➕ ${t('Saisir note','Enter grade')}</button>`
   );
 };
 
@@ -5264,28 +5264,28 @@ R.matieres = () => {
 
   return `
   <div class="premium-section">
-    <div class="premium-section-title">📐 Mes matières — ${esc(cl.name)} (${langLabel})</div>
+    <div class="premium-section-title">📐 ${t('Mes matières','My Subjects')} — ${esc(cl.name)} (${langLabel})</div>
     ${myMat.map((m,i)=>`
     <div class="premium-item" style="animation-delay:${i*.04}s">
       <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d1fae5':'#fef3c7'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
-      <div style="flex:1"><div class="pi-title">${m.name}</div><div class="pi-sub">${m.lang==='commun'?'Matière commune':m.lang==='fr'?'Section française':'English section'}</div></div>
-      <span class="pill pill-green">Actif</span>
+      <div style="flex:1"><div class="pi-title">${m.name}</div><div class="pi-sub">${m.lang==='commun'?t('Matière commune','Common subject'):m.lang==='fr'?'Section française':'English section'}</div></div>
+      <span class="pill pill-green">${t('Actif','Active')}</span>
     </div>`).join('')}
   </div>
   ${otherMat.length?`
   <div class="premium-section">
-    <div class="premium-section-title">📚 Matières du co-titulaire</div>
+    <div class="premium-section-title">📚 ${t('Matières du co-titulaire','Co-teacher subjects')}</div>
     ${otherMat.map(m=>`
     <div class="premium-item" style="opacity:.6">
       <div class="pi-icon" style="background:#f1f5f9">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
-      <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">Géré par le co-titulaire</div></div>
-      <span class="pill pill-gray">Autre prof</span>
+      <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">${t('Géré par le co-titulaire','Managed by co-teacher')}</div></div>
+      <span class="pill pill-gray">${t('Autre prof','Other teacher')}</span>
     </div>`).join('')}
   </div>`:''}
   <div class="premium-section" style="border-left:4px solid #f59e0b">
-    <div style="font-weight:700;font-size:14px;margin-bottom:8px">💡 Personnalisation</div>
-    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">Vous pouvez proposer d'ajouter, renommer ou désactiver une matière. Toute modification sera soumise à l'approbation de la Direction.</div>
-    <button class="btn btn-outline" onclick="openAddMatiere('${cl.id}')">➕ Proposer une matière</button>
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px">💡 ${t('Personnalisation','Customization')}</div>
+    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">${t('Vous pouvez proposer d\'ajouter, renommer ou désactiver une matière. Toute modification sera soumise à l\'approbation de la Direction.','You can suggest adding, renaming or disabling a subject. Any change will be submitted for Management approval.')}</div>
+    <button class="btn btn-outline" onclick="openAddMatiere('${cl.id}')">➕ ${t('Proposer une matière','Suggest a subject')}</button>
   </div>`;
 };
 
@@ -6282,13 +6282,13 @@ R.cahier_texte = () => {
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
     return `
     <div class="ww-toolbar">
-      <span style="font-size:16px;font-weight:700">📖 Cahier de texte — ${esc(mc.cl.name)}</span>
-      <button class="btn btn-primary" onclick="openCahierM()">➕ Ajouter</button>
+      <span style="font-size:16px;font-weight:700">📖 ${t('Cahier de texte','Lesson Book')} — ${esc(mc.cl.name)}</span>
+      <button class="btn btn-primary" onclick="openCahierM()">➕ ${t('Ajouter','Add')}</button>
     </div>
     ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
       const d=new Date(date);
       return `<div class="ww-section" style="margin-bottom:14px">
-        <div class="ww-section-header"><span class="ww-section-title">📅 ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
+        <div class="ww-section-header"><span class="ww-section-title">📅 ${d.toLocaleDateString(getLang()==='en'?'en-GB':'fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>
         ${items.map((e,i)=>`
         <div class="ww-item" style="animation-delay:${i*.04}s">
           <div class="ww-item-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d1fae5'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
@@ -6300,8 +6300,8 @@ R.cahier_texte = () => {
       </div>`;
     }).join(''):`
     <div style="text-align:center;padding:60px;color:var(--text-muted)">
-      <div style="font-size:60px;margin-bottom:16px">📖</div>Aucune entrée
-      <br><button class="btn btn-primary" style="margin-top:16px" onclick="openCahierM()">➕ Première entrée</button>
+      <div style="font-size:60px;margin-bottom:16px">📖</div>${t('Aucune entrée','No entries')}
+      <br><button class="btn btn-primary" style="margin-top:16px" onclick="openCahierM()">➕ ${t('Première entrée','First entry')}</button>
     </div>`}`;
   }
 
@@ -6339,23 +6339,23 @@ R.cahier_texte = () => {
 window.openCahierM = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const matieres=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
-  openM('📖 Cahier de texte',`
-  <div class="form-group"><label class="form-label">Matière</label>
+  openM(`📖 ${t('Cahier de texte','Lesson Book')}`,`
+  <div class="form-group"><label class="form-label">${t('Matière','Subject')}</label>
     <select class="form-select" id="ctMatiere">
       ${matieres.map(m=>`<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Ce qui a été enseigné aujourd'hui</label>
-    <textarea class="form-input" id="ctContent" style="height:110px;resize:vertical" placeholder="Ex: Leçon sur les fractions — exercices page 42-43, correction en classe. Les parents pourront réviser avec leur enfant."></textarea>
+  <div class="form-group"><label class="form-label">${t("Ce qui a été enseigné aujourd'hui",'What was taught today')}</label>
+    <textarea class="form-input" id="ctContent" style="height:110px;resize:vertical" placeholder="${t("Ex: Leçon sur les fractions — exercices page 42-43, correction en classe. Les parents pourront réviser avec leur enfant.",'E.g. Lesson on fractions — exercises p.42-43, in-class correction. Parents can review with their child.')}"></textarea>
   </div>
-  <div class="form-group"><label class="form-label">Date</label>
+  <div class="form-group"><label class="form-label">${t('Date','Date')}</label>
     <input class="form-input" id="ctDate" type="date" value="${today()}">
   </div>
   <div style="background:#d1fae5;border-radius:10px;padding:12px;font-size:12px;color:#065f46;display:flex;align-items:center;gap:8px">
-    <span style="font-size:16px">✅</span>Publié immédiatement — visible par les parents pour les aider à réviser avec leur enfant.
+    <span style="font-size:16px">✅</span>${t('Publié immédiatement — visible par les parents pour les aider à réviser avec leur enfant.','Published immediately — visible to parents to help them review with their child.')}
   </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-  <button class="btn btn-primary" onclick="saveCahier()">📖 Publier</button>`);
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+  <button class="btn btn-primary" onclick="saveCahier()">📖 ${t('Publier','Publish')}</button>`);
 };
 
 window.saveCahier = () => {
@@ -6399,40 +6399,40 @@ R.teacher_comm = () => {
 
   return `
   <div class="premium-section">
-    <div class="premium-section-title">💬 Communication — ${esc(cl.name)}</div>
+    <div class="premium-section-title">💬 ${t('Communication','Communication')} — ${esc(cl.name)}</div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;background:var(--bg);border-radius:12px">
       <div style="width:44px;height:44px;border-radius:12px;background:${mc.lang==='fr'?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(S.user.name)}</div>
-      <div><div style="font-weight:700">${esc(S.user.name)}</div><div style="font-size:12px;color:var(--text-secondary)">Titulaire ${mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
+      <div><div style="font-weight:700">${esc(S.user.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${t('Titulaire','Lead teacher')} ${mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
     </div>
     ${coTeacher?`
     <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;background:var(--bg);border-radius:12px">
       <div style="width:44px;height:44px;border-radius:12px;background:${mc.lang==='fr'?'#d1fae5':'#dbeafe'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(coTeacher.name)}</div>
-      <div><div style="font-weight:700">${esc(coTeacher.name)}</div><div style="font-size:12px;color:var(--text-secondary)">Co-titulaire ${mc.lang==='fr'?'🇬🇧 English':'🇫🇷 Français'}</div></div>
-    </div>`:`<div style="padding:12px;color:var(--text-muted);font-size:13px;margin-top:8px">Pas de co-titulaire assigné</div>`}
-    <div style="font-size:12px;color:var(--text-muted);margin-top:10px;padding:8px;background:#fef3c7;border-radius:8px">🔒 Ces notes sont privées — invisibles pour les parents et la Direction.</div>
+      <div><div style="font-weight:700">${esc(coTeacher.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${t('Co-titulaire','Co-teacher')} ${mc.lang==='fr'?'🇬🇧 English':'🇫🇷 Français'}</div></div>
+    </div>`:`<div style="padding:12px;color:var(--text-muted);font-size:13px;margin-top:8px">${t('Pas de co-titulaire assigné','No co-teacher assigned')}</div>`}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:10px;padding:8px;background:#fef3c7;border-radius:8px">🔒 ${t('Ces notes sont privées — invisibles pour les parents et la Direction.','These notes are private — hidden from parents and Management.')}</div>
   </div>
 
   <div style="margin-top:14px">
     <div style="display:flex;gap:8px;margin-bottom:14px">
-      <input class="form-input" id="commMsg" placeholder="Écrire une note pour le co-titulaire..." style="flex:1">
+      <input class="form-input" id="commMsg" placeholder="${t('Écrire une note pour le co-titulaire...','Write a note for the co-teacher...')}" style="flex:1">
       <button class="btn btn-primary" onclick="sendTeacherNote()">📤</button>
     </div>
   </div>
 
   <div class="ww-section">
-    <div class="ww-section-header"><span class="ww-section-title">📋 Notes partagées</span></div>
+    <div class="ww-section-header"><span class="ww-section-title">📋 ${t('Notes partagées','Shared notes')}</span></div>
     ${notes.length?notes.map((n,i)=>{
       const author=gu(n.by);
       const isMe=n.by===S.user.id;
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:36px;height:36px;border-radius:10px;background:${isMe?'#dbeafe':'#d1fae5'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${author?ini(author.name):'?'}</div>
         <div class="ww-item-content">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((n.expires_at-Date.now())/3600000))}h restantes`:''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((n.expires_at-Date.now())/3600000))}${t('h restantes','h remaining')}`:''}</div>
           <div style="font-size:14px;line-height:1.6">${n.content}</div>
-          ${n.sid?`<div style="font-size:11px;color:var(--primary);margin-top:4px">👤 Concerne: ${DB.students.find(s=>s.id===n.sid)?.name||''}</div>`:''}
+          ${n.sid?`<div style="font-size:11px;color:var(--primary);margin-top:4px">👤 ${t('Concerne:','Re:')} ${DB.students.find(s=>s.id===n.sid)?.name||''}</div>`:''}
         </div>
       </div>`;
-    }).join(''):`<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note. Commencez à communiquer avec votre co-titulaire.</div>`}
+    }).join(''):`<div style="padding:30px;text-align:center;color:var(--text-muted);font-size:13px">${t('Aucune note. Commencez à communiquer avec votre co-titulaire.','No notes yet. Start communicating with your co-teacher.')}</div>`}
   </div>`;
 };
 
@@ -7634,8 +7634,12 @@ R.caisse_rapport = () => {
 R.messages = () => {
   const role=S.user.role, uid=S.user.id;
   const isDir=role==='direction'||role==='direction2';
-  const received=DB.messages.filter(m=>(m.to===uid||(m.to_role&&m.to_role===role))&&m.status==='sent')
-    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const myKidCids=role==='parent'?DB.students.filter(s=>s.pid===uid).map(s=>s.cid):[];
+  const received=DB.messages.filter(m=>m.status==='sent'&&(
+    m.to===uid||
+    (m.to_role&&m.to_role===role)||
+    (role==='parent'&&m.to&&m.to.startsWith('class:')&&myKidCids.includes(m.to.slice(6)))
+  )).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
   const sent=DB.messages.filter(m=>m.from===uid)
     .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
   const fromParents=isDir?DB.messages.filter(m=>m.from_role==='parent'&&m.status==='sent')
@@ -8205,24 +8209,24 @@ R.primes = () => {
 // ── CONDUITE — fonctions ──
 window.openConductM = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  openM(`📊 Note de conduite — ${s.name}`,`
-  <div class="form-group"><label class="form-label">Évaluation *</label>
+  openM(`📊 ${t('Note de conduite','Conduct grade')} — ${s.name}`,`
+  <div class="form-group"><label class="form-label">${t('Évaluation *','Evaluation *')}</label>
     <select class="form-select" id="cdScore">
       <option value="Excellent">⭐⭐⭐ Excellent</option>
-      <option value="Bien" selected>⭐⭐ Bien</option>
-      <option value="Moyen">⭐ Moyen</option>
-      <option value="Mauvais">⚠️ Mauvais</option>
+      <option value="Bien" selected>⭐⭐ ${t('Bien','Good')}</option>
+      <option value="Moyen">⭐ ${t('Moyen','Average')}</option>
+      <option value="Mauvais">⚠️ ${t('Mauvais','Poor')}</option>
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Remarque</label>
-    <input class="form-input" id="cdRemark" placeholder="Ex: Participatif, bavardage...">
+  <div class="form-group"><label class="form-label">${t('Remarque','Comment')}</label>
+    <input class="form-input" id="cdRemark" placeholder="${t('Ex: Participatif, bavardage...','E.g. Participative, chatting...')}">
   </div>
-  <div class="form-group"><label class="form-label">Date</label>
+  <div class="form-group"><label class="form-label">${t('Date','Date')}</label>
     <input class="form-input" id="cdDate" type="date" value="${today()}">
   </div>
   <input type="hidden" id="cdSid" value="${sid}">`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-   <button class="btn btn-primary" onclick="saveConductEntry()">💾 Enregistrer</button>`);
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+   <button class="btn btn-primary" onclick="saveConductEntry()">💾 ${t('Enregistrer','Save')}</button>`);
 };
 window.saveConductEntry = () => {
   const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
