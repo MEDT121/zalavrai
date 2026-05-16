@@ -385,6 +385,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
         <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale">🔍</button>
         <span class="topbar-date" id="TD"></span>
         <button class="topbar-notif-btn" onclick="go('notifications')">🔔<span class="notif-badge"></span></button>
+        <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
       </div>
     </header>
     <div class="page-content" id="PC"></div>
@@ -680,7 +681,7 @@ window.NAV = {
       {id:'approbations',i:'✅',l:'Approuver',badge:true},
       {id:'students',i:'🎓',l:'Élèves'},
       {id:'payments',i:'💰',l:'Paiements'},
-      {id:'settings',i:'⚙️',l:'Système'},
+      {id:'profil_direction',i:'👤',l:'Profil'},
     ]
   },
   enseignant: {
@@ -710,7 +711,7 @@ window.NAV = {
       {id:'palmares',i:'🏆',l:{fr:'Palmarès',en:'Rankings'}},
       {id:'devoirs',i:'📚',l:{fr:'Devoirs',en:'Tasks'}},
       {id:'messages',i:'✉️',l:{fr:'Messages',en:'Messages'}},
-      {id:'notifications',i:'🔔',l:{fr:'Notifs',en:'Notifs'}},
+      {id:'profil_enseignant',i:'👤',l:{fr:'Profil',en:'Profile'}},
     ]
   },
   gardien: {
@@ -729,11 +730,11 @@ window.NAV = {
       {id:'profil_gardien',i:'👤',l:'Mon profil'},
     ],
     bn:[
-      {id:'dashboard',i:'📊',l:'Accueil'},
       {id:'scanner',i:'📷',l:'Entrée'},
       {id:'scanner_exit',i:'🚪',l:'Sortie'},
       {id:'scan_log',i:'📜',l:'Historique'},
       {id:'alert_urgent',i:'🚨',l:'Alerte'},
+      {id:'profil_gardien',i:'👤',l:'Profil'},
     ]
   },
   parent: {
@@ -764,7 +765,7 @@ window.NAV = {
       {id:'children',i:'👶',l:'Enfants'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'messages',i:'✉️',l:'Messages',badge:true},
-      {id:'notifications',i:'🔔',l:'Notifs',badge:true},
+      {id:'profil_parent',i:'👤',l:'Profil'},
     ]
   },
   direction2: {
@@ -810,7 +811,7 @@ window.NAV = {
       {id:'approbations',i:'✅',l:'Approuver',badge:true},
       {id:'students',i:'🎓',l:'Élèves'},
       {id:'attendance',i:'📋',l:'Présences'},
-      {id:'settings',i:'⚙️',l:'Système'},
+      {id:'profil_direction2',i:'👤',l:'Profil'},
     ]
   },
   direction3: {
@@ -831,7 +832,7 @@ window.NAV = {
       {id:'caisse_paiement',i:'💵',l:'Paiement'},
       {id:'caisse_depense',i:'💸',l:'Dépense'},
       {id:'caisse_rapport',i:'📋',l:'Rapport'},
-      {id:'notifications',i:'🔔',l:'Notifs'},
+      {id:'profil_caisse',i:'👤',l:'Profil'},
     ]
   }
 };
@@ -1281,6 +1282,11 @@ window.logout = () => {
   $('APP').classList.remove('active'); $('LS').style.display='none';
   $('SPLASH').classList.remove('hidden'); closeSB();
 };
+window.goToMyProfile = () => {
+  const r=S.user?.role; if(!r) return;
+  const page=r==='direction3'?'profil_caisse':'profil_'+r;
+  go(page);
+};
 window.buildUI = () => {
   const r = S.user.role, c = NAV[r];
   const _lang = getLang();
@@ -1290,6 +1296,8 @@ window.buildUI = () => {
   $('SA').textContent = S.user.initials || ini(S.user.name);
   $('SUN').textContent = S.user.name;
   $('SUR').textContent = roleLabel;
+  // Topbar avatar button
+  const ta=$('TOPAVATAR'); if(ta) ta.textContent=S.user.initials||ini(S.user.name);
   // Sidebar nav
   const sn = $('SN'); sn.innerHTML = '';
   const pending = getPendingCount();
