@@ -368,11 +368,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <nav class="sidebar-nav" id="SN"></nav>
     <div class="sidebar-footer">
-      <div class="sidebar-user" onclick="openProfile()">
+      <div class="sidebar-user" onclick="goToMyProfile();closeSB()">
         <div class="sidebar-avatar" id="SA">AD</div>
         <div><span class="sidebar-user-name" id="SUN">Admin</span><br><span class="sidebar-user-role" id="SUR">Direction</span></div>
       </div>
-      <button class="btn btn-outline" style="width:100%;margin-top:8px;font-size:12px;padding:9px" onclick="openProfile()">⚙️ Mon profil</button>
+      <button class="btn btn-outline" style="width:100%;margin-top:8px;font-size:12px;padding:9px" onclick="goToMyProfile();closeSB()">👤 Mon profil</button>
       <button class="logout-btn" onclick="logout()">⎋ Déconnexion</button>
     </div>
   </aside>
@@ -9388,15 +9388,15 @@ R.profil_enseignant = () => {
 };
 
 window.saveTeacherProfile = () => {
-  const phone=(document.getElementById('tp_phone')?.value||'').trim();
+  const phone=(document.getElementById('tp_phone')?.value||'').trim()||null;
   const name=(document.getElementById('tp_name')?.value||'').trim();
   const initials=(document.getElementById('tp_init')?.value||'').trim();
   if(!name){toast(t('Entrez votre nom','Enter your name'),'error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
-  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  if(u){u.phone=phone;u.name=name;u.initials=init;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast(t('✅ Profil mis à jour','✅ Profile updated'),'success');
 };
@@ -9495,15 +9495,15 @@ R.profil_parent = () => {
 };
 
 window.saveParentProfile = () => {
-  const phone=(document.getElementById('pp_phone')?.value||'').trim();
+  const phone=(document.getElementById('pp_phone')?.value||'').trim()||null;
   const name=(document.getElementById('pp_name')?.value||'').trim();
   const initials=(document.getElementById('pp_init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
-  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  if(u){u.phone=phone;u.name=name;u.initials=init;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
@@ -9783,11 +9783,12 @@ R.audit_log = () => {
 // ── PROFIL GARDIEN ──
 R.profil_gardien = () => {
   const u=S.user;
-  const todayScans=DB.scan_log.filter(l=>l.date===today());
+  const allScans=DB.scan_log||[];
+  const todayScans=allScans.filter(l=>l.date===today());
   const entries=todayScans.filter(l=>l.type==='entry').length;
   const exits=todayScans.filter(l=>l.type==='exit').length;
   const refused=todayScans.filter(l=>l.status==='refused').length;
-  const totalAll=DB.scan_log.length;
+  const totalAll=allScans.length;
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
   <div class="premium-section">
@@ -9821,15 +9822,15 @@ R.profil_gardien = () => {
   </div>`;
 };
 window.saveGardienProfile = () => {
-  const phone=(document.getElementById('gd_phone')?.value||'').trim();
+  const phone=(document.getElementById('gd_phone')?.value||'').trim()||null;
   const name=(document.getElementById('gd_name')?.value||'').trim();
   const initials=(document.getElementById('gd_init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
-  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  if(u){u.phone=phone;u.name=name;u.initials=init;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
@@ -9837,12 +9838,14 @@ window.saveGardienProfile = () => {
 // ── PROFIL CAISSE (direction3) ──
 R.profil_caisse = () => {
   const u=S.user;
-  const rec=DB.daily_records.filter(r=>r.date===today());
-  const exp=DB.daily_expenses.filter(e=>e.date===today());
+  const allRec=DB.daily_records||[];
+  const allExp=DB.daily_expenses||[];
+  const rec=allRec.filter(r=>r.date===today());
+  const exp=allExp.filter(e=>e.date===today());
   const totalRec=rec.reduce((s,r)=>s+(r.amount||0),0);
   const totalExp=exp.reduce((s,e)=>s+(e.amount||0),0);
-  const totalAllRec=DB.daily_records.reduce((s,r)=>s+(r.amount||0),0);
-  const fmt=n=>n.toLocaleString('fr-FR')+'  FC';
+  const totalAllRec=allRec.reduce((s,r)=>s+(r.amount||0),0);
+  const fmt=n=>n.toLocaleString('fr-FR')+' FC';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
   <div class="premium-section">
@@ -9878,15 +9881,15 @@ R.profil_caisse = () => {
   </div>`;
 };
 window.saveCaisseProfile = () => {
-  const phone=(document.getElementById('ca_phone')?.value||'').trim();
+  const phone=(document.getElementById('ca_phone')?.value||'').trim()||null;
   const name=(document.getElementById('ca_name')?.value||'').trim();
   const initials=(document.getElementById('ca_init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
-  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  if(u){u.phone=phone;u.name=name;u.initials=init;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
@@ -9930,10 +9933,15 @@ R.accounts = () => {
 // ── PROFIL DIRECTION 1 ──
 R.profil_direction = () => {
   const u=S.user;
-  const totalStudents=DB.students.length;
-  const totalUsers=DB.users.length;
-  const totalClasses=DB.classes.length;
-  const pendingPay=DB.students.filter(s=>(s.fee||0)>(s.paid||0)).length;
+  const totalStudents=(DB.students||[]).length;
+  const totalUsers=(DB.users||[]).length;
+  const totalClasses=(DB.classes||[]).length;
+  const fees=DB.settings?.fees||{T1:0,T2:0,T3:0};
+  const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  const pendingPay=totalFees>0?(DB.students||[]).filter(s=>{
+    const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((sum,p)=>sum+(fees[p.t]||0),0);
+    return paid<totalFees;
+  }).length:(DB.students||[]).length;
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
   <div class="premium-section">
@@ -9949,7 +9957,12 @@ R.profil_direction = () => {
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
       <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#8b5cf6">${totalUsers}</div><div style="font-size:10px;color:var(--text-muted)">Utilisateurs</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#ef4444">${pendingPay}</div><div style="font-size:10px;color:var(--text-muted)">Impayés</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('payments')" title="Voir les paiements"><div style="font-size:18px;font-weight:800;color:#ef4444">${pendingPay}</div><div style="font-size:10px;color:var(--text-muted)">Impayés</div></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('students')">🎓 Élèves</button>
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('payments')">💰 Paiements</button>
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('accounts')">👥 Comptes</button>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
@@ -9970,9 +9983,10 @@ R.profil_direction = () => {
 // ── PROFIL DIRECTION 2 ──
 R.profil_direction2 = () => {
   const u=S.user;
-  const totalStudents=DB.students.length;
-  const totalClasses=DB.classes.length;
-  const teachers=DB.users.filter(x=>x.role==='enseignant').length;
+  const totalStudents=(DB.students||[]).length;
+  const totalClasses=(DB.classes||[]).length;
+  const teachers=(DB.users||[]).filter(x=>x.role==='enseignant').length;
+  const pendingRats=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by).length;
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
   <div class="premium-section">
@@ -9985,9 +9999,15 @@ R.profil_direction2 = () => {
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${teachers}</div><div style="font-size:10px;color:var(--text-muted)">Enseignants</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('students')"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('classes')"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('teachers')"><div style="font-size:18px;font-weight:800;color:#f59e0b">${teachers}</div><div style="font-size:10px;color:var(--text-muted)">Enseignants</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('approbations')"><div style="font-size:18px;font-weight:800;color:${pendingRats>0?'#ef4444':'#059669'}">${pendingRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('palmares')">🏆 Palmarès</button>
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('attendance')">📋 Présences</button>
+      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('teachers')">👨‍🏫 Enseignants</button>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
@@ -10006,15 +10026,15 @@ R.profil_direction2 = () => {
 };
 
 window.saveDirProfile = (inputId) => {
-  const phone=(document.getElementById(inputId)?.value||'').trim();
+  const phone=(document.getElementById(inputId)?.value||'').trim()||null;
   const name=(document.getElementById('dir_name')?.value||'').trim();
   const initials=(document.getElementById('dir_init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone||u.phone;u.name=name;u.initials=init;}
-  S.user.phone=phone||S.user.phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone:S.user.phone,name,initials:init},'id=eq.'+S.user.id);
+  if(u){u.phone=phone;u.name=name;u.initials=init;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;
+  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast('✅ Profil mis à jour','success');
 };
