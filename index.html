@@ -9283,6 +9283,11 @@ R.profil_enseignant = () => {
   const myDevoirs=DB.devoirs.filter(d=>d.cid===(cl?.id)).length;
   const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).length;
   const myCahier=DB.cahier_texte.filter(e=>e.by===u.id).length;
+  // Grades entered for students of this class
+  const sids=students.map(s=>s.id);
+  const myNotes=DB.grades.filter(g=>sids.includes(g.sid)&&g.note!==undefined&&g.note!==null).length;
+  const studentsWithGrade=students.filter(s=>DB.grades.some(g=>g.sid===s.id&&g.note!==undefined&&g.note!==null)).length;
+  const coveragePct=students.length?Math.round(studentsWithGrade/students.length*100):0;
   const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
@@ -9295,11 +9300,24 @@ R.profil_enseignant = () => {
         ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} ${t('élèves','students')}${isTitulaire?(' · ⭐ '+t('Titulaire','Class Teacher')):''}</div>`:`<div style="font-size:12px;color:#dc2626">${t('Aucune classe assignée','No class assigned')}</div>`}
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">${t('Devoirs','Assignments')}</div></div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">${t('Cahier entrées','Lesson entries')}</div></div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">${t('Devoirs','Tasks')}</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">${t('Cahier','Lesson log')}</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#7c3aed">${myNotes}</div><div style="font-size:10px;color:var(--text-muted)">${t('Notes','Grades')}</div></div>
+      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
     </div>
+    ${cl?`
+    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:700">🏆 ${t('Palmarès — couverture notes','Rankings — grade coverage')}</span>
+        <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#059669':coveragePct>=40?'#d97706':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
+      </div>
+      <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden">
+        <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${coveragePct<100?t(`${students.length-studentsWithGrade} élève${students.length-studentsWithGrade>1?'s':''} sans note — cliquez ci-dessous pour saisir`,`${students.length-studentsWithGrade} student${students.length-studentsWithGrade>1?'s':''} without grades — tap below to enter`):t('✅ Tous les élèves ont au moins une note','✅ All students have at least one grade')}</div>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="go('palmares')">🏆 ${t('Aller au Palmarès & Saisir notes','Go to Rankings & Enter Grades')}</button>
+    </div>`:''}
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
       <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
