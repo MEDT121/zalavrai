@@ -782,6 +782,7 @@ window.NAV = {
       {id:'guardians',i:'🛡️',l:'Gardiens'},
       {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
       {id:'authorized',i:'🔑',l:'Autorisés'},
+      {id:'acces_parents',i:'🔐',l:'Accès parents'},
       {s:'Scolarité'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
       {id:'attendance',i:'📋',l:'Présences'},
@@ -1739,7 +1740,7 @@ function dashboardDirection2() {
   const refused = todayAtt.filter(a=>a.status==='refused').length;
   const pending = getPendingCount();
   const presencePct = ts ? Math.round((present+late)/ts*100) : 0;
-  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
+  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated);
   const blockedStudents = DB.students.filter(s=>s.access_blocked);
   const allTeachers = DB.users.filter(u=>u.role==='enseignant');
   const noCahierToday = allTeachers.filter(u=>{
@@ -3560,7 +3561,9 @@ R.approbations = () => {
   const apr = DB.approbations.filter(a=>a.status==='pending'&&a.type!=='cahier_texte');
   const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
   const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
-  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
+  const pendingRats = isD2
+    ? DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated)
+    : DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
   const pendingConvs = DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
   const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingConvs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">✅</div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
