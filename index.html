@@ -9442,49 +9442,69 @@ R.profil_enseignant = () => {
   const studentsWithGrade=students.filter(s=>_grades.some(g=>g.sid===s.id&&g.note!=null)).length;
   const coveragePct=students.length?Math.round(studentsWithGrade/students.length*100):0;
   const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
+  const validTabs=['classe','profil','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
+  const clr='#2563eb';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
-  <div class="premium-section">
-    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
-      <div style="width:64px;height:64px;border-radius:18px;background:${cbg};color:${cc};font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
-      <div>
-        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">${t('Enseignant · Section','Teacher · Section')} ${langLabel}</div>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:${cbg};color:${cc};font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${t('Enseignant · Section','Teacher · Section')} ${langLabel}</div>
         ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} ${t('élèves','students')}${isTitulaire?(' · ⭐ '+t('Titulaire','Class Teacher')):''}</div>`:`<div style="font-size:12px;color:#dc2626">${t('Aucune classe assignée','No class assigned')}</div>`}
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:10px;color:var(--text-muted)">${t('Devoirs','Tasks')}</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:10px;color:var(--text-muted)">${t('Cahier','Lesson log')}</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#7c3aed">${myNotes}</div><div style="font-size:10px;color:var(--text-muted)">${t('Notes','Grades')}</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
-    </div>
-    ${cl?`
-    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:13px;font-weight:700">🏆 ${t('Palmarès — couverture notes','Rankings — grade coverage')}</span>
-        <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#059669':coveragePct>=40?'#d97706':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
-      </div>
-      <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden">
-        <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${coveragePct<100?t(`${students.length-studentsWithGrade} élève${students.length-studentsWithGrade>1?'s':''} sans note — cliquez ci-dessous pour saisir`,`${students.length-studentsWithGrade} student${students.length-studentsWithGrade>1?'s':''} without grades — tap below to enter`):t('✅ Tous les élèves ont au moins une note','✅ All students have at least one grade')}</div>
-      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="go('palmares')">🏆 ${t('Aller au Palmarès & Saisir notes','Go to Rankings & Enter Grades')}</button>
-    </div>`:''}
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 ${t('Numéro de téléphone','Phone Number')}</label>
-      <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">${t('💾 Enregistrer','💾 Save')}</button>
   </div>
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 ${t('Sécurité','Security')}</div>
-    <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 ${t('Changer mon code PIN','Change my PIN')}</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ ${t('Se déconnecter','Log Out')}</button>
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="classe" data-ptab-color="${clr}" onclick="window._pTab='classe';_setProfileTab('classe')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='classe'?'700':'500'};background:${tab==='classe'?clr:'transparent'};color:${tab==='classe'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">📚<div style="font-size:10px">${t('Ma classe','My class')}</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">${t('Modifier','Edit')}</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">${t('Sécurité','Security')}</div></button>
+    </div>
+    <div data-ptab="classe" style="${tab==='classe'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:11px;color:var(--text-muted)">${t('Devoirs','Tasks')}</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:11px;color:var(--text-muted)">${t('Cahier','Lesson log')}</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#7c3aed">${myNotes}</div><div style="font-size:11px;color:var(--text-muted)">${t('Notes','Grades')}</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:11px;color:var(--text-muted)">Rattrapages</div></div>
+        </div>
+        ${cl?`
+        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700">🏆 ${t('Palmarès — couverture notes','Rankings — grade coverage')}</span>
+            <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#059669':coveragePct>=40?'#d97706':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
+          </div>
+          <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden">
+            <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${coveragePct<100?t(`${students.length-studentsWithGrade} élève${students.length-studentsWithGrade>1?'s':''} sans note — cliquez ci-dessous pour saisir`,`${students.length-studentsWithGrade} student${students.length-studentsWithGrade>1?'s':''} without grades — tap below to enter`):t('✅ Tous les élèves ont au moins une note','✅ All students have at least one grade')}</div>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="go('palmares')">🏆 ${t('Aller au Palmarès & Saisir notes','Go to Rankings & Enter Grades')}</button>
+        </div>`:`<div style="font-size:13px;color:var(--text-muted);padding:16px;text-align:center;background:var(--bg);border-radius:12px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
+      </div>
+    </div>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 ${t('Numéro de téléphone','Phone Number')}</label>
+          <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">${t('💾 Enregistrer','💾 Save')}</button>
+      </div>
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 ${t('Sécurité','Security')}</div>
+        <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 ${t('Changer mon code PIN','Change my PIN')}</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ ${t('Se déconnecter','Log Out')}</button>
+      </div>
+    </div>
   </div>`;
 };
 
@@ -9553,93 +9573,125 @@ R.scan_history = () => {
 R.profil_parent = () => {
   const u=S.user;
   const kids=DB.students.filter(s=>s.pid===u.id);
+  const validTabs=['enfants','profil','honneur','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'enfants';
+  const clr='#7c3aed';
+  // payment summary for pills
+  const fees=getFees();
+  const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  const kidsOk=kids.filter(k=>{
+    const paidAmt=(DB.payments||[]).filter(p=>p.sid===k.id&&p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+    return paidAmt>=totalFees;
+  }).length;
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
-  <div class="premium-section">
-    <div class="premium-section-title">👤 Mes informations</div>
-    <div style="display:flex;align-items:center;gap:14px;padding:12px 0 16px">
-      <div style="width:60px;height:60px;border-radius:18px;background:#ede9fe;color:#7c3aed;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(u.name)}</div>
-      <div><div style="font-size:18px;font-weight:800">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Parent / Tuteur · ID ${u.id}</div></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="pp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="pp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
-      <input class="form-input" id="pp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveParentProfile()">💾 Enregistrer</button>
-  </div>
-  <div class="premium-section">
-    <div class="premium-section-title">👶 Mes enfants</div>
-    ${kids.length?kids.map(k=>{
-      const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
-      const pays=DB.payments.filter(p=>p.sid===k.id);
-      const fees=getFees();
-      const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-      const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-      return `<div class="premium-item">
-        <div class="pi-icon" style="background:${cbg};color:${cc};font-size:14px;font-weight:700">${ini(k.name)}</div>
-        <div style="flex:1"><div class="pi-title">${k.name}</div><div class="pi-sub">${k.mat} · ${cl?cl.name:''}</div></div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:11px;font-weight:700;color:${paidAmt>=total?'#059669':'#dc2626'}">$${paidAmt}/$${total}</div>
-          <div style="font-size:10px;color:var(--text-muted)">frais payés</div>
-        </div>
-      </div>`;
-    }).join(''):`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à ce compte</div>`}
-  </div>
-  ${(()=>{
-    if(!(DB.settings.toggles?.palmares??true)) return `<div class="premium-section" style="border-left:4px solid #f59e0b"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🔒</div><div><div style="font-weight:700;font-size:14px">Tableau d'honneur</div><div style="font-size:12px;color:var(--text-muted)">La Direction n'a pas encore activé le palmarès.</div></div></div></div>`;
-    const trim=DB.settings.currentTrimestre||'T1';
-    const monthName=new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
-    const top=getSchoolTop10();
-    if(!top.length) return `<div class="premium-section"><div class="premium-section-title">🏆 Tableau d'honneur de l'école</div><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Les notes du trimestre ${trim} ne sont pas encore saisies.</div></div>`;
-    const medals=['🥇','🥈','🥉'];
-    const podium=top.slice(0,Math.min(3,top.length));
-    const rest=top.slice(3);
-    const clsC=s=>{const [cc,cbg]=clsColor(s.cl.name);return{cc,cbg};};
-    return `<div class="premium-section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="premium-section-title" style="margin-bottom:0">🏆 Tableau d'honneur de l'école</div>
-        <span class="pill pill-blue" style="font-size:10px">${trim} · ${monthName}</span>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:#ede9fe;color:#7c3aed;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">Parent / Tuteur</div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Top 10 tous niveaux confondus · Mis à jour en temps réel</div>
-      ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin:0 0 16px">
-        ${[1,0,2].map(pos=>{
-          const s=podium[pos]; if(!s) return '';
-          const {cc,cbg}=clsC(s);
-          const heights=[100,74,54];
-          const bgPodium=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
-          return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}</div>
-            <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
-            <div style="font-size:11px;font-weight:700;text-align:center;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
-            <div style="font-size:10px;color:var(--text-muted)">${esc(s.cl.name)}</div>
-            <div style="width:64px;height:${heights[pos]}px;border-radius:8px 8px 0 0;background:${bgPodium[pos]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff">${s.score}</div>
-          </div>`;
-        }).join('')}
-      </div>`:''}
-      <div style="display:flex;flex-direction:column;gap:2px">
-        ${top.map((s,i)=>{
-          const {cc,cbg}=clsC(s);
-          const isKid=kids.some(k=>k.id===s.id);
-          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:${isKid?'#f0fdf4':'transparent'};border:${isKid?'1.5px solid #86efac':'1px solid transparent'}">
-            <span style="font-size:${i<3?18:14}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700">${esc(s.name)}${isKid?' 👶':''}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill" style="background:#ede9fe;color:#7c3aed">${kids.length} enfant${kids.length!==1?'s':''}</span>
+      ${totalFees>0?`<span class="pill" style="background:${kidsOk===kids.length?'#d1fae5':'#fee2e2'};color:${kidsOk===kids.length?'#059669':'#dc2626'}">${kidsOk===kids.length?'Frais OK':kidsOk+'/'+kids.length+' à jour'}</span>`:''}
+    </div>
+  </div>
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="enfants" data-ptab-color="${clr}" onclick="window._pTab='enfants';_setProfileTab('enfants')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='enfants'?'700':'500'};background:${tab==='enfants'?clr:'transparent'};color:${tab==='enfants'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">👶<div style="font-size:10px">Enfants</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
+      <button data-ptab-btn="honneur" data-ptab-color="${clr}" onclick="window._pTab='honneur';_setProfileTab('honneur')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='honneur'?'700':'500'};background:${tab==='honneur'?clr:'transparent'};color:${tab==='honneur'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🏆<div style="font-size:10px">Honneur</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
+    </div>
+    <div data-ptab="enfants" style="${tab==='enfants'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="premium-section-title">👶 Mes enfants</div>
+        ${kids.length?kids.map(k=>{
+          const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+          const pays=DB.payments.filter(p=>p.sid===k.id);
+          const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+          const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+          return `<div class="premium-item">
+            <div class="pi-icon" style="background:${cbg};color:${cc};font-size:14px;font-weight:700">${ini(k.name)}</div>
+            <div style="flex:1"><div class="pi-title">${k.name}</div><div class="pi-sub">${k.mat} · ${cl?cl.name:''}</div></div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:11px;font-weight:700;color:${paidAmt>=total?'#059669':'#dc2626'}">$${paidAmt}/$${total}</div>
+              <div style="font-size:10px;color:var(--text-muted)">frais payés</div>
             </div>
-            <div style="font-size:16px;font-weight:800;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
           </div>`;
-        }).join('')}
+        }).join(''):`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à ce compte</div>`}
       </div>
-    </div>`;
-  })()}
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+    </div>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="pp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="pp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+          <input class="form-input" id="pp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveParentProfile()">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div data-ptab="honneur" style="${tab==='honneur'?'':'display:none'}">
+      ${(()=>{
+        if(!(DB.settings.toggles?.palmares??true)) return `<div class="premium-section" style="border-left:4px solid #f59e0b"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:28px">🔒</div><div><div style="font-weight:700;font-size:14px">Tableau d'honneur</div><div style="font-size:12px;color:var(--text-muted)">La Direction n'a pas encore activé le palmarès.</div></div></div></div>`;
+        const trim=DB.settings.currentTrimestre||'T1';
+        const monthName=new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+        const top=getSchoolTop10();
+        if(!top.length) return `<div class="premium-section"><div class="premium-section-title">🏆 Tableau d'honneur de l'école</div><div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Les notes du trimestre ${trim} ne sont pas encore saisies.</div></div>`;
+        const medals=['🥇','🥈','🥉'];
+        const podium=top.slice(0,Math.min(3,top.length));
+        const clsC=s=>{const [cc,cbg]=clsColor(s.cl.name);return{cc,cbg};};
+        return `<div class="premium-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div class="premium-section-title" style="margin-bottom:0">🏆 Tableau d'honneur de l'école</div>
+            <span class="pill pill-blue" style="font-size:10px">${trim} · ${monthName}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Top 10 tous niveaux confondus · Mis à jour en temps réel</div>
+          ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin:0 0 16px">
+            ${[1,0,2].map(pos=>{
+              const s=podium[pos]; if(!s) return '';
+              const {cc,cbg}=clsC(s);
+              const heights=[100,74,54];
+              const bgPodium=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
+              return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+                <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}</div>
+                <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
+                <div style="font-size:11px;font-weight:700;text-align:center;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
+                <div style="font-size:10px;color:var(--text-muted)">${esc(s.cl.name)}</div>
+                <div style="width:64px;height:${heights[pos]}px;border-radius:8px 8px 0 0;background:${bgPodium[pos]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff">${s.score}</div>
+              </div>`;
+            }).join('')}
+          </div>`:''}
+          <div style="display:flex;flex-direction:column;gap:2px">
+            ${top.map((s,i)=>{
+              const {cc,cbg}=clsC(s);
+              const isKid=kids.some(k=>k.id===s.id);
+              return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:${isKid?'#f0fdf4':'transparent'};border:${isKid?'1.5px solid #86efac':'1px solid transparent'}">
+                <span style="font-size:${i<3?18:14}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
+                <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:700">${esc(s.name)}${isKid?' 👶':''}</div>
+                  <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
+                </div>
+                <div style="font-size:16px;font-weight:800;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      })()}
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+      </div>
+    </div>
   </div>`;
 };
 
@@ -9938,36 +9990,64 @@ R.profil_gardien = () => {
   const exits=todayScans.filter(l=>l.type==='exit').length;
   const refused=todayScans.filter(l=>l.status==='refused').length;
   const totalAll=allScans.length;
+  const validTabs=['activite','profil','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'activite';
+  const clr='#f97316';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
-  <div class="premium-section">
-    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
-      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
-      <div>
-        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">🛡️ Gardien de sécurité</div>
-        <div style="font-size:12px;color:var(--text-muted)">Portail SchoolSafe</div>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">🛡️ Gardien de sécurité</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#059669">${entries}</div><div style="font-size:10px;color:var(--text-muted)">Entrées auj.</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#f97316">${exits}</div><div style="font-size:10px;color:var(--text-muted)">Sorties auj.</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#ef4444">${refused}</div><div style="font-size:10px;color:var(--text-muted)">Refusés auj.</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalAll}</div><div style="font-size:10px;color:var(--text-muted)">Total scans</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill pill-green">${entries} entrées</span>
+      <span class="pill" style="background:#ffedd5;color:#f97316">${exits} sorties</span>
+      ${refused>0?`<span class="pill" style="background:#fee2e2;color:#dc2626">${refused} refusés</span>`:''}
     </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
-      <input class="form-input" id="gd_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveGardienProfile()">💾 Enregistrer</button>
   </div>
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="activite" data-ptab-color="${clr}" onclick="window._pTab='activite';_setProfileTab('activite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='activite'?'700':'500'};background:${tab==='activite'?clr:'transparent'};color:${tab==='activite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🛡️<div style="font-size:10px">Activité</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
+    </div>
+    <div data-ptab="activite" style="${tab==='activite'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#059669">${entries}</div><div style="font-size:11px;color:var(--text-muted)">Entrées auj.</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#f97316">${exits}</div><div style="font-size:11px;color:var(--text-muted)">Sorties auj.</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#ef4444">${refused}</div><div style="font-size:11px;color:var(--text-muted)">Refusés auj.</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#2563eb">${totalAll}</div><div style="font-size:11px;color:var(--text-muted)">Total scans</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('scanner')">📷 Scanner Entrée</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('scanner_exit')">📷 Scanner Sortie</button>
+        </div>
+      </div>
+    </div>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+          <input class="form-input" id="gd_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveGardienProfile()">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+      </div>
+    </div>
   </div>`;
 };
 window.saveGardienProfile = () => {
@@ -9995,38 +10075,65 @@ R.profil_caisse = () => {
   const totalExp=exp.reduce((s,e)=>s+(e.amount||0),0);
   const totalAllRec=allRec.reduce((s,r)=>s+(r.amount||0),0);
   const fmt=n=>n.toLocaleString('fr-FR')+' FC';
+  const validTabs=['caisse','profil','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'caisse';
+  const clr='#059669';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
-  <div class="premium-section">
-    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
-      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
-      <div>
-        <div style="font-size:18px;font-weight:800">${u.name}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">💵 Caissier · Direction 3</div>
-        <div style="font-size:12px;color:var(--text-muted)">Gestion financière journalière</div>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">💵 Caissier · Direction 3</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:14px;font-weight:800;color:#059669">${fmt(totalRec)}</div><div style="font-size:10px;color:var(--text-muted)">Recettes auj.</div></div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:14px;font-weight:800;color:#ef4444">${fmt(totalExp)}</div><div style="font-size:10px;color:var(--text-muted)">Dépenses auj.</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill pill-green">${fmt(totalRec)} recettes</span>
+      <span class="pill" style="background:#fee2e2;color:#dc2626">${fmt(totalExp)} dépenses</span>
     </div>
-    <div class="premium-item" style="background:var(--bg);border-radius:10px;margin-bottom:12px">
-      <div class="pi-icon" style="background:#d1fae5">💰</div>
-      <div style="flex:1"><div class="pi-title">Total encaissé (global)</div><div style="font-size:13px;font-weight:700;color:#059669">${fmt(totalAllRec)}</div></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
-      <input class="form-input" id="ca_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveCaisseProfile()">💾 Enregistrer</button>
   </div>
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="caisse" data-ptab-color="${clr}" onclick="window._pTab='caisse';_setProfileTab('caisse')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='caisse'?'700':'500'};background:${tab==='caisse'?clr:'transparent'};color:${tab==='caisse'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">💰<div style="font-size:10px">Caisse</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
+    </div>
+    <div data-ptab="caisse" style="${tab==='caisse'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#059669">${fmt(totalRec)}</div><div style="font-size:11px;color:var(--text-muted)">Recettes auj.</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#ef4444">${fmt(totalExp)}</div><div style="font-size:11px;color:var(--text-muted)">Dépenses auj.</div></div>
+        </div>
+        <div class="premium-item" style="background:var(--bg);border-radius:10px;margin-bottom:14px">
+          <div class="pi-icon" style="background:#d1fae5">💰</div>
+          <div style="flex:1"><div class="pi-title">Total encaissé (global)</div><div style="font-size:13px;font-weight:700;color:#059669">${fmt(totalAllRec)}</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('recettes')">📈 Recettes</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('depenses')">📉 Dépenses</button>
+        </div>
+      </div>
+    </div>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+          <input class="form-input" id="ca_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveCaisseProfile()">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+      </div>
+    </div>
   </div>`;
 };
 window.saveCaisseProfile = () => {
