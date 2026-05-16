@@ -1278,9 +1278,14 @@ window.loginAs = user => {
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); },450);
 };
 window.logout = () => {
-  S.user=null; $('LN').value=''; $('LP').value=''; $('PM').textContent='';
-  $('APP').classList.remove('active'); $('LS').style.display='none';
-  $('SPLASH').classList.remove('hidden'); closeSB();
+  try { stopScan(); } catch(e) {}
+  S.user=null; S.page='dashboard'; S._history=[];
+  $('LN').value=''; $('LP').value=''; $('PM').textContent='';
+  $('APP').classList.remove('active');
+  $('LS').style.display='none';
+  const sp=$('SPLASH');
+  if(sp){ sp.style.display=''; sp.classList.remove('hidden'); }
+  closeSB();
 };
 window.goToMyProfile = () => {
   const r=S.user?.role; if(!r) return;
