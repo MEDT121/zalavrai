@@ -3165,7 +3165,7 @@ window._simpleList = (role, icon, gradient) => {
         </div>
         ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>esc(c.name)).join(', ')||'Aucune classe assignée'}</div>`:''}
         <div style="display:flex;gap:6px;align-items:center">
-          <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin}</span>
+          <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
           <span style="flex:1"></span>
           <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
@@ -3176,9 +3176,13 @@ window._simpleList = (role, icon, gradient) => {
 };
 
 window.openUserForm = (role, uid) => {
-  const u = uid ? DB.users.find(x=>x.id===uid) : null;
+  const users = DB.users||[];
+  const classes = DB.classes||[];
+  const u = uid ? users.find(x=>x.id===uid) : null;
+  if(uid && !u){ toast('Utilisateur introuvable — rechargez la page','error'); return; }
   const meta = ROLE_META[role]||{label:role,icon:'👤'};
-  const existingLang = uid ? (()=>{ const c=DB.classes.find(x=>x.teacher_id_en===uid); return c?'en':'fr'; })() : 'fr';
+  const existingLang = uid ? (classes.find(x=>x.teacher_id_en===uid)?'en':'fr') : 'fr';
+  const pinDisplay = u&&u.pin&&!u.pin_hashed ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">PIN actuel : <span style="font-family:monospace;font-weight:700;color:#2563eb">${u.pin}</span></div>` : (u?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">PIN chiffré — entrez un nouveau PIN pour le réinitialiser</div>`:'');
   const classOpts = role==='enseignant' ? `
 <div class="form-group"><label class="form-label">Section d'enseignement</label>
   <div style="display:flex;gap:12px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
@@ -3186,7 +3190,7 @@ window.openUserForm = (role, uid) => {
     <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="radio" name="usr_lang" id="usr_lang_en" value="en" ${existingLang==='en'?'checked':''} style="accent-color:#2563eb"> 🇬🇧 Anglais</label>
   </div>
 </div>
-<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${DB.classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
+<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="usr_cid_cb" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2563eb"> ${c.name}</label>`;}).join('')}</div></div>` : '';
   const photoOpts = role==='parent' ? `<div class="form-group"><label class="form-label">Photo d'identité</label>
     <div style="display:flex;align-items:center;gap:14px">
       <div id="usr_photo_preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">
@@ -3200,59 +3204,79 @@ window.openUserForm = (role, uid) => {
 <input type="hidden" id="usr_role" value="${role}">
 ${photoOpts}
 <div class="form-row">
-  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="usr_name" value="${u?u.name:''}" placeholder="Ex: Jean Kabongo"></div>
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="usr_name" value="${u?esc(u.name):''}" placeholder="Ex: Jean Kabongo"></div>
   <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="usr_init" maxlength="3" value="${u&&u.initials?u.initials:''}" placeholder="JK"></div>
 </div>
 <div class="form-row">
   <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?u.phone:''}" placeholder="+243 8XX XXX XXX"></div>
-  <div class="form-group"><label class="form-label">PIN (6 chiffres)${u?' — laisser vide pour conserver':' *'}</label><input class="form-input" id="usr_pin" type="password" maxlength="6" placeholder="••••••"></div>
+  <div class="form-group">
+    <label class="form-label">PIN (6 chiffres)${u?' — vide = conserver':' *'}</label>
+    <input class="form-input" id="usr_pin" type="text" inputmode="numeric" maxlength="6" placeholder="${u?'Laisser vide pour garder':'••••••'}">
+    ${pinDisplay}
+  </div>
 </div>
 ${classOpts}`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveUser()">💾 ${u?'Mettre à jour':'Ajouter'}</button>`);
 };
 
 window.saveUser = () => {
-  const name=($('usr_name').value||'').trim();
+  // Read all form values safely
+  const nameEl=$('usr_name'); const pinEl=$('usr_pin'); const idEl=$('usr_id'); const roleEl=$('usr_role');
+  if(!nameEl||!pinEl||!idEl||!roleEl){toast('Erreur formulaire — réouvrez la fenêtre','error');return;}
+  const name=(nameEl.value||'').trim();
   if(!name){toast('Entrez le nom','error');return;}
-  const pinInput=($('usr_pin').value||'').trim();
-  const uid=$('usr_id').value;
-  const role=$('usr_role').value;
+  const pinInput=(pinEl.value||'').replace(/\D/g,''); // digits only
+  const uid=idEl.value;
+  const role=roleEl.value;
   if(!uid && (!pinInput||pinInput.length!==6)){toast('PIN requis : exactement 6 chiffres','error');return;}
   if(pinInput && pinInput.length!==6){toast('PIN invalide : exactement 6 chiffres','error');return;}
-  const initials=($('usr_init').value||'').trim()||ini(name);
+  const initials=($('usr_init')?.value||'').trim()||ini(name);
   const photo=window._userPhoto||null;
-  const existingUser=uid?DB.users.find(x=>x.id===uid):null;
+  const users=DB.users||[];
+  const existingUser=uid?users.find(x=>x.id===uid):null;
+  if(uid && !existingUser){toast('Utilisateur introuvable — rechargez','error');return;}
   const pin=pinInput||existingUser?.pin||'';
   const pinHashed=pinInput?false:(existingUser?.pin_hashed||false);
-  const data={name,pin,pin_hashed:pinHashed,role,initials,phone:($('usr_phone').value||'').trim()||null,...(photo?{photo_url:photo}:{})};
+  const data={name,pin,pin_hashed:pinHashed,role,initials,phone:($('usr_phone')?.value||'').trim()||null,...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
+
   if(uid){
-    const u=DB.users.find(x=>x.id===uid); if(u) Object.assign(u,data);
+    // Edit existing user
+    Object.assign(existingUser, data);
     if(role==='enseignant'){
       const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
-      document.querySelectorAll('[data-cid]').forEach(cb=>{
-        const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
+      const changedClasses=[];
+      document.querySelectorAll('.usr_cid_cb').forEach(cb=>{
+        const c=(DB.classes||[]).find(x=>x.id===cb.dataset.cid); if(!c) return;
+        let changed=false;
         if(cb.checked){
-          if(langEn){if(c.teacher_id_en!==uid){if(c.teacher_id===uid)c.teacher_id=null;c.teacher_id_en=uid;}}
-          else{if(c.teacher_id!==uid){if(c.teacher_id_en===uid)c.teacher_id_en=null;c.teacher_id=uid;}}
-        } else{if(c.teacher_id===uid) c.teacher_id=null; if(c.teacher_id_en===uid) c.teacher_id_en=null;}
+          if(langEn){if(c.teacher_id_en!==uid){if(c.teacher_id===uid){c.teacher_id=null;changed=true;}c.teacher_id_en=uid;changed=true;}}
+          else{if(c.teacher_id!==uid){if(c.teacher_id_en===uid){c.teacher_id_en=null;changed=true;}c.teacher_id=uid;changed=true;}}
+        } else {
+          if(c.teacher_id===uid){c.teacher_id=null;changed=true;}
+          if(c.teacher_id_en===uid){c.teacher_id_en=null;changed=true;}
+        }
+        if(changed) changedClasses.push(c);
       });
-      DB.classes.forEach(c=>pushSync('classes','upsert',c));
+      changedClasses.forEach(c=>pushSync('classes','upsert',c));
     }
     pushSync('users','upsert',{id:uid,...data});
     logAudit('user_edit', `${name} — ${role}`, uid);
     toast(`✅ ${name} mis à jour`,'success');
   } else {
+    // Create new user
     const ns={id:'u'+Date.now(),...data};
-    DB.users.push(ns);
+    (DB.users=DB.users||[]).push(ns);
     if(role==='enseignant'){
       const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
-      document.querySelectorAll('[data-cid]').forEach(cb=>{
+      const changedClasses=[];
+      document.querySelectorAll('.usr_cid_cb').forEach(cb=>{
         if(!cb.checked) return;
-        const c=DB.classes.find(x=>x.id===cb.dataset.cid); if(!c) return;
+        const c=(DB.classes||[]).find(x=>x.id===cb.dataset.cid); if(!c) return;
         if(langEn) c.teacher_id_en=ns.id; else c.teacher_id=ns.id;
+        changedClasses.push(c);
       });
-      DB.classes.forEach(c=>pushSync('classes','upsert',c));
+      changedClasses.forEach(c=>pushSync('classes','upsert',c));
     }
     pushSync('users','upsert',ns);
     logAudit('user_add', `${name} — ${role}`, ns.id);
@@ -3311,7 +3335,7 @@ R.parents = () => {
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:16px">${esc(u.name)}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
-            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
             <button class="btn btn-outline btn-sm" onclick="openUserForm('parent','${u.id}')">✏️ Modifier</button>
@@ -9873,7 +9897,7 @@ R.accounts = () => {
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
-            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin}</span>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
           </div>
           <div style="display:flex;gap:5px;flex-shrink:0">
             <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
