@@ -6997,6 +6997,19 @@ window.doExitRefused = async (sid) => {
   saveToCrypt();
 };
 
+window._setProfileTab = id => {
+  window._pTab = id;
+  document.querySelectorAll('[data-ptab]').forEach(el => {
+    el.style.display = el.dataset.ptab === id ? '' : 'none';
+  });
+  document.querySelectorAll('[data-ptab-btn]').forEach(btn => {
+    const isActive = btn.dataset.ptabBtn === id;
+    btn.style.background = isActive ? (btn.dataset.ptabColor || '#2563eb') : 'transparent';
+    btn.style.color = isActive ? '#fff' : 'var(--text-secondary)';
+    btn.style.fontWeight = isActive ? '700' : '500';
+  });
+};
+
 function showExitDone(color,icon,title,name,sub,time) {
   const el=$('exitResult'); if(!el) return;
   el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${esc(title)}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div><div class="sr-sub">${esc(sub)}</div><div class="sr-time">${esc(time)}</div></div>`;
@@ -10078,63 +10091,90 @@ R.profil_direction = () => {
     const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((sum,p)=>sum+(fees[p.t]||0),0);
     return paid<totalFees;
   }).length:(DB.students||[]).length;
+  const validTabs=['stats','profil','donnees','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
+  const clr='#0f2557';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
-  <div class="premium-section">
-    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
-      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#0f2557,#1e40af);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
-      <div>
-        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">🏛️ Direction 1 — Administrateur</div>
-        <div style="font-size:12px;color:var(--text-muted)">The Wise School International</div>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#0f2557,#1e40af);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">🏛️ Direction 1 — Administrateur</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center"><div style="font-size:18px;font-weight:800;color:#8b5cf6">${totalUsers}</div><div style="font-size:10px;color:var(--text-muted)">Utilisateurs</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('payments')" title="Voir les paiements"><div style="font-size:18px;font-weight:800;color:#ef4444">${pendingPay}</div><div style="font-size:10px;color:var(--text-muted)">Impayés</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill pill-blue">${totalStudents} élèves</span>
+      <span class="pill pill-green">${totalClasses} classes</span>
+      ${pendingPay>0?`<span class="pill" style="background:#fee2e2;color:#dc2626">${pendingPay} impayés</span>`:`<span class="pill pill-green">Frais OK</span>`}
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('students')">🎓 Élèves</button>
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('payments')">💰 Paiements</button>
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('accounts')">👥 Comptes</button>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
-      <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir1_phone')">💾 Enregistrer</button>
   </div>
-  <div class="premium-section" style="border-left:4px solid #7c3aed">
-    <div class="premium-section-title" style="color:#5b21b6">🗄️ Gestion des données</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
-      Données automatiquement supprimées après 60 jours : historique scans, notifications, audit, approbations traitées.
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="stats" data-ptab-color="${clr}" onclick="window._pTab='stats';_setProfileTab('stats')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='stats'?'700':'500'};background:${tab==='stats'?clr:'transparent'};color:${tab==='stats'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">📊<div style="font-size:10px">Stats</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
+      <button data-ptab-btn="donnees" data-ptab-color="${clr}" onclick="window._pTab='donnees';_setProfileTab('donnees')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='donnees'?'700':'500'};background:${tab==='donnees'?clr:'transparent'};color:${tab==='donnees'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🗄️<div style="font-size:10px">Données</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-        <div style="font-size:16px;font-weight:800;color:#7c3aed">${(DB.scan_log||[]).length}</div>
-        <div style="font-size:10px;color:var(--text-muted)">Scans</div>
-      </div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-        <div style="font-size:16px;font-weight:800;color:#0284c7">${(DB.notifs||[]).length}</div>
-        <div style="font-size:10px;color:var(--text-muted)">Notifs</div>
-      </div>
-      <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-        <div style="font-size:16px;font-weight:800;color:#64748b">${(DB.audit_log||[]).length}</div>
-        <div style="font-size:10px;color:var(--text-muted)">Audit</div>
+    <div data-ptab="stats" style="${tab==='stats'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('students')"><div style="font-size:26px;font-weight:800;color:#0f2557">${totalStudents}</div><div style="font-size:11px;color:var(--text-muted)">Élèves</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('classes')"><div style="font-size:26px;font-weight:800;color:#0f2557">${totalClasses}</div><div style="font-size:11px;color:var(--text-muted)">Classes</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('accounts')"><div style="font-size:26px;font-weight:800;color:#0f2557">${totalUsers}</div><div style="font-size:11px;color:var(--text-muted)">Utilisateurs</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('payments')"><div style="font-size:26px;font-weight:800;color:${pendingPay>0?'#dc2626':'#059669'}">${pendingPay}</div><div style="font-size:11px;color:var(--text-muted)">Impayés</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('students')">🎓 Élèves</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('payments')">💰 Paiements</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('accounts')">👥 Comptes</button>
+        </div>
       </div>
     </div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="showC('Nettoyage 60 jours','Supprimer toutes les données de plus de 60 jours (scans, notifications, audit) ?',()=>runAutoCleanup(true))">🧹 Nettoyer maintenant</button>
-    <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg,#7c3aed,#5b21b6)" onclick="archiverAnnee()">📦 Archiver l\'année & Exporter</button>
-  </div>
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+          <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir1_phone')">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div data-ptab="donnees" style="${tab==='donnees'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #7c3aed;padding:14px 16px">
+        <div class="premium-section-title" style="color:#5b21b6">🗄️ Gestion des données</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+          Données automatiquement supprimées après 60 jours : historique scans, notifications, audit, approbations traitées.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#7c3aed">${(DB.scan_log||[]).length}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Scans</div>
+          </div>
+          <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#0284c7">${(DB.notifs||[]).length}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Notifs</div>
+          </div>
+          <div style="flex:1;min-width:80px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#64748b">${(DB.audit_log||[]).length}</div>
+            <div style="font-size:10px;color:var(--text-muted)">Audit</div>
+          </div>
+        </div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="showC('Nettoyage 60 jours','Supprimer toutes les données de plus de 60 jours (scans, notifications, audit) ?',()=>runAutoCleanup(true))">🧹 Nettoyer maintenant</button>
+        <button class="btn btn-primary" style="width:100%;background:linear-gradient(135deg,#7c3aed,#5b21b6)" onclick="archiverAnnee()">📦 Archiver l\'année & Exporter</button>
+      </div>
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+      </div>
+    </div>
   </div>`;
 };
 
@@ -10145,41 +10185,65 @@ R.profil_direction2 = () => {
   const totalClasses=(DB.classes||[]).length;
   const teachers=(DB.users||[]).filter(x=>x.role==='enseignant').length;
   const pendingRats=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by).length;
+  const validTabs=['stats','profil','securite'];
+  const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
+  const clr='#2563eb';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
-  <div class="premium-section">
-    <div style="display:flex;align-items:center;gap:14px;padding:8px 0 16px">
-      <div style="width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
-      <div>
-        <div style="font-size:18px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary)">🏫 Direction 2 — Pédagogie</div>
-        <div style="font-size:12px;color:var(--text-muted)">The Wise School International</div>
+  <div class="premium-section" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">🏫 Direction 2 — Pédagogie</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('students')"><div style="font-size:18px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:10px;color:var(--text-muted)">Élèves</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('classes')"><div style="font-size:18px;font-weight:800;color:#10b981">${totalClasses}</div><div style="font-size:10px;color:var(--text-muted)">Classes</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('teachers')"><div style="font-size:18px;font-weight:800;color:#f59e0b">${teachers}</div><div style="font-size:10px;color:var(--text-muted)">Enseignants</div></div>
-      <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('approbations')"><div style="font-size:18px;font-weight:800;color:${pendingRats>0?'#ef4444':'#059669'}">${pendingRats}</div><div style="font-size:10px;color:var(--text-muted)">Rattrapages</div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill pill-blue">${totalStudents} élèves</span>
+      <span class="pill pill-green">${totalClasses} classes</span>
+      ${pendingRats>0?`<span class="pill" style="background:#fee2e2;color:#dc2626">${pendingRats} rattrapages</span>`:`<span class="pill pill-green">À jour</span>`}
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('palmares')">🏆 Palmarès</button>
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('attendance')">📋 Présences</button>
-      <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('teachers')">👨‍🏫 Enseignants</button>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-      <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
-    </div>
-    <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
-      <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir2_phone')">💾 Enregistrer</button>
   </div>
-  <div class="premium-section" style="border-left:4px solid #e2e8f0">
-    <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
-    <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
-    <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+  <div style="padding:0 4px 4px">
+    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
+      <button data-ptab-btn="stats" data-ptab-color="${clr}" onclick="window._pTab='stats';_setProfileTab('stats')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='stats'?'700':'500'};background:${tab==='stats'?clr:'transparent'};color:${tab==='stats'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">📊<div style="font-size:10px">Stats</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
+    </div>
+    <div data-ptab="stats" style="${tab==='stats'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('students')"><div style="font-size:26px;font-weight:800;color:#2563eb">${totalStudents}</div><div style="font-size:11px;color:var(--text-muted)">Élèves</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('classes')"><div style="font-size:26px;font-weight:800;color:#2563eb">${totalClasses}</div><div style="font-size:11px;color:var(--text-muted)">Classes</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('teachers')"><div style="font-size:26px;font-weight:800;color:#2563eb">${teachers}</div><div style="font-size:11px;color:var(--text-muted)">Enseignants</div></div>
+          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('approbations')"><div style="font-size:26px;font-weight:800;color:${pendingRats>0?'#dc2626':'#059669'}">${pendingRats}</div><div style="font-size:11px;color:var(--text-muted)">Rattrapages</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('palmares')">🏆 Palmarès</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('attendance')">📋 Présences</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('teachers')">👨‍🏫 Enseignants</button>
+        </div>
+      </div>
+    </div>
+    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
+      <div class="premium-section" style="padding:14px 16px">
+        <div class="form-row">
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+        </div>
+        <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
+          <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveDirProfile('dir2_phone')">💾 Enregistrer</button>
+      </div>
+    </div>
+    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
+      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
+        <div class="premium-section-title" style="color:var(--text-muted)">🔒 Sécurité</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 Changer mon code PIN</button>
+        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ Se déconnecter</button>
+      </div>
+    </div>
   </div>`;
 };
 
