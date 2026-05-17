@@ -718,6 +718,10 @@ window.NAV = {
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
       {s:'Système'},
+      {id:'tenafep',i:'🎓',l:'TENAFEP CM2'},
+      {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
+      {id:'salaires',i:'💶',l:'Salaires'},
+      {id:'rapport_secope',i:'📄',l:'Rapport SECOPE/MEPSP'},
       {id:'statistiques',i:'📈',l:'Statistiques'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
       {id:'audit_log',i:'🕐',l:'Historique'},
@@ -850,6 +854,8 @@ window.NAV = {
       {s:'Sécurité Portail'},
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
+      {id:'tenafep',i:'🎓',l:'TENAFEP CM2'},
+      {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
       {s:'Système'},
       {id:'statistiques',i:'📈',l:'Statistiques'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
@@ -1244,6 +1250,10 @@ window.PT = {
   profil_enseignant:'👤 Mon profil', profil_parent:'👤 Mon profil',
   scan_history:'🚪 Entrées / Sorties', convocations:'📋 Convocations', sanctions:'⚖️ Sanctions disciplinaires',
   statistiques:'📈 Statistiques', audit_log:'🕐 Historique',
+  tenafep:'🎓 TENAFEP CM2',
+  evaluations_ens:'⭐ Évaluations des enseignants',
+  salaires:'💶 Salaires & Fiches de paie',
+  rapport_secope:'📄 Rapport SECOPE/MEPSP',
 };
 
 // ── RENDERERS ──
@@ -3172,6 +3182,7 @@ R.students = () => {
       <input id="stu_q" placeholder="Nom ou matricule..." value="${window._studentQ||''}" oninput="window._studentQ=this.value;render()">
     </div>
     <button class="btn btn-primary" onclick="openStudentForm()">➕ Inscrire</button>
+    <button class="btn btn-outline btn-sm" onclick="openImportCSV()" style="white-space:nowrap">📥 Import CSV</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     <button class="pill ${cf===''?'pill-blue':''}" onclick="window._studentCF='';render()" style="cursor:pointer;border:none">Tous (${DB.students.length})</button>
@@ -3203,6 +3214,7 @@ R.students = () => {
           <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">👨‍👩‍👧 ${p?p.name:'— Aucun parent'}</div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">✏️ Modifier</button>
+            <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">🏥</button>
             <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">🗑️</button>
           </div>
         </div>
@@ -5360,7 +5372,8 @@ window.openGradePanel = cid => {
   if(!matieres.length){toast(t('Aucune matière configurée','No subjects configured'),'error'); return;}
   window._gradeTrim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   window._gradeType = window._gradeType || 'devoir';
-  const _tp=[[`devoir`,t('📚 Devoir','📚 Assignment'),'#7c3aed'],[`interro`,t('⚠️ Interro','⚠️ Quiz'),'#f59e0b'],[`examen`,t('📝 Examen','📝 Exam'),'#dc2626']];
+  const isMaternelle = cl && (cl.cycle==='maternelle'||cl.name.toLowerCase().includes('mat')||cl.name.toLowerCase().includes('nursery')||cl.name.toLowerCase().includes('cp')||cl.name.toLowerCase().includes('gs')||cl.name.toLowerCase().includes('ms'));
+  const _tp=[[`devoir`,t('📚 Devoir','📚 Assignment'),'#7c3aed'],[`interro`,t('⚠️ Interro','⚠️ Quiz'),'#f59e0b'],[`examen`,t('📝 Examen','📝 Exam'),'#dc2626'],[`composition`,t('📋 Composition','📋 Composition'),'#7c3aed']];
 
   openM(`${t('📝 Saisir notes','📝 Enter Grades')} — ${cl.name}`, `
   <div style="display:flex;gap:6px;margin-bottom:12px">
@@ -5391,7 +5404,7 @@ window.openGradePanel = cid => {
     </div>
     <div class="form-group" style="flex:1;margin-bottom:0">
       <label class="form-label">Coeff.</label>
-      <input class="form-input" id="gradeCoef" type="number" min="0.5" max="10" step="0.5" value="${window._gradeType==='interro'?2:window._gradeType==='examen'?3:1}" style="text-align:center">
+      <input class="form-input" id="gradeCoef" type="number" min="0.5" max="10" step="0.5" value="${window._gradeType==='interro'?2:(window._gradeType==='examen'||window._gradeType==='composition')?3:1}" style="text-align:center">
     </div>
   </div>
   <div class="form-group" style="margin-bottom:10px">
@@ -5403,8 +5416,7 @@ window.openGradePanel = cid => {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
       <div style="width:34px;height:34px;border-radius:9px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
       <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
-      <input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="20" step="0.5" placeholder="—">
-      <span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>
+      ${isMaternelle?`<select class="form-select mat-grade-input grade-input" data-sid="${s.id}" style="flex:1"><option value="">—</option><option value="18">✅ Acquis (A)</option><option value="12">📘 En cours (EC)</option><option value="5">❌ Non acquis (NA)</option></select>`:`<input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="20" step="0.5" placeholder="—"><span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>`}
     </div>`).join('')}
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
@@ -5418,7 +5430,7 @@ window.saveGradePanel = cid => {
   const label  = ($('gradeLabel')?.value || '').trim();
   const trim   = window._gradeTrim || 'T1';
   const type   = window._gradeType || 'devoir';
-  const typeIcon= {devoir:'📚', interro:'⚠️', examen:'📝'}[type]||'📚';
+  const typeIcon= {devoir:'📚', interro:'⚠️', examen:'📝', composition:'📋'}[type]||'📚';
   if(!mat){toast(t('Choisissez une matière','Choose a subject'),'error'); return;}
 
   const inputs = document.querySelectorAll('.grade-input');
@@ -8894,7 +8906,7 @@ R.year_mgmt = () => {
     <button class="btn btn-danger" style="width:100%" onclick="confirmNewYear()">📦 Archiver ${yr} et démarrer nouvelle année</button>
   </div>
   ${archived.length?`<div class="premium-section"><div class="premium-section-title">🗃️ Archives (${archived.length})</div>
-    ${archived.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">🗃️</div><div style="flex:1"><div class="pi-title">${a.year}</div><div class="pi-sub">${a.students} élèves archivés · ${a.date}</div></div></div>`).join('')}
+    ${archived.map(a=>`<div class="premium-item"><div class="pi-icon" style="background:#f1f5f9">🗃️</div><div style="flex:1"><div class="pi-title">${a.year}</div><div class="pi-sub">${a.students||'?'} élèves · archivé le ${a.date}</div></div><button class="btn btn-outline btn-sm" onclick="viewArchive('${a.year}')">📊 Voir</button></div>`).join('')}
   </div>`:''}`;
 };
 
@@ -8997,7 +9009,11 @@ window.confirmNewYear = () => {
   showC('📦 Archiver et nouvelle année ?',`Toutes les données de ${DB.settings.year} seront archivées. Les notes, présences et paiements seront réinitialisés. Cette action est irréversible.`,()=>{
     const yr=DB.settings.year;
     if(!DB.settings.archived_years) DB.settings.archived_years=[];
-    DB.settings.archived_years.unshift({year:yr,students:DB.students.length,date:today(),grades:DB.grades.length});
+    try {
+      const snapshot={year:yr,date:today(),students:DB.students.length,classes:DB.classes.length,grades:DB.grades,payments:DB.payments,attendance:DB.attendance,students_data:DB.students};
+      localStorage.setItem('schoolsafe_archive_'+yr,JSON.stringify(snapshot));
+    } catch(e2) { console.warn('[ARCHIVE snapshot]', e2.message); }
+    DB.settings.archived_years.unshift({year:yr,students:DB.students.length,date:today(),grades:DB.grades.length,snapshot_key:'schoolsafe_archive_'+yr});
     // Incrémenter année
     const parts=yr.split('-');
     const newYr=parts.length===2?`${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`:yr;
@@ -9006,7 +9022,7 @@ window.confirmNewYear = () => {
     // Reset données annuelles
     DB.grades=[];
     DB.attendance=[];
-    DB.payments=DB.students.flatMap(s=>['T1','T2','T3'].map(t=>({id:'p'+Date.now()+s.id+t,sid:s.id,t,paid:false})));
+    DB.payments=DB.students.flatMap(s=>['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+s.id+t,sid:s.id,t,paid:false})));
     DB.devoirs=[];
     DB.cahier_texte=[];
     DB.absences=[];
@@ -11107,11 +11123,29 @@ window.archiverAnnee = () => {
   const yr = DB.settings.year||'2025-2026';
   showC(
     `📦 Archiver l'année ${yr}`,
-    `Cette action va :\n1. Exporter toutes les données importantes en PDF\n2. Nettoyer les données temporaires (60+ jours)\n\nLes élèves, notes, paiements et utilisateurs sont CONSERVÉS.\n\nContinuer ?`,
+    `Cette action va :\n1. Exporter toutes les données importantes en PDF\n2. Sauvegarder un snapshot complet de l'année\n3. Nettoyer les données temporaires (60+ jours)\n\nLes élèves, notes, paiements et utilisateurs sont CONSERVÉS.\n\nContinuer ?`,
     () => {
       // Step 1: Export full archive PDF
       exportArchivePDF();
-      // Step 2: After export, cleanup
+      // Step 2: Save snapshot to localStorage
+      try {
+        const snapshot = {
+          year: yr,
+          date: today(),
+          students: DB.students.length,
+          classes: DB.classes.length,
+          grades: DB.grades,
+          payments: DB.payments,
+          attendance: DB.attendance,
+          students_data: DB.students,
+        };
+        localStorage.setItem('schoolsafe_archive_'+yr, JSON.stringify(snapshot));
+        if(!DB.settings.archived_years) DB.settings.archived_years=[];
+        DB.settings.archived_years.unshift({year:yr,date:today(),students:DB.students.length,snapshot_key:'schoolsafe_archive_'+yr});
+        pushSync('settings','upsert',DB.settings);
+        saveToCrypt();
+      } catch(e) { console.warn('[ARCHIVE]', e.message); }
+      // Step 3: After export, cleanup
       setTimeout(()=>runAutoCleanup(true), 1500);
     }
   );
@@ -11706,6 +11740,511 @@ window.doManualPresent = async (sid) => {
   closeModal();
   toast(`✅ ${s.name} marqué(e) présent(e) à ${time}`,'success');
   saveToCrypt(); render();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #5 — IMPORT CSV ÉLÈVES
+// ═══════════════════════════════════════════
+window.openImportCSV = () => {
+  openM('📥 Import CSV — Élèves',`
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px">
+    <strong>Format CSV attendu (séparateur virgule ou point-virgule) :</strong><br>
+    <code style="font-size:11px">nom_complet ; date_naissance (YYYY-MM-DD) ; nom_classe ; nom_parent ; tel_parent</code><br>
+    <em style="color:#6b7280">La ligne d'en-tête est ignorée automatiquement. La classe et le parent doivent exister ou seront créés.</em>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Fichier CSV *</label>
+    <input type="file" id="csv_file" accept=".csv,.txt" class="form-input" onchange="parseAndPreviewCSV(this)">
+  </div>
+  <div id="csv_preview" style="max-height:300px;overflow-y:auto"></div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button id="csv_confirm_btn" class="btn btn-primary" style="display:none" onclick="importCSVConfirm()">✅ Importer</button>`);
+};
+window.parseAndPreviewCSV = (input) => {
+  const file=input?.files[0]; if(!file){return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const sep=e.target.result.includes(';')?';':',';
+    const rows=e.target.result.split('\n').map(r=>r.split(sep).map(c=>c.trim().replace(/^"|"$/g,''))).filter(r=>r[0]&&r[0].length>1);
+    const isHeader=rows[0]&&(rows[0][0].toLowerCase().includes('nom')||rows[0][0].toLowerCase().includes('name'));
+    const data=isHeader?rows.slice(1):rows;
+    window._csvData=data;
+    const preview=$('csv_preview'); if(!preview)return;
+    if(!data.length){preview.innerHTML='<div style="color:#ef4444;padding:10px">Aucune donnée détectée.</div>';return;}
+    preview.innerHTML=`<div style="font-size:12px;font-weight:700;margin-bottom:8px;color:#059669">${data.length} élève(s) détecté(s)</div>
+    <table style="width:100%;font-size:11px;border-collapse:collapse">
+      <thead><tr style="background:#f1f5f9">${['Nom','Naissance','Classe','Parent','Tél'].map(h=>`<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e2e8f0">${h}</th>`).join('')}</tr></thead>
+      <tbody>${data.slice(0,20).map(r=>`<tr style="border-bottom:1px solid #f1f5f9">${r.slice(0,5).map(c=>`<td style="padding:5px 8px">${esc(c||'—')}</td>`).join('')}</tr>`).join('')}
+      ${data.length>20?`<tr><td colspan="5" style="padding:5px 8px;color:#64748b;font-style:italic">... et ${data.length-20} autres</td></tr>`:''}</tbody>
+    </table>`;
+    const btn=$('csv_confirm_btn'); if(btn)btn.style.display='';
+  };
+  reader.readAsText(file,'UTF-8');
+};
+window.importCSVConfirm = () => {
+  const data=window._csvData; if(!data||!data.length){toast('Aucune donnée à importer','error');return;}
+  let added=0,skipped=0;
+  data.forEach(r=>{
+    const [name,dob,className,parentName,parentPhone]=r;
+    if(!name||name.length<2){skipped++;return;}
+    const cl=(DB.classes||[]).find(c=>c.name.toLowerCase().trim()===(className||'').toLowerCase().trim());
+    let pid=null;
+    if(parentPhone){
+      let parent=(DB.users||[]).find(u=>u.role==='parent'&&u.phone&&u.phone.replace(/\s/g,'')===parentPhone.replace(/\s/g,''));
+      if(!parent&&parentName){
+        parent=(DB.users||[]).find(u=>u.role==='parent'&&u.name.toLowerCase().trim()===(parentName||'').toLowerCase().trim());
+      }
+      if(!parent&&parentName){
+        const newParent={id:'u'+Date.now()+Math.random().toString(36).slice(2,5),role:'parent',name:parentName,phone:parentPhone||null,pin:'000000',pin_hashed:false,initials:ini(parentName)};
+        DB.users.push(newParent);pushSync('users','upsert',newParent);pid=newParent.id;
+      } else if(parent){pid=parent.id;}
+    }
+    const mat=genMat();
+    const ns={id:'s'+Date.now()+Math.random().toString(36).slice(2,5),name,mat,cid:cl?.id||null,pid,dob:dob||null,photo:null,access_parent:false};
+    if((DB.students||[]).find(x=>x.name.toLowerCase().trim()===name.toLowerCase().trim()&&x.cid===ns.cid)){skipped++;return;}
+    DB.students.push(ns);
+    const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t+Math.random().toString(36).slice(2,4),sid:ns.id,t,paid:false}));
+    newPays.forEach(p=>DB.payments.push(p));
+    pushSync('students','upsert',ns);
+    pushSync('payments','upsert',newPays);
+    added++;
+  });
+  logAudit('csv_import',`${added} élèves importés, ${skipped} ignorés`);
+  saveToCrypt();
+  toast(`✅ ${added} élève(s) importé(s), ${skipped} ignoré(s)`,'success');
+  closeModal();render();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #6 — ARCHIVE CONSULTABLE
+// ═══════════════════════════════════════════
+window.viewArchive = (year) => {
+  const raw=localStorage.getItem('schoolsafe_archive_'+year);
+  if(!raw){toast('Archive non trouvée sur cet appareil','error');return;}
+  try {
+    const arc=JSON.parse(raw);
+    const totalPaid=(arc.payments||[]).filter(p=>p.paid).length;
+    const totalP=(arc.payments||[]).length;
+    openM(`🗃️ Archive ${year}`,`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:#f0fdf4;border-radius:12px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#059669">${arc.students||0}</div><div style="font-size:12px;color:#6b7280">Élèves</div></div>
+      <div style="background:#eff6ff;border-radius:12px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#2563eb">${arc.classes||0}</div><div style="font-size:12px;color:#6b7280">Classes</div></div>
+      <div style="background:#fef3c7;border-radius:12px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#d97706">${(arc.grades||[]).length}</div><div style="font-size:12px;color:#6b7280">Notes enregistrées</div></div>
+      <div style="background:#fdf2f8;border-radius:12px;padding:14px;text-align:center"><div style="font-size:24px;font-weight:800;color:#9333ea">${totalP?Math.round(totalPaid/totalP*100):0}%</div><div style="font-size:12px;color:#6b7280">Taux paiement</div></div>
+    </div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px">Élèves archivés</div>
+    <div style="max-height:200px;overflow-y:auto;font-size:12px">
+      ${(arc.students_data||[]).map(s=>`<div style="padding:5px 0;border-bottom:1px solid #f1f5f9">${esc(s.name)} — ${s.mat}</div>`).join('')}
+    </div>`,
+    `<button class="btn btn-primary" onclick="closeModal()">Fermer</button>`);
+  } catch(e) { toast('Erreur lecture archive','error'); }
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #7 — TENAFEP CM2
+// ═══════════════════════════════════════════
+R.tenafep = () => {
+  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&(c.name.toUpperCase().includes('CM2')||c.name.toUpperCase().includes('6EME')||c.name.toUpperCase().includes('6ÈME'));});
+  const tenafepData=DB.tenafep||[];
+  const year=DB.settings.year||'2025-2026';
+  const stats={registered:tenafepData.filter(t=>t.registered).length,admis:tenafepData.filter(t=>t.result==='admis').length,echoue:tenafepData.filter(t=>t.result==='echoue').length};
+  return `
+  <div class="premium-section" style="border-left:4px solid #7c3aed">
+    <div class="premium-section-title">🎓 TENAFEP — ${year}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Test National de Fin d'Études Primaires — Suivi des élèves CM2.</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:#ede9fe;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#7c3aed">${allCM2.length}</div><div style="font-size:11px;color:#6b7280">Élèves CM2</div></div>
+      <div style="background:#d1fae5;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#059669">${stats.admis}</div><div style="font-size:11px;color:#6b7280">Admis ✅</div></div>
+      <div style="background:#fee2e2;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#dc2626">${stats.echoue}</div><div style="font-size:11px;color:#6b7280">Échoués ❌</div></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="printTenafepList()">🖨️ Imprimer liste TENAFEP</button>
+  </div>
+  ${!allCM2.length?`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">🎓</div>Aucun élève CM2 trouvé.<br><span style="font-size:12px">Vérifiez que les classes CM2 sont bien nommées.</span></div>`:`
+  <div class="premium-section">
+    <div class="premium-section-title">Liste des candidats</div>
+    ${allCM2.map((s,i)=>{
+      const rec=tenafepData.find(t=>t.sid===s.id)||{};
+      const cl=gc(s.cid);
+      const resultColor=rec.result==='admis'?'#059669':rec.result==='echoue'?'#dc2626':'#64748b';
+      const resultLabel=rec.result==='admis'?'✅ Admis':rec.result==='echoue'?'❌ Échoué':'⏳ En attente';
+      return `<div class="premium-item" style="animation-delay:${i*.03}s">
+        <div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-weight:700">${i+1}</div>
+        <div style="flex:1">
+          <div class="pi-title">${esc(s.name)}</div>
+          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${s.mat}</div>
+          ${rec.score!=null?`<div style="font-size:11px;color:#7c3aed">Score: ${rec.score}%</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;font-weight:700;color:${resultColor}">${resultLabel}</span>
+          <button class="btn btn-outline btn-sm" onclick="openTenafepRecord('${s.id}')">✏️</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`;
+};
+window.openTenafepRecord = (sid) => {
+  const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
+  const rec=(DB.tenafep||[]).find(t=>t.sid===sid)||{};
+  openM(`🎓 TENAFEP — ${s.name}`,`
+  <div class="form-group"><label class="form-label">Résultat</label>
+    <select class="form-select" id="ten_result">
+      <option value="" ${!rec.result?'selected':''}>⏳ En attente</option>
+      <option value="admis" ${rec.result==='admis'?'selected':''}>✅ Admis</option>
+      <option value="echoue" ${rec.result==='echoue'?'selected':''}>❌ Échoué</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Score (%)</label>
+    <input class="form-input" id="ten_score" type="number" min="0" max="100" step="1" value="${rec.score!=null?rec.score:''}" placeholder="Ex: 72">
+  </div>
+  <div class="form-group"><label class="form-label">N° d'inscription TENAFEP</label>
+    <input class="form-input" id="ten_num" value="${esc(rec.registration_num||'')}" placeholder="Numéro officiel">
+  </div>
+  <div class="form-group"><label class="form-label">Notes</label>
+    <textarea class="form-input" id="ten_notes" rows="2" placeholder="Observations...">${esc(rec.notes||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveTenafepRecord('${sid}')">💾 Enregistrer</button>`);
+};
+window.saveTenafepRecord = (sid) => {
+  if(!DB.tenafep) DB.tenafep=[];
+  const idx=DB.tenafep.findIndex(t=>t.sid===sid);
+  const obj={id:idx>=0?DB.tenafep[idx].id:'ten'+Date.now(),sid,result:$('ten_result')?.value||'',score:$('ten_score')?.value?parseFloat($('ten_score').value):null,registration_num:$('ten_num')?.value||null,notes:$('ten_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
+  if(idx>=0)DB.tenafep[idx]=obj;else DB.tenafep.push(obj);
+  pushSync('tenafep','upsert',obj);saveToCrypt();
+  toast('✅ Enregistré','success');closeModal();render();
+};
+window.printTenafepList = () => {
+  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&(c.name.toUpperCase().includes('CM2')||c.name.toUpperCase().includes('6EME')||c.name.toUpperCase().includes('6ÈME'));});
+  const ten=DB.tenafep||[];
+  const w=window.open('','_blank');
+  if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Liste TENAFEP ${DB.settings.year}</title>
+  <style>body{font-family:Arial,sans-serif;margin:20px;color:#1e293b}h1{color:#7c3aed}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#7c3aed;color:#fff;padding:8px 10px;text-align:left}td{padding:7px 10px;border-bottom:1px solid #e2e8f0}tr:nth-child(even){background:#f8fafc}.admis{color:#059669;font-weight:700}.echoue{color:#dc2626;font-weight:700}.pending{color:#64748b}</style>
+  </head><body>
+  <div style="text-align:center;margin-bottom:20px">
+    <h1>🎓 LISTE TENAFEP ${DB.settings.year}</h1>
+    <p>${DB.settings.school?.name||'The Wise School International'} — ${DB.settings.school?.sub||'Kinshasa, RDC'}</p>
+    <p>Total candidats : <strong>${allCM2.length}</strong></p>
+  </div>
+  <table><thead><tr><th>#</th><th>Nom</th><th>Matricule</th><th>Classe</th><th>N° Inscription</th><th>Score</th><th>Résultat</th></tr></thead>
+  <tbody>${allCM2.map((s,i)=>{const r=ten.find(t=>t.sid===s.id)||{};const cl=gc(s.cid);return`<tr><td>${i+1}</td><td>${s.name}</td><td>${s.mat}</td><td>${cl?cl.name:''}</td><td>${r.registration_num||'—'}</td><td>${r.score!=null?r.score+'%':'—'}</td><td class="${r.result||'pending'}">${r.result==='admis'?'Admis':r.result==='echoue'?'Échoué':'En attente'}</td></tr>`;}).join('')}</tbody></table>
+  <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;text-align:center">
+    <div><div style="border-top:2px solid #1e293b;padding-top:8px;font-size:12px">Direction de l'école</div></div>
+    <div><div style="border-top:2px solid #1e293b;padding-top:8px;font-size:12px">Responsable pédagogique</div></div>
+    <div><div style="border-top:2px solid #1e293b;padding-top:8px;font-size:12px">Délégué MEPSP</div></div>
+  </div>
+  </body></html>`);w.document.close();w.print();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #9 — DOSSIER MÉDICAL ÉLÈVE
+// ═══════════════════════════════════════════
+window.openMedicalDossier = (sid) => {
+  const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
+  const med=(DB.medical||[]).find(m=>m.sid===sid)||{};
+  openM(`🏥 Dossier médical — ${s.name}`,`
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Groupe sanguin</label>
+      <select class="form-select" id="med_blood">
+        <option value="">— Inconnu —</option>
+        ${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g=>`<option value="${g}" ${med.blood_type===g?'selected':''}>${g}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Allergies connues</label>
+      <input class="form-input" id="med_allergies" value="${esc(med.allergies||'')}" placeholder="Ex: pénicilline, arachides...">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Vaccins à jour</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+      ${['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'].map(v=>{const checked=(med.vaccines||[]).includes(v);return`<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:${checked?'#d1fae5':'#f1f5f9'};padding:4px 10px;border-radius:20px;border:1px solid ${checked?'#6ee7b7':'#e2e8f0'}"><input type="checkbox" name="vax" value="${v}" ${checked?'checked':''} style="accent-color:#059669"> ${v}</label>`;}).join('')}
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Médecin traitant</label>
+      <input class="form-input" id="med_doctor" value="${esc(med.doctor_name||'')}" placeholder="Dr. Nom Prénom">
+    </div>
+    <div class="form-group"><label class="form-label">Téléphone médecin</label>
+      <input class="form-input" id="med_doctor_phone" value="${esc(med.doctor_phone||'')}" placeholder="+243...">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Conditions médicales / Notes</label>
+    <textarea class="form-input" id="med_notes" rows="3" placeholder="Maladies chroniques, traitements en cours...">${esc(med.medical_notes||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveMedicalRecord('${sid}')">💾 Enregistrer</button>`);
+};
+window.saveMedicalRecord = (sid) => {
+  if(!DB.medical) DB.medical=[];
+  const vaxChecked=[...document.querySelectorAll('input[name="vax"]:checked')].map(x=>x.value);
+  const idx=DB.medical.findIndex(m=>m.sid===sid);
+  const obj={id:idx>=0?DB.medical[idx].id:'med'+Date.now(),sid,blood_type:$('med_blood')?.value||null,allergies:$('med_allergies')?.value||null,vaccines:vaxChecked,doctor_name:$('med_doctor')?.value||null,doctor_phone:$('med_doctor_phone')?.value||null,medical_notes:$('med_notes')?.value||null,updated:today()};
+  if(idx>=0)DB.medical[idx]=obj;else DB.medical.push(obj);
+  pushSync('medical','upsert',obj);saveToCrypt();
+  toast('🏥 Dossier médical enregistré','success');closeModal();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #12 — ÉVALUATIONS ENSEIGNANTS
+// ═══════════════════════════════════════════
+R.evaluations_ens = () => {
+  const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
+  const evals=DB.evaluations||[];
+  const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
+  const criteriaLabels={ponctualite:'⏰ Ponctualité',pedagogie:'📚 Qualité pédagogique',discipline:'🎯 Gestion classe',communication:'💬 Communication',assiduite:'✅ Assiduité'};
+  return `
+  <div class="premium-section" style="border-left:4px solid #f59e0b">
+    <div class="premium-section-title">⭐ Évaluation des enseignants — ${DB.settings.year||'2025-2026'}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Évaluation trimestrielle formelle sur 5 critères (note 1-5 par critère, total sur 25).</div>
+  </div>
+  ${teachers.map((u,i)=>{
+    const ev=evals.filter(e=>e.teacher_id===u.id);
+    const lastEv=ev.sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+    const avg=lastEv?criteria.reduce((s,c)=>s+(lastEv[c]||0),0):0;
+    const badge=avg>=20?'#059669':avg>=15?'#f59e0b':avg>=10?'#f97316':'#ef4444';
+    return `<div class="ww-card" style="animation-delay:${i*.04}s;padding:14px 16px;display:flex;align-items:center;gap:12px">
+      <div style="width:46px;height:46px;border-radius:12px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${ini(u.name)}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${ev.length} évaluation(s)</div>
+      </div>
+      ${lastEv?`<div style="text-align:center;margin-right:8px"><div style="font-size:20px;font-weight:800;color:${badge}">${avg}/25</div><div style="font-size:10px;color:#6b7280">Dernier score</div></div>`:''}
+      <button class="btn btn-primary btn-sm" onclick="openEvalForm('${u.id}')">⭐ Évaluer</button>
+    </div>`;
+  }).join('')}`;
+};
+window.openEvalForm = (teacherId) => {
+  const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
+  const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
+  const criteriaLabels={ponctualite:'⏰ Ponctualité',pedagogie:'📚 Qualité pédagogique',discipline:'🎯 Gestion de classe',communication:'💬 Communication parents/direction',assiduite:'✅ Assiduité'};
+  openM(`⭐ Évaluer — ${u.name}`,`
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Notez chaque critère de 1 (insuffisant) à 5 (excellent).</div>
+  ${criteria.map(c=>`
+  <div class="form-group" style="margin-bottom:12px">
+    <label class="form-label">${criteriaLabels[c]}</label>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      ${[1,2,3,4,5].map(n=>`<button type="button" id="ev_${c}_${n}" onclick="evSelectScore('${c}',${n})"
+        style="flex:1;padding:10px;border-radius:10px;border:2px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-size:14px;font-weight:700;color:#64748b;transition:all .15s">${n}</button>`).join('')}
+    </div>
+  </div>`).join('')}
+  <div class="form-group"><label class="form-label">Trimestre</label>
+    <select class="form-select" id="ev_trim">
+      <option value="T1">T1</option><option value="T2">T2</option><option value="T3">T3</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Commentaire</label>
+    <textarea class="form-input" id="ev_comment" rows="2" placeholder="Observations..."></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveEvalForm('${teacherId}')">💾 Enregistrer</button>`);
+  window._evScores={};
+};
+window.evSelectScore = (criterion,score) => {
+  if(!window._evScores) window._evScores={};
+  window._evScores[criterion]=score;
+  [1,2,3,4,5].forEach(n=>{
+    const btn=document.getElementById('ev_'+criterion+'_'+n);
+    if(btn){btn.style.background=n<=score?'#fef3c7':'#f8fafc';btn.style.borderColor=n<=score?'#f59e0b':'#e2e8f0';btn.style.color=n<=score?'#92400e':'#64748b';}
+  });
+};
+window.saveEvalForm = (teacherId) => {
+  if(!DB.evaluations) DB.evaluations=[];
+  const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
+  const scores=window._evScores||{};
+  const filled=criteria.filter(c=>scores[c]);
+  if(filled.length<criteria.length){toast('Notez tous les critères','error');return;}
+  const obj={id:'ev'+Date.now(),teacher_id:teacherId,by:S.user.id,date:today(),trimestre:$('ev_trim')?.value||'T1',comment:$('ev_comment')?.value||null,year:DB.settings.year};
+  criteria.forEach(c=>{ obj[c]=scores[c]; });
+  DB.evaluations.push(obj);
+  pushSync('evaluations','upsert',obj);saveToCrypt();
+  toast('⭐ Évaluation enregistrée','success');closeModal();render();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #13 — SALAIRES & FICHES DE PAIE
+// ═══════════════════════════════════════════
+R.salaires = () => {
+  const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
+  const sals=DB.salaries||[];
+  const currentMonth=today().slice(0,7);
+  const selMonth=window._salMonth||currentMonth;
+  return `
+  <div class="premium-section" style="border-left:4px solid #059669">
+    <div class="premium-section-title">💶 Salaires enseignants</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Saisie et suivi des salaires. Impression des fiches de paie.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="flex:1;max-width:200px" onchange="window._salMonth=this.value;render()">
+    </div>
+  </div>
+  ${teachers.map((u,i)=>{
+    const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
+    return `<div class="ww-card" style="animation-delay:${i*.04}s;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:12px;background:#d1fae5;color:#059669;display:flex;align-items:center;justify-content:center;font-weight:700">${ini(u.name)}</div>
+        <div style="flex:1">
+          <div style="font-weight:700">${esc(u.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${sal.amount?'$'+sal.amount+' — '+(sal.paid?'✅ Payé':'⏳ Non payé'):'Pas de salaire saisi'}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${sal.amount?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">🖨️</button>`:''}
+          <button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}`;
+};
+window.openSalaireForm = (teacherId, month) => {
+  const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
+  const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month)||{};
+  openM(`💶 Salaire — ${u.name} — ${month}`,`
+  <div class="form-group"><label class="form-label">Salaire de base ($)</label>
+    <input class="form-input" id="sal_amount" type="number" min="0" step="1" value="${sal.amount||''}" placeholder="Ex: 250">
+  </div>
+  <div class="form-group"><label class="form-label">Prime / Bonus ($)</label>
+    <input class="form-input" id="sal_bonus" type="number" min="0" step="1" value="${sal.bonus||0}">
+  </div>
+  <div class="form-group"><label class="form-label">Retenues ($)</label>
+    <input class="form-input" id="sal_deductions" type="number" min="0" step="1" value="${sal.deductions||0}" placeholder="Absence, avance...">
+  </div>
+  <div class="form-group"><label class="form-label">Statut</label>
+    <select class="form-select" id="sal_paid">
+      <option value="0" ${!sal.paid?'selected':''}>⏳ Non payé</option>
+      <option value="1" ${sal.paid?'selected':''}>✅ Payé</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Observations</label>
+    <textarea class="form-input" id="sal_notes" rows="2" placeholder="...">${esc(sal.notes||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveSalaire('${teacherId}','${month}')">💾 Enregistrer</button>`);
+};
+window.saveSalaire = (teacherId, month) => {
+  if(!DB.salaries) DB.salaries=[];
+  const amount=parseFloat($('sal_amount')?.value)||0;
+  const bonus=parseFloat($('sal_bonus')?.value)||0;
+  const deductions=parseFloat($('sal_deductions')?.value)||0;
+  const paid=!!parseInt($('sal_paid')?.value||'0');
+  const net=amount+bonus-deductions;
+  const idx=DB.salaries.findIndex(s=>s.teacher_id===teacherId&&s.month===month);
+  const obj={id:idx>=0?DB.salaries[idx].id:'sal'+Date.now(),teacher_id:teacherId,month,amount,bonus,deductions,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
+  if(idx>=0)DB.salaries[idx]=obj;else DB.salaries.push(obj);
+  pushSync('salaries','upsert',obj);saveToCrypt();
+  toast('✅ Salaire enregistré','success');closeModal();render();
+};
+window.printFichePaie = (teacherId, month) => {
+  const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
+  const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month);if(!sal)return;
+  const [yr,mo]=month.split('-');
+  const monthNames=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  const monthLabel=monthNames[parseInt(mo)-1]+' '+yr;
+  const w=window.open('','_blank');
+  if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Fiche de paie — ${u.name}</title>
+  <style>body{font-family:Arial,sans-serif;margin:30px;color:#1e293b;max-width:700px;margin:30px auto}h1{color:#0f2557;margin:0}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f2557;padding-bottom:14px;margin-bottom:20px}.badge{background:#0f2557;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.card{background:#f8fafc;border-radius:12px;padding:14px}.card-label{font-size:11px;color:#64748b;margin-bottom:4px}.card-val{font-size:18px;font-weight:800;color:#1e293b}table{width:100%;border-collapse:collapse;margin:16px 0}td{padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:14px}.total-row{background:#0f2557;color:#fff;font-weight:700;border-radius:0 0 8px 8px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:40px;text-align:center}.sig-line{border-top:2px solid #1e293b;padding-top:8px;font-size:12px}@media print{body{margin:10px}}</style>
+  </head><body>
+  <div class="header">
+    <div><h1>${DB.settings.school?.name||'The Wise School International'}</h1><p style="margin:4px 0;color:#64748b;font-size:13px">${DB.settings.school?.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}</p></div>
+    <div style="text-align:right"><div class="badge">FICHE DE PAIE</div><div style="font-size:13px;margin-top:8px;color:#64748b">${monthLabel}</div></div>
+  </div>
+  <div style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:16px">${u.name}</div>
+    <div style="font-size:13px;color:#64748b">Enseignant · ${DB.settings.year||'2025-2026'}</div>
+  </div>
+  <table>
+    <tr><td>Salaire de base</td><td style="text-align:right;font-weight:700">$${sal.amount||0}</td></tr>
+    ${sal.bonus?`<tr><td>Prime / Bonus</td><td style="text-align:right;color:#059669">+ $${sal.bonus}</td></tr>`:''}
+    ${sal.deductions?`<tr><td>Retenues</td><td style="text-align:right;color:#dc2626">- $${sal.deductions}</td></tr>`:''}
+    <tr class="total-row"><td style="padding:12px 14px">NET À PAYER</td><td style="text-align:right;padding:12px 14px;font-size:18px">$${sal.net||sal.amount||0}</td></tr>
+  </table>
+  ${sal.notes?`<div style="background:#fef3c7;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px"><strong>Note :</strong> ${sal.notes}</div>`:''}
+  <div style="text-align:center;font-size:12px;color:#64748b;background:#f1f5f9;padding:8px;border-radius:8px;margin-bottom:20px">
+    Statut : ${sal.paid?'✅ PAYÉ le '+sal.paid_date:'⏳ NON PAYÉ'}
+  </div>
+  <div class="sig">
+    <div><div style="height:40px"></div><div class="sig-line">Bénéficiaire — ${u.name}</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Direction — ${DB.settings.school?.name||''}</div></div>
+  </div>
+  </body></html>`);w.document.close();w.print();
+};
+
+// ═══════════════════════════════════════════
+//  FEATURE #14 — RAPPORT SECOPE/MEPSP
+// ═══════════════════════════════════════════
+R.rapport_secope = () => {
+  const studs=DB.students||[];
+  const classes=DB.classes||[];
+  const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
+  const pays=DB.payments||[];
+  const fees=getFees();
+  const totalPaidAmt=studs.reduce((s,st)=>{const p=(pays||[]).filter(x=>x.sid===st.id&&x.paid);return s+p.reduce((a,x)=>a+(fees[x.t]||0),0);},0);
+  const totalDue=studs.length*((fees.T1||0)+(fees.T2||0)+(fees.T3||0));
+  return `
+  <div class="premium-section" style="border-left:4px solid #0f2557">
+    <div class="premium-section-title">📄 Rapport SECOPE / MEPSP</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Rapport statistique officiel pour le Ministère de l'EPSP — ${DB.settings.year||'2025-2026'}.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="printRapportSecope()">🖨️ Imprimer le rapport officiel</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+    <div class="premium-section" style="margin:0"><div style="font-size:11px;color:#64748b">Total élèves</div><div style="font-size:28px;font-weight:800;color:#0f2557">${studs.length}</div></div>
+    <div class="premium-section" style="margin:0"><div style="font-size:11px;color:#64748b">Enseignants</div><div style="font-size:28px;font-weight:800;color:#2563eb">${teachers.length}</div></div>
+    <div class="premium-section" style="margin:0"><div style="font-size:11px;color:#64748b">Classes</div><div style="font-size:28px;font-weight:800;color:#059669">${classes.length}</div></div>
+    <div class="premium-section" style="margin:0"><div style="font-size:11px;color:#64748b">Taux paiement</div><div style="font-size:28px;font-weight:800;color:#f59e0b">${totalDue?Math.round(totalPaidAmt/totalDue*100):0}%</div></div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">📊 Effectifs par classe</div>
+    ${classes.map(cl=>{const n=studs.filter(s=>s.cid===cl.id).length;return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)"><div style="flex:1;font-size:13px;font-weight:600">${esc(cl.name)}</div><div style="font-size:13px;color:#0f2557;font-weight:700">${n} élève(s)</div></div>`;}).join('')}
+  </div>`;
+};
+window.printRapportSecope = () => {
+  const studs=DB.students||[];
+  const classes=DB.classes||[];
+  const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
+  const pays=DB.payments||[];
+  const fees=getFees();
+  const sc=DB.settings.school||{};
+  const yr=DB.settings.year||'2025-2026';
+  const totalPaid=studs.reduce((s,st)=>{const p=(pays||[]).filter(x=>x.sid===st.id&&x.paid);return s+p.reduce((a,x)=>a+(fees[x.t]||0),0);},0);
+  const w=window.open('','_blank');
+  if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapport SECOPE ${yr}</title>
+  <style>body{font-family:Arial,sans-serif;margin:20px;color:#1e293b}h1,h2{color:#0f2557}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}th{background:#0f2557;color:#fff;padding:8px 10px;text-align:left}td{padding:7px 10px;border-bottom:1px solid #e2e8f0}.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:14px 0}.stat{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center}.stat-n{font-size:24px;font-weight:800;color:#0f2557}.stat-l{font-size:11px;color:#64748b}.sig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:40px;text-align:center}.sig-line{border-top:2px solid #1e293b;padding-top:8px;font-size:11px}@media print{body{margin:8px}}</style>
+  </head><body>
+  <div style="text-align:center;border-bottom:3px solid #0f2557;padding-bottom:16px;margin-bottom:20px">
+    <div style="font-size:12px;color:#64748b">REPUBLIQUE DEMOCRATIQUE DU CONGO</div>
+    <div style="font-size:12px;color:#64748b">Ministère de l'EPSP — Kinshasa, RDC</div>
+    <h1 style="margin:8px 0">RAPPORT STATISTIQUE ANNUEL</h1>
+    <h2 style="margin:4px 0;color:#2563eb">${sc.name||'The Wise School International'}</h2>
+    <div style="font-size:13px">${sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}</div>
+    ${sc.dgep?`<div style="font-size:12px;color:#64748b">N° DGEP/SECOPE : ${sc.dgep}</div>`:''}
+    <div style="font-size:13px;font-weight:700;margin-top:6px">Année scolaire : ${yr}</div>
+  </div>
+  <div class="grid">
+    <div class="stat"><div class="stat-n">${studs.length}</div><div class="stat-l">Élèves inscrits</div></div>
+    <div class="stat"><div class="stat-n">${teachers.length}</div><div class="stat-l">Enseignants</div></div>
+    <div class="stat"><div class="stat-n">${classes.length}</div><div class="stat-l">Classes</div></div>
+  </div>
+  <h2>I. EFFECTIFS PAR CLASSE</h2>
+  <table><thead><tr><th>#</th><th>Classe</th><th>Cycle</th><th>Enseignant(s)</th><th>Effectif</th></tr></thead>
+  <tbody>${classes.map((cl,i)=>{const n=studs.filter(s=>s.cid===cl.id).length;const t1=(DB.users||[]).find(u=>u.id===cl.teacher_id);const t2=(DB.users||[]).find(u=>u.id===cl.teacher_id_en);return`<tr><td>${i+1}</td><td>${cl.name}</td><td>${cl.cycle||'primaire'}</td><td>${[t1,t2].filter(Boolean).map(u=>u.name).join(' / ')||'—'}</td><td><strong>${n}</strong></td></tr>`;}).join('')}</tbody>
+  <tfoot><tr style="background:#f1f5f9;font-weight:700"><td colspan="4">TOTAL</td><td>${studs.length}</td></tr></tfoot></table>
+  <h2>II. CORPS ENSEIGNANT</h2>
+  <table><thead><tr><th>#</th><th>Nom</th><th>Classe(s)</th><th>Contact</th></tr></thead>
+  <tbody>${teachers.map((u,i)=>{const cls=classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<tr><td>${i+1}</td><td>${u.name}</td><td>${cls.map(c=>c.name).join(', ')||'—'}</td><td>${u.phone||'—'}</td></tr>`;}).join('')}</tbody></table>
+  <h2>III. SITUATION FINANCIÈRE</h2>
+  <table><thead><tr><th>Description</th><th>Montant</th></tr></thead>
+  <tbody>
+    <tr><td>Frais T1 / élève</td><td>$${fees.T1||0}</td></tr>
+    <tr><td>Frais T2 / élève</td><td>$${fees.T2||0}</td></tr>
+    <tr><td>Frais T3 / élève</td><td>$${fees.T3||0}</td></tr>
+    ${fees.inscription?`<tr><td>Frais d'inscription / élève</td><td>$${fees.inscription}</td></tr>`:''}
+    <tr><td>Total recouvré</td><td style="font-weight:700;color:#059669">$${totalPaid}</td></tr>
+  </tbody></table>
+  <div style="margin-top:6px;font-size:12px;color:#64748b">Document généré le ${today()} — SchoolSafe v3.0</div>
+  <div class="sig">
+    <div><div style="height:40px"></div><div class="sig-line">Directeur(trice) d'école</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Responsable pédagogique</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Délégué SECOPE / MEPSP</div></div>
+  </div>
+  </body></html>`);w.document.close();w.print();
 };
 
 // ── SWIPE NAV ──
