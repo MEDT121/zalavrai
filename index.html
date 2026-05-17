@@ -8144,58 +8144,199 @@ window.markMsgRead = (mid) => {
 R.statistiques = () => {
   const yr = DB.settings.year||'2025-2026';
   const ts = DB.students.length;
-  const allDates = [...new Set(DB.attendance.map(a=>a.date))].sort();
+  const allDates = [...new Set((DB.attendance||[]).map(a=>a.date))].sort();
   const months = [...new Set(allDates.map(d=>d.slice(0,7)))].sort();
 
   // Présences par mois
   const presenceByMonth = months.map(m=>{
     const days = allDates.filter(d=>d.startsWith(m));
-    const recs = DB.attendance.filter(a=>a.date.startsWith(m));
+    const recs = (DB.attendance||[]).filter(a=>a.date.startsWith(m));
     const ontime = recs.filter(a=>a.status==='ontime'||a.status==='late').length;
     const total = ts * days.length;
-    return {m, pct: total>0?Math.round(ontime/total*100):0, ontime, days:days.length};
+    return {m, pct: total>0?Math.round(ontime/total*100):0, days:days.length};
+  });
+
+  // Présences 7 derniers jours
+  const last7=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);});
+  const week7=last7.map(d=>{
+    const recs=(DB.attendance||[]).filter(a=>a.date===d);
+    const ok=recs.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const pct=ts>0?Math.round(ok/ts*100):0;
+    return {d,pct,ok};
   });
 
   // Paiements par trimestre
-  const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
+  const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
   const payStats = ['T1','T2','T3'].map(t=>{
-    const paid = DB.payments.filter(p=>p.t===t&&p.paid).length;
-    const total = DB.students.length;
+    const paid = (DB.payments||[]).filter(p=>p.t===t&&p.paid).length;
     const amount = paid * Number(fees[t]||0);
-    return {t, paid, total, pct: total>0?Math.round(paid/total*100):0, amount};
+    return {t, paid, total:ts, pct: ts>0?Math.round(paid/ts*100):0, amount};
   });
 
-  // Notes moyennes par classe
-  const classAvgs = DB.classes.map(cl=>{
-    const studs = DB.students.filter(s=>s.cid===cl.id);
-    const grades = DB.grades.filter(g=>studs.some(s=>s.id===g.sid));
-    const avg = grades.length ? Math.round(grades.reduce((s,g)=>s+gradePct(g),0)/grades.length) : null;
-    const paidCount = studs.filter(s=>DB.payments.some(p=>p.sid===s.id&&p.paid)).length;
-    return {cl, count:studs.length, avg, paidCount};
+  // Performance académique par classe (coefficients EPSP)
+  const classPerfStats = (DB.classes||[]).map(cl=>{
+    const studs=(DB.students||[]).filter(s=>s.cid===cl.id);
+    const mats=getClassMatieres(cl.id);
+    const avgs=studs.map(s=>studentAvgPct(s.id,mats)).filter(a=>a>0);
+    const clAvg=avgs.length?Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length):null;
+    const passing=avgs.filter(a=>a>=50).length;
+    const paidCount=studs.filter(s=>(DB.payments||[]).some(p=>p.sid===s.id&&p.paid)).length;
+    return {cl, count:studs.length, avg:clAvg, passing, avgsCount:avgs.length, paidCount};
   });
+
+  // Taux de réussite global
+  const totalWithGrades=classPerfStats.reduce((s,c)=>s+c.avgsCount,0);
+  const totalPassing=classPerfStats.reduce((s,c)=>s+c.passing,0);
+  const globalPassPct=totalWithGrades>0?Math.round(totalPassing/totalWithGrades*100):0;
+
+  // Top 10 élèves (existant)
+  const top10=getSchoolTop10().slice(0,10);
+
+  // Absences chroniques (élèves > 3 absences non justifiées)
+  const absCounts=(DB.students||[]).map(s=>{
+    const abs=(DB.attendance||[]).filter(a=>a.sid===s.id&&a.status!=='ontime'&&a.status!=='late'&&a.status!=='excused').length;
+    return {s,abs};
+  }).filter(x=>x.abs>0).sort((a,b)=>b.abs-a.abs).slice(0,8);
 
   // Rattrapages
-  const rats = DB.rattrapages;
+  const rats = DB.rattrapages||[];
   const ratsValidated = rats.filter(r=>r.validated_by).length;
-  const ratsPaid = rats.filter(r=>r.paid).length;
   const primesDue = rats.filter(r=>r.validated_by&&!r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
   const primesVersees = rats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
 
-  // Absences justifiées
-  const absTotal = DB.absences.length;
-  const absApproved = DB.absences.filter(a=>a.status==='approved').length;
-  const absPending = DB.absences.filter(a=>a.status==='pending').length;
+  // Justifications
+  const absJust=DB.absences||[];
+  const absTotal=absJust.length;
+  const absApproved=absJust.filter(a=>a.status==='approved').length;
+  const absPending=absJust.filter(a=>a.status==='pending').length;
 
-  const barW = (pct) => `style="width:${pct}%;height:100%;border-radius:6px;transition:width .5s;background:${pct>=80?'#10b981':pct>=60?'#f59e0b':'#ef4444'}"`;
+  // Suivi cahier de texte cette semaine
+  const weekStr=last7[0];
+  const allTeachers=(DB.users||[]).filter(u=>u.role==='enseignant');
+  const cahierOK=allTeachers.filter(u=>(DB.cahier_texte||[]).some(e=>e.by===u.id&&e.date>=weekStr)).length;
+  const cahierPct=allTeachers.length?Math.round(cahierOK/allTeachers.length*100):0;
+
+  const barW=(pct,clr)=>`style="width:${pct}%;height:100%;border-radius:6px;transition:width .6s;background:${clr||(pct>=80?'#10b981':pct>=60?'#f59e0b':'#ef4444')}"`;
+  const ml=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Statistiques — ${yr}</span></div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Statistiques analytiques — ${yr}</span></div>
 
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#2563eb"><div class="ww-stat-icon">🎓</div><div class="ww-stat-val">${ts}</div><div class="ww-stat-label">Élèves inscrits</div></div>
-    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${payStats.reduce((s,p)=>s+p.paid,0)}</div><div class="ww-stat-label">Paiements reçus</div></div>
-    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">📚</div><div class="ww-stat-val">${rats.length}</div><div class="ww-stat-label">Rattrapages</div></div>
-    <div class="ww-stat" style="border-left-color:#dc2626"><div class="ww-stat-icon">📄</div><div class="ww-stat-val">${absTotal}</div><div class="ww-stat-label">Justifications</div></div>
+    <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${globalPassPct}%</div><div class="ww-stat-label">Taux réussite</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">💰</div><div class="ww-stat-val">${payStats.reduce((s,p)=>s+p.paid,0)}</div><div class="ww-stat-label">Paiements reçus</div></div>
+    <div class="ww-stat" style="border-left-color:#8b5cf6"><div class="ww-stat-icon">📖</div><div class="ww-stat-val">${cahierPct}%</div><div class="ww-stat-label">Cahiers à jour</div></div>
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">📅 Présences — 7 derniers jours</div>
+    <div style="display:flex;align-items:flex-end;gap:4px;height:70px;margin-bottom:8px">
+      ${week7.map(({d,pct})=>{
+        const dn=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][new Date(d+'T12:00:00').getDay()];
+        const clr=pct>=80?'#10b981':pct>=60?'#f59e0b':'#ef4444';
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="font-size:9px;font-weight:700;color:${clr}">${pct>0?pct+'%':''}</div>
+          <div style="width:100%;border-radius:4px 4px 0 0;background:${pct>0?clr:'#e5e7eb'};height:${Math.max(pct*0.58,2)}px;transition:height .5s"></div>
+          <div style="font-size:9px;color:var(--text-muted)">${dn}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${presenceByMonth.length?`<div style="margin-top:10px"><div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Par mois</div>
+    ${presenceByMonth.slice(-4).map(p=>{
+      const mn=ml[parseInt(p.m.split('-')[1])-1]||p.m;
+      return `<div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+          <span>${mn} ${p.m.split('-')[0]} <span style="color:var(--text-muted);font-size:10px">(${p.days}j)</span></span>
+          <span style="font-weight:700;color:${p.pct>=80?'#059669':p.pct>=60?'#d97706':'#dc2626'}">${p.pct}%</span>
+        </div>
+        <div style="background:#e5e7eb;border-radius:8px;height:8px;overflow:hidden"><div ${barW(p.pct)}></div></div>
+      </div>`;
+    }).join('')}</div>`:''}
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">🏫 Performance académique par classe <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(moyennes pondérées EPSP)</span></div>
+    ${classPerfStats.length?`<div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--bg)">
+          <th style="text-align:left;padding:8px 10px;font-weight:700">Classe</th>
+          <th style="text-align:center;padding:8px;font-weight:700">Élèves</th>
+          <th style="text-align:center;padding:8px;font-weight:700">Moy. pondérée</th>
+          <th style="text-align:center;padding:8px;font-weight:700">Réussite ≥50%</th>
+          <th style="text-align:center;padding:8px;font-weight:700">Payants</th>
+        </tr></thead>
+        <tbody>${classPerfStats.sort((a,b)=>(b.avg||0)-(a.avg||0)).map((row,i)=>{
+          const passPct=row.avgsCount>0?Math.round(row.passing/row.avgsCount*100):0;
+          return `<tr style="background:${i%2===0?'var(--bg-card)':'transparent'}">
+            <td style="padding:8px 10px;font-weight:700">${esc(row.cl.name)}</td>
+            <td style="text-align:center;padding:8px">${row.count}</td>
+            <td style="text-align:center;padding:8px;font-weight:700;color:${row.avg===null?'var(--text-muted)':row.avg>=70?'#059669':row.avg>=50?'#d97706':'#dc2626'}">${row.avg!==null?row.avg+'%':'—'}</td>
+            <td style="text-align:center;padding:8px">
+              <span style="font-weight:700;color:${passPct>=80?'#059669':passPct>=50?'#d97706':'#dc2626'}">${row.passing}/${row.avgsCount}</span>
+              <span style="font-size:10px;color:var(--text-muted)"> (${passPct}%)</span>
+            </td>
+            <td style="text-align:center;padding:8px;font-weight:700;color:${row.paidCount===row.count?'#059669':'#d97706'}">${row.paidCount}/${row.count}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;padding:10px 14px;border-radius:10px;background:${globalPassPct>=70?'#d1fae5':globalPassPct>=50?'#fef3c7':'#fee2e2'};display:flex;justify-content:space-between;align-items:center">
+      <span style="font-weight:700;color:${globalPassPct>=70?'#065f46':globalPassPct>=50?'#92400e':'#991b1b'}">Taux de réussite global (passage de classe)</span>
+      <span style="font-size:18px;font-weight:800;color:${globalPassPct>=70?'#059669':globalPassPct>=50?'#d97706':'#dc2626'}">${globalPassPct}%</span>
+    </div>`:`<div style="text-align:center;padding:30px;color:var(--text-muted)">Aucune note enregistrée</div>`}
+  </div>
+
+  ${top10.length?`
+  <div class="premium-section">
+    <div class="premium-section-title">🏆 Top 10 élèves de l'école</div>
+    ${top10.map((s,i)=>{
+      const cl=gc(s.cid);
+      const medals=['🥇','🥈','🥉'];
+      return `<div class="premium-item">
+        <div style="width:28px;text-align:center;font-size:${i<3?'20px':'13px'};font-weight:700;color:${i<3?'#f59e0b':'#64748b'};flex-shrink:0">${i<3?medals[i]:(i+1)+'e'}</div>
+        <div style="width:38px;height:38px;border-radius:10px;background:#e2e8f0;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#475569">
+          ${s.photo?`<img src="${esc(s.photo)}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="pi-title">${esc(s.name)}</div>
+          <div class="pi-sub">${cl?esc(cl.name):'—'}</div>
+        </div>
+        <span style="font-size:14px;font-weight:800;color:${s.moyPct>=80?'#059669':s.moyPct>=70?'#0284c7':'#d97706'}">${s.moyPct}%</span>
+      </div>`;
+    }).join('')}
+    <div style="margin-top:8px;text-align:right"><button class="btn btn-outline btn-sm" onclick="go('palmares')">Voir palmarès complet →</button></div>
+  </div>`:''}
+
+  ${absCounts.length?`
+  <div class="premium-section" style="border-left:4px solid #f97316">
+    <div class="premium-section-title" style="color:#c2410c">⚠️ Absences chroniques (top ${absCounts.length})</div>
+    ${absCounts.map(({s,abs})=>{
+      const cl=gc(s.cid);
+      return `<div class="premium-item">
+        <div class="pi-icon" style="background:#fff7ed;color:#c2410c;font-size:12px;font-weight:700">${abs}j</div>
+        <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${cl?esc(cl.name):'—'}</div></div>
+        <div style="width:80px;background:#e5e7eb;border-radius:6px;height:6px;overflow:hidden">
+          <div style="width:${Math.min(abs*10,100)}%;height:100%;background:#f97316;border-radius:6px"></div>
+        </div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('attendance')">Voir historique présences →</div>
+  </div>`:''}
+
+  <div class="premium-section">
+    <div class="premium-section-title">📖 Suivi cahier de texte — cette semaine</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="flex:1;background:#e5e7eb;border-radius:8px;height:12px;overflow:hidden">
+        <div ${barW(cahierPct,'#8b5cf6')}></div>
+      </div>
+      <span style="font-weight:800;font-size:15px;color:${cahierPct>=80?'#059669':cahierPct>=50?'#d97706':'#dc2626'}">${cahierOK}/${allTeachers.length}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div style="padding:10px;border-radius:10px;background:#ede9fe;text-align:center"><div style="font-size:18px;font-weight:800;color:#6d28d9">${cahierOK}</div><div style="font-size:11px;color:#6d28d9">Rempli cette semaine</div></div>
+      <div style="padding:10px;border-radius:10px;background:#fee2e2;text-align:center"><div style="font-size:18px;font-weight:800;color:#991b1b">${allTeachers.length-cahierOK}</div><div style="font-size:11px;color:#991b1b">Manquant cette semaine</div></div>
+    </div>
+    <div style="margin-top:8px;text-align:right"><button class="btn btn-outline btn-sm" onclick="go('cahier_texte')">Voir détails →</button></div>
   </div>
 
   <div class="premium-section">
@@ -8212,48 +8353,11 @@ R.statistiques = () => {
       <span style="font-weight:700;color:#065f46">Total encaissé (tous trimestres)</span>
       <span style="font-weight:800;font-size:16px;color:#059669">$${payStats.reduce((s,p)=>s+p.amount,0).toLocaleString()}</span>
     </div>
-  </div>
-
-  ${presenceByMonth.length?`
-  <div class="premium-section">
-    <div class="premium-section-title">📋 Présences par mois</div>
-    ${presenceByMonth.map(p=>{
-      const ml=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-      const mn=ml[parseInt(p.m.split('-')[1])-1]||p.m;
-      return `<div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-          <span style="font-weight:600">${mn} ${p.m.split('-')[0]} <span style="color:var(--text-muted);font-size:11px">(${p.days}j scolaires)</span></span>
-          <span style="font-weight:700;color:${p.pct>=80?'#059669':p.pct>=60?'#d97706':'#dc2626'}">${p.pct}%</span>
-        </div>
-        <div style="background:#e5e7eb;border-radius:8px;height:10px;overflow:hidden"><div ${barW(p.pct)}></div></div>
-      </div>`;
-    }).join('')}
-  </div>`:''}
-
-  <div class="premium-section">
-    <div class="premium-section-title">🏆 Résultats par classe</div>
-    <div style="overflow-x:auto">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead><tr>
-          <th style="text-align:left;padding:7px 10px;background:var(--bg);font-weight:700;border-radius:8px 0 0 0">Classe</th>
-          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700">Élèves</th>
-          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700">Moy. notes</th>
-          <th style="text-align:center;padding:7px;background:var(--bg);font-weight:700;border-radius:0 8px 0 0">Payants</th>
-        </tr></thead>
-        <tbody>${classAvgs.map((row,i)=>`
-          <tr style="background:${i%2===0?'var(--bg-card)':'transparent'}">
-            <td style="padding:7px 10px;font-weight:700">${row.cl.name}</td>
-            <td style="text-align:center;padding:7px">${row.count}</td>
-            <td style="text-align:center;padding:7px;font-weight:700;color:${row.avg===null?'var(--text-muted)':row.avg>=70?'#059669':row.avg>=50?'#d97706':'#dc2626'}">${row.avg!==null?row.avg+'%':'—'}</td>
-            <td style="text-align:center;padding:7px;font-weight:700;color:${row.paidCount===row.count?'#059669':'#d97706'}">${row.paidCount}/${row.count}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
+    <div style="margin-top:8px;text-align:right"><button class="btn btn-outline btn-sm" onclick="go('payments')">Gérer paiements →</button></div>
   </div>
 
   <div class="premium-section">
-    <div class="premium-section-title">📚 Rattrapages & Primes</div>
+    <div class="premium-section-title">📚 Rattrapages & Primes enseignants</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div style="background:#dbeafe;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#1d4ed8">${rats.length}</div><div style="font-size:11px;color:#1d4ed8">Signalés</div></div>
       <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${ratsValidated}</div><div style="font-size:11px;color:#065f46">Validés</div></div>
@@ -8270,6 +8374,7 @@ R.statistiques = () => {
       <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${absApproved}</div><div style="font-size:11px;color:#065f46">Approuvées</div></div>
       <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#92400e">${absPending}</div><div style="font-size:11px;color:#92400e">En attente</div></div>
     </div>
+    <div style="margin-top:8px;text-align:right"><button class="btn btn-outline btn-sm" onclick="go('absences')">Gérer justifications →</button></div>
   </div>`;
 };
 
