@@ -568,7 +568,7 @@ window.DB = {
       access_parent:false },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[], advances:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -917,7 +917,7 @@ window.loadFromSupabase = async () => {
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
            approbations,teacher_notes,audit_log,teacher_absences,
-           medical,tenafep,evaluations,salaries] = await Promise.all([
+           medical,tenafep,evaluations,salaries,advances] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -949,6 +949,7 @@ window.loadFromSupabase = async () => {
       _get('tenafep','select=*'),
       _get('evaluations','select=*&order=date.desc&limit=500'),
       _get('salaries','select=*&order=month.desc&limit=500'),
+      _get('advances','select=*&order=date.desc&limit=500'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -977,6 +978,7 @@ window.loadFromSupabase = async () => {
     if(safe(tenafep).length) DB.tenafep=safe(tenafep);
     if(safe(evaluations).length) DB.evaluations=safe(evaluations);
     if(safe(salaries).length) DB.salaries=safe(salaries);
+    if(safe(advances).length) DB.advances=safe(advances);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -1038,6 +1040,7 @@ window.forceSyncNow = async () => {
     {t:'tenafep', d:DB.tenafep||[]},
     {t:'evaluations', d:DB.evaluations||[]},
     {t:'salaries', d:DB.salaries||[]},
+    {t:'advances', d:DB.advances||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -1102,6 +1105,7 @@ function _cryptSnap() {
     tenafep:DB.tenafep||[],
     evaluations:DB.evaluations||[],
     salaries:DB.salaries||[],
+    advances:DB.advances||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -10187,9 +10191,13 @@ R.profil_enseignant = () => {
   const studentsWithGrade=students.filter(s=>_grades.some(g=>g.sid===s.id&&g.note!=null)).length;
   const coveragePct=students.length?Math.round(studentsWithGrade/students.length*100):0;
   const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
-  const validTabs=['classe','profil','securite'];
+  const validTabs=['classe','profil','finances','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
   const clr='#2563eb';
+  // Données finances enseignant (lecture seule — confidentiel)
+  const currentMonth=today().slice(0,7);
+  const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,6);
+  const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
   <div class="premium-section" style="padding:14px 16px">
@@ -10206,6 +10214,7 @@ R.profil_enseignant = () => {
     <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
       <button data-ptab-btn="classe" data-ptab-color="${clr}" onclick="window._pTab='classe';_setProfileTab('classe')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='classe'?'700':'500'};background:${tab==='classe'?clr:'transparent'};color:${tab==='classe'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">📚<div style="font-size:10px">${t('Ma classe','My class')}</div></button>
       <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">${t('Modifier','Edit')}</div></button>
+      <button data-ptab-btn="finances" data-ptab-color="${clr}" onclick="window._pTab='finances';_setProfileTab('finances')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='finances'?'700':'500'};background:${tab==='finances'?clr:'transparent'};color:${tab==='finances'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">💶<div style="font-size:10px">${t('Finances','Finances')}</div></button>
       <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">${t('Sécurité','Security')}</div></button>
     </div>
     <div data-ptab="classe" style="${tab==='classe'?'':'display:none'}">
@@ -10241,6 +10250,31 @@ R.profil_enseignant = () => {
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">${t('💾 Enregistrer','💾 Save')}</button>
       </div>
+    </div>
+    <div data-ptab="finances" style="${tab==='finances'?'':'display:none'}">
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#78350f">
+        🔒 ${t('Ces informations sont strictement confidentielles — visibles uniquement par vous et la Direction.','This information is strictly confidential — visible only to you and Management.')}
+      </div>
+      ${mySals.length?mySals.map(sal=>{
+        const {count:rc,prime:rp}=_getRatPrime(u.id,sal.month);
+        const advList=(DB.advances||[]).filter(a=>a.teacher_id===u.id&&a.month===sal.month);
+        const [yr2,mo2]=sal.month.split('-');
+        const ml=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][parseInt(mo2)-1]+' '+yr2;
+        return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-weight:700;font-size:14px">${ml}</span>
+            <span class="pill ${sal.paid?'pill-green':'pill-orange'}">${sal.paid?'✅ Payé':'⏳ En attente'}</span>
+          </div>
+          <div style="font-size:12px">
+            <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9"><span>Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
+            ${rp?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#7c3aed"><span>🔄 Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
+            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#059669"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
+            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#dc2626"><span>💸 Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
+            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#f97316"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
+            <div style="display:flex;justify-content:space-between;padding:5px 0;font-weight:800;font-size:14px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#059669':'#dc2626'}">$${sal.net||0}</span></div>
+          </div>
+        </div>`;
+      }).join(''):`<div style="text-align:center;padding:32px;color:var(--text-muted)"><div style="font-size:40px;margin-bottom:10px">💶</div>${t('Aucun salaire enregistré','No salary recorded')}</div>`}
     </div>
     <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
       <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
@@ -12120,56 +12154,165 @@ window.saveEvalForm = (teacherId) => {
 // ═══════════════════════════════════════════
 //  FEATURE #13 — SALAIRES & FICHES DE PAIE
 // ═══════════════════════════════════════════
+// ── helpers salaires ──
+window._getRatPrime = (teacherId, month) => {
+  const rate = DB.settings.rattrapage_rate||0;
+  if(!rate) return {count:0, prime:0};
+  const count = (DB.rattrapages||[]).filter(r=>r.teacher_id===teacherId&&r.validated_by&&(r.date||'').startsWith(month)).length;
+  return {count, prime: count*rate};
+};
+window._getAdvancesTotal = (teacherId, month) => {
+  return (DB.advances||[]).filter(a=>a.teacher_id===teacherId&&a.month===month).reduce((s,a)=>s+a.amount,0);
+};
+
 R.salaires = () => {
   const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
   const sals=DB.salaries||[];
+  const advs=DB.advances||[];
   const currentMonth=today().slice(0,7);
   const selMonth=window._salMonth||currentMonth;
+  const rate=DB.settings.rattrapage_rate||0;
+  const totalNet=teachers.reduce((s,u)=>{
+    const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
+    const {prime}=_getRatPrime(u.id,selMonth);
+    const adv=_getAdvancesTotal(u.id,selMonth);
+    return s+(sal.amount||0)+(sal.bonus||0)+prime-(sal.deductions||0)-adv;
+  },0);
+  const [mo,yr]=[parseInt(selMonth.split('-')[1]),selMonth.split('-')[0]];
+  const monthLabel=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo-1]+' '+yr;
   return `
   <div class="premium-section" style="border-left:4px solid #059669">
-    <div class="premium-section-title">💶 Salaires enseignants</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Saisie et suivi des salaires. Impression des fiches de paie.</div>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="flex:1;max-width:200px" onchange="window._salMonth=this.value;render()">
+    <div class="premium-section-title">💶 Salaires — ${monthLabel}</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="max-width:180px" onchange="window._salMonth=this.value;render()">
+      <div style="flex:1;min-width:120px;background:#d1fae5;border-radius:10px;padding:8px 14px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:#059669">$${totalNet}</div>
+        <div style="font-size:11px;color:#6b7280">Masse salariale nette</div>
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrapage${rate?` ($${rate})`:''}</button>
     </div>
   </div>
   ${teachers.map((u,i)=>{
     const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
-    return `<div class="ww-card" style="animation-delay:${i*.04}s;padding:14px 16px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:44px;height:44px;border-radius:12px;background:#d1fae5;color:#059669;display:flex;align-items:center;justify-content:center;font-weight:700">${ini(u.name)}</div>
+    const {count:ratCount,prime:ratPrime}=_getRatPrime(u.id,selMonth);
+    const advTotal=_getAdvancesTotal(u.id,selMonth);
+    const advList=advs.filter(a=>a.teacher_id===u.id&&a.month===selMonth);
+    const brut=(sal.amount||0)+(sal.bonus||0)+ratPrime;
+    const net=brut-(sal.deductions||0)-advTotal;
+    const hasSal=sal.amount>0;
+    return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px;animation-delay:${i*.04}s">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:${hasSal?'12px':'0'}">
+        <div style="width:44px;height:44px;border-radius:12px;background:#d1fae5;color:#059669;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0">${ini(u.name)}</div>
         <div style="flex:1">
-          <div style="font-weight:700">${esc(u.name)}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${sal.amount?'$'+sal.amount+' — '+(sal.paid?'✅ Payé':'⏳ Non payé'):'Pas de salaire saisi'}</div>
+          <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#059669':'#dc2626'}">$${net}</strong> — ${sal.paid?'✅ Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div>
         </div>
-        <div style="display:flex;gap:6px">
-          ${sal.amount?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">🖨️</button>`:''}
-          <button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️</button>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸 Avance</button>
+          ${hasSal?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">🖨️</button>`:''}
+          <button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>
         </div>
       </div>
+      ${hasSal?`<div style="background:#f8fafc;border-radius:10px;padding:10px 12px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e2e8f0"><span style="color:#374151">Salaire de base</span><span style="font-weight:700">$${sal.amount}</span></div>
+        ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e2e8f0"><span style="color:#7c3aed">🔄 Prime rattrapages (${ratCount}×$${rate})</span><span style="font-weight:700;color:#7c3aed">+$${ratPrime}</span></div>`:''}
+        ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e2e8f0"><span style="color:#059669">Autres primes</span><span style="font-weight:700;color:#059669">+$${sal.bonus}</span></div>`:''}
+        ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e2e8f0"><span style="color:#dc2626">💸 Avance du ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:700;color:#dc2626">-$${a.amount}</span></div>`).join('')}
+        ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #e2e8f0"><span style="color:#f97316">Retenues</span><span style="font-weight:700;color:#f97316">-$${sal.deductions}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#059669':'#dc2626'}">$${net}</span></div>
+      </div>`:''}
     </div>`;
   }).join('')}`;
 };
+
+window.openRatRateConfig = () => {
+  openM('⚙️ Taux prime de rattrapage',`
+  <div style="background:#ede9fe;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:#4c1d95">
+    🔄 Ce montant est automatiquement ajouté par cours de rattrapage <strong>validé</strong> par la Direction dans le mois. Mettez 0 pour désactiver.
+  </div>
+  <div class="form-group"><label class="form-label">Montant par rattrapage validé ($)</label>
+    <input class="form-input" id="rat_rate" type="number" min="0" step="1" value="${DB.settings.rattrapage_rate||0}" placeholder="Ex: 5">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveRatRate()">💾 Enregistrer</button>`);
+};
+window.saveRatRate = () => {
+  DB.settings.rattrapage_rate=parseFloat($('rat_rate')?.value)||0;
+  pushSync('settings','upsert',DB.settings);saveToCrypt();
+  toast(`✅ Taux rattrapage : $${DB.settings.rattrapage_rate} / cours`,'success');
+  closeModal();render();
+};
+
+window.openAvanceForm = (teacherId, month) => {
+  const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
+  const existing=(DB.advances||[]).filter(a=>a.teacher_id===teacherId&&a.month===month);
+  openM(`💸 Avance sur salaire — ${u.name}`,`
+  ${existing.length?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px">
+    <div style="font-weight:700;color:#991b1b;margin-bottom:6px">Avances déjà accordées ce mois :</div>
+    ${existing.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><span style="font-weight:700;color:#dc2626">$${a.amount}</span></div>`).join('')}
+    <div style="border-top:1px solid #fca5a5;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total</span><span style="color:#dc2626">$${existing.reduce((s,a)=>s+a.amount,0)}</span></div>
+  </div>`:''}
+  <div class="form-group"><label class="form-label">Montant de l'avance ($) *</label>
+    <input class="form-input" id="adv_amount" type="number" min="1" step="1" placeholder="Ex: 50">
+  </div>
+  <div class="form-group"><label class="form-label">Motif</label>
+    <input class="form-input" id="adv_reason" placeholder="Ex: Urgence médicale, transport...">
+  </div>
+  <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;font-size:12px;color:#78350f">
+    ⚠️ Cette avance sera <strong>déduite automatiquement</strong> du net de ${u.name} pour le mois sélectionné. Visible uniquement par la Direction et l'enseignant concerné.
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-danger" onclick="saveAvance('${teacherId}','${month}')">💸 Accorder l'avance</button>`);
+};
+window.saveAvance = (teacherId, month) => {
+  const amount=parseFloat($('adv_amount')?.value)||0;
+  if(amount<=0){toast('Entrez un montant valide','error');return;}
+  if(!DB.advances) DB.advances=[];
+  const obj={id:'adv'+Date.now(),teacher_id:teacherId,amount,reason:$('adv_reason')?.value||null,month,date:today(),by:S.user.id};
+  DB.advances.push(obj);
+  pushSync('advances','upsert',obj);
+  const u=DB.users.find(x=>x.id===teacherId);
+  // Notif privée à l'enseignant
+  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`💸 Avance sur salaire accordée : $${amount}${obj.reason?' ('+obj.reason+')':''}`,date:today(),time:nowTime(),read:false,type:'info'};
+  DB.notifs.unshift(n);pushSync('notifs','post',n);
+  logAudit('avance_salaire',`${u?.name} — $${amount} — ${month}`);
+  saveToCrypt();
+  toast(`✅ Avance de $${amount} accordée à ${u?.name}`,'success');
+  closeModal();render();
+};
+
 window.openSalaireForm = (teacherId, month) => {
   const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
   const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month)||{};
-  openM(`💶 Salaire — ${u.name} — ${month}`,`
-  <div class="form-group"><label class="form-label">Salaire de base ($)</label>
+  const {count:ratCount,prime:ratPrime}=_getRatPrime(teacherId,month);
+  const advTotal=_getAdvancesTotal(teacherId,month);
+  const [mo,yr2]=[parseInt(month.split('-')[1]),month.split('-')[0]];
+  const monthLbl=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mo-1]+' '+yr2;
+  openM(`💶 Salaire — ${u.name} — ${monthLbl}`,`
+  <div class="form-group"><label class="form-label">Salaire de base ($) *</label>
     <input class="form-input" id="sal_amount" type="number" min="0" step="1" value="${sal.amount||''}" placeholder="Ex: 250">
   </div>
-  <div class="form-group"><label class="form-label">Prime / Bonus ($)</label>
+  ${ratPrime?`<div style="background:#ede9fe;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
+    <span style="color:#4c1d95">🔄 Prime rattrapages auto (${ratCount} cours validés × $${DB.settings.rattrapage_rate||0})</span>
+    <strong style="color:#7c3aed">+$${ratPrime}</strong>
+  </div>`:''}
+  <div class="form-group"><label class="form-label">Autres primes / bonus ($)</label>
     <input class="form-input" id="sal_bonus" type="number" min="0" step="1" value="${sal.bonus||0}">
   </div>
-  <div class="form-group"><label class="form-label">Retenues ($)</label>
-    <input class="form-input" id="sal_deductions" type="number" min="0" step="1" value="${sal.deductions||0}" placeholder="Absence, avance...">
+  ${advTotal?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
+    <span style="color:#991b1b">💸 Avances accordées ce mois</span>
+    <strong style="color:#dc2626">-$${advTotal}</strong>
+  </div>`:''}
+  <div class="form-group"><label class="form-label">Retenues supplémentaires ($) <span style="font-size:11px;color:var(--text-muted)">(absences, etc.)</span></label>
+    <input class="form-input" id="sal_deductions" type="number" min="0" step="1" value="${sal.deductions||0}">
   </div>
-  <div class="form-group"><label class="form-label">Statut</label>
+  <div class="form-group"><label class="form-label">Statut paiement</label>
     <select class="form-select" id="sal_paid">
       <option value="0" ${!sal.paid?'selected':''}>⏳ Non payé</option>
       <option value="1" ${sal.paid?'selected':''}>✅ Payé</option>
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Observations</label>
+  <div class="form-group"><label class="form-label">Notes internes</label>
     <textarea class="form-input" id="sal_notes" rows="2" placeholder="...">${esc(sal.notes||'')}</textarea>
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
@@ -12181,47 +12324,64 @@ window.saveSalaire = (teacherId, month) => {
   const bonus=parseFloat($('sal_bonus')?.value)||0;
   const deductions=parseFloat($('sal_deductions')?.value)||0;
   const paid=!!parseInt($('sal_paid')?.value||'0');
-  const net=amount+bonus-deductions;
+  const {prime:ratPrime}=_getRatPrime(teacherId,month);
+  const advTotal=_getAdvancesTotal(teacherId,month);
+  const net=amount+bonus+ratPrime-deductions-advTotal;
   const idx=DB.salaries.findIndex(s=>s.teacher_id===teacherId&&s.month===month);
-  const obj={id:idx>=0?DB.salaries[idx].id:'sal'+Date.now(),teacher_id:teacherId,month,amount,bonus,deductions,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
+  const obj={id:idx>=0?DB.salaries[idx].id:'sal'+Date.now(),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
   if(idx>=0)DB.salaries[idx]=obj;else DB.salaries.push(obj);
-  pushSync('salaries','upsert',obj);saveToCrypt();
-  toast('✅ Salaire enregistré','success');closeModal();render();
+  pushSync('salaries','upsert',obj);
+  if(paid){
+    const u=DB.users.find(x=>x.id===teacherId);
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET $${net}`,date:today(),time:nowTime(),read:false,type:'info'};
+    DB.notifs.unshift(n);pushSync('notifs','post',n);
+  }
+  saveToCrypt();toast('✅ Salaire enregistré','success');closeModal();render();
 };
 window.printFichePaie = (teacherId, month) => {
   const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
   const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month);if(!sal)return;
-  const [yr,mo]=month.split('-');
-  const monthNames=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const monthLabel=monthNames[parseInt(mo)-1]+' '+yr;
+  const advList=(DB.advances||[]).filter(a=>a.teacher_id===teacherId&&a.month===month);
+  const {count:ratCount,prime:ratPrime}=_getRatPrime(teacherId,month);
+  const rate=DB.settings.rattrapage_rate||0;
+  const [yr2,mo]=month.split('-');
+  const monthLabel=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][parseInt(mo)-1]+' '+yr2;
+  const sc=DB.settings.school||{};
   const w=window.open('','_blank');
-  if(!w)return;
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Fiche de paie — ${u.name}</title>
-  <style>body{font-family:Arial,sans-serif;margin:30px;color:#1e293b;max-width:700px;margin:30px auto}h1{color:#0f2557;margin:0}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f2557;padding-bottom:14px;margin-bottom:20px}.badge{background:#0f2557;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}.card{background:#f8fafc;border-radius:12px;padding:14px}.card-label{font-size:11px;color:#64748b;margin-bottom:4px}.card-val{font-size:18px;font-weight:800;color:#1e293b}table{width:100%;border-collapse:collapse;margin:16px 0}td{padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:14px}.total-row{background:#0f2557;color:#fff;font-weight:700;border-radius:0 0 8px 8px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:40px;text-align:center}.sig-line{border-top:2px solid #1e293b;padding-top:8px;font-size:12px}@media print{body{margin:10px}}</style>
-  </head><body>
+  if(!w){toast('Autorisez les pop-ups','error');return;}
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche de paie — ${u.name} — ${monthLabel}</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#1e293b;background:#f8fafc;margin:0}.page{max-width:680px;margin:0 auto;padding:20px}.dl-bar{background:linear-gradient(135deg,#059669,#047857);color:#fff;border-radius:14px;padding:18px 22px;text-align:center;margin-bottom:20px}.dl-bar h3{margin:0 0 6px;font-size:16px}.dl-bar p{margin:0 0 12px;font-size:12px;opacity:.85}.dl-btn{background:#fff;color:#059669;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f2557;padding-bottom:12px;margin-bottom:16px}.badge{background:#0f2557;color:#fff;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700}.emp-box{background:#eff6ff;border-radius:10px;padding:12px 16px;margin-bottom:16px}.tbl{width:100%;border-collapse:collapse;margin:0;border-radius:10px;overflow:hidden}.tbl td{padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:14px}.tbl .plus{color:#059669;font-weight:700}.tbl .minus{color:#dc2626;font-weight:700}.tbl .rat{color:#7c3aed;font-weight:700}.total-row td{background:#0f2557;color:#fff;font-weight:700;padding:14px 16px;font-size:16px}.status{text-align:center;font-size:12px;color:#64748b;background:#f1f5f9;padding:8px;border-radius:8px;margin:14px 0}.sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px;text-align:center}.sig-line{border-top:2px solid #1e293b;padding-top:8px;font-size:12px}.conf{font-size:11px;color:#94a3b8;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0}@media print{.dl-bar{display:none!important}.page{padding:0;max-width:100%}body{background:#fff}}</style>
+  </head><body><div class="page">
+  <div class="dl-bar">
+    <h3>📄 Fiche de paie prête</h3>
+    <p>Cliquez pour enregistrer en PDF ou imprimer</p>
+    <button class="dl-btn" onclick="window.print()">💾 Télécharger / Imprimer PDF</button>
+  </div>
   <div class="header">
-    <div><h1>${DB.settings.school?.name||'The Wise School International'}</h1><p style="margin:4px 0;color:#64748b;font-size:13px">${DB.settings.school?.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}</p></div>
-    <div style="text-align:right"><div class="badge">FICHE DE PAIE</div><div style="font-size:13px;margin-top:8px;color:#64748b">${monthLabel}</div></div>
+    <div><div style="font-weight:800;font-size:16px;color:#0f2557">${sc.name||'The Wise School International'}</div><div style="font-size:12px;color:#64748b;margin-top:2px">${sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}</div></div>
+    <div style="text-align:right"><div class="badge">FICHE DE PAIE</div><div style="font-size:13px;margin-top:6px;color:#64748b;font-weight:600">${monthLabel}</div></div>
   </div>
-  <div style="background:#eff6ff;border-radius:10px;padding:14px;margin-bottom:16px">
+  <div class="emp-box">
     <div style="font-weight:700;font-size:16px">${u.name}</div>
-    <div style="font-size:13px;color:#64748b">Enseignant · ${DB.settings.year||'2025-2026'}</div>
+    <div style="font-size:13px;color:#64748b">Enseignant · Année ${DB.settings.year||'2025-2026'}</div>
   </div>
-  <table>
-    <tr><td>Salaire de base</td><td style="text-align:right;font-weight:700">$${sal.amount||0}</td></tr>
-    ${sal.bonus?`<tr><td>Prime / Bonus</td><td style="text-align:right;color:#059669">+ $${sal.bonus}</td></tr>`:''}
-    ${sal.deductions?`<tr><td>Retenues</td><td style="text-align:right;color:#dc2626">- $${sal.deductions}</td></tr>`:''}
-    <tr class="total-row"><td style="padding:12px 14px">NET À PAYER</td><td style="text-align:right;padding:12px 14px;font-size:18px">$${sal.net||sal.amount||0}</td></tr>
+  <table class="tbl">
+    <tr><td>Salaire de base</td><td style="text-align:right" class="plus">$${sal.amount||0}</td></tr>
+    ${ratPrime?`<tr><td>🔄 Prime rattrapages (${ratCount} cours × $${rate})</td><td style="text-align:right" class="rat">+$${ratPrime}</td></tr>`:''}
+    ${sal.bonus?`<tr><td>Autres primes / bonus</td><td style="text-align:right" class="plus">+$${sal.bonus}</td></tr>`:''}
+    ${advList.map(a=>`<tr><td>💸 Avance du ${a.date}${a.reason?' — '+a.reason:''}</td><td style="text-align:right" class="minus">-$${a.amount}</td></tr>`).join('')}
+    ${sal.deductions?`<tr><td>Retenues (absences, etc.)</td><td style="text-align:right" class="minus">-$${sal.deductions}</td></tr>`:''}
+    <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right;font-size:18px">$${sal.net}</td></tr>
   </table>
-  ${sal.notes?`<div style="background:#fef3c7;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:16px"><strong>Note :</strong> ${sal.notes}</div>`:''}
-  <div style="text-align:center;font-size:12px;color:#64748b;background:#f1f5f9;padding:8px;border-radius:8px;margin-bottom:20px">
-    Statut : ${sal.paid?'✅ PAYÉ le '+sal.paid_date:'⏳ NON PAYÉ'}
-  </div>
+  ${sal.notes?`<div style="background:#fef3c7;border-radius:8px;padding:10px 14px;font-size:12px;margin:12px 0"><strong>Note :</strong> ${sal.notes}</div>`:''}
+  <div class="status">Statut : ${sal.paid?`✅ PAYÉ le ${sal.paid_date}`:'⏳ EN ATTENTE DE PAIEMENT'}</div>
   <div class="sig">
-    <div><div style="height:40px"></div><div class="sig-line">Bénéficiaire — ${u.name}</div></div>
-    <div><div style="height:40px"></div><div class="sig-line">Direction — ${DB.settings.school?.name||''}</div></div>
+    <div><div style="height:44px"></div><div class="sig-line">Bénéficiaire — ${u.name}</div></div>
+    <div><div style="height:44px"></div><div class="sig-line">Direction — ${sc.name||''}</div></div>
   </div>
-  </body></html>`);w.document.close();w.print();
+  <div class="conf">🔒 Document confidentiel — SchoolSafe v3.0 · Généré le ${today()}</div>
+  </div><script>setTimeout(()=>window.print(),600);<\/script></body></html>`);
+  w.document.close();
 };
 
 // ═══════════════════════════════════════════
