@@ -4968,8 +4968,8 @@ R.palmares = () => {
             <span style="font-size:${i<3?20:15}px;width:32px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div class="ww-item-content">
-              <div class="ww-item-title">${esc(s.name)}</div>
-              <div class="ww-item-sub">${t('Moy:','Avg:')} ${s.moyPct}% · ${condEmoji} · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
+              <div class="ww-item-title">${esc(s.name)}${s.moyPct<50&&s.gradeCount>0?' <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fee2e2;border-radius:4px;padding:1px 5px">⚠ ÉCHEC</span>':''}</div>
+              <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#059669':s.moyPct>=50?'#d97706':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-size:18px;font-weight:800;color:${s.total>=70?'#059669':s.total>=50?'#d97706':'#dc2626'}">${s.total}</div>
@@ -8708,18 +8708,43 @@ window.setCurrentTrimestre = (t) => {
 
 window.openPassageClasse = () => {
   const classOrder = DB.classes.map(c=>c.id);
-  const body = `
-<p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Sélectionnez la classe de destination pour chaque élève. Les élèves de la dernière classe sont marqués "Diplômé".</p>
-<div style="max-height:60vh;overflow-y:auto">
-${DB.classes.map(cl=>{
-  const studs=DB.students.filter(s=>s.cid===cl.id);
-  if(!studs.length) return '';
-  const nextIdx=classOrder.indexOf(cl.id)+1;
-  const nextCl=nextIdx<classOrder.length?DB.classes.find(c=>c.id===classOrder[nextIdx]):null;
-  return `<div style="margin-bottom:12px"><div style="font-weight:700;font-size:13px;padding:6px 0;color:var(--text-secondary);border-bottom:1px solid var(--border)">${esc(cl.name)} → ${nextCl?esc(nextCl.name):'🎓 Diplômé'}</div>
-  ${studs.map(s=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px"><input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" checked style="accent-color:#2563eb"> ${esc(s.name)}</label>`).join('')}</div>`;
-}).join('')}
-</div>`;
+  // Helper: overall weighted % for a student
+  const stuMoy = s => {
+    const mats=getClassMatieres(s.cid);
+    let tw=0,sw=0;
+    mats.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sw+=c;}});
+    return sw?Math.round(tw/sw):null;
+  };
+  let totalFail=0, totalPass=0;
+  const rows=DB.classes.map(cl=>{
+    const studs=DB.students.filter(s=>s.cid===cl.id);
+    if(!studs.length) return '';
+    const nextIdx=classOrder.indexOf(cl.id)+1;
+    const nextCl=nextIdx<classOrder.length?DB.classes.find(c=>c.id===classOrder[nextIdx]):null;
+    const studRows=studs.map(s=>{
+      const moy=stuMoy(s);
+      const pass=moy===null||moy>=50;
+      if(pass) totalPass++; else totalFail++;
+      const col=moy===null?'#64748b':moy>=70?'#059669':moy>=50?'#d97706':'#dc2626';
+      return `<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;cursor:pointer;font-size:13px;background:${!pass?'#fff5f5':'transparent'};border-radius:6px">
+        <input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" ${pass?'checked':''} style="accent-color:#2563eb;width:16px;height:16px">
+        <span style="flex:1">${esc(s.name)}</span>
+        ${moy!==null?`<span style="font-size:11px;font-weight:700;color:${col};background:${!pass?'#fee2e2':'#f1f5f9'};border-radius:5px;padding:1px 7px">${moy}%</span>`:'<span style="font-size:11px;color:#94a3b8">—</span>'}
+        ${!pass?'<span style="font-size:10px;color:#dc2626;font-weight:700">⚠ ÉCHEC</span>':''}
+      </label>`;
+    }).join('');
+    return `<div style="margin-bottom:14px">
+      <div style="font-weight:700;font-size:13px;padding:6px 8px;background:#f8fafc;border-radius:6px;margin-bottom:4px;border-left:3px solid #0f2557">${esc(cl.name)} → ${nextCl?esc(nextCl.name):'🎓 Diplômé'}</div>
+      ${studRows}
+    </div>`;
+  }).join('');
+  const body=`
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;padding:8px;background:#d1fae5;border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#065f46">${totalPass}</div><div style="font-size:11px;color:#065f46">Admis (≥50%)</div></div>
+      <div style="flex:1;padding:8px;background:#fee2e2;border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#dc2626">${totalFail}</div><div style="font-size:11px;color:#dc2626">Échec (&lt;50%)</div></div>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Les élèves en <span style="color:#dc2626;font-weight:700">rouge (ÉCHEC)</span> sont décochés par défaut. Cochez-les si la délibération décide de les promouvoir quand même.</p>
+    <div style="max-height:55vh;overflow-y:auto">${rows}</div>`;
   openM('🎓 Passage de classe', body,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="executePassage()">✅ Valider le passage</button>`);
 };
