@@ -556,7 +556,7 @@ window.DB = {
       access_parent:false },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -698,6 +698,7 @@ window.NAV = {
       {id:'messages',i:'✉️',l:'Messages'},
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'convocations',i:'📋',l:'Convocations'},
+      {id:'sanctions',i:'⚖️',l:'Sanctions disciplinaires'},
       {id:'absences',i:'📄',l:'Justifications'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
@@ -830,6 +831,7 @@ window.NAV = {
       {id:'messages',i:'✉️',l:'Messages'},
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'convocations',i:'📋',l:'Convocations'},
+      {id:'sanctions',i:'⚖️',l:'Sanctions disciplinaires'},
       {id:'absences',i:'📄',l:'Justifications'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
@@ -940,6 +942,7 @@ window.loadFromSupabase = async () => {
     if(safe(matieres).length) DB.matieres=safe(matieres);
     if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     if(safe(convocations).length) DB.convocations=fd(convocations);
+    if(safe(sanctions).length) DB.sanctions=fd(sanctions);
     if(safe(timetables).length) DB.timetables=safe(timetables);
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
@@ -1003,6 +1006,7 @@ window.forceSyncNow = async () => {
     {t:'teacher_notes', d:DB.teacher_notes||[]},
     {t:'audit_log', d:(DB.audit_log||[]).slice(0,200)},
     {t:'teacher_absences', d:DB.teacher_absences||[]},
+    {t:'sanctions', d:DB.sanctions||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -1060,6 +1064,7 @@ function _cryptSnap() {
     audit_log:DB.audit_log.slice(0,200),
     rattrapages:DB.rattrapages.slice(0,200),
     convocations:DB.convocations.slice(0,200),
+    sanctions:DB.sanctions.slice(0,200),
     timetables:DB.timetables||[],
     teacher_absences:DB.teacher_absences||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
@@ -1208,7 +1213,7 @@ window.PT = {
   accounts:'👥 Comptes Accès',
   mes_primes:'💰 Mes primes', mes_absences:'📅 Mes absences',
   profil_enseignant:'👤 Mon profil', profil_parent:'👤 Mon profil',
-  scan_history:'🚪 Entrées / Sorties', convocations:'📋 Convocations',
+  scan_history:'🚪 Entrées / Sorties', convocations:'📋 Convocations', sanctions:'⚖️ Sanctions disciplinaires',
   statistiques:'📈 Statistiques', audit_log:'🕐 Historique',
 };
 
@@ -9610,6 +9615,247 @@ window.saveSettingsToggle = (key, val) => {
   saveToCrypt();
   toast(`${val?'✅ Activé':'⛔ Désactivé'} : ${key}`,'success');
   render();
+};
+
+// ── SANCTIONS DISCIPLINAIRES ──
+R.sanctions = () => {
+  const role=S.user.role;
+  const isDir=role==='direction'||role==='direction2';
+  const filterType=window._sanctFilter||'all';
+  const all=(DB.sanctions||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const typeInfo={
+    avertissement_oral: {label:'Avertissement oral',icon:'⚠️',color:'#f59e0b',bg:'#fef3c7'},
+    avertissement_ecrit:{label:'Avertissement écrit',icon:'📝',color:'#f97316',bg:'#fff7ed'},
+    blame:              {label:'Blâme',icon:'🔵',color:'#2563eb',bg:'#dbeafe'},
+    renvoi:             {label:'Renvoi temporaire',icon:'🔴',color:'#dc2626',bg:'#fee2e2'},
+    exclusion:          {label:'Exclusion définitive',icon:'⛔',color:'#7f1d1d',bg:'#fee2e2'},
+  };
+  const shown=filterType==='all'?all:all.filter(s=>s.type===filterType);
+  const counts=Object.fromEntries(Object.keys(typeInfo).map(t=>[t,all.filter(s=>s.type===t).length]));
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">⚖️ Sanctions disciplinaires</span>
+    ${isDir?`<button class="btn btn-primary btn-sm" onclick="openSanctionM()">➕ Nouvelle sanction</button>`:''}
+  </div>
+
+  <div class="ww-stats">
+    <div class="ww-stat" style="border-left-color:#dc2626"><div class="ww-stat-icon">⚖️</div><div class="ww-stat-val">${all.length}</div><div class="ww-stat-label">Total</div></div>
+    <div class="ww-stat" style="border-left-color:#dc2626"><div class="ww-stat-icon">🔴</div><div class="ww-stat-val">${counts.renvoi||0}</div><div class="ww-stat-label">Renvois</div></div>
+    <div class="ww-stat" style="border-left-color:#7f1d1d"><div class="ww-stat-icon">⛔</div><div class="ww-stat-val">${counts.exclusion||0}</div><div class="ww-stat-label">Exclusions</div></div>
+    <div class="ww-stat" style="border-left-color:#f59e0b"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${(counts.avertissement_oral||0)+(counts.avertissement_ecrit||0)}</div><div class="ww-stat-label">Avertissements</div></div>
+  </div>
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${[['all','Toutes','#64748b'],...Object.entries(typeInfo).map(([k,v])=>[k,v.label,v.color])].map(([k,l,c])=>`
+    <button onclick="window._sanctFilter='${k}';render()" style="padding:5px 11px;border-radius:20px;border:2px solid ${filterType===k?c:'var(--border)'};background:${filterType===k?c+'22':'transparent'};color:${filterType===k?c:'var(--text-secondary)'};font-size:12px;font-weight:${filterType===k?'700':'500'};cursor:pointer">
+      ${k==='all'?'Toutes ('+all.length+')':typeInfo[k]?.icon+' '+l+' ('+counts[k]+')'}
+    </button>`).join('')}
+  </div>
+
+  ${shown.length?`
+  <div class="premium-section">
+    ${shown.map(sanc=>{
+      const s=DB.students.find(x=>x.id===sanc.sid);
+      const cl=s?gc(s.cid):null;
+      const parent=s?.pid?gu(s.pid):null;
+      const ti=typeInfo[sanc.type]||{label:sanc.type,icon:'📋',color:'#64748b',bg:'#f1f5f9'};
+      const byUser=gu(sanc.by);
+      return `<div class="premium-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start;border-left:3px solid ${ti.color};padding-left:12px;margin-bottom:4px">
+        <div style="width:40px;height:40px;border-radius:10px;background:${ti.bg};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${ti.icon}</div>
+        <div style="flex:1;min-width:160px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+            <span style="font-weight:700;font-size:14px">${s?esc(s.name):'Élève inconnu'}</span>
+            ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-size:11px;font-weight:700;color:${ti.color};background:${ti.bg};padding:2px 8px;border-radius:8px">${ti.icon} ${ti.label}</span>
+            ${sanc.duration_days?`<span style="font-size:11px;color:var(--text-muted)">${sanc.duration_days} jour(s)${sanc.return_date?' · Retour: '+sanc.return_date:''}</span>`:''}
+            ${sanc.lifted?`<span style="font-size:10px;font-weight:700;background:#d1fae5;color:#065f46;padding:1px 6px;border-radius:6px">✅ Levée</span>`:''}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">${esc(sanc.reason||'—')}</div>
+          <div style="font-size:11px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap">
+            <span>📅 ${sanc.date}</span>
+            ${byUser?`<span>👤 ${esc(byUser.name)}</span>`:''}
+            <span style="font-weight:700;color:${sanc.parent_notified?'#059669':'#dc2626'}">${sanc.parent_notified?'📬 Parent notifié':'⚠️ Parent non notifié'}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          ${isDir&&!sanc.parent_notified&&parent?.phone?`<button class="btn btn-outline btn-sm" onclick="notifySanctionParent('${sanc.id}')">📣 Notifier parent</button>`:''}
+          ${isDir&&!sanc.parent_notified?`<button class="btn btn-outline btn-sm" onclick="markSanctionParentNotified('${sanc.id}')">✅ Marquer notifié</button>`:''}
+          ${isDir?`<button class="btn btn-outline btn-sm" onclick="printSanctionLetter('${sanc.id}')">🖨️ Lettre</button>`:''}
+          ${isDir&&!sanc.lifted?`<button class="btn btn-outline btn-sm" onclick="liftSanction('${sanc.id}')">🔓 Lever</button>`:''}
+          ${isDir?`<button class="btn btn-danger btn-sm" onclick="deleteSanction('${sanc.id}')">🗑️</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:`
+  <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+    <div style="font-size:60px;margin-bottom:16px">⚖️</div>
+    <div>Aucune sanction enregistrée</div>
+    ${isDir?`<button class="btn btn-primary" style="margin-top:16px" onclick="openSanctionM()">➕ Enregistrer une sanction</button>`:''}
+  </div>`}`;
+};
+
+window.openSanctionM = (sid) => {
+  const isDir=S.user.role==='direction'||S.user.role==='direction2';
+  if(!isDir){toast('Accès non autorisé','error');return;}
+  const studs=(DB.students||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  openM('⚖️ Nouvelle sanction disciplinaire',`
+  <div class="form-group"><label class="form-label">Élève *</label>
+    <select class="form-input" id="sanc_sid" onchange="(function(){const s=DB.students.find(x=>x.id===this.value);const cl=s?gc(s.cid):null;document.getElementById('sanc_cls').textContent=cl?cl.name:'';}).call(this)">
+      <option value="">— Choisir un élève —</option>
+      ${studs.map(s=>{const cl=gc(s.cid);return`<option value="${s.id}" ${s.id===sid?'selected':''}>${esc(s.name)}${cl?' ('+esc(cl.name)+')':''}</option>`;}).join('')}
+    </select>
+    <div id="sanc_cls" style="font-size:11px;color:var(--text-muted);margin-top:2px"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Type de sanction *</label>
+    <select class="form-input" id="sanc_type" onchange="(function(){document.getElementById('sanc_dur_row').style.display=this.value==='renvoi'?'':'none';}).call(this)">
+      <option value="">— Choisir —</option>
+      <option value="avertissement_oral">⚠️ Avertissement oral</option>
+      <option value="avertissement_ecrit">📝 Avertissement écrit</option>
+      <option value="blame">🔵 Blâme</option>
+      <option value="renvoi">🔴 Renvoi temporaire</option>
+      <option value="exclusion">⛔ Exclusion définitive</option>
+    </select>
+  </div>
+  <div class="form-row" id="sanc_dur_row" style="display:none">
+    <div class="form-group"><label class="form-label">Durée (jours)</label>
+      <input class="form-input" id="sanc_dur" type="number" min="1" max="30" value="3" placeholder="3">
+    </div>
+    <div class="form-group"><label class="form-label">Date de retour</label>
+      <input class="form-input" id="sanc_ret" type="date">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Motif / Description *</label>
+    <textarea class="form-input" id="sanc_reason" rows="3" placeholder="Décrivez les faits reprochés..."></textarea>
+  </div>
+  <div class="form-group"><label class="form-label">Date de la sanction</label>
+    <input class="form-input" id="sanc_date" type="date" value="${today()}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" style="background:#dc2626" onclick="saveSanction()">⚖️ Enregistrer</button>`);
+  if(sid){const s=DB.students.find(x=>x.id===sid);if(s){const cl=gc(s.cid);const el=document.getElementById('sanc_cls');if(el&&cl)el.textContent=cl.name;}}
+};
+
+window.saveSanction = () => {
+  const sid=(document.getElementById('sanc_sid')?.value||'').trim();
+  const type=(document.getElementById('sanc_type')?.value||'').trim();
+  const reason=(document.getElementById('sanc_reason')?.value||'').trim();
+  const date=(document.getElementById('sanc_date')?.value||today());
+  const dur=parseInt(document.getElementById('sanc_dur')?.value)||0;
+  const ret=(document.getElementById('sanc_ret')?.value||'').trim()||null;
+  if(!sid){toast('Choisissez un élève','error');return;}
+  if(!type){toast('Choisissez le type de sanction','error');return;}
+  if(!reason){toast('Décrivez le motif','error');return;}
+  const id='sanc-'+Date.now();
+  const obj={id,sid,type,reason,date,by:S.user.id,parent_notified:false,lifted:false,
+    duration_days:type==='renvoi'?dur:null, return_date:type==='renvoi'?ret:null};
+  (DB.sanctions=DB.sanctions||[]).push(obj);
+  pushSync('sanctions','post',obj);
+  // Notification au parent
+  const s=DB.students.find(x=>x.id===sid);
+  if(s?.pid) pushNotif(s.pid,`⚖️ Sanction disciplinaire pour ${s.name} : ${type.replace('_',' ')} — ${reason.slice(0,60)}`);
+  saveToCrypt();closeModal();render();
+  toast('✅ Sanction enregistrée','success');
+};
+
+window.markSanctionParentNotified = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  sanc.parent_notified=true;
+  pushSync('sanctions','patch',{parent_notified:true},'id=eq.'+id);
+  saveToCrypt();render();toast('✅ Parent marqué comme notifié','success');
+};
+
+window.notifySanctionParent = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  const s=DB.students.find(x=>x.id===sanc.sid);if(!s)return;
+  const typeLabels={avertissement_oral:'Avertissement oral',avertissement_ecrit:'Avertissement écrit',blame:'Blâme',renvoi:'Renvoi temporaire',exclusion:'Exclusion définitive'};
+  if(s.pid) pushNotif(s.pid,`⚖️ Sanction pour ${s.name} : ${typeLabels[sanc.type]||sanc.type} — ${(sanc.reason||'').slice(0,80)}`);
+  sanc.parent_notified=true;
+  pushSync('sanctions','patch',{parent_notified:true},'id=eq.'+id);
+  saveToCrypt();render();toast('✅ Notification envoyée au parent','success');
+};
+
+window.liftSanction = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  showC('Lever la sanction','Confirmer la levée de cette sanction ?',()=>{
+    sanc.lifted=true;
+    pushSync('sanctions','patch',{lifted:true},'id=eq.'+id);
+    saveToCrypt();render();toast('✅ Sanction levée','success');
+  });
+};
+
+window.deleteSanction = (id) => {
+  showC('Supprimer','Supprimer définitivement cette sanction ?',()=>{
+    DB.sanctions=(DB.sanctions||[]).filter(x=>x.id!==id);
+    pushSync('sanctions','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('🗑️ Sanction supprimée','info');
+  });
+};
+
+window.printSanctionLetter = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  const s=DB.students.find(x=>x.id===sanc.sid);if(!s)return;
+  const cl=gc(s.cid);
+  const par=s.pid?gu(s.pid):null;
+  const byU=gu(sanc.by);
+  const sc=DB.settings.school||{};
+  const school=sc.name||'The Wise School International';
+  const yr=DB.settings.year||'2025-2026';
+  const typeLabels={avertissement_oral:'AVERTISSEMENT ORAL',avertissement_ecrit:'AVERTISSEMENT ÉCRIT',blame:'BLÂME',renvoi:'RENVOI TEMPORAIRE',exclusion:'EXCLUSION DÉFINITIVE'};
+  const typeLabel=typeLabels[sanc.type]||sanc.type.toUpperCase();
+  const d=new Date(sanc.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const w=window.open('','_blank','width=850,height=1100');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sanction — ${s.name}</title>
+  <style>
+    body{font-family:'Times New Roman',serif;margin:0;padding:40px;color:#111;max-width:700px;margin:0 auto}
+    .header{text-align:center;border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}
+    .school-name{font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+    .doc-title{font-size:22px;font-weight:700;text-transform:uppercase;margin:16px 0;color:#991b1b;border:2px solid #991b1b;display:inline-block;padding:6px 24px}
+    .ref{font-size:13px;color:#666;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin:16px 0}
+    td{padding:6px 10px;font-size:14px;border:1px solid #ddd}
+    td:first-child{font-weight:700;background:#f9fafb;width:35%}
+    .motif-box{border:1px solid #111;padding:16px;margin:16px 0;min-height:80px;font-size:14px;line-height:1.6}
+    .article{font-size:13px;font-style:italic;color:#555;margin:12px 0}
+    .sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:48px;text-align:center;font-size:13px}
+    .sig-box{border-top:1px solid #111;padding-top:8px}
+    @media print{body{padding:20px}}
+  </style></head><body>
+  <div class="header">
+    ${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="height:60px;margin-bottom:8px"><br>`:''}
+    <div class="school-name">${esc(school)}</div>
+    <div style="font-size:13px">Année scolaire ${yr}</div>
+    ${sc.address?`<div style="font-size:12px;color:#555">${esc(sc.address)}</div>`:''}
+  </div>
+  <div style="text-align:center;margin-bottom:20px">
+    <div class="doc-title">LETTRE DE ${typeLabel}</div>
+    <div class="ref">Réf. : SANC/${s.mat||s.id}/${sanc.date}</div>
+  </div>
+  <p style="margin-bottom:16px">À l'attention de : <strong>${par?esc(par.name):'Monsieur/Madame le Parent ou Tuteur légal'}</strong></p>
+  <p>Nous vous informons qu'une sanction disciplinaire de type <strong>${typeLabel}</strong> a été prononcée à l'encontre de votre enfant :</p>
+  <table>
+    <tr><td>Nom & Prénom</td><td><strong>${esc(s.name)}</strong></td></tr>
+    <tr><td>Matricule</td><td>${esc(s.mat||'—')}</td></tr>
+    <tr><td>Classe</td><td>${cl?esc(cl.name):'—'}</td></tr>
+    <tr><td>Type de sanction</td><td style="color:#991b1b;font-weight:700">${typeLabel}</td></tr>
+    <tr><td>Date</td><td>${d}</td></tr>
+    ${sanc.duration_days?`<tr><td>Durée</td><td><strong>${sanc.duration_days} jour(s)</strong>${sanc.return_date?' — Retour prévu le '+sanc.return_date:''}</td></tr>`:''}
+    <tr><td>Prononcée par</td><td>${byU?esc(byU.name):'La Direction'}</td></tr>
+  </table>
+  <p style="font-weight:700;margin-top:16px">Motif :</p>
+  <div class="motif-box">${esc(sanc.reason||'—')}</div>
+  <p style="margin-top:16px">Nous vous demandons de prendre acte de cette décision. ${sanc.type==='renvoi'?`Votre enfant est suspendu pour une durée de <strong>${sanc.duration_days} jour(s)</strong> et devra se présenter accompagné d'un parent à la Direction avant la reprise.`:sanc.type==='exclusion'?`Cette exclusion est définitive. Nous vous invitons à vous présenter à la Direction dans les plus brefs délais.`:`Nous espérons que cette mesure sera comprise et que le comportement attendu sera adopté à l'avenir.`}</p>
+  <p class="article">Article 34 du règlement intérieur — Tout acte sanctionné doit être signifié aux parents par écrit.</p>
+  <div class="sigs">
+    <div class="sig-box"><div style="margin-bottom:40px"></div>Direction<br><small>(cachet et signature)</small></div>
+    <div class="sig-box"><div style="margin-bottom:40px"></div>${byU?esc(byU.name):'Titulaire'}<br><small>(signature)</small></div>
+    <div class="sig-box"><div style="margin-bottom:40px"></div>Parent/Tuteur<br><small>(signature + date)</small></div>
+  </div>
+  <div style="margin-top:40px;font-size:11px;color:#999;text-align:center">Document généré par SchoolSafe v3 · ${today()}</div>
+  <br><button onclick="window.print()" style="margin:16px auto;display:block;padding:10px 24px;background:#991b1b;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨️ Imprimer / PDF</button>
+  </body></html>`);
+  w.document.close();
 };
 
 // ── CALENDAR ──
