@@ -348,13 +348,25 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
     <div class="login-rainbow-bar"></div>
     <p class="login-subtitle">Sécurité Scolaire</p>
     <div style="margin-bottom:16px">
-      <input class="login-input" id="LN" type="text" placeholder="Votre nom" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input class="login-input" id="LN" type="text" placeholder="Votre nom" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="_updateLoginPinHint()">
     </div>
-    <div style="margin-bottom:16px">
-      <input class="login-input pin" id="LP" placeholder="Code PIN" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off">
+    <div style="margin-bottom:4px">
+      <input class="login-input pin" id="LP" placeholder="Code PIN (6 chiffres)" type="password" maxlength="32" autocomplete="off">
     </div>
+    <div id="LP_HINT" style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:12px;min-height:16px"></div>
     <div class="pin-message" id="PM"></div>
     <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:8px" onclick="tryLogin()">🔓 Connexion</button>
+  </div>
+</div>
+
+<!-- ── IDLE WARNING OVERLAY ── -->
+<div id="IDLE_WARN" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:20px;padding:32px 28px;max-width:340px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="font-size:52px;margin-bottom:12px">⏰</div>
+    <div style="font-size:20px;font-weight:700;color:#1e293b;margin-bottom:8px">Session inactive</div>
+    <div style="font-size:14px;color:#64748b;margin-bottom:8px">Déconnexion automatique dans</div>
+    <div style="font-size:40px;font-weight:800;color:#ef4444;margin-bottom:20px" id="IDLE_WARN_COUNT">60</div>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px" onclick="window._dismissIdleWarning()">Je suis là ✋</button>
   </div>
 </div>
 
@@ -1298,18 +1310,38 @@ async function _hashPin(pin) {
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
+const _isDirRole = r => r==='direction'||r==='direction2'||r==='direction3';
+window._updateLoginPinHint = () => {
+  const normName = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const name = normName($('LN')?.value||'');
+  const hint = $('LP_HINT'); const lp = $('LP'); if(!hint||!lp) return;
+  if(!name){hint.textContent=''; lp.placeholder='Code PIN (6 chiffres)'; lp.inputMode='numeric'; return;}
+  const u = (DB.users||[]).find(u=>normName(u.name)===name||(u.initials&&normName(u.initials)===name)||normName(ini(u.name))===name);
+  if(u && _isDirRole(u.role)){
+    lp.placeholder='Mot de passe (lettres + chiffres)'; lp.inputMode='text';
+    hint.textContent='Direction : mot de passe alphanumérique (min. 6 caractères)';
+  } else {
+    lp.placeholder='Code PIN (6 chiffres)'; lp.inputMode='numeric';
+    hint.textContent=u?'Code PIN à 6 chiffres':'';
+  }
+};
 window.tryLogin = async () => {
   const normName = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
   const name = normName($('LN')?.value||'');
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
-  if (!pin||pin.length!==6) { $('PM').textContent='Entrez un code de 6 chiffres'; return; }
+  if (!pin) { $('PM').textContent='Entrez votre code'; return; }
   const u = DB.users.find(u =>
     normName(u.name)===name ||
     (u.initials && normName(u.initials)===name) ||
     normName(ini(u.name))===name
   );
   if (!u) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
+  if (_isDirRole(u.role)) {
+    if (pin.length < 6) { $('PM').textContent='Mot de passe : minimum 6 caractères'; return; }
+  } else {
+    if (pin.length!==6||!/^\d{6}$/.test(pin)) { $('PM').textContent='Code PIN : 6 chiffres requis'; return; }
+  }
   const hash = await _hashPin(pin);
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
   if (!match) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
@@ -1319,10 +1351,11 @@ window.tryLogin = async () => {
 window.loginAs = user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
-  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); },450);
+  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
 };
 window.logout = () => {
   try { stopScan(); } catch(e) {}
+  if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   S.user=null; S.page='dashboard'; S._history=[];
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
   $('APP').classList.remove('active');
@@ -1336,6 +1369,64 @@ window.goToMyProfile = () => {
   const page=r==='direction3'?'profil_caisse':'profil_'+r;
   go(page);
 };
+
+// ── SESSION TIMEOUT ──
+(function(){
+  let _idleTimer=null, _warnTimer=null, _warnIv=null;
+  const IDLE_MS=()=>((DB.settings?.session_timeout_min||15)*60*1000);
+  const WARN_SECS=60;
+
+  const _clearAll=()=>{
+    clearTimeout(_idleTimer); clearTimeout(_warnTimer); clearInterval(_warnIv);
+    _idleTimer=null; _warnTimer=null; _warnIv=null;
+    const w=$('IDLE_WARN'); if(w) w.style.display='none';
+  };
+
+  window._resetIdleTimer=()=>{
+    if(!S.user) return;
+    _clearAll();
+    const ms=IDLE_MS();
+    if(ms>WARN_SECS*1000) _warnTimer=setTimeout(_showWarn, ms-WARN_SECS*1000);
+    _idleTimer=setTimeout(_doLockout, ms);
+  };
+
+  window._startIdleTimer=()=>{
+    ['click','touchstart','keydown','mousemove','scroll'].forEach(ev=>
+      document.addEventListener(ev,window._resetIdleTimer,{passive:true}));
+    window._resetIdleTimer();
+  };
+
+  window._stopIdleTimer=()=>{
+    _clearAll();
+    ['click','touchstart','keydown','mousemove','scroll'].forEach(ev=>
+      document.removeEventListener(ev,window._resetIdleTimer));
+  };
+
+  function _showWarn(){
+    const w=$('IDLE_WARN'); if(!w||!S.user) return;
+    w.style.display='flex';
+    let secs=WARN_SECS;
+    const ct=$('IDLE_WARN_COUNT'); if(ct) ct.textContent=secs;
+    _warnIv=setInterval(()=>{
+      secs--; if(ct) ct.textContent=Math.max(0,secs);
+      if(secs<=0||!S.user) clearInterval(_warnIv);
+    },1000);
+  }
+
+  function _doLockout(){
+    if(!S.user) return;
+    window._stopIdleTimer();
+    logout();
+    showLogin();
+    setTimeout(()=>{ const pm=$('PM'); if(pm) pm.textContent='Session expirée — veuillez vous reconnecter'; },400);
+    toast('Session expirée pour inactivité','warning');
+  }
+
+  window._dismissIdleWarning=()=>{
+    _clearAll();
+    window._resetIdleTimer();
+  };
+})();
 window.buildUI = () => {
   const r = S.user.role, c = NAV[r];
   const _lang = getLang();
@@ -1384,10 +1475,12 @@ window.openProfile = () => {
     <div class="pill pill-blue" style="margin-top:6px">${u.role}</div>
   </div>
   <div style="background:var(--bg);border-radius:14px;padding:16px">
-    <div style="font-weight:700;margin-bottom:12px">🔒 ${t('Changer le code PIN','Change PIN code')}</div>
-    <div class="form-group"><label class="form-label">${t('Code actuel','Current code')}</label><input class="form-input" id="oldPin" type="password" maxlength="6" inputmode="numeric"></div>
-    <div class="form-group"><label class="form-label">${t('Nouveau code','New code')}</label><input class="form-input" id="newPin" type="password" maxlength="6" inputmode="numeric"></div>
-    <div class="form-group"><label class="form-label">${t('Confirmer','Confirm')}</label><input class="form-input" id="confirmPin" type="password" maxlength="6" inputmode="numeric"></div>
+    ${(()=>{const isDir=_isDirRole(u.role);const lbl=isDir?'Mot de passe':'Code PIN';const hint=isDir?'min. 6 caractères (lettres et chiffres)':'exactement 6 chiffres';const ml=isDir?'64':'6';const im=isDir?'text':'numeric';return`
+    <div style="font-weight:700;margin-bottom:4px">🔒 ${t('Changer le '+lbl,'Change '+lbl)}</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:12px">${hint}</div>
+    <div class="form-group"><label class="form-label">${t(lbl+' actuel','Current '+lbl)}</label><input class="form-input" id="oldPin" type="password" maxlength="${ml}" inputmode="${im}"></div>
+    <div class="form-group"><label class="form-label">${t('Nouveau '+lbl,'New '+lbl)}</label><input class="form-input" id="newPin" type="password" maxlength="${ml}" inputmode="${im}"></div>
+    <div class="form-group"><label class="form-label">${t('Confirmer','Confirm')}</label><input class="form-input" id="confirmPin" type="password" maxlength="${ml}" inputmode="${im}"></div>`;})()}
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">${t('Fermer','Close')}</button>
   <button class="btn btn-primary" onclick="saveProfile()">💾 ${t('Enregistrer','Save')}</button>`);
@@ -1399,7 +1492,11 @@ window.saveProfile = async () => {
   const opHash = await _hashPin(op);
   const currentMatch = u.pin_hashed ? u.pin===opHash : u.pin===op;
   if (!currentMatch) { toast('Code actuel incorrect','error'); return; }
-  if (!np||np.length!==6||!/^\d{6}$/.test(np)) { toast('6 chiffres requis','error'); return; }
+  if (_isDirRole(u.role)) {
+    if (!np||np.length<6) { toast('Mot de passe : minimum 6 caractères','error'); return; }
+  } else {
+    if (!np||np.length!==6||!/^\d{6}$/.test(np)) { toast('Code PIN : exactement 6 chiffres','error'); return; }
+  }
   if (np!==cp) { toast('Les codes ne correspondent pas','error'); return; }
   const npHash = await _hashPin(np);
   if (DB.users.some(x=>x.id!==u.id&&x.pin===npHash)) { toast('Code déjà utilisé','error'); return; }
@@ -8035,6 +8132,11 @@ window.sendMsg = (mode) => {
     if(!toVal){toast('Sélectionnez un destinataire','error');return;}
     if(toVal.startsWith('role:')){toRole=toVal.replace('role:','');targets=DB.users.filter(u=>u.role===toRole);}
     else {toId=toVal.replace('uid:','');targets=[DB.users.find(u=>u.id===toId)].filter(Boolean);}
+    // Enseignant ne peut pas contacter un parent directement sans validation Direction
+    if(S.user.role==='enseignant'){
+      const hasParent=targets.some(u=>u&&u.role==='parent');
+      if(hasParent){needsApproval=true;toId=null;toRole=null;toClassCid=null;}
+    }
   }
 
   const msg={id:'msg'+Date.now(),from:S.user.id,from_role:S.user.role,to:toId,to_role:toRole,
@@ -9551,6 +9653,19 @@ R.settings = () => {
     </div>
   </div>
 
+  <!-- ══ SÉCURITÉ SESSION ══ -->
+  <div class="premium-section" style="border-left:4px solid #dc2626">
+    <div class="premium-section-title">🔐 Sécurité — Session</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Déconnexion automatique après une période d'inactivité. Un avertissement apparaît 60 secondes avant.</div>
+    <div class="form-group">
+      <label class="form-label">Délai d'inactivité avant verrouillage</label>
+      <select class="form-select" id="cfg_session_timeout" onchange="saveSessionTimeout(this.value)">
+        ${[5,10,15,20,30,60].map(m=>`<option value="${m}" ${(DB.settings.session_timeout_min||15)===m?'selected':''}>${m} minutes</option>`).join('')}
+      </select>
+    </div>
+    <div style="font-size:12px;color:#64748b">⚠️ Un avertissement s'affiche 60s avant la déconnexion automatique.</div>
+  </div>
+
   <!-- ══ DONNÉES & SYNC ══ -->
   <div class="premium-section" style="border-left:4px solid #0891b2">
     <div class="premium-section-title">💾 Données & Synchronisation</div>
@@ -9636,6 +9751,13 @@ window.saveSettingsToggle = (key, val) => {
   saveToCrypt();
   toast(`${val?'✅ Activé':'⛔ Désactivé'} : ${key}`,'success');
   render();
+};
+window.saveSessionTimeout = (val) => {
+  DB.settings.session_timeout_min=parseInt(val)||15;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  if(typeof window._resetIdleTimer==='function') window._resetIdleTimer();
+  toast('⏱️ Délai de session mis à jour : '+val+' min','success');
 };
 
 // ── SANCTIONS DISCIPLINAIRES ──
