@@ -568,7 +568,7 @@ window.DB = {
       access_parent:false },
   ],
   aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[],
+  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -910,7 +910,8 @@ window.loadFromSupabase = async () => {
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
-           approbations,teacher_notes,audit_log,teacher_absences] = await Promise.all([
+           approbations,teacher_notes,audit_log,teacher_absences,
+           medical,tenafep,evaluations,salaries] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -938,6 +939,10 @@ window.loadFromSupabase = async () => {
       _get('teacher_notes','select=*&order=date.desc&limit=200'),
       _get('audit_log','select=*&order=date.desc&limit=200'),
       _get('teacher_absences','select=*&order=date.desc&limit=200'),
+      _get('medical','select=*'),
+      _get('tenafep','select=*'),
+      _get('evaluations','select=*&order=date.desc&limit=500'),
+      _get('salaries','select=*&order=month.desc&limit=500'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -962,6 +967,10 @@ window.loadFromSupabase = async () => {
     if(safe(teacher_notes).length) DB.teacher_notes=fd(teacher_notes);
     if(safe(audit_log).length) DB.audit_log=fd(audit_log);
     if(safe(teacher_absences).length) DB.teacher_absences=fd(teacher_absences);
+    if(safe(medical).length) DB.medical=safe(medical);
+    if(safe(tenafep).length) DB.tenafep=safe(tenafep);
+    if(safe(evaluations).length) DB.evaluations=safe(evaluations);
+    if(safe(salaries).length) DB.salaries=safe(salaries);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -1019,6 +1028,10 @@ window.forceSyncNow = async () => {
     {t:'audit_log', d:(DB.audit_log||[]).slice(0,200)},
     {t:'teacher_absences', d:DB.teacher_absences||[]},
     {t:'sanctions', d:DB.sanctions||[]},
+    {t:'medical', d:DB.medical||[]},
+    {t:'tenafep', d:DB.tenafep||[]},
+    {t:'evaluations', d:DB.evaluations||[]},
+    {t:'salaries', d:DB.salaries||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -1079,6 +1092,10 @@ function _cryptSnap() {
     sanctions:DB.sanctions.slice(0,200),
     timetables:DB.timetables||[],
     teacher_absences:DB.teacher_absences||[],
+    medical:DB.medical||[],
+    tenafep:DB.tenafep||[],
+    evaluations:DB.evaluations||[],
+    salaries:DB.salaries||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -3265,7 +3282,7 @@ window.saveStudent = () => {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
     const ns={id:'s'+Date.now(),...data};
     DB.students.push(ns);
-    const newPays=['T1','T2','T3'].map(t=>({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
+    const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
@@ -4068,12 +4085,12 @@ setInterval(() => {
 
 // ── PAYMENTS (Direction) ──
 // ── Fees config helper ──
-window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0};
+window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0,inscription:0};
 window.getStudentBalance = (sid) => {
   const fees=getFees();
-  const pays=DB.payments.filter(p=>p.sid===sid);
+  const pays=(DB.payments||[]).filter(p=>p.sid===sid);
   const paid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-  const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0)+(fees.inscription||0);
   return {paid,total,debt:total-paid};
 };
 
@@ -4093,7 +4110,7 @@ R.payments = () => {
           <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
           ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'✅ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">sur $${total}</div></div>`:''}
         </div>
-        ${pays.map(p=>`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d1fae5':'#fee2e2'}">${p.paid?'✅':'❌'}</div><div class="ww-item-content"><div class="ww-item-title">Trimestre ${p.t}</div><div class="ww-item-sub">${p.paid?'Réglé — $'+(fees[p.t]||'?'):'À payer — $'+(fees[p.t]||'?')}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`).join('')}
+        ${pays.map(p=>{const pLabel=p.t==='inscription'?'Frais d\'inscription':'Trimestre '+p.t;return`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d1fae5':'#fee2e2'}">${p.paid?'✅':'❌'}</div><div class="ww-item-content"><div class="ww-item-title">${pLabel}</div><div class="ww-item-sub">${p.paid?'Réglé — $'+(fees[p.t]||'?'):'À payer — $'+(fees[p.t]||'?')}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`;}).join('')}
       </div>`;
     }).join('');
   }
@@ -4233,6 +4250,7 @@ window.openFeesConfig = () => {
   <div class="form-group"><label class="form-label">Trimestre 1 ($)</label><input class="form-input" id="fee_t1" type="number" min="0" value="${f.T1||0}"></div>
   <div class="form-group"><label class="form-label">Trimestre 2 ($)</label><input class="form-input" id="fee_t2" type="number" min="0" value="${f.T2||0}"></div>
   <div class="form-group"><label class="form-label">Trimestre 3 ($)</label><input class="form-input" id="fee_t3" type="number" min="0" value="${f.T3||0}"></div>
+  <div class="form-group"><label class="form-label">Frais d'inscription ($)</label><input class="form-input" id="fee_ins" type="number" min="0" value="${f.inscription||0}"></div>
 </div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveFeesConfig()">💾 Sauvegarder</button>`);
 };
@@ -4242,7 +4260,8 @@ window.saveFeesConfig = () => {
   DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
   DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
   DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
-  logAudit('fees_control', `T1:$${DB.settings.fees.T1} · T2:$${DB.settings.fees.T2} · T3:$${DB.settings.fees.T3}`);
+  DB.settings.fees.inscription=parseFloat($('fee_ins')?.value)||0;
+  logAudit('fees_control', `T1:$${DB.settings.fees.T1} · T2:$${DB.settings.fees.T2} · T3:$${DB.settings.fees.T3} · Inscription:$${DB.settings.fees.inscription}`);
   toast('✅ Frais scolaires mis à jour','success');
   closeModal(); saveToCrypt(); render();
 };
@@ -9602,8 +9621,11 @@ R.settings = () => {
       <div class="form-group"><label class="form-label">T3 ($)</label>
         <input class="form-input" id="cfg_fee_t3" type="number" min="0" step="1" value="${fees.T3||0}">
       </div>
+      <div class="form-group"><label class="form-label">Frais d'inscription ($)</label>
+        <input class="form-input" id="cfg_fee_ins" type="number" min="0" step="1" value="${fees.inscription||0}">
+      </div>
     </div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Total annuel : <strong>$${(fees.T1||0)+(fees.T2||0)+(fees.T3||0)}</strong></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Total annuel : <strong>$${(fees.T1||0)+(fees.T2||0)+(fees.T3||0)+(fees.inscription||0)}</strong></div>
     <button class="btn btn-primary" style="width:100%" onclick="saveSettingsFees()">💾 Enregistrer les frais</button>
   </div>
 
@@ -9725,6 +9747,7 @@ window.saveSettingsFees = () => {
   DB.settings.fees.T1=parseFloat($('cfg_fee_t1')?.value)||0;
   DB.settings.fees.T2=parseFloat($('cfg_fee_t2')?.value)||0;
   DB.settings.fees.T3=parseFloat($('cfg_fee_t3')?.value)||0;
+  DB.settings.fees.inscription=parseFloat($('cfg_fee_ins')?.value)||0;
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('✅ Frais scolaires enregistrés','success'); render();
 };
