@@ -2021,7 +2021,10 @@ function dashboardParent() {
       <div style="flex:1">
         <div style="font-size:17px;font-weight:800">${esc(k.name)}</div>
         <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${esc(k.status)}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${gc(k.cid)?esc(gc(k.cid).name):''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">
+          <span style="font-size:12px;color:var(--text-muted)">${gc(k.cid)?esc(gc(k.cid).name):''}</span>
+          ${(()=>{const r=getRankInClass(k.id);return r?`<span style="font-size:11px;font-weight:700;background:${r.pos<=3?'#fef3c7':'#f1f5f9'};color:${r.pos<=3?'#92400e':'#475569'};border-radius:6px;padding:1px 7px">${r.pos<=3?['🥇','🥈','🥉'][r.pos-1]:r.pos+'e'} / ${r.outOf}</span>`:''})()}
+        </div>
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
           <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px" onclick="go('devoirs_parent')">📚 Devoirs</button>
           ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('devoirs_parent')">📊 Corrections</button>`:''}
@@ -5004,11 +5007,11 @@ R.palmares_parent = () => {
     const matieres=getClassMatieres(cl.id);
     const [cc,cbg]=clsColor(cl.name);
 
-    // Compute all rankings
+    // Compute all rankings with coefficients
     const ranked=students.map(s=>{
-      let totalPct=0,countPct=0;
-      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){totalPct+=a;countPct++;}});
-      const moyPct=countPct?Math.round(totalPct/countPct):0;
+      let totalPct=0,sumCoeff=0;
+      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}});
+      const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
@@ -5027,9 +5030,9 @@ R.palmares_parent = () => {
 
     const renderGradeSection = (sectionMatieres, sectionLabel, flag, profName, bgColor) => {
       if(!sectionMatieres.length) return '';
-      let total=0, count=0;
-      sectionMatieres.forEach(m=>{ const a=matAvgPct(k.id,m.name); if(a!==null){total+=a;count++;} });
-      const moy=count?Math.round(total/count):null;
+      let total=0, sumC=0;
+      sectionMatieres.forEach(m=>{ const a=matAvgPct(k.id,m.name); if(a!==null){const c=m.coeff||1;total+=a*c;sumC+=c;} });
+      const moy=sumC?Math.round(total/sumC):null;
       const barColor2=moy===null?'#e2e8f0':moy>=70?'#10b981':moy>=50?'#f59e0b':'#ef4444';
       return `
       <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:${bgColor}">
@@ -5080,7 +5083,7 @@ R.palmares_parent = () => {
           const barColor=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
           return `<div style="margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
+              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
               <span style="font-weight:700;color:${barColor==='#e2e8f0'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
@@ -5156,6 +5159,27 @@ window.studentAvgPct = (sid, matieres, trimester) => {
     if(a !== null){ const c = m.coeff||1; totalW += a*c; sumCoeff += c; }
   });
   return sumCoeff ? Math.round(totalW / sumCoeff) : 0;
+};
+
+// Rank of a student within their class (1 = best). Returns {pos, total} or null
+window.getRankInClass = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return null;
+  const cl=gc(s.cid); if(!cl) return null;
+  const students=DB.students.filter(x=>x.cid===cl.id);
+  const matieres=getClassMatieres(cl.id);
+  const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+  const score=x=>{
+    let tw=0,sc=0;
+    matieres.forEach(m=>{const a=matAvgPct(x.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sc+=c;}});
+    const moy=sc?Math.round(tw/sc):0;
+    const cond=DB.conduct.filter(c=>c.sid===x.id);
+    const cAvg=cond.length?cond.reduce((a,c)=>a+(condMap[c.score]||0),0)/cond.length:0;
+    return Math.round(moy*0.85+Math.round(cAvg*25)*0.15);
+  };
+  const ranked=students.map(x=>({id:x.id,total:score(x)})).sort((a,b)=>b.total-a.total);
+  const pos=ranked.findIndex(x=>x.id===sid)+1;
+  const me=ranked.find(x=>x.id===sid);
+  return {pos, total:me?me.total:0, outOf:students.length};
 };
 
 // School-wide top 10 for current trimester — used on parent profile
@@ -9065,12 +9089,12 @@ window.downloadBulletin = (sid) => {
   const profEN=isBilingual?gu(cl.teacher_id_en):null;
   const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
   const ranked=students.map(s=>{
-    let tot=0,cnt=0;
-    matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){tot+=a;cnt++;}});
+    let tw=0,sc=0;
+    matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sc+=c;}});
     const conduct=DB.conduct.filter(c=>c.sid===s.id);
     const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
     const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
-    return{id:s.id,moy:cnt?Math.round(tot/cnt):0,cond:Math.round(cAvg*25)};
+    return{id:s.id,moy:sc?Math.round(tw/sc):0,cond:Math.round(cAvg*25)};
   }).sort((a,b)=>(b.moy*0.85+b.cond*0.15)-(a.moy*0.85+a.cond*0.15));
   const pos=ranked.findIndex(r=>r.id===k.id)+1;
   const me=ranked.find(r=>r.id===k.id);
