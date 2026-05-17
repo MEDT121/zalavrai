@@ -9079,7 +9079,9 @@ window.downloadBulletin = (sid) => {
   const school=sc.name||'The Wise School International';
   const schoolSub=sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC';
   const phone=sc.phone||'+243 978 444 167';
+  const dgep=sc.dgep||'';
   const yr=DB.settings.year||'2025-2026';
+  const trim=DB.settings.currentTrimestre||'T3';
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const logoSrc=window.SCHOOL_LOGO||'';
   const cl=gc(k.cid);
@@ -9087,57 +9089,112 @@ window.downloadBulletin = (sid) => {
   const isBilingual=cl&&cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
   const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
   const profEN=isBilingual?gu(cl.teacher_id_en):null;
+  const titulaire=cl?(gu(cl.titulaire_id)||profFR):null;
   const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+  // Rank with coefficients
   const ranked=students.map(s=>{
-    let tw=0,sc=0;
-    matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sc+=c;}});
-    const conduct=DB.conduct.filter(c=>c.sid===s.id);
+    let tw=0,sw=0;
+    matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sw+=c;}});
+    const conds=DB.conduct.filter(c=>c.sid===s.id);
     const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-    const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
-    return{id:s.id,moy:sc?Math.round(tw/sc):0,cond:Math.round(cAvg*25)};
+    const cAvg=conds.length?conds.reduce((a,c)=>a+(cm[c.score]||0),0)/conds.length:0;
+    return{id:s.id,moy:sw?Math.round(tw/sw):0,cond:Math.round(cAvg*25)};
   }).sort((a,b)=>(b.moy*0.85+b.cond*0.15)-(a.moy*0.85+a.cond*0.15));
   const pos=ranked.findIndex(r=>r.id===k.id)+1;
   const me=ranked.find(r=>r.id===k.id);
-  const mention=me?(me.moy>=90?'Excellent':me.moy>=75?'Très Bien':me.moy>=60?'Bien':me.moy>=50?'Passable':'À améliorer'):'—';
-  const mColor=me&&me.moy>=75?'#059669':me&&me.moy>=50?'#d97706':'#dc2626';
-  const frMats=matieres.filter(m=>m.lang==='fr'||((!isBilingual)&&m.lang!=='en'));
+  // Weighted total points
+  const frMats=isBilingual?matieres.filter(m=>m.lang==='fr'):matieres.filter(m=>m.lang!=='en');
   const enMats=matieres.filter(m=>m.lang==='en');
   const coMats=matieres.filter(m=>m.lang==='commun');
+  const calcSection=mats=>{let tot=0,max=0;mats.forEach(m=>{const a=matAvgPct(k.id,m.name);if(a!==null){const c=m.coeff||1;tot+=a*c;max+=100*c;}});return{tot,max};};
+  const frC=calcSection(frMats), enC=calcSection(enMats), coC=calcSection(coMats);
+  const grandTot=frC.tot+enC.tot+coC.tot, grandMax=frC.max+enC.max+coC.max;
+  const grandPct=grandMax?Math.round(grandTot/grandMax*100):0;
+  // Mention EPSP
+  const mention=grandPct>=80?'Grande Distinction':grandPct>=70?'Distinction':grandPct>=60?'Satisfaction':grandPct>=50?'Avertissement':'Échec';
+  const mColor=grandPct>=70?'#059669':grandPct>=50?'#d97706':'#dc2626';
+  const isPassing=grandPct>=50;
+  // Absences / retards
+  const absences=DB.attendance.filter(a=>a.sid===k.id&&(a.status==='absent'||a.status==='sick'||a.status==='excused')).length;
+  const retards=DB.attendance.filter(a=>a.sid===k.id&&a.status==='late').length;
+  // Section rows: matière | coeff | T1 | T2 | T3 | Moy | Pts
   const sectionRows=(mats,flag)=>mats.map(m=>{
+    const coeff=m.coeff||1;
     const t1=matAvgPct(k.id,m.name,'T1'),t2=matAvgPct(k.id,m.name,'T2'),t3=matAvgPct(k.id,m.name,'T3');
     const avg=matAvgPct(k.id,m.name);
-    const col=avg===null?'#666':avg>=70?'#059669':avg>=50?'#d97706':'#dc2626';
-    return `<tr><td>${flag} ${esc(m.name)}</td><td style="text-align:center">${t1!==null?t1+'%':'—'}</td><td style="text-align:center">${t2!==null?t2+'%':'—'}</td><td style="text-align:center">${t3!==null?t3+'%':'—'}</td><td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td></tr>`;
+    const pts=avg!==null?Math.round(avg*coeff):null;
+    const col=avg===null?'#999':avg>=70?'#059669':avg>=50?'#d97706':'#dc2626';
+    const danger=avg!==null&&avg<50;
+    return `<tr${danger?' style="background:#fff5f5"':''}>
+      <td>${flag} ${esc(m.name)}${danger?' <span style="color:#dc2626;font-size:10px">⚠</span>':''}</td>
+      <td style="text-align:center;background:#f0f4ff;font-weight:700;color:#1d4ed8">×${coeff}</td>
+      <td style="text-align:center">${t1!==null?t1+'%':'—'}</td>
+      <td style="text-align:center">${t2!==null?t2+'%':'—'}</td>
+      <td style="text-align:center">${t3!==null?t3+'%':'—'}</td>
+      <td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${col}">${pts!==null?pts+'/'+(coeff*100):'—'}</td>
+    </tr>`;
   }).join('');
-  const conductRows=(()=>{const c=DB.conduct.filter(x=>x.sid===k.id);if(!c.length)return '';const lbl={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};const latest=c[c.length-1];return`<table><tr><th colspan="3">📊 Conduite &amp; comportement</th></tr><tr><td>Note de conduite</td><td>${c.length} évaluation${c.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`;})();
-  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:22px;color:#1a1a1a;background:#fff;font-size:13px}.print-bar{background:#0f2557;color:#fff;padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:-22px -22px 22px}.print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #0f2557;margin-bottom:16px}.hl{display:flex;align-items:center;gap:14px}.logo{width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid #0f2557}.si h1{font-size:16px;font-weight:800;color:#0f2557;line-height:1.2}.si .s{font-size:10px;color:#666;margin-top:2px}.hr{text-align:right}.brand{font-size:13px;font-weight:700;color:#0f2557}.meta{font-size:10px;color:#777;margin-top:2px}.dtitle{text-align:center;margin:14px 0 16px}.dtitle h2{font-size:15px;font-weight:800;color:#0f2557;text-transform:uppercase;letter-spacing:1px}.dtitle .yr{font-size:11px;color:#888;margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#0f2557;color:#fff;padding:8px 7px;font-size:11px;text-align:left;font-weight:600}td{padding:6px 7px;font-size:12px;border-bottom:1px solid #eaecf0;vertical-align:middle}tr:nth-child(even) td{background:#f8faff}.footer{margin-top:26px;padding-top:10px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}@media print{.print-bar{display:none}@page{margin:12mm}}`;
-  const hdr=`<div class="hdr"><div class="hl">${logoSrc?`<img src="${logoSrc}" class="logo" alt="">`:'<div style="width:54px;height:54px;background:#0f2557;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px">🏫</div>'}<div class="si"><h1>${esc(school)}</h1><div class="s">${esc(schoolSub)}</div><div class="s">📞 ${esc(phone)}</div></div></div><div class="hr"><div class="brand">🛡️ SchoolSafe</div><div class="meta">Année ${yr}</div><div class="meta">${printDate}</div></div></div>`;
-  const ftr=`<div class="footer"><span>© ${new Date().getFullYear()} ${esc(school)}</span><span>L'excellence au service de l'avenir</span><span>Document officiel SchoolSafe</span></div>`;
+  // Conduct
+  const conducts=DB.conduct.filter(x=>x.sid===k.id);
+  const condLabel={Excellent:'🌟 Excellent',Bien:'😊 Bien',Moyen:'😐 Moyen',Mauvais:'😞 À améliorer'};
+  const condColor={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};
+  const latestCond=conducts.length?conducts[conducts.length-1]:null;
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:20px;color:#1a1a1a;background:#fff;font-size:12.5px}.print-bar{background:#0f2557;color:#fff;padding:12px 20px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:-20px -20px 20px}.print-bar button{background:#fff;color:#0f2557;border:none;padding:7px 18px;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer}.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #0f2557;margin-bottom:14px}.hl{display:flex;align-items:center;gap:12px}.logo{width:56px;height:56px;object-fit:cover;border-radius:50%;border:2px solid #0f2557}.si h1{font-size:15px;font-weight:800;color:#0f2557;line-height:1.2}.si .s{font-size:10px;color:#666;margin-top:2px}.hr{text-align:right}.brand{font-size:12px;font-weight:700;color:#0f2557}.meta{font-size:10px;color:#777;margin-top:2px}.dtitle{text-align:center;margin:12px 0 14px;border:2px solid #0f2557;border-radius:8px;padding:10px}.dtitle h2{font-size:14px;font-weight:800;color:#0f2557;text-transform:uppercase;letter-spacing:1px}.dtitle .yr{font-size:11px;color:#555;margin-top:3px}.student-card{display:flex;align-items:center;gap:18px;padding:14px;background:#f8faff;border:1.5px solid #c7d7f5;border-radius:10px;margin-bottom:16px}.stu-photo{width:80px;height:100px;border-radius:8px;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;flex-shrink:0;border:2.5px solid #0f2557}.stu-info{flex:1}.stu-name{font-size:17px;font-weight:800;color:#0f2557}.stu-meta{font-size:11px;color:#555;margin-top:3px}.stu-rank{text-align:center;min-width:90px}.stu-pct{font-size:26px;font-weight:900}.stu-pos{font-size:11px;color:#666;margin:2px 0}.stu-mention{font-size:13px;font-weight:800}.result-box{display:inline-block;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:800;margin-top:8px}table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#0f2557;color:#fff;padding:7px 6px;font-size:10.5px;text-align:center;font-weight:600}th:first-child{text-align:left}td{padding:5px 6px;font-size:11.5px;border-bottom:1px solid #e8ecf3;vertical-align:middle}td:first-child{font-size:12px}.total-row td{font-weight:800;background:#f0f4ff;border-top:2px solid #0f2557}.section-hdr td{background:#0f2557;color:#fff;font-weight:700;font-size:11px;padding:5px 6px}.sig-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:22px}.sig-box{text-align:center}.sig-line{height:56px;border-bottom:1.5px solid #aaa;margin-bottom:6px}.sig-label{font-size:10px;color:#666}.footer{margin-top:18px;padding-top:8px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}.stat-row{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}.stat-box{flex:1;min-width:100px;padding:8px 10px;border:1px solid #dde5f0;border-radius:8px;text-align:center}.stat-num{font-size:18px;font-weight:800}.stat-lbl{font-size:10px;color:#666;margin-top:2px}@media print{.print-bar{display:none}@page{margin:10mm;size:A4}}`;
+  const hdr=`<div class="hdr"><div class="hl">${logoSrc?`<img src="${logoSrc}" class="logo" alt="">`:'<div style="width:56px;height:56px;background:#0f2557;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px">🏫</div>'}<div class="si"><h1>${esc(school)}</h1><div class="s">${esc(schoolSub)}</div><div class="s">📞 ${esc(phone)}${dgep?` · N° DGEP: ${esc(dgep)}`:''}</div></div></div><div class="hr"><div class="brand">🛡️ SchoolSafe</div><div class="meta">Année ${yr}</div><div class="meta">${printDate}</div></div></div>`;
+  const ftr=`<div class="footer"><span>© ${new Date().getFullYear()} ${esc(school)} — Kinshasa, RDC</span><span>L'excellence au service de l'avenir</span><span>Bulletin généré par SchoolSafe</span></div>`;
   const bodyHtml=`
-  <div style="display:flex;align-items:center;gap:20px;padding:16px;background:#f8faff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:18px">
-    <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0;border:3px solid #0f2557">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:#64748b">'+ini(k.name)+'</span>'}</div>
-    <div style="flex:1"><div style="font-size:18px;font-weight:800;color:#0f2557">${esc(k.name)}</div><div style="font-size:12px;color:#666;margin-top:2px">${k.mat} · ${cl?esc(cl.name):'—'} · Année ${yr}</div><div style="font-size:12px;color:#666">Prof: ${profFR?esc(profFR.name):'—'}${profEN?' / '+esc(profEN.name):''}</div></div>
-    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:${mColor}">${me?me.moy:0}%</div><div style="font-size:11px;color:#666">${pos}${pos===1?'er':'ème'} / ${students.length}</div><div style="font-size:12px;font-weight:700;color:${mColor}">${mention}</div></div>
+  <div class="student-card">
+    <div class="stu-photo">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="color:#64748b">${ini(k.name)}</span>`}</div>
+    <div class="stu-info">
+      <div class="stu-name">${esc(k.name)}</div>
+      <div class="stu-meta">Matricule : <strong>${k.mat}</strong></div>
+      <div class="stu-meta">Classe : <strong>${cl?esc(cl.name):'—'}</strong></div>
+      <div class="stu-meta">Titulaire : ${titulaire?esc(titulaire.name):'—'}${profEN?' / '+esc(profEN.name):''}</div>
+      <div class="stu-meta">Trimestre : <strong>${trim}</strong> · Année scolaire <strong>${yr}</strong></div>
+      <div class="result-box" style="background:${isPassing?'#d1fae5':'#fee2e2'};color:${isPassing?'#065f46':'#991b1b'}">${isPassing?'✅ ADMIS(E) — Passage accordé':'❌ ÉCHEC — Décision en délibération'}</div>
+    </div>
+    <div class="stu-rank">
+      <div class="stu-pct" style="color:${mColor}">${grandPct}%</div>
+      <div class="stu-pos">${pos}${pos===1?'er':'ème'} / ${students.length}</div>
+      <div class="stu-mention" style="color:${mColor}">${mention}</div>
+      <div style="font-size:10px;color:#666;margin-top:4px">${grandTot} / ${grandMax} pts</div>
+    </div>
   </div>
-  <table><tr><th>Matière</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th></tr>
-    ${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:sectionRows(matieres,'')}
-    ${enMats.length?`<tr><td colspan="5" style="background:#eff6ff;font-weight:700;color:#1e40af;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:''}
-    ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}
+  <div class="stat-row">
+    <div class="stat-box"><div class="stat-num" style="color:#059669">${grandPct}%</div><div class="stat-lbl">Moyenne générale</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#0f2557">${pos}e/${students.length}</div><div class="stat-lbl">Rang dans la classe</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#d97706">${absences}</div><div class="stat-lbl">Absences</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#f59e0b">${retards}</div><div class="stat-lbl">Retards</div></div>
+    ${latestCond?`<div class="stat-box"><div class="stat-num" style="color:${condColor[latestCond.score]||'#666'};font-size:14px">${condLabel[latestCond.score]||latestCond.score}</div><div class="stat-lbl">Conduite</div></div>`:''}
+  </div>
+  <table>
+    <tr><th style="text-align:left">Matière</th><th>Coeff</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th><th>Points</th></tr>
+    ${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`
+      :(isBilingual?'':`<tr class="section-hdr"><td colspan="7">📚 Toutes les matières</td></tr>${sectionRows(matieres,'📚')}`)}
+    ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#1e40af">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''}
+    ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}
+    <tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">TOTAL GÉNÉRAL →</td><td style="color:${mColor};font-size:14px">${grandPct}%</td><td style="color:${mColor};font-size:13px">${grandTot}/${grandMax} pts</td></tr>
   </table>
-  ${conductRows}
-  <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:30px">
-    <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Cachet et signature Direction</div></div>
-    <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Signature Parent / Tuteur</div></div>
+  ${grandPct<50?`<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b"><strong>⚠️ Matières insuffisantes (&lt;50%) :</strong> ${matieres.filter(m=>{const a=matAvgPct(k.id,m.name);return a!==null&&a<50;}).map(m=>m.name).join(', ')||'—'}</div>`:''}
+  <div style="border:1px solid #dde5f0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;color:#0f2557;margin-bottom:6px">📝 Appréciation du titulaire</div>
+    <div style="height:36px;border-bottom:1px dashed #aaa;font-size:12px;color:#888;display:flex;align-items:flex-end;padding-bottom:4px">……………………………………………………………………………………………………………………</div>
+  </div>
+  <div class="sig-grid">
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Titulaire de classe<br><strong>${titulaire?esc(titulaire.name):'…………………………'}</strong></div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Cachet et signature<br><strong>Direction</strong></div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Signature<br><strong>Parent / Tuteur</strong></div></div>
   </div>`;
-  const fullHtml=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(school)} — Bulletin de ${esc(k.name)}</title><style>${CSS}</style></head><body><div class="print-bar">📋 Bulletin de ${esc(k.name.split(' ')[0])} · <button onclick="window.print()">🖨️ Imprimer</button></div>${hdr}<div class="dtitle"><h2>Bulletin de ${esc(k.name)}</h2><div class="yr">Année scolaire ${yr}</div></div>${bodyHtml}${ftr}</body></html>`;
-  const fname=`Bulletin-${k.name.replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()}-${yr}.html`;
+  const fullHtml=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(school)} — Bulletin de ${esc(k.name)}</title><style>${CSS}</style></head><body><div class="print-bar">📋 Bulletin de ${esc(k.name.split(' ')[0])} · ${trim} · <button onclick="window.print()">🖨️ Imprimer / PDF</button></div>${hdr}<div class="dtitle"><h2>Bulletin scolaire — ${esc(k.name)}</h2><div class="yr">Année scolaire ${yr} · ${trim}</div></div>${bodyHtml}${ftr}</body></html>`;
+  const fname=`Bulletin-${k.name.replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()}-${yr}-${trim}.html`;
   const blob=new Blob([fullHtml],{type:'text/html;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url; a.download=fname;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url),30000);
-  toast(`📥 Bulletin de ${esc(k.name.split(' ')[0])} téléchargé ✓`,'success');
+  toast(`📥 Bulletin de ${esc(k.name.split(' ')[0])} (${trim}) téléchargé ✓`,'success');
 };
 
 // ── SETTINGS ──
@@ -9170,6 +9227,9 @@ R.settings = () => {
       </div>
       <div class="form-group"><label class="form-label">📧 Email</label>
         <input class="form-input" id="cfg_school_email" value="${sc.email||'thewiseschoolinternational@gmail.com'}">
+      </div>
+      <div class="form-group"><label class="form-label">🏛️ N° DGEP / Code SECOPE</label>
+        <input class="form-input" id="cfg_school_dgep" value="${sc.dgep||''}" placeholder="Ex: 12/P/KIN/0001">
       </div>
     </div>
     <button class="btn btn-primary" style="width:100%" onclick="saveSettingsSchool()">💾 Enregistrer infos école</button>
@@ -9290,6 +9350,7 @@ window.saveSettingsSchool = () => {
   DB.settings.school.sub=($('cfg_school_sub')?.value||'').trim()||'Complexe Scolaire Le Sage — Kinshasa, RDC';
   DB.settings.school.phone=($('cfg_school_phone')?.value||'').trim()||'+243 978 444 167';
   DB.settings.school.email=($('cfg_school_email')?.value||'').trim()||'thewiseschoolinternational@gmail.com';
+  DB.settings.school.dgep=($('cfg_school_dgep')?.value||'').trim();
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('✅ Informations école enregistrées','success'); render();
 };
