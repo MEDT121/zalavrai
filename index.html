@@ -3903,7 +3903,7 @@ R.approbations = () => {
         return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
           <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}">${conv.status==='scheduled'?'📅':'📋'}</div>
           <div style="flex:1;min-width:150px">
-            <div class="pi-title">${s?esc(s.name):'?'} ${cl?'— '+esc(cl.name):''}</div>
+            <div class="pi-title">${s?esc(s.name):'?'} ${cl?'— '+esc(cl.name):''}${conv.auto_generated?'<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px">⚡ AUTO</span>':''}</div>
             <div class="pi-sub">Parent: ${parent?esc(parent.name):'—'} · ${esc(conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:''))}</div>
             ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>`:''}
             <div style="font-size:11px;color:var(--text-muted)">${conv.date}</div>
@@ -4776,82 +4776,123 @@ window.signalAbsencesToDir = (cid) => {
   saveToCrypt(); render();
 };
 
-// ── RATTRAPAGE — signalement enseignant → direction → parent ──
-window.autoCheckRattrapage = (sid, teacherId) => {
-  const s = DB.students.find(x => x.id === sid); if(!s) return;
-  const cl = gc(s.cid);
-  const allGrades = DB.grades.filter(g => g.sid === sid);
-  if(!allGrades.length) return;
+// ── CLÔTURE TRIMESTRE — analyse automatique ────────────────────────────────
+window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
+  const cl = gc(cid); if(!cl) return 0;
+  const students = DB.students.filter(s => s.cid === cid);
+  const allMatieres = getClassMatieres(cid).filter(m =>
+    lang === 'fr' ? (m.lang === 'fr' || m.lang === 'commun') :
+    lang === 'en' ? (m.lang === 'en' || m.lang === 'commun') : true
+  );
+  const matNames = allMatieres.map(m => m.name);
+  let signaled = 0;
 
-  // Collect weak subjects: average per matière < 50%
-  const matsList = [...new Set(allGrades.map(g => g.matiere))];
-  const weakDetails = matsList.map(mat => {
-    const gs = allGrades.filter(g => g.matiere === mat);
-    const avg = Math.round(gs.reduce((a, g) => a + gradePct(g), 0) / gs.length);
-    if(avg >= 50) return null;
-    // Build detail: list each low evaluation
-    const evals = gs.map(g => {
-      const note = g.note !== undefined ? `${g.note}/${g.max||20}` : `${gradePct(g)}%`;
-      const lbl  = g.label || g.type || 'Note';
-      const trim = g.trimester ? ` (${g.trimester})` : '';
-      return `${lbl}${trim}: ${note}`;
-    }).join(' · ');
-    return {mat, avg, evals};
-  }).filter(Boolean);
+  students.forEach(s => {
+    const grades = (DB.grades||[]).filter(g => g.sid === s.id && g.trimester === trim && matNames.includes(g.matiere));
+    if(!grades.length) return;
 
-  if(!weakDetails.length) return;
+    const matsList = [...new Set(grades.map(g => g.matiere))];
+    const weakMats = matsList.map(mat => {
+      const gs = grades.filter(g => g.matiere === mat);
+      const avg = Math.round(gs.reduce((a, g) => a + gradePct(g), 0) / gs.length);
+      return avg < 50 ? {mat, avg} : null;
+    }).filter(Boolean);
 
-  const globalAvg = Math.round(allGrades.reduce((a, g) => a + gradePct(g), 0) / allGrades.length);
-  const newRats = [];
+    if(weakMats.length < 2) return;
 
-  // One rattrapage per weak subject (skip if already pending for that subject)
-  weakDetails.forEach(w => {
-    const alreadyForMat = DB.rattrapages.find(r =>
-      r.sid === sid && r.matiere === w.mat && !r.archived &&
-      (r.status === 'pending' || r.status === 'notified')
+    const alreadySignaled = (DB.rattrapages||[]).find(r =>
+      r.sid === s.id && r.teacher_id === teacherId && r.auto_triggered && r.trimestre === trim
     );
-    if(alreadyForMat) { alreadyForMat.score = w.avg; return; }
-    const rat = {
-      id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
-      sid, teacher_id: teacherId,
-      matiere: w.mat,
-      motif: `Moyenne insuffisante : ${w.avg}% — ${w.evals}`,
-      date: today(), status: 'pending', amount: 0, paid: false,
-      score: w.avg, auto_triggered: true
-    };
-    DB.rattrapages.push(rat);
-    pushSync('rattrapages', 'post', rat);
-    newRats.push(rat);
+    if(alreadySignaled) return;
+
+    const globalAvg = Math.round(grades.reduce((a, g) => a + gradePct(g), 0) / grades.length);
+    const weakStr = weakMats.map(w => `${w.mat} (${w.avg}%)`).join(', ');
+
+    weakMats.forEach(w => {
+      const rat = {
+        id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+        sid: s.id, teacher_id: teacherId,
+        matiere: w.mat,
+        motif: `Clôture ${trim} — Moyenne insuffisante : ${w.avg}%`,
+        date: today(), status: 'pending', amount: 0, paid: false,
+        score: w.avg, auto_triggered: true, trimestre: trim
+      };
+      DB.rattrapages.push(rat);
+      pushSync('rattrapages', 'post', rat);
+    });
+
+    const convAlready = (DB.convocations||[]).find(c => c.sid === s.id && c.status === 'pending' && c.trimestre === trim);
+    if(!convAlready) {
+      const sc = DB.settings.school||{};
+      const yr = DB.settings.year||'2025-2026';
+      const bodyText = `Madame, Monsieur,\n\nNous vous informons que votre enfant ${s.name} (${cl.name}) a obtenu des résultats insuffisants au ${trim} de l'année scolaire ${yr}.\n\nMatières en difficulté :\n${weakMats.map(w=>`• ${w.mat} : ${w.avg}%`).join('\n')}\n\nMoyenne générale : ${globalAvg}%\n\nNous vous invitons à vous présenter à la Direction afin de discuter des mesures à prendre pour aider votre enfant à améliorer ses résultats.\n\nCordialement,\nLa Direction\n${sc.name||'The Wise School International'}`;
+      const conv = {
+        id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
+        sid: s.id, date: today(),
+        reason: `Résultats insuffisants — ${trim} · ${weakMats.length} matières`,
+        body: bodyText,
+        status: 'pending', rdv_date: null, note: '',
+        score: globalAvg, trimestre: trim,
+        auto_generated: true, weak_mats: weakStr
+      };
+      DB.convocations.push(conv);
+      pushSync('convocations', 'post', conv);
+    }
+
+    (DB.users||[]).filter(u => u.role==='direction'||u.role==='direction2').forEach(u => {
+      const n = {
+        id: 'n'+Date.now()+Math.random().toString(36).slice(2,6),
+        uid: u.id,
+        msg: `🔴 Clôture ${trim} — ${s.name} (${cl.name}) · Moy: ${globalAvg}% · ${weakStr}`,
+        time: nowTime(), date: today(), read: false, type: 'alert'
+      };
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    });
+
+    if(s.pid) {
+      const np = {
+        id: 'n'+Date.now()+Math.random().toString(36).slice(2,6),
+        uid: s.pid,
+        msg: `📚 ${s.name} — ${trim} : difficultés dans ${weakMats.length} matière${weakMats.length>1?'s':''} : ${weakStr}. La Direction vous contactera prochainement.`,
+        time: nowTime(), date: today(), read: false, type: 'alert'
+      };
+      DB.notifs.unshift(np); pushSync('notifs','post',np);
+    }
+
+    signaled++;
   });
 
-  if(!newRats.length) return;
+  return signaled;
+};
 
-  // One convocation linked to the first new rattrapage (if none already pending)
-  const convAlready = DB.convocations.find(c => c.sid === sid && c.status === 'pending' && c.rat_id);
-  if(!convAlready) {
-    const conv = {
-      id: 'conv'+Date.now()+Math.random().toString(36).slice(2,5),
-      sid, rat_id: newRats[0].id, date: today(),
-      reason: 'Résultats scolaires insuffisants',
-      status: 'pending', rdv_date: null, note: '', score: globalAvg
-    };
-    DB.convocations.push(conv);
-    pushSync('convocations', 'post', conv);
-  }
+window.cloturerTrimestre = (cid) => {
+  const cl = gc(cid); if(!cl) return;
+  const mc = getMyClass();
+  if(!mc.cl || mc.cl.id !== cid) return;
+  const trim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
+  const lang = mc.lang || 'fr';
 
-  const weakMatsStr = weakDetails.map(w => `${w.mat} (${w.avg}%)`).join(', ');
-  const dirMsg = `🔴 RATTRAPAGE — ${s.name} (${cl?cl.name:''}) · Moy. globale: ${globalAvg}% · Matières: ${weakMatsStr}`;
-  DB.users.filter(u => u.role==='direction'||u.role==='direction2').forEach(u => {
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-      msg:dirMsg,time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
-  });
-  if(s.pid) {
-    const np={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
-      msg:`📚 ${s.name} a besoin de cours de rattrapage — Matières en difficulté : ${weakMatsStr}. La Direction vous contactera.`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(np); pushSync('notifs','post',np);
-  }
+  const alreadyDone = (DB.rattrapages||[]).some(r =>
+    r.teacher_id === S.user.id && r.auto_triggered && r.trimestre === trim &&
+    (DB.students||[]).some(s => s.cid === cid && s.id === r.sid)
+  );
+
+  const warn = alreadyDone ? `\n\n⚠️ Ce trimestre a déjà été clôturé. Les élèves déjà signalés ne seront pas doublés.` : '';
+  showC(
+    `📊 Clôturer le ${trim} — ${cl.name}`,
+    `Cette action va analyser les résultats de tous les élèves pour le ${trim}.\n\n• Seuls les élèves avec ≥ 2 matières < 50% seront signalés\n• La Direction et les parents concernés seront notifiés\n• Des convocations pré-rédigées seront créées automatiquement${warn}`,
+    () => {
+      const count = analyserResultatsTrimestre(cid, trim, S.user.id, lang);
+      saveToCrypt();
+      logAudit('cloture_trimestre', `${cl.name} · ${trim} · ${count} élève(s) signalé(s)`, cid);
+      if(count === 0) {
+        toast(`✅ ${trim} clôturé — Aucun élève en difficulté (≥ 2 matières < 50%)`, 'success');
+      } else {
+        toast(`📊 ${trim} clôturé — ${count} élève${count>1?'s':''} en difficulté signalé${count>1?'s':''}`, 'warning');
+      }
+      render();
+    }
+  );
 };
 
 window.signalerRattrapage = (sid) => {
@@ -5461,7 +5502,8 @@ window.openGradePanel = cid => {
     </div>`).join('')}
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
-   <button class="btn btn-primary" onclick="saveGradePanel('${cid}')">${t('💾 Enregistrer','💾 Save')}</button>`
+   <button class="btn btn-primary" onclick="saveGradePanel('${cid}')">${t('💾 Enregistrer','💾 Save')}</button>
+   <button class="btn" style="background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="closeModal();cloturerTrimestre('${cid}')">📊 ${t('Clôturer le trimestre','Close Term')}</button>`
   );
 };
 
@@ -5496,9 +5538,6 @@ window.saveGradePanel = cid => {
   });
 
   if(!saved){toast(t('Aucune note à enregistrer','No grades to save'),'error'); return;}
-  // Auto-check rattrapage
-  const sids = [...new Set(Array.from(inputs).map(i => i.dataset.sid))];
-  sids.forEach(sid => autoCheckRattrapage(sid, S.user.id));
   toast(t(`${saved} note${saved>1?'s':''} enregistrée${saved>1?'s':''} ✅`,`${saved} grade${saved>1?'s':''} saved ✅`), 'success');
   saveToCrypt(); closeModal(); render();
 };
@@ -7610,17 +7649,19 @@ window.planifierConvocation = (cid) => {
   const s=DB.students.find(x=>x.id===conv.sid);
   const parent=s?gu(s.pid):null;
   openM(`📅 Fixer un RDV — ${s?s.name:''}`,`
-  <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:13px;color:#1e40af;margin-bottom:14px">
+  ${conv.auto_generated?`<div style="background:#fef3c7;border-radius:10px;padding:10px;font-size:12px;color:#92400e;margin-bottom:10px">⚡ Convocation générée automatiquement après clôture ${conv.trimestre||''} · ${conv.weak_mats||conv.reason||''}</div>`:''}
+  <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:13px;color:#1e40af;margin-bottom:10px">
     Parent : <strong>${parent?parent.name:'—'}</strong>${parent&&parent.phone?' · '+parent.phone:''}
   </div>
+  ${conv.body?`<div class="form-group"><label class="form-label">Contenu de la convocation (pré-rempli)</label><textarea class="form-input" id="rdv_body" rows="7" style="font-size:12px;font-family:monospace">${esc(conv.body)}</textarea></div>`:''}
   <div class="form-group"><label class="form-label">Date du rendez-vous *</label>
     <input class="form-input" id="rdv_date" type="date" value="${today()}">
   </div>
-  <div class="form-group"><label class="form-label">Note (optionnel)</label>
-    <input class="form-input" id="rdv_note" placeholder="Ex: 8h à la direction">
+  <div class="form-group"><label class="form-label">Heure / Lieu (optionnel)</label>
+    <input class="form-input" id="rdv_note" placeholder="Ex: 8h à la Direction">
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-   <button class="btn btn-primary" onclick="confirmerRDV('${cid}')">📅 Confirmer le RDV</button>`);
+   <button class="btn btn-primary" onclick="confirmerRDV('${cid}')">📅 Confirmer et notifier le parent</button>`);
 };
 
 window.confirmerRDV = (cid) => {
@@ -8774,7 +8815,7 @@ R.convocations = () => {
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?esc(s.name):'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div>
           <div class="pi-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''} ${parent?.phone&&isDir?waBtn(parent.phone,parent.name):''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.auto_generated?`<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">⚡ AUTO</span>`:''}${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
