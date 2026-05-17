@@ -603,29 +603,29 @@ window.DB = {
 // ── DEFAULT MATIÈRES ──
 window.DEFAULT_MATIERES = {
   maternelle: [
-    {name:'Langage et Communication',lang:'en'},
-    {name:'Motricité et Éducation Physique',lang:'en'},
-    {name:'Éveil Scientifique',lang:'en'},
-    {name:'Activités Artistiques',lang:'en'},
-    {name:'Sociabilité et Comportement',lang:'en'},
-    {name:'Pré-lecture / Pré-écriture',lang:'en'},
+    {name:'Langage et Communication',lang:'en',coeff:1},
+    {name:'Motricité et Éducation Physique',lang:'en',coeff:1},
+    {name:'Éveil Scientifique',lang:'en',coeff:1},
+    {name:'Activités Artistiques',lang:'en',coeff:1},
+    {name:'Sociabilité et Comportement',lang:'en',coeff:1},
+    {name:'Pré-lecture / Pré-écriture',lang:'en',coeff:1},
   ],
   primaire_fr: [
-    {name:'Mathématiques',lang:'fr'},{name:'Français',lang:'fr'},
-    {name:'Dictée',lang:'fr'},{name:'Sciences Naturelles',lang:'fr'},
-    {name:'Géographie',lang:'fr'},{name:'Histoire',lang:'fr'},
-    {name:'Éducation Civique et Morale',lang:'fr'},{name:'Écriture',lang:'fr'},
+    {name:'Mathématiques',lang:'fr',coeff:3},{name:'Français',lang:'fr',coeff:3},
+    {name:'Dictée',lang:'fr',coeff:2},{name:'Sciences Naturelles',lang:'fr',coeff:2},
+    {name:'Géographie',lang:'fr',coeff:1},{name:'Histoire',lang:'fr',coeff:1},
+    {name:'Éducation Civique et Morale',lang:'fr',coeff:1},{name:'Écriture',lang:'fr',coeff:1},
   ],
   primaire_en: [
-    {name:'Mathematics',lang:'en'},{name:'English Language',lang:'en'},
-    {name:'Spelling',lang:'en'},{name:'Science',lang:'en'},
-    {name:'Geography',lang:'en'},{name:'History',lang:'en'},
-    {name:'Civic Education',lang:'en'},{name:'Handwriting',lang:'en'},
+    {name:'Mathematics',lang:'en',coeff:3},{name:'English Language',lang:'en',coeff:3},
+    {name:'Spelling',lang:'en',coeff:2},{name:'Science',lang:'en',coeff:2},
+    {name:'Geography',lang:'en',coeff:1},{name:'History',lang:'en',coeff:1},
+    {name:'Civic Education',lang:'en',coeff:1},{name:'Handwriting',lang:'en',coeff:1},
   ],
   commun: [
-    {name:'Éducation Physique',lang:'commun'},
-    {name:'Dessin / Arts',lang:'commun'},
-    {name:'Musique / Chant',lang:'commun'},
+    {name:'Éducation Physique',lang:'commun',coeff:1},
+    {name:'Dessin / Arts',lang:'commun',coeff:1},
+    {name:'Musique / Chant',lang:'commun',coeff:1},
   ]
 };
 
@@ -4917,12 +4917,12 @@ R.palmares = () => {
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
       const retards=DB.attendance.filter(a=>a.sid===s.id&&a.status==='late').length;
 
-      let totalPct=0,countPct=0;
+      let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{
         const a=matAvgPct(s.id,m.name);
-        if(a!==null){totalPct+=a;countPct++;}
+        if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}
       });
-      const moyPct=countPct?Math.round(totalPct/countPct):0;
+      const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
 
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
@@ -5148,11 +5148,14 @@ window.matAvgPct = (sid, matiere, trimester) => {
   return sumW ? Math.round(sumWN / sumW) : null;
 };
 
-// Overall weighted average pct for a student across given matieres
+// Overall weighted average pct for a student across given matieres (with coefficients)
 window.studentAvgPct = (sid, matieres, trimester) => {
-  let total = 0, count = 0;
-  matieres.forEach(m => { const a = matAvgPct(sid, m.name, trimester); if(a !== null){total += a; count++;} });
-  return count ? Math.round(total / count) : 0;
+  let totalW = 0, sumCoeff = 0;
+  matieres.forEach(m => {
+    const a = matAvgPct(sid, m.name, trimester);
+    if(a !== null){ const c = m.coeff||1; totalW += a*c; sumCoeff += c; }
+  });
+  return sumCoeff ? Math.round(totalW / sumCoeff) : 0;
 };
 
 // School-wide top 10 for current trimester — used on parent profile
@@ -5162,10 +5165,10 @@ window.getSchoolTop10 = () => {
   return (DB.students||[]).map(s => {
     const cl = gc(s.cid); if(!cl) return null;
     const matieres = getClassMatieres(s.cid); if(!matieres.length) return null;
-    let total=0, count=0;
-    matieres.forEach(m => { const a=matAvgPct(s.id,m.name,trim); if(a!==null){total+=a;count++;} });
-    if(!count) return null;
-    const moyPct = Math.round(total/count);
+    let totalW=0, sumC=0;
+    matieres.forEach(m => { const a=matAvgPct(s.id,m.name,trim); if(a!==null){const c=m.coeff||1;totalW+=a*c;sumC+=c;} });
+    if(!sumC) return null;
+    const moyPct = Math.round(totalW/sumC);
     const condAvg = (DB.conduct||[]).filter(c=>c.sid===s.id).reduce((sum,c,_,arr)=>sum+(condMap[c.score]||0)/arr.length,0);
     const score = Math.round(moyPct*0.85 + Math.round(condAvg*25)*0.15);
     return {id:s.id, name:s.name, cl, moyPct, score};
@@ -5385,7 +5388,7 @@ R.matieres = () => {
     <div class="premium-item" style="animation-delay:${i*.04}s">
       <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d1fae5':'#fef3c7'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
       <div style="flex:1"><div class="pi-title">${m.name}</div><div class="pi-sub">${m.lang==='commun'?t('Matière commune','Common subject'):m.lang==='fr'?'Section française':'English section'}</div></div>
-      <span class="pill pill-green">${t('Actif','Active')}</span>
+      <span class="pill" style="background:${(m.coeff||1)>=3?'#dbeafe':(m.coeff||1)>=2?'#fef3c7':'#f1f5f9'};color:${(m.coeff||1)>=3?'#1d4ed8':(m.coeff||1)>=2?'#92400e':'#475569'};font-weight:700">×${m.coeff||1}</span>
     </div>`).join('')}
   </div>
   ${otherMat.length?`
@@ -5395,7 +5398,7 @@ R.matieres = () => {
     <div class="premium-item" style="opacity:.6">
       <div class="pi-icon" style="background:#f1f5f9">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
       <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">${t('Géré par le co-titulaire','Managed by co-teacher')}</div></div>
-      <span class="pill pill-gray">${t('Autre prof','Other teacher')}</span>
+      <span class="pill pill-gray">×${m.coeff||1}</span>
     </div>`).join('')}
   </div>`:''}
   <div class="premium-section" style="border-left:4px solid #f59e0b">
@@ -5409,11 +5412,23 @@ window.openAddMatiere = cid => {
   const mc=getMyClass();
   openM('➕ Proposer une matière',`
   <div class="form-group"><label class="form-label">Nom de la matière</label><input class="form-input" id="matName" placeholder="Ex: Informatique"></div>
-  <div class="form-group"><label class="form-label">Langue</label>
-    <select class="form-select" id="matLang">
-      <option value="${mc.lang}">${mc.lang==='fr'?'Français':'English'}</option>
-      <option value="commun">Commun (FR+EN)</option>
-    </select>
+  <div class="form-row">
+    <div class="form-group" style="flex:2"><label class="form-label">Langue</label>
+      <select class="form-select" id="matLang">
+        <option value="${mc.lang}">${mc.lang==='fr'?'Français':'English'}</option>
+        <option value="commun">Commun (FR+EN)</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Coefficient</label>
+      <select class="form-select" id="matCoeff">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text-muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+    💡 Coeff 3 = matière principale (Maths, Français) · Coeff 2 = matière secondaire · Coeff 1 = option
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
   <button class="btn btn-primary" onclick="submitMatiere('${cid}')">📤 Soumettre</button>`);
@@ -5422,10 +5437,11 @@ window.openAddMatiere = cid => {
 window.submitMatiere = cid => {
   const name=($('matName')?.value||'').trim();
   const lang=$('matLang')?.value;
+  const coeff=Number($('matCoeff')?.value||1);
   if(!name){toast('Nom obligatoire','error');return;}
   const apr={id:'apr'+Date.now(),type:'matiere',status:'pending',
-    content:`Ajout matière: ${name} (${lang}) pour ${gc(cid)?.name||''}`,
-    data:{cid,name,lang},date:today(),by:S.user.id};
+    content:`Ajout matière: ${name} (${lang}, coeff ${coeff}) pour ${gc(cid)?.name||''}`,
+    data:{cid,name,lang,coeff},date:today(),by:S.user.id};
   DB.approbations.push(apr);
   pushSync('approbations','post',apr);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
