@@ -718,7 +718,7 @@ window.NAV = {
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
       {s:'Système'},
-      {id:'tenafep',i:'🎓',l:'TENAFEP CM2'},
+      {id:'tenafep',i:'🎓',l:'ENAFEP CM2'},
       {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
       {id:'salaires',i:'💶',l:'Salaires'},
       {id:'rapport_secope',i:'📄',l:'Rapport SECOPE/MEPSP'},
@@ -854,7 +854,7 @@ window.NAV = {
       {s:'Sécurité Portail'},
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
-      {id:'tenafep',i:'🎓',l:'TENAFEP CM2'},
+      {id:'tenafep',i:'🎓',l:'ENAFEP CM2'},
       {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
       {s:'Système'},
       {id:'statistiques',i:'📈',l:'Statistiques'},
@@ -1254,7 +1254,7 @@ window.PT = {
   profil_enseignant:'👤 Mon profil', profil_parent:'👤 Mon profil',
   scan_history:'🚪 Entrées / Sorties', convocations:'📋 Convocations', sanctions:'⚖️ Sanctions disciplinaires',
   statistiques:'📈 Statistiques', audit_log:'🕐 Historique',
-  tenafep:'🎓 TENAFEP CM2',
+  tenafep:'🎓 ENAFEP CM2',
   evaluations_ens:'⭐ Évaluations des enseignants',
   salaires:'💶 Salaires & Fiches de paie',
   rapport_secope:'📄 Rapport SECOPE/MEPSP',
@@ -11875,29 +11875,31 @@ window.viewArchive = (year) => {
 };
 
 // ═══════════════════════════════════════════
-//  FEATURE #7 — TENAFEP CM2
+//  FEATURE #7 — ENAFEP CM2
 // ═══════════════════════════════════════════
 R.tenafep = () => {
   const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&(c.name.toUpperCase().includes('CM2')||c.name.toUpperCase().includes('6EME')||c.name.toUpperCase().includes('6ÈME'));});
-  const tenafepData=DB.tenafep||[];
+  const enafepData=DB.tenafep||[];
   const year=DB.settings.year||'2025-2026';
-  const stats={registered:tenafepData.filter(t=>t.registered).length,admis:tenafepData.filter(t=>t.result==='admis').length,echoue:tenafepData.filter(t=>t.result==='echoue').length};
+  const stats={admis:enafepData.filter(t=>t.result==='admis').length,echoue:enafepData.filter(t=>t.result==='echoue').length,attente:allCM2.length-enafepData.filter(t=>t.result==='admis'||t.result==='echoue').length};
   return `
   <div class="premium-section" style="border-left:4px solid #7c3aed">
-    <div class="premium-section-title">🎓 TENAFEP — ${year}</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Test National de Fin d'Études Primaires — Suivi des élèves CM2.</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
-      <div style="background:#ede9fe;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#7c3aed">${allCM2.length}</div><div style="font-size:11px;color:#6b7280">Élèves CM2</div></div>
-      <div style="background:#d1fae5;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#059669">${stats.admis}</div><div style="font-size:11px;color:#6b7280">Admis ✅</div></div>
-      <div style="background:#fee2e2;border-radius:12px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:800;color:#dc2626">${stats.echoue}</div><div style="font-size:11px;color:#6b7280">Échoués ❌</div></div>
+    <div class="premium-section-title">🎓 ENAFEP — ${year}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Examen National de Fin d'Études Primaires — anciennement TENAFEP.</div>
+    <a href="https://exetat.minepst.gouv.cd" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:#ede9fe;color:#7c3aed;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700;text-decoration:none;margin-bottom:14px">🌐 Consulter les résultats officiels — minepst.gouv.cd ↗</a>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:#ede9fe;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#7c3aed">${allCM2.length}</div><div style="font-size:10px;color:#6b7280">Candidats</div></div>
+      <div style="background:#d1fae5;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#059669">${stats.admis}</div><div style="font-size:10px;color:#6b7280">Admis ✅</div></div>
+      <div style="background:#fee2e2;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#dc2626">${stats.echoue}</div><div style="font-size:10px;color:#6b7280">Échoués ❌</div></div>
+      <div style="background:#f1f5f9;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#64748b">${stats.attente}</div><div style="font-size:10px;color:#6b7280">En attente</div></div>
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="printTenafepList()">🖨️ Imprimer liste TENAFEP</button>
+    <button class="btn btn-primary" style="width:100%" onclick="printTenafepList()">🖨️ Télécharger liste ENAFEP (PDF)</button>
   </div>
-  ${!allCM2.length?`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">🎓</div>Aucun élève CM2 trouvé.<br><span style="font-size:12px">Vérifiez que les classes CM2 sont bien nommées.</span></div>`:`
+  ${!allCM2.length?`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">🎓</div>Aucun élève CM2 trouvé.<br><span style="font-size:12px">Vérifiez que les classes CM2 sont bien nommées (ex: CM2, 6ème).</span></div>`:`
   <div class="premium-section">
     <div class="premium-section-title">Liste des candidats</div>
     ${allCM2.map((s,i)=>{
-      const rec=tenafepData.find(t=>t.sid===s.id)||{};
+      const rec=enafepData.find(t=>t.sid===s.id)||{};
       const cl=gc(s.cid);
       const resultColor=rec.result==='admis'?'#059669':rec.result==='echoue'?'#dc2626':'#64748b';
       const resultLabel=rec.result==='admis'?'✅ Admis':rec.result==='echoue'?'❌ Échoué':'⏳ En attente';
@@ -11905,11 +11907,12 @@ R.tenafep = () => {
         <div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-weight:700">${i+1}</div>
         <div style="flex:1">
           <div class="pi-title">${esc(s.name)}</div>
-          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${s.mat}</div>
-          ${rec.score!=null?`<div style="font-size:11px;color:#7c3aed">Score: ${rec.score}%</div>`:''}
+          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${s.mat}${rec.enafep_code?` · Code: <strong>${esc(rec.enafep_code)}</strong>`:''}</div>
+          ${rec.score!=null?`<div style="font-size:11px;color:#7c3aed;margin-top:1px">Score ENAFEP : ${rec.score}%</div>`:''}
         </div>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:5px">
           <span style="font-size:12px;font-weight:700;color:${resultColor}">${resultLabel}</span>
+          ${rec.enafep_code?`<a href="https://exetat.minepst.gouv.cd" target="_blank" rel="noopener" title="Rechercher sur le site officiel" style="background:#ede9fe;border:none;border-radius:7px;padding:5px 7px;cursor:pointer;font-size:13px;text-decoration:none">🌐</a>`:''}
           <button class="btn btn-outline btn-sm" onclick="openTenafepRecord('${s.id}')">✏️</button>
         </div>
       </div>`;
@@ -11919,7 +11922,13 @@ R.tenafep = () => {
 window.openTenafepRecord = (sid) => {
   const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
   const rec=(DB.tenafep||[]).find(t=>t.sid===sid)||{};
-  openM(`🎓 TENAFEP — ${s.name}`,`
+  openM(`🎓 ENAFEP — ${esc(s.name)}`,`
+  <div style="background:#ede9fe;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#4c1d95">
+    🌐 Résultats officiels : <a href="https://exetat.minepst.gouv.cd" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700">exetat.minepst.gouv.cd ↗</a> — recherche par code à 14 chiffres
+  </div>
+  <div class="form-group"><label class="form-label">Code ENAFEP (14 chiffres) <span style="font-size:10px;color:var(--text-muted)">attribué par le Ministère</span></label>
+    <input class="form-input" id="ten_code" value="${esc(rec.enafep_code||'')}" placeholder="Ex: 12345678901234" maxlength="20" style="font-family:monospace;letter-spacing:1px">
+  </div>
   <div class="form-group"><label class="form-label">Résultat</label>
     <select class="form-select" id="ten_result">
       <option value="" ${!rec.result?'selected':''}>⏳ En attente</option>
@@ -11928,13 +11937,13 @@ window.openTenafepRecord = (sid) => {
     </select>
   </div>
   <div class="form-group"><label class="form-label">Score (%)</label>
-    <input class="form-input" id="ten_score" type="number" min="0" max="100" step="1" value="${rec.score!=null?rec.score:''}" placeholder="Ex: 72">
+    <input class="form-input" id="ten_score" type="number" min="0" max="100" step="0.1" value="${rec.score!=null?rec.score:''}" placeholder="Ex: 72.5">
   </div>
-  <div class="form-group"><label class="form-label">N° d'inscription TENAFEP</label>
-    <input class="form-input" id="ten_num" value="${esc(rec.registration_num||'')}" placeholder="Numéro officiel">
+  <div class="form-group"><label class="form-label">N° d'inscription officiel</label>
+    <input class="form-input" id="ten_num" value="${esc(rec.registration_num||'')}" placeholder="Numéro attribué par le jury">
   </div>
-  <div class="form-group"><label class="form-label">Notes</label>
-    <textarea class="form-input" id="ten_notes" rows="2" placeholder="Observations...">${esc(rec.notes||'')}</textarea>
+  <div class="form-group"><label class="form-label">Observations</label>
+    <textarea class="form-input" id="ten_notes" rows="2" placeholder="Remarques...">${esc(rec.notes||'')}</textarea>
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" onclick="saveTenafepRecord('${sid}')">💾 Enregistrer</button>`);
@@ -11942,7 +11951,7 @@ window.openTenafepRecord = (sid) => {
 window.saveTenafepRecord = (sid) => {
   if(!DB.tenafep) DB.tenafep=[];
   const idx=DB.tenafep.findIndex(t=>t.sid===sid);
-  const obj={id:idx>=0?DB.tenafep[idx].id:'ten'+Date.now(),sid,result:$('ten_result')?.value||'',score:$('ten_score')?.value?parseFloat($('ten_score').value):null,registration_num:$('ten_num')?.value||null,notes:$('ten_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
+  const obj={id:idx>=0?DB.tenafep[idx].id:'ten'+Date.now(),sid,enafep_code:$('ten_code')?.value?.trim()||null,result:$('ten_result')?.value||'',score:$('ten_score')?.value?parseFloat($('ten_score').value):null,registration_num:$('ten_num')?.value||null,notes:$('ten_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
   if(idx>=0)DB.tenafep[idx]=obj;else DB.tenafep.push(obj);
   pushSync('tenafep','upsert',obj);saveToCrypt();
   toast('✅ Enregistré','success');closeModal();render();
@@ -11956,7 +11965,7 @@ window.printTenafepList = () => {
   const echoue=ten.filter(t=>t.result==='echoue').length;
   const w=window.open('','_blank');
   if(!w){toast('Autorisez les pop-ups pour télécharger le PDF','error');return;}
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Liste TENAFEP ${yr}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Liste ENAFEP ${yr}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;color:#1e293b;background:#f8fafc}
@@ -11995,14 +12004,14 @@ window.printTenafepList = () => {
   </head><body>
   <div class="page">
     <div class="download-bar no-print">
-      <h2>📄 Liste TENAFEP prête</h2>
+      <h2>📄 Liste ENAFEP prête</h2>
       <p>Cliquez sur le bouton ci-dessous puis choisissez <strong>« Enregistrer en PDF »</strong> dans la boîte de dialogue.</p>
       <button class="btn-dl" onclick="window.print()">💾 Télécharger / Enregistrer en PDF</button>
       <div class="mobile-tip">📱 Sur téléphone Android / iPhone : appuyez sur le bouton → puis sélectionnez <strong>Enregistrer en PDF</strong></div>
     </div>
     <div class="doc-header">
       <div style="font-size:11px;color:#64748b;margin-bottom:4px">REPUBLIQUE DEMOCRATIQUE DU CONGO · Ministère de l'EPSP</div>
-      <h1>🎓 LISTE OFFICIELLE TENAFEP — ${yr}</h1>
+      <h1>🎓 LISTE OFFICIELLE ENAFEP — ${yr}</h1>
       <p style="font-size:15px;font-weight:700;color:#1e293b">${sc.name||'The Wise School International'}</p>
       <p>${sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC'}</p>
       ${sc.dgep?`<p>N° SECOPE/DGEP : ${sc.dgep}</p>`:''}
