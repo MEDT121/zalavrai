@@ -1496,6 +1496,14 @@ window.tryLogin = async () => {
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
+
+  // ── Bootstrap : si aucun compte direction n'existe, admin/123456 ouvre l'app ──
+  const hasDir=(DB.users||[]).some(u=>_isDirRole(u.role));
+  if(!hasDir && name==='admin' && pin==='123456'){
+    loginAs({id:'bootstrap_admin',name:'Admin',role:'direction',initials:'AD',pin:'123456',pin_hashed:false});
+    return;
+  }
+
   const u = DB.users.find(u =>
     normName(u.name)===name ||
     (u.initials && normName(u.initials)===name) ||
