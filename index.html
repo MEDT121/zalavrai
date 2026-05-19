@@ -570,6 +570,8 @@ window.DB = {
   ],
   aps:[],
   daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[], advances:[],
+  cantine:[], cantine_menus:[], cantine_presence:[],
+  activites:[], activites_inscriptions:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -703,6 +705,8 @@ window.NAV = {
       {s:'Scolarité'},
       {id:'payments',i:'💰',l:'Paiements'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
+      {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
+      {id:'activites',i:'🎭',l:'Activités Extrascolaires'},
       {id:'primes',i:'💎',l:'Primes Enseignants'},
       {id:'attendance',i:'📋',l:'Présences'},
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
@@ -804,6 +808,8 @@ window.NAV = {
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
+      {id:'cantine_parent',i:'🍽️',l:'Cantine'},
+      {id:'activites_parent',i:'🎭',l:'Activités'},
       {s:'Communication'},
       {id:'messages',i:'✉️',l:'Messages',badge:true},
       {id:'convocations',i:'📋',l:'Convocations'},
@@ -841,6 +847,8 @@ window.NAV = {
       {id:'acces_parents',i:'🔐',l:'Accès parents'},
       {s:'Scolarité'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
+      {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
+      {id:'activites',i:'🎭',l:'Activités Extrascolaires'},
       {id:'attendance',i:'📋',l:'Présences'},
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'cards',i:'🪪',l:"Cartes d'élèves"},
@@ -882,6 +890,7 @@ window.NAV = {
       {id:'caisse_paiement',i:'💵',l:'Enregistrer paiement'},
       {id:'caisse_depense',i:'💸',l:'Enregistrer dépense'},
       {id:'caisse_rapport',i:'📋',l:'Rapport du jour'},
+      {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
       {s:'Infos'},
       {id:'notifications',i:'🔔',l:'Notifications'},
       {s:'Mon compte'},
@@ -1107,6 +1116,11 @@ function _cryptSnap() {
     evaluations:DB.evaluations||[],
     salaries:DB.salaries||[],
     advances:DB.advances||[],
+    cantine:DB.cantine||[],
+    cantine_menus:DB.cantine_menus||[],
+    cantine_presence:DB.cantine_presence||[],
+    activites:DB.activites||[],
+    activites_inscriptions:DB.activites_inscriptions||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -1259,6 +1273,10 @@ window.PT = {
   evaluations_ens:'⭐ Évaluations des enseignants',
   salaires:'💶 Salaires & Fiches de paie',
   rapport_secope:'📄 Rapport SECOPE/MEPSP',
+  cantine:'🍽️ Cantine Scolaire',
+  cantine_parent:'🍽️ Cantine',
+  activites:'🎭 Activités Extrascolaires',
+  activites_parent:'🎭 Activités',
 };
 
 // ── RENDERERS ──
@@ -1763,6 +1781,7 @@ window.showStudentInfo = (sid) => {
   openM(`👤 ${esc(s.name)}`, body,
     `<button class="btn btn-primary btn-sm" onclick="closeModal();openStudentGrades('${sid}','${esc(s.cid)}')">📝 Notes</button>
      <button class="btn btn-outline btn-sm" onclick="closeModal();go('attendance')">📋 Présences</button>
+     ${S.user.role!=='enseignant'?`<button class="btn btn-outline btn-sm" onclick="closeModal();openRapportMensuel('${sid}')">📊 Rapport PDF</button>`:''}
      <button class="btn btn-outline btn-sm" onclick="closeModal()">Fermer</button>`
   );
 };
@@ -5118,44 +5137,50 @@ R.palmares = () => {
     if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏫</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">${t('Aucune classe assignée','No class assigned')}</div><div style="font-size:14px">${t('La Direction doit vous affecter à une classe.<br>Contactez l\'administration.','Management needs to assign you to a class.<br>Contact administration.')}</div></div>`;
     classes=[mc.cl];
   }
-
+  if(!window._palmTrim) window._palmTrim=DB.settings?.currentTrimestre||'T1';
+  const selTrim=window._palmTrim;
+  const trimFilter=selTrim==='Tous'?undefined:selTrim;
+  const getMention=pct=>pct>=90?{l:'Excellent',c:'#059669'}:pct>=75?{l:'Très Bien',c:'#0891b2'}:pct>=60?{l:'Bien',c:'#2563eb'}:pct>=50?{l:'Assez Bien',c:'#d97706'}:{l:'Insuffisant',c:'#dc2626'};
   const medals=['🥇','🥈','🥉'];
-  let html='';
 
+  let html=`<div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🏆 ${t('Palmarès','Rankings')}</span>
+    <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+      ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmTrim='${tr}';render()">${tr}</button>`).join('')}
+    </div>
+  </div>`;
+
+  let anyContent=false;
   classes.forEach(cl=>{
     const students=DB.students.filter(s=>s.cid===cl.id);
     if(!students.length) return;
+    anyContent=true;
     const allMatieres=getClassMatieres(cl.id);
-    // Teacher sees only their language subjects; direction sees all
     const matieres=role==='enseignant'&&mc.lang
       ? allMatieres.filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true)
       : allMatieres;
     const [cc,cbg]=clsColor(cl.name);
     const isTeacher=role==='enseignant';
 
-    // Calculate rankings using only the teacher's subjects when teacher
     const ranked=students.map(s=>{
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
       const retards=DB.attendance.filter(a=>a.sid===s.id&&a.status==='late').length;
-
       let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{
-        const a=matAvgPct(s.id,m.name);
+        const a=matAvgPct(s.id,m.name,trimFilter);
         if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}
       });
       const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
-
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
       const condPct=Math.round(condAvg*25);
       const total=Math.round(moyPct*0.85+condPct*0.15);
-
-      return {...s,moyPct,condAvg,condPct,total,retards,gradeCount:countPct};
+      return {...s,moyPct,condAvg,condPct,total,retards,gradeCount:sumCoeff};
     }).sort((a,b)=>b.total-a.total);
 
     html+=`
     <div style="margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <div style="width:14px;height:14px;border-radius:50%;background:${cc}"></div>
         <h3 style="font-size:16px;font-weight:700">${esc(cl.name)}</h3>
         <span class="pill pill-gray">${ranked.length} ${t('élèves','students')}</span>
@@ -5169,43 +5194,47 @@ R.palmares = () => {
           const s=ranked[pos]; if(!s) return '';
           const heights=[110,80,60];
           const colors=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
+          const men=getMention(s.total);
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
             <div style="font-size:${pos===0?'28':'22'}px">${medals[pos]}</div>
             <div style="width:44px;height:44px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(s.name)}</div>
             <div style="font-size:11px;font-weight:700;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
+            <div style="font-size:9px;font-weight:700;color:${men.c};background:${men.c}22;border-radius:4px;padding:2px 5px">${men.l}</div>
             <div style="width:70px;height:${heights[pos]}px;border-radius:10px 10px 0 0;background:${colors[pos]};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff">${s.total}</div>
           </div>`;
         }).join('')}
       </div>`:''}
 
       <div class="ww-section">
-        <div class="ww-section-header"><span class="ww-section-title">📊 ${t('Classement complet','Full Rankings')}</span></div>
+        <div class="ww-section-header"><span class="ww-section-title">📊 ${t('Classement complet','Full Rankings')} — ${selTrim}</span></div>
         ${ranked.map((s,i)=>{
           const condEmoji={4:'🌟',3:'😊',2:'😐',1:'😞',0:'—'}[Math.round(s.condAvg)]||'—';
+          const men=getMention(s.total);
           return `<div class="ww-item" style="animation-delay:${i*.04}s">
             <span style="font-size:${i<3?20:15}px;width:32px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div class="ww-item-content">
               <div class="ww-item-title">${esc(s.name)}${s.moyPct<50&&s.gradeCount>0?' <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fee2e2;border-radius:4px;padding:1px 5px">⚠ ÉCHEC</span>':''}</div>
-              <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#059669':s.moyPct>=50?'#d97706':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
+              <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#059669':s.moyPct>=50?'#d97706':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · <span style="font-size:11px;font-weight:700;color:${men.c}">${men.l}</span> · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-size:18px;font-weight:800;color:${s.total>=70?'#059669':s.total>=50?'#d97706':'#dc2626'}">${s.total}</div>
               <div style="font-size:10px;color:var(--text-muted)">pts</div>
             </div>
-            ${isTeacher?`<button class="action-btn" onclick="openStudentGrades('${s.id}','${cl.id}')" style="flex-shrink:0" title="Voir/modifier notes">📝</button>`:''}
-            ${isTeacher?`<button class="action-btn" onclick="openConductM('${s.id}')" style="flex-shrink:0;background:#d1fae5;border-color:#6ee7b7" title="Note de conduite">📊</button>`:''}
-            ${isTeacher?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="Signaler besoin de rattrapage">⚠️</button>`:''}
+            ${isTeacher?`<button class="action-btn" onclick="openStudentGrades('${s.id}','${cl.id}')" style="flex-shrink:0" title="${t('Voir/modifier notes','View/edit grades')}">📝</button>`:''}
+            ${isTeacher?`<button class="action-btn" onclick="openConductM('${s.id}')" style="flex-shrink:0;background:#d1fae5;border-color:#6ee7b7" title="${t('Note de conduite','Conduct')}">📊</button>`:''}
+            ${isTeacher?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="${t('Signaler rattrapage','Flag for catch-up')}">⚠️</button>`:''}
           </div>`;
         }).join('')}
       </div>
     </div>`;
   });
 
-  return html||`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>Aucun élève inscrit</div>`;
+  if(!anyContent) return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>${t('Aucun élève inscrit','No students enrolled')}</div>`;
+  return html;
 };
 
-// ── Parent palmarès (same but read-only, respects toggles and payment) ──
+// ── Parent palmarès (lecture seule, respecte toggles et paiements) ──
 R.palmares_parent = () => {
   if(!(DB.settings.toggles?.palmares ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
@@ -5215,7 +5244,19 @@ R.palmares_parent = () => {
   if(!bulletinGlobal) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Bulletins non publiés</div><div style="font-size:14px">La Direction n'a pas encore publié les bulletins.<br>Revenez plus tard.</div></div>`;
   if(!anyAccess) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Accès restreint</div><div style="font-size:14px">Les bulletins ne sont pas encore activés pour vos enfants.<br>Contactez la direction.</div></div>`;
 
-  return kids.map(k=>{
+  if(!window._palmPTrim) window._palmPTrim=DB.settings?.currentTrimestre||'T1';
+  const selTrim=window._palmPTrim;
+  const trimFilter=selTrim==='Tous'?undefined:selTrim;
+  const getMention=pct=>pct>=90?{l:'Excellent',c:'#059669'}:pct>=75?{l:'Très Bien',c:'#0891b2'}:pct>=60?{l:'Bien',c:'#2563eb'}:pct>=50?{l:'Assez Bien',c:'#d97706'}:{l:'Insuffisant',c:'#dc2626'};
+
+  let html=`<div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🏆 Palmarès</span>
+    <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+      ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmPTrim='${tr}';render()">${tr}</button>`).join('')}
+    </div>
+  </div>`;
+
+  html+=kids.map(k=>{
     if(!k.access_parent) return `<div class="premium-section" style="border-left:4px solid #94a3b8"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#64748b">Accès non activé pour cet enfant — contactez la direction</div></div></div></div>`;
     const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
     if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef4444"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
@@ -5225,10 +5266,9 @@ R.palmares_parent = () => {
     const matieres=getClassMatieres(cl.id);
     const [cc,cbg]=clsColor(cl.name);
 
-    // Compute all rankings with coefficients
     const ranked=students.map(s=>{
       let totalPct=0,sumCoeff=0;
-      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}});
+      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name,trimFilter);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}});
       const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
@@ -5239,31 +5279,26 @@ R.palmares_parent = () => {
 
     const pos=ranked.findIndex(s=>s.id===k.id)+1;
     const me=ranked.find(s=>s.id===k.id);
-    const myGrades=DB.grades.filter(g=>g.sid===k.id);
+    const mention=me?getMention(me.total):{l:'—',c:'#94a3b8'};
 
-    // Detect bilingual class (primaire with both teachers)
-    const isBilingual = cl.cycle==='primaire' && cl.teacher_id && cl.teacher_id_en;
-    const profFR = isBilingual ? DB.users.find(u=>u.id===cl.teacher_id) : null;
-    const profEN = isBilingual ? DB.users.find(u=>u.id===cl.teacher_id_en) : null;
+    const isBilingual=cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+    const profFR=isBilingual?DB.users.find(u=>u.id===cl.teacher_id):null;
+    const profEN=isBilingual?DB.users.find(u=>u.id===cl.teacher_id_en):null;
 
-    const renderGradeSection = (sectionMatieres, sectionLabel, flag, profName, bgColor) => {
-      if(!sectionMatieres.length) return '';
-      let total=0, sumC=0;
-      sectionMatieres.forEach(m=>{ const a=matAvgPct(k.id,m.name); if(a!==null){const c=m.coeff||1;total+=a*c;sumC+=c;} });
-      const moy=sumC?Math.round(total/sumC):null;
-      const barColor2=moy===null?'#e2e8f0':moy>=70?'#10b981':moy>=50?'#f59e0b':'#ef4444';
-      return `
-      <div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:${bgColor}">
+    const renderSection=(secMats,secLabel,flag,profName,bg)=>{
+      if(!secMats.length) return '';
+      let tot=0,sumC=0;
+      secMats.forEach(m=>{const a=matAvgPct(k.id,m.name,trimFilter);if(a!==null){const c=m.coeff||1;tot+=a*c;sumC+=c;}});
+      const moy=sumC?Math.round(tot/sumC):null;
+      const bc2=moy===null?'#e2e8f0':moy>=70?'#10b981':moy>=50?'#f59e0b':'#ef4444';
+      return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:${bg}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-size:16px">${flag}</span>
-          <div>
-            <div style="font-weight:700;font-size:14px">${sectionLabel}</div>
-            ${profName?`<div style="font-size:11px;color:var(--text-secondary)">Prof: ${profName}</div>`:''}
-          </div>
-          ${moy!==null?`<span class="pill" style="margin-left:auto;background:${barColor2};color:#fff;font-size:13px;font-weight:800">${moy}%</span>`:''}
+          <div><div style="font-weight:700;font-size:14px">${secLabel}</div>${profName?`<div style="font-size:11px;color:var(--text-secondary)">Prof: ${profName}</div>`:''}</div>
+          ${moy!==null?`<span class="pill" style="margin-left:auto;background:${bc2};color:#fff;font-size:13px;font-weight:800">${moy}%</span>`:''}
         </div>
-        ${sectionMatieres.map(m=>{
-          const pct=matAvgPct(k.id,m.name);
+        ${secMats.map(m=>{
+          const pct=matAvgPct(k.id,m.name,trimFilter);
           const bc=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
           return `<div style="margin-bottom:7px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
@@ -5276,80 +5311,361 @@ R.palmares_parent = () => {
       </div>`;
     };
 
-    const frMatieres = matieres.filter(m=>m.lang==='fr'||(!isBilingual&&m.lang!=='en'));
-    const enMatieres = matieres.filter(m=>m.lang==='en');
-    const communMatieres = matieres.filter(m=>m.lang==='commun');
+    const frMats=matieres.filter(m=>m.lang==='fr'||(!isBilingual&&m.lang!=='en'));
+    const enMats=matieres.filter(m=>m.lang==='en');
+    const comMats=matieres.filter(m=>m.lang==='commun');
 
-    return `
-    <div class="premium-section" style="margin-bottom:16px">
+    // Trimester evolution (rename loop var to avoid shadowing global t())
+    const trimEvo=(()=>{
+      const trimData=['T1','T2','T3'].map(tr=>{
+        const gs=DB.grades.filter(g=>g.sid===k.id&&g.trimester===tr);
+        if(!gs.length) return {tr,avg:null};
+        const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);
+        return {tr,avg};
+      }).filter(x=>x.avg!==null);
+      if(!trimData.length) return '';
+      return `<div style="margin-top:14px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">📈 Évolution par trimestre</div>
+        <div style="display:flex;align-items:flex-end;gap:12px;height:80px;padding:0 8px">
+          ${trimData.map((x,i)=>{
+            const prev=trimData[i-1];
+            const trend=prev&&x.avg!==null&&prev.avg!==null?(x.avg>prev.avg?'↑':x.avg<prev.avg?'↓':'→'):null;
+            const col=x.avg>=70?'#10b981':x.avg>=50?'#f59e0b':'#ef4444';
+            const h=Math.max(12,Math.round((x.avg/100)*70));
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="font-size:11px;font-weight:700;color:${col}">${x.avg}%${trend?` ${trend}`:''}</div>
+              <div style="width:100%;height:${h}px;background:${col};border-radius:6px 6px 0 0"></div>
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted)">${x.tr}</div>
+            </div>`;
+          }).join('')}
+          ${['T1','T2','T3'].filter(tr=>!trimData.find(x=>x.tr===tr)).map(tr=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <div style="font-size:11px;color:var(--text-muted)">—</div>
+            <div style="width:100%;height:8px;background:#e2e8f0;border-radius:6px 6px 0 0"></div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted)">${tr}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    })();
+
+    const bulletinBtn=(()=>{
+      if(!bulletinGlobal||!k.access_parent) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
+      if(!DB.payments.some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
+      return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
+    })();
+
+    return `<div class="premium-section" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
         <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cc};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2)">${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}</div>
         <div>
           <div style="font-size:20px;font-weight:800">${esc(k.name)}</div>
           <div style="font-size:14px;color:var(--text-secondary)">${esc(cl.name)} — ${pos}${pos===1?'er':'ème'} sur ${ranked.length}</div>
-          <div style="font-size:22px;font-weight:800;color:${me&&me.total>=70?'#059669':me&&me.total>=50?'#d97706':'#dc2626'};margin-top:4px">${me?me.total:0} pts</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+            <div style="font-size:22px;font-weight:800;color:${me&&me.total>=70?'#059669':me&&me.total>=50?'#d97706':'#dc2626'}">${me?me.total:0} pts</div>
+            <span style="font-size:12px;font-weight:700;color:${mention.c};background:${mention.c}22;border-radius:6px;padding:3px 8px">${mention.l}</span>
+          </div>
         </div>
       </div>
       ${isBilingual?`
-        ${renderGradeSection(frMatieres,'Bulletin Français','🇫🇷',profFR?profFR.name:null,'#f0fdf4')}
-        ${renderGradeSection(enMatieres,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eff6ff')}
-        ${communMatieres.length?renderGradeSection(communMatieres,'Matières communes','📚',null,'#fafafa'):''}
+        ${renderSection(frMats,'Bulletin Français','🇫🇷',profFR?profFR.name:null,'#f0fdf4')}
+        ${renderSection(enMats,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eff6ff')}
+        ${comMats.length?renderSection(comMats,'Matières communes','📚',null,'#fafafa'):''}
       `:`
-        <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 Notes par matière</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 Notes par matière ${selTrim!=='Tous'?'('+selTrim+')':''}</div>
         ${matieres.map(m=>{
-          const pct=matAvgPct(k.id,m.name);
+          const pct=matAvgPct(k.id,m.name,trimFilter);
           const barColor=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
           return `<div style="margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
+              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
               <span style="font-weight:700;color:${barColor==='#e2e8f0'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
           </div>`;
         }).join('')}
       `}
-      <!-- Évolution par trimestre -->
-      ${(()=>{
-        const trimData=['T1','T2','T3'].map(t=>{
-          const gs=DB.grades.filter(g=>g.sid===k.id&&g.trimester===t);
-          if(!gs.length) return {t,avg:null};
-          const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);
-          return {t,avg};
-        }).filter(x=>x.avg!==null);
-        if(trimData.length<1) return '';
-        const maxAvg=Math.max(...trimData.map(x=>x.avg),1);
-        return `<div style="margin-top:14px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px">📈 Évolution par trimestre</div>
-          <div style="display:flex;align-items:flex-end;gap:12px;height:80px;padding:0 8px">
-            ${trimData.map((x,i)=>{
-              const prev=trimData[i-1];
-              const trend=prev&&x.avg!==null&&prev.avg!==null?(x.avg>prev.avg?'↑':x.avg<prev.avg?'↓':'→'):null;
-              const col=x.avg>=70?'#10b981':x.avg>=50?'#f59e0b':'#ef4444';
-              const h=Math.max(12,Math.round((x.avg/100)*70));
-              return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-                <div style="font-size:11px;font-weight:700;color:${col}">${x.avg}%${trend?` ${trend}`:''}</div>
-                <div style="width:100%;height:${h}px;background:${col};border-radius:6px 6px 0 0;transition:height .4s ease"></div>
-                <div style="font-size:11px;font-weight:600;color:var(--text-muted)">${x.t}</div>
-              </div>`;
-            }).join('')}
-            ${trimData.length<3?['T1','T2','T3'].filter(t=>!trimData.find(x=>x.t===t)).map(t=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <div style="font-size:11px;color:var(--text-muted)">—</div>
-              <div style="width:100%;height:8px;background:#e2e8f0;border-radius:6px 6px 0 0"></div>
-              <div style="font-size:11px;font-weight:600;color:var(--text-muted)">${t}</div>
-            </div>`).join(''):''}
-          </div>
-        </div>`;
-      })()}
-      ${(()=>{
-        const bulletinOn=bulletinGlobal&&k.access_parent;
-        const allPaid=DB.payments.filter(p=>p.sid===k.id).every(p=>p.paid);
-        const anyPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
-        if(!bulletinOn) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
-        if(!anyPaid) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
-        return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
-      })()}
+      ${trimEvo}
+      ${bulletinBtn}
     </div>`;
   }).join('');
+
+  return html;
+};
+
+// ── CANTINE SCOLAIRE ──
+R.cantine = () => {
+  if(!DB.cantine) DB.cantine=[];
+  if(!DB.cantine_menus) DB.cantine_menus=[];
+  if(!DB.cantine_presence) DB.cantine_presence=[];
+
+  const todayStr=today();
+  const students=DB.students||[];
+  const inscrits=(DB.cantine||[]).filter(c=>c.active);
+  const menuAuj=(DB.cantine_menus||[]).find(m=>m.date===todayStr);
+  const presAuj=(DB.cantine_presence||[]).filter(p=>p.date===todayStr);
+
+  // Stats
+  const totalInscrits=inscrits.length;
+  const presNb=presAuj.filter(p=>p.present).length;
+
+  let html=`<div class="ww-toolbar" style="flex-wrap:wrap;gap:10px">
+    <span style="font-size:16px;font-weight:700">🍽️ Cantine Scolaire</span>
+    <div style="display:flex;gap:8px;margin-left:auto;flex-wrap:wrap">
+      <button class="btn btn-sm btn-outline" onclick="openCantinaMenu()">📋 Menu du jour</button>
+      <button class="btn btn-sm btn-primary" onclick="openInscrireEleve()">➕ Inscrire élève</button>
+    </div>
+  </div>
+
+  <!-- Stats rapides -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+    <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:14px;color:#fff;text-align:center">
+      <div style="font-size:28px;font-weight:900">${totalInscrits}</div>
+      <div style="font-size:11px;opacity:.9">Élèves inscrits</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#3b82f6,#2563eb);border-radius:14px;padding:14px;color:#fff;text-align:center">
+      <div style="font-size:28px;font-weight:900">${presNb}</div>
+      <div style="font-size:11px;opacity:.9">Présents aujourd'hui</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:14px;color:#fff;text-align:center">
+      <div style="font-size:28px;font-weight:900">$${inscrits.reduce((s,c)=>s+Number(c.amount||0),0)}</div>
+      <div style="font-size:11px;opacity:.9">Recettes / mois</div>
+    </div>
+  </div>
+
+  <!-- Menu du jour -->
+  <div class="premium-section" style="margin-bottom:14px">
+    <div class="premium-section-title">📋 Menu du jour — ${new Date(todayStr).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    ${menuAuj?`
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">🍲</span><div class="pi-title">Plat principal</div><div class="pi-sub">${esc(menuAuj.plat)}</div></div>`:''}
+      ${menuAuj.dessert?`<div class="premium-item"><span class="pi-icon">🍮</span><div class="pi-title">Dessert</div><div class="pi-sub">${esc(menuAuj.dessert)}</div></div>`:''}
+      ${menuAuj.boisson?`<div class="premium-item"><span class="pi-icon">🥤</span><div class="pi-title">Boisson</div><div class="pi-sub">${esc(menuAuj.boisson)}</div></div>`:''}
+      ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon">💵</span><div class="pi-title">Prix</div><div class="pi-sub">$${menuAuj.prix} / repas</div></div>`:''}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="openCantinaMenu('${menuAuj.id}')">✏️ Modifier le menu</button>
+    `:`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu publié pour aujourd'hui</div>
+    <button class="btn btn-primary btn-sm" style="margin-top:4px;width:100%" onclick="openCantinaMenu()">📋 Publier le menu du jour</button>`}
+  </div>
+
+  <!-- Présence cantine du jour -->
+  <div class="premium-section" style="margin-bottom:14px">
+    <div class="premium-section-title">✅ Présence cantine — Aujourd'hui</div>
+    ${inscrits.length===0?`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun élève inscrit à la cantine</div>`:`
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      ${inscrits.map(ins=>{
+        const s=students.find(x=>x.id===ins.sid); if(!s) return '';
+        const pr=presAuj.find(p=>p.sid===ins.sid);
+        const isPresent=pr?.present===true;
+        const [cc,cbg]=clsColor((DB.classes||[]).find(c=>c.id===s.cid)?.name||'');
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${isPresent?'#d1fae5':'var(--bg)'};border-radius:10px;border:1px solid ${isPresent?'#6ee7b7':'var(--border)'}">
+          <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'}</div>
+          </div>
+          <button class="btn btn-sm ${isPresent?'btn-outline':'btn-primary'}" onclick="toggleCantinaPresence('${ins.sid}','${isPresent}')">${isPresent?'✅ Présent':'Marquer présent'}</button>
+          <button class="action-btn" onclick="desinscrireEleve('${ins.sid}')" title="Désinscrire" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626">🗑️</button>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>
+
+  <!-- Historique menus -->
+  <div class="premium-section">
+    <div class="premium-section-title">📅 Menus récents</div>
+    ${(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7).map(m=>`
+    <div class="premium-item">
+      <span class="pi-icon">🍽️</span>
+      <div>
+        <div class="pi-title">${new Date(m.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>
+        <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+m.dessert:''}${m.prix?' · $'+m.prix:''}</div>
+      </div>
+      <button class="action-btn" onclick="openCantinaMenu('${m.id}')" style="flex-shrink:0">✏️</button>
+    </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu enregistré</div>`}
+  </div>`;
+
+  return html;
+};
+
+window.openCantinaMenu = (mid) => {
+  const m=mid?(DB.cantine_menus||[]).find(x=>x.id===mid):null;
+  openM(`📋 ${m?'Modifier':'Publier'} le menu`,`
+  <div class="form-group"><label class="form-label">Date *</label>
+    <input class="form-input" id="cmDate" type="date" value="${m?m.date:today()}">
+  </div>
+  <div class="form-group"><label class="form-label">Plat principal *</label>
+    <input class="form-input" id="cmPlat" placeholder="Ex: Riz sauce gombo + poulet" value="${esc(m?.plat||'')}">
+  </div>
+  <div class="form-group"><label class="form-label">Dessert</label>
+    <input class="form-input" id="cmDessert" placeholder="Ex: Banane plantain, fruit de saison" value="${esc(m?.dessert||'')}">
+  </div>
+  <div class="form-group"><label class="form-label">Boisson</label>
+    <input class="form-input" id="cmBoisson" placeholder="Ex: Eau minérale, jus naturel" value="${esc(m?.boisson||'')}">
+  </div>
+  <div class="form-group"><label class="form-label">Prix par repas ($)</label>
+    <input class="form-input" id="cmPrix" type="number" min="0" step="0.5" placeholder="Ex: 2.5" value="${m?.prix||''}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveCantinaMenu('${mid||''}')">💾 Enregistrer</button>`);
+};
+
+window.saveCantinaMenu = (mid) => {
+  const date=($('cmDate')?.value||'').trim();
+  const plat=($('cmPlat')?.value||'').trim();
+  if(!date||!plat){toast('Date et plat principal obligatoires','error');return;}
+  if(!DB.cantine_menus) DB.cantine_menus=[];
+  if(mid){
+    const m=DB.cantine_menus.find(x=>x.id===mid);
+    if(m){m.date=date;m.plat=plat;m.dessert=$('cmDessert')?.value||'';m.boisson=$('cmBoisson')?.value||'';m.prix=parseFloat($('cmPrix')?.value)||0;
+      pushSync('cantine_menus','patch',{date,plat,dessert:m.dessert,boisson:m.boisson,prix:m.prix},'id=eq.'+mid);}
+  } else {
+    const nm={id:'cm'+Date.now(),date,plat,dessert:$('cmDessert')?.value||'',boisson:$('cmBoisson')?.value||'',prix:parseFloat($('cmPrix')?.value)||0};
+    DB.cantine_menus.push(nm);
+    pushSync('cantine_menus','post',nm);
+  }
+  closeModal(); saveToCrypt(); render();
+  toast('✅ Menu enregistré','success');
+};
+
+window.openInscrireEleve = () => {
+  const inscrits=(DB.cantine||[]).filter(c=>c.active).map(c=>c.sid);
+  const nonInscrits=(DB.students||[]).filter(s=>!inscrits.includes(s.id));
+  if(!nonInscrits.length){toast('Tous les élèves sont déjà inscrits','info');return;}
+  openM('➕ Inscrire un élève à la cantine',`
+  <div class="form-group"><label class="form-label">Élève *</label>
+    <select class="form-input" id="caSid">
+      ${nonInscrits.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Type d'inscription *</label>
+    <select class="form-input" id="caType">
+      <option value="jour">Journalier</option>
+      <option value="mois">Mensuel</option>
+      <option value="annee">Annuel</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Montant mensuel ($) *</label>
+    <input class="form-input" id="caAmount" type="number" min="0" placeholder="Ex: 30">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveInscrireEleve()">✅ Inscrire</button>`);
+};
+
+window.saveInscrireEleve = () => {
+  const sid=$('caSid')?.value;
+  const type=$('caType')?.value;
+  const amount=parseFloat($('caAmount')?.value)||0;
+  if(!sid||!amount){toast('Remplissez tous les champs','error');return;}
+  if(!DB.cantine) DB.cantine=[];
+  const ins={id:'ca'+Date.now(),sid,type,amount,active:true,date_inscription:today(),by:S.user.id};
+  DB.cantine.push(ins);
+  pushSync('cantine','post',ins);
+  const s=DB.students.find(x=>x.id===sid);
+  logAudit('cantine_inscription',`${s?s.name:sid} — ${type} — $${amount}`,ins.id);
+  if(s?.pid){
+    const n={id:'n'+Date.now(),uid:s.pid,msg:`🍽️ ${s.name} est maintenant inscrit(e) à la cantine (${type}) — $${amount}/mois`,date:today(),time:nowTime(),read:false,type:'info'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  }
+  closeModal(); saveToCrypt(); render();
+  toast(`✅ ${s?s.name:'Élève'} inscrit(e) à la cantine`,'success');
+};
+
+window.desinscrireEleve = (sid) => {
+  const s=DB.students.find(x=>x.id===sid);
+  showC(`Désinscrire ${s?s.name:'cet élève'} de la cantine ?`,'Cette action peut être annulée en le réinscrivant.',()=>{
+    const ins=(DB.cantine||[]).find(c=>c.sid===sid&&c.active);
+    if(!ins) return;
+    ins.active=false;
+    pushSync('cantine','patch',{active:false},'id=eq.'+ins.id);
+    if(s?.pid){
+      const n={id:'n'+Date.now(),uid:s.pid,msg:`🍽️ ${s.name} a été désinscrit(e) de la cantine.`,date:today(),time:nowTime(),read:false,type:'info'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    }
+    saveToCrypt(); render();
+    toast(`${s?s.name:'Élève'} désinscrit(e) de la cantine`,'info');
+  });
+};
+
+window.toggleCantinaPresence = (sid, isPresent) => {
+  if(!DB.cantine_presence) DB.cantine_presence=[];
+  const todayStr=today();
+  const existing=DB.cantine_presence.find(p=>p.sid===sid&&p.date===todayStr);
+  const nowPresent=isPresent==='true';
+  if(existing){
+    existing.present=!nowPresent;
+    pushSync('cantine_presence','patch',{present:!nowPresent},'id=eq.'+existing.id);
+  } else {
+    const np={id:'cp'+Date.now(),sid,date:todayStr,present:true};
+    DB.cantine_presence.push(np);
+    pushSync('cantine_presence','post',np);
+  }
+  saveToCrypt(); render();
+};
+
+// ── CANTINE VUE PARENT ──
+R.cantine_parent = () => {
+  if(!DB.cantine) DB.cantine=[];
+  if(!DB.cantine_menus) DB.cantine_menus=[];
+  if(!DB.cantine_presence) DB.cantine_presence=[];
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🍽️</div>Aucun enfant lié</div>`;
+
+  const todayStr=today();
+  const menuAuj=(DB.cantine_menus||[]).find(m=>m.date===todayStr);
+  const menus7=(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🍽️ Cantine</span></div>`;
+
+  // Menu du jour
+  html+=`<div class="premium-section" style="margin-bottom:14px">
+    <div class="premium-section-title">🍽️ Menu d'aujourd'hui</div>
+    ${menuAuj?`
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">🍲</span><span class="pi-title">Plat</span><span class="pi-sub">${esc(menuAuj.plat)}</span></div>`:''}
+      ${menuAuj.dessert?`<div class="premium-item"><span class="pi-icon">🍮</span><span class="pi-title">Dessert</span><span class="pi-sub">${esc(menuAuj.dessert)}</span></div>`:''}
+      ${menuAuj.boisson?`<div class="premium-item"><span class="pi-icon">🥤</span><span class="pi-title">Boisson</span><span class="pi-sub">${esc(menuAuj.boisson)}</span></div>`:''}
+      ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon">💵</span><span class="pi-title">Prix</span><span class="pi-sub">$${menuAuj.prix} / repas</span></div>`:''}
+    </div>`:`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu publié pour aujourd'hui</div>`}
+  </div>`;
+
+  // Statut inscription enfants
+  kids.forEach(k=>{
+    const ins=(DB.cantine||[]).find(c=>c.sid===k.id&&c.active);
+    const pr7=(DB.cantine_presence||[]).filter(p=>p.sid===k.id&&p.present).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+    html+=`<div class="premium-section" style="margin-bottom:14px">
+      <div class="premium-section-title">👶 ${esc(k.name)}</div>
+      ${ins?`
+      <div style="display:flex;align-items:center;gap:10px;padding:12px;background:#d1fae5;border-radius:12px;margin-top:8px">
+        <span style="font-size:28px">✅</span>
+        <div>
+          <div style="font-weight:700;font-size:14px">Inscrit(e) à la cantine</div>
+          <div style="font-size:12px;color:#065f46">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'} — $${ins.amount}/mois · Depuis le ${new Date(ins.date_inscription).toLocaleDateString('fr-FR')}</div>
+        </div>
+      </div>
+      ${pr7.length?`<div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px">PRÉSENCES RÉCENTES</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${pr7.map(p=>`<span class="pill pill-green">${new Date(p.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}</span>`).join('')}
+      </div>`:''}`:`
+      <div style="display:flex;align-items:center;gap:10px;padding:12px;background:#f1f5f9;border-radius:12px;margin-top:8px">
+        <span style="font-size:28px">❌</span>
+        <div>
+          <div style="font-weight:700;font-size:14px">Non inscrit(e) à la cantine</div>
+          <div style="font-size:12px;color:var(--text-muted)">Contactez la Direction pour inscrire votre enfant</div>
+        </div>
+      </div>`}
+    </div>`;
+  });
+
+  // Menus de la semaine
+  html+=`<div class="premium-section">
+    <div class="premium-section-title">📅 Menus récents</div>
+    ${menus7.map(m=>`<div class="premium-item">
+      <span class="pi-icon">🍽️</span>
+      <div><div class="pi-title">${new Date(m.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'})}</div>
+      <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+m.dessert:''}${m.prix?' · $'+m.prix:''}</div></div>
+    </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu disponible</div>`}
+  </div>`;
+
+  return html;
 };
 
 // ── GRADE PANEL: Saisir notes pour toute la classe ──
@@ -9148,6 +9464,139 @@ window.getDbBreakdown = () => {
   ];
 };
 
+// ── RAPPORT MENSUEL PARENT (Direction génère, parent consulte) ──
+window.genererRapportMensuel = (sid, mois) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid); if(!cl) return;
+  const matieres=getClassMatieres(cl.id);
+  const trim=DB.settings?.currentTrimestre||'T1';
+  // Notes du mois (approx = trimestre actif)
+  const grades=DB.grades.filter(g=>g.sid===sid&&g.trimester===trim);
+  let totalPct=0,sumC=0;
+  matieres.forEach(m=>{const a=matAvgPct(sid,m.name,trim);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
+  const moy=sumC?Math.round(totalPct/sumC):null;
+  // Présences du mois
+  const presences=DB.attendance.filter(a=>a.sid===sid&&a.date&&a.date.slice(0,7)===mois);
+  const absents=presences.filter(a=>a.status==='absent').length;
+  const retards=presences.filter(a=>a.status==='late').length;
+  const presents=presences.filter(a=>a.status==='présent').length;
+  // Conduite
+  const conduites=DB.conduct.filter(c=>c.sid===sid);
+  const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+  const condAvg=conduites.length?conduites.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduites.length:0;
+  const condLabel=['—','Mauvais','Moyen','Bien','Excellent'][Math.round(condAvg)]||'—';
+  // Devoirs rendus
+  const getMention=pct=>pct>=90?'Excellent':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Assez Bien':'Insuffisant';
+
+  const htmlStr=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1e293b;font-size:14px}
+    .header{text-align:center;padding:20px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-radius:12px;margin-bottom:20px}
+    .header h1{margin:0 0 4px;font-size:22px} .header p{margin:0;font-size:12px;opacity:.85}
+    .section{background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #e2e8f0}
+    .section-title{font-weight:700;font-size:13px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+    .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e2e8f0;font-size:13px}
+    .row:last-child{border-bottom:none}
+    .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700}
+    .green{background:#d1fae5;color:#065f46} .orange{background:#fef3c7;color:#92400e} .red{background:#fee2e2;color:#991b1b}
+    .footer{text-align:center;font-size:11px;color:#94a3b8;margin-top:20px}
+  </style></head><body>
+  <div class="header">
+    <h1>📊 Rapport Mensuel — ${mois}</h1>
+    <p>${esc(s.name)} · ${esc(cl.name)} · ${DB.settings?.school?.name||'SchoolSafe'}</p>
+  </div>
+  <div class="section">
+    <div class="section-title">🏆 Résultats scolaires (${trim})</div>
+    ${matieres.map(m=>{const pct=matAvgPct(sid,m.name,trim);return `<div class="row"><span>${esc(m.name)}</span><span class="badge ${pct===null?'':'pct>=70?green:pct>=50?orange:red'}">${pct!==null?pct+'%':'—'}</span></div>`;}).join('')}
+    <div class="row"><strong>Moyenne générale (${trim})</strong><strong class="badge ${moy===null?'':moy>=70?'green':moy>=50?'orange':'red'}">${moy!==null?moy+'% — '+getMention(moy):'Pas encore noté'}</strong></div>
+  </div>
+  <div class="section">
+    <div class="section-title">📋 Présences — ${mois}</div>
+    <div class="row"><span>Jours présents</span><span class="badge green">${presents}</span></div>
+    <div class="row"><span>Retards</span><span class="badge orange">${retards}</span></div>
+    <div class="row"><span>Absences</span><span class="badge red">${absents}</span></div>
+  </div>
+  <div class="section">
+    <div class="section-title">😊 Comportement</div>
+    <div class="row"><span>Conduite générale</span><span class="badge ${condAvg>=3?'green':condAvg>=2?'orange':'red'}">${condLabel}</span></div>
+    ${conduites.slice(-3).map(c=>`<div class="row"><span>${c.date} — ${c.remark||c.score}</span><span class="badge">${c.score}</span></div>`).join('')}
+  </div>
+  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe · ${DB.settings?.school?.name||''}</div>
+  </body></html>`;
+  dlPDF(htmlStr, `Rapport_${s.name.replace(/\s+/g,'_')}_${mois}.pdf`);
+};
+
+window.openRapportMensuel = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const mois=new Date().toISOString().slice(0,7);
+  const moisLabel=new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  openM(`📊 Rapport mensuel — ${esc(s.name)}`,`
+  <div style="background:#dbeafe;border-radius:10px;padding:12px;font-size:13px;color:#1e40af;margin-bottom:14px">
+    Génère un rapport PDF mensuel complet pour <strong>${esc(s.name)}</strong> incluant les notes, présences et comportement.
+  </div>
+  <div class="form-group"><label class="form-label">Mois</label>
+    <input class="form-input" id="rmMois" type="month" value="${mois}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="genererRapportMensuel('${sid}',$('rmMois').value);closeModal()">📥 Télécharger le rapport</button>`);
+};
+
+// ── PALMARÈS ANNUEL / CÉRÉMONIE ──
+window.genererPalmaresAnnuel = () => {
+  const classes=DB.classes||[];
+  const students=DB.students||[];
+  const yr=DB.settings?.year||'2025-2026';
+  const getMention=pct=>pct>=90?'Excellent':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Assez Bien':'Insuffisant';
+
+  let classesHtml='';
+  classes.forEach(cl=>{
+    const stds=students.filter(s=>s.cid===cl.id);
+    if(!stds.length) return;
+    const matieres=getClassMatieres(cl.id);
+    const ranked=stds.map(s=>{
+      let totalPct=0,sumC=0;
+      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
+      const moyPct=sumC?Math.round(totalPct/sumC):0;
+      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
+      const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
+      return {...s,moyPct,total};
+    }).sort((a,b)=>b.total-a.total);
+
+    classesHtml+=`
+    <div style="margin-bottom:30px;page-break-inside:avoid">
+      <div style="background:#1d4ed8;color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:700;font-size:15px">🏫 ${esc(cl.name)}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="background:#f0f9ff"><th style="padding:8px;text-align:left;border:1px solid #e2e8f0">Rang</th><th style="padding:8px;text-align:left;border:1px solid #e2e8f0">Élève</th><th style="padding:8px;text-align:center;border:1px solid #e2e8f0">Moy.</th><th style="padding:8px;text-align:center;border:1px solid #e2e8f0">Points</th><th style="padding:8px;text-align:left;border:1px solid #e2e8f0">Mention</th></tr>
+        ${ranked.map((s,i)=>`<tr style="background:${i===0?'#fef9c3':i===1?'#f1f5f9':i===2?'#fdf4e7':'#fff'}">
+          <td style="padding:7px 8px;border:1px solid #e2e8f0;font-weight:700">${['🥇','🥈','🥉'][i]||('#'+(i+1))}</td>
+          <td style="padding:7px 8px;border:1px solid #e2e8f0;font-weight:${i<3?700:400}">${esc(s.name)}</td>
+          <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:${s.moyPct>=70?'#059669':s.moyPct>=50?'#d97706':'#dc2626'}">${s.moyPct}%</td>
+          <td style="padding:7px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:800">${s.total}</td>
+          <td style="padding:7px 8px;border:1px solid #e2e8f0">${getMention(s.total)}</td>
+        </tr>`).join('')}
+      </table>
+    </div>`;
+  });
+
+  const htmlStr=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1e293b;font-size:13px}
+    h1{text-align:center;font-size:28px;color:#1d4ed8;margin-bottom:4px}
+    h2{text-align:center;font-size:14px;color:#64748b;font-weight:400;margin-top:0;margin-bottom:30px}
+    .footer{text-align:center;font-size:11px;color:#94a3b8;margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0}
+    @media print{.pbtn{display:none}}
+  </style></head><body>
+  <h1>🏆 Palmarès Annuel ${yr}</h1>
+  <h2>${DB.settings?.school?.name||'Complexe Scolaire Le Sage'}</h2>
+  ${classesHtml}
+  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe — ${DB.settings?.school?.name||''}</div>
+  </body></html>`;
+
+  dlPDF(htmlStr, `Palmares_Annuel_${yr.replace(/\//g,'-')}.pdf`);
+};
+
 R.export = () => {
   const isD2 = S.user.role === 'direction2';
   const sizeMb = parseFloat(getDbSizeMb());
@@ -9196,7 +9645,8 @@ R.export = () => {
     <div style="display:flex;flex-direction:column;gap:8px">
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('students')">🎓 <span>Liste des élèves par classe</span></button>
       ${!isD2?`<button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('payments')">💰 <span>Tableau des paiements</span></button>`:''}
-      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('palmares')">🏆 <span>Palmarès général</span></button>
+      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('palmares')">🏆 <span>Palmarès général (trimestre)</span></button>
+      <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px;background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="genererPalmaresAnnuel()">🏅 <span>Palmarès annuel — toutes classes</span></button>
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('attendance')">📋 <span>Bilan des présences</span></button>
       ${!isD2?`<button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px" onclick="printReport('rattrapage')">📚 <span>Liste de rattrapage</span></button>`:''}
       <button class="btn btn-primary" style="justify-content:flex-start;gap:10px;padding:14px;background:linear-gradient(135deg,#0f2557,#1e40af)" onclick="printPVDeliberation()">📜 <span>PV de délibération officiel</span></button>
@@ -12175,6 +12625,188 @@ window.saveMedicalRecord = (sid) => {
   if(idx>=0)DB.medical[idx]=obj;else DB.medical.push(obj);
   pushSync('medical','upsert',obj);saveToCrypt();
   toast('🏥 Dossier médical enregistré','success');closeModal();
+};
+
+// ═══════════════════════════════════════════
+//  ACTIVITÉS EXTRASCOLAIRES / CLUBS
+// ═══════════════════════════════════════════
+R.activites = () => {
+  if(!DB.activites) DB.activites=[];
+  if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
+  const acts=DB.activites||[];
+  const insAll=DB.activites_inscriptions||[];
+
+  let html=`<div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🎭 Activités Extrascolaires</span>
+    <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openActiviteForm()">➕ Créer une activité</button>
+  </div>`;
+
+  if(!acts.length){
+    return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🎭</div><div style="font-weight:700;font-size:16px;color:#0f172a;margin-bottom:8px">Aucune activité créée</div><div style="font-size:13px">Ajoutez des clubs ou activités pour les élèves</div></div>`;
+  }
+
+  acts.forEach(act=>{
+    const inscrits=insAll.filter(i=>i.act_id===act.id&&i.active);
+    html+=`<div class="premium-section" style="margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="width:48px;height:48px;border-radius:14px;background:${act.color||'#6366f1'}22;display:flex;align-items:center;justify-content:center;font-size:24px">${act.emoji||'🎭'}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:16px">${esc(act.name)}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}</div>
+        </div>
+        <span class="pill" style="background:${act.color||'#6366f1'};color:#fff">${inscrits.length} élèves</span>
+        <button class="action-btn" onclick="openActiviteForm('${act.id}')">✏️</button>
+        <button class="action-btn" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626" onclick="deleteActivite('${act.id}')">🗑️</button>
+      </div>
+      ${act.description?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:8px">${esc(act.description)}</div>`:''}
+      ${act.frais?`<div style="font-size:13px;font-weight:600;color:#059669;margin-bottom:10px">💵 Frais : $${act.frais}/mois</div>`:''}
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">ÉLÈVES INSCRITS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        ${inscrits.map(i=>{
+          const s=DB.students.find(x=>x.id===i.sid);
+          return s?`<span class="pill pill-blue">${esc(s.name)}</span>`:'';
+        }).join('')||`<span style="font-size:12px;color:var(--text-muted)">Aucun élève inscrit</span>`}
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="openInscriptionActivite('${act.id}')">➕ Inscrire des élèves</button>
+    </div>`;
+  });
+  return html;
+};
+
+window.openActiviteForm = (aid) => {
+  const act=aid?(DB.activites||[]).find(x=>x.id===aid):null;
+  openM(`${act?'✏️ Modifier':'➕ Créer'} une activité`,`
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Emoji</label>
+      <input class="form-input" id="aEmoji" placeholder="🎭" style="font-size:24px;text-align:center;width:60px" value="${act?.emoji||''}">
+    </div>
+    <div class="form-group" style="flex:1"><label class="form-label">Nom de l'activité *</label>
+      <input class="form-input" id="aName" placeholder="Ex: Club de Football, Chorale..." value="${esc(act?.name||'')}">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Description</label>
+    <textarea class="form-input" id="aDesc" rows="2" placeholder="Courte description...">${esc(act?.description||'')}</textarea>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Jour</label>
+      <select class="form-input" id="aJour">
+        ${['','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'].map(j=>`<option ${(act?.jour||''===j)?'selected':''}>${j}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Heure</label>
+      <input class="form-input" id="aHeure" type="time" value="${act?.heure||''}">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Lieu</label>
+      <input class="form-input" id="aLieu" placeholder="Ex: Terrain de sport" value="${esc(act?.lieu||'')}">
+    </div>
+    <div class="form-group"><label class="form-label">Frais ($)</label>
+      <input class="form-input" id="aFrais" type="number" min="0" placeholder="0" value="${act?.frais||''}">
+    </div>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveActivite('${aid||''}')">💾 Enregistrer</button>`);
+};
+
+window.saveActivite = (aid) => {
+  const name=($('aName')?.value||'').trim();
+  if(!name){toast('Nom obligatoire','error');return;}
+  if(!DB.activites) DB.activites=[];
+  const data={name,emoji:$('aEmoji')?.value||'🎭',description:$('aDesc')?.value||'',
+    jour:$('aJour')?.value||'',heure:$('aHeure')?.value||'',lieu:$('aLieu')?.value||'',
+    frais:parseFloat($('aFrais')?.value)||0};
+  if(aid){
+    const act=DB.activites.find(x=>x.id===aid);
+    if(act) Object.assign(act,data);
+    pushSync('activites','patch',data,'id=eq.'+aid);
+  } else {
+    const na={id:'act'+Date.now(),...data,color:'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'),date:today()};
+    DB.activites.push(na);
+    pushSync('activites','post',na);
+  }
+  closeModal(); saveToCrypt(); render();
+  toast('✅ Activité enregistrée','success');
+};
+
+window.deleteActivite = (aid) => {
+  showC('Supprimer cette activité ?','Toutes les inscriptions seront perdues.',()=>{
+    DB.activites=(DB.activites||[]).filter(x=>x.id!==aid);
+    DB.activites_inscriptions=(DB.activites_inscriptions||[]).filter(x=>x.act_id!==aid);
+    pushSync('activites','delete',{},'id=eq.'+aid);
+    saveToCrypt(); render();
+    toast('Activité supprimée','info');
+  });
+};
+
+window.openInscriptionActivite = (aid) => {
+  const inscrits=(DB.activites_inscriptions||[]).filter(i=>i.act_id===aid&&i.active).map(i=>i.sid);
+  const disponibles=(DB.students||[]).filter(s=>!inscrits.includes(s.id));
+  if(!disponibles.length){toast('Tous les élèves sont déjà inscrits','info');return;}
+  openM('➕ Inscrire des élèves',`
+  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">Sélectionnez un ou plusieurs élèves :</div>
+  <div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">
+    ${disponibles.map(s=>`<label style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;border:1px solid var(--border)">
+      <input type="checkbox" class="act-chk" value="${s.id}" style="width:16px;height:16px">
+      <span style="font-weight:600;font-size:13px">${esc(s.name)}</span>
+      <span style="font-size:11px;color:var(--text-muted)">${(DB.classes||[]).find(c=>c.id===s.cid)?.name||''}</span>
+    </label>`).join('')}
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveInscriptionActivite('${aid}')">✅ Inscrire</button>`);
+};
+
+window.saveInscriptionActivite = (aid) => {
+  if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
+  const chks=document.querySelectorAll('.act-chk:checked');
+  if(!chks.length){toast('Sélectionnez au moins un élève','error');return;}
+  chks.forEach(chk=>{
+    const sid=chk.value;
+    const existing=(DB.activites_inscriptions||[]).find(i=>i.act_id===aid&&i.sid===sid);
+    if(existing){existing.active=true;pushSync('activites_inscriptions','patch',{active:true},'id=eq.'+existing.id);}
+    else{const ni={id:'ai'+Date.now()+Math.random().toString(36).slice(2,5),act_id:aid,sid,active:true,date:today()};
+      DB.activites_inscriptions.push(ni);pushSync('activites_inscriptions','post',ni);}
+  });
+  closeModal(); saveToCrypt(); render();
+  toast(`✅ ${chks.length} élève(s) inscrit(s)`,'success');
+};
+
+// Vue parent pour les activités
+R.activites_parent = () => {
+  if(!DB.activites) DB.activites=[];
+  if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🎭</div>Aucun enfant lié</div>`;
+
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🎭 Activités Extrascolaires</span></div>`;
+
+  kids.forEach(k=>{
+    const insKid=(DB.activites_inscriptions||[]).filter(i=>i.sid===k.id&&i.active);
+    html+=`<div class="premium-section" style="margin-bottom:14px">
+      <div class="premium-section-title">👶 ${esc(k.name)}</div>
+      ${insKid.length?insKid.map(i=>{
+        const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
+        return `<div class="premium-item">
+          <span class="pi-icon">${act.emoji||'🎭'}</span>
+          <div><div class="pi-title">${esc(act.name)}</div>
+          <div class="pi-sub">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}${act.frais?' · $'+act.frais+'/mois':''}</div></div>
+        </div>`;
+      }).join(''):`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Pas encore inscrit(e) dans une activité</div>`}
+    </div>`;
+  });
+
+  const allActs=DB.activites||[];
+  if(allActs.length){
+    html+=`<div class="premium-section"><div class="premium-section-title">📋 Toutes les activités disponibles</div>
+    ${allActs.map(act=>`<div class="premium-item">
+      <span class="pi-icon">${act.emoji||'🎭'}</span>
+      <div><div class="pi-title">${esc(act.name)}</div>
+      <div class="pi-sub">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}${act.frais?' · $'+act.frais+'/mois':''}</div>
+      ${act.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(act.description)}</div>`:''}</div>
+    </div>`).join('')}
+    </div>`;
+  }
+  return html;
 };
 
 // ═══════════════════════════════════════════
