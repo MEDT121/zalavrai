@@ -7082,12 +7082,11 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   };
   const parsed=d.type==='text'?parseQuestions(d.description):null;
   const qCount=parsed?parsed.questions.length:0;
-  const linesPer=qCount<=3?7:qCount<=6?5:3;
-  const ansLines=()=>Array(linesPer).fill('<div class="aline"></div>').join('');
+  const ansLines=(q)=>{const tl=q?q.text.length:0;const n=qCount<=3?(tl>120?5:8):qCount<=6?(tl>100?3:5):qCount<=10?(tl>80?2:3):2;return Array(n).fill('<div class="aline"></div>').join('');};
   const contentBlock=parsed?`
     ${parsed.preamble?`<div class="section-title">Instructions</div><div class="body-box" style="margin-bottom:16px">${parsed.preamble}</div>`:''}
     <div class="section-title">Questions &amp; Réponses (${qCount})</div>
-    ${parsed.questions.map(q=>`<div class="q-item"><div class="q-num">${q.num}</div><div class="q-body"><div class="q-text">${q.text}</div><div class="q-ans">${ansLines()}</div></div></div>`).join('')}
+    ${parsed.questions.map(q=>`<div class="q-item"><div class="q-item-left"><div class="q-num">${q.num}</div></div><div class="q-body"><div class="q-text">${q.text}</div><div class="q-ans">${ansLines(q)}</div></div></div>`).join('')}
   `:`
     <div class="section-title">Consignes / Énoncé</div>
     ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
@@ -7099,39 +7098,41 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${catLabel} — ${d.title}</title>
   <style>
-    @page{size:A4;margin:15mm 18mm}
+    @page{size:A4;margin:18mm 18mm 24mm}
+    @page{@bottom-right{content:"Page " counter(page);font-size:9pt;color:#94a3b8;font-family:'Segoe UI',Arial,sans-serif}}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff}
-    .print-bar{background:#0f2557;color:#fff;padding:14px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+    .print-bar{background:#0f2557;color:#fff;padding:12px 20px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
     .print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}
-    .page{max-width:680px;margin:0 auto;padding:24px}
-    .school-header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:3px solid ${catColor};margin-bottom:20px}
-    .q-item{display:flex;gap:12px;margin-bottom:18px;align-items:flex-start;break-inside:avoid}
-    .q-num{width:30px;height:30px;border-radius:50%;background:${catColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;margin-top:2px}
-    .q-body{flex:1}
-    .q-text{font-size:14px;line-height:1.75;color:#1e293b;margin-bottom:8px;white-space:pre-wrap;font-weight:500}
-    .q-ans{margin-top:2px}
-    .aline{border-bottom:1px solid #cbd5e1;height:26px}
-    .q-points{font-size:10px;color:#94a3b8;float:right;font-style:italic}
+    .page{max-width:700px;margin:0 auto;padding:24px}
+    .school-header{display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid ${catColor};margin-bottom:18px}
+    .q-item{display:flex;gap:0;margin-bottom:12px;align-items:stretch;break-inside:avoid;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    .q-item-left{width:40px;background:${catColor}18;display:flex;align-items:flex-start;justify-content:center;padding-top:13px;flex-shrink:0;border-right:2px solid ${catColor}30}
+    .q-num{width:26px;height:26px;border-radius:50%;background:${catColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+    .q-body{flex:1;padding:12px 14px}
+    .q-text{font-size:13.5px;line-height:1.8;color:#1e293b;margin-bottom:10px;white-space:pre-wrap;font-weight:500}
+    .q-ans{border-top:1px dashed #cbd5e1;padding-top:6px}
+    .aline{border-bottom:1.5px dotted #94a3b8;height:28px;margin-bottom:2px}
     .school-logo{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #e2e8f0}
     .school-info{flex:1}
     .school-name{font-size:15px;font-weight:900;color:#0f2557;letter-spacing:.5px}
     .school-sub{font-size:11px;color:#64748b;margin-top:2px}
-    .cat-badge{background:${catColor};color:#fff;padding:8px 18px;border-radius:20px;font-size:14px;font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:6px}
-    .student-bar{display:flex;gap:10px;flex-wrap:wrap;background:#f8fafc;border-radius:10px;padding:10px 14px;margin-bottom:18px;border:1px solid #e2e8f0}
+    .cat-badge{background:${catColor};color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:6px}
+    .student-bar{display:flex;gap:10px;flex-wrap:wrap;background:#f8fafc;border-radius:10px;padding:10px 14px;margin-bottom:16px;border:1px solid #e2e8f0}
     .sbar-item{display:flex;flex-direction:column;gap:1px}
     .sbar-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8}
     .sbar-val{font-size:13px;font-weight:700;color:#0f172a}
-    h1{font-size:20px;font-weight:900;margin-bottom:6px;color:#0f172a;line-height:1.3}
-    .meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+    h1{font-size:19px;font-weight:900;margin-bottom:6px;color:#0f172a;line-height:1.3}
+    .meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
     .chip{background:#f1f5f9;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151}
     .chip.urgent{background:#fee2e2;color:#991b1b}
     .chip.ok{background:#d1fae5;color:#065f46}
-    .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:8px;margin-top:18px}
-    .body-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px;min-height:80px;font-size:14px;line-height:1.85;white-space:pre-wrap;color:#1e293b}
-    .answer-zone{border:2px dashed #cbd5e1;border-radius:12px;padding:16px;min-height:180px;margin-top:8px}
+    .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${catColor};margin-bottom:10px;margin-top:18px;display:flex;align-items:center;gap:7px}
+    .section-title::before{content:'';display:inline-block;width:3px;height:13px;background:${catColor};border-radius:2px;flex-shrink:0}
+    .body-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;min-height:80px;font-size:14px;line-height:1.85;white-space:pre-wrap;color:#1e293b}
+    .answer-zone{border:2px dashed #cbd5e1;border-radius:12px;padding:16px;min-height:160px;margin-top:8px}
     .answer-title{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-    .signature{display:flex;gap:28px;margin-top:28px}
+    .signature{display:flex;gap:28px;margin-top:28px;break-inside:avoid}
     .sig-box{flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center}
     .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
     .correction-box{margin-top:20px;border:2px solid #22c55e;border-radius:12px;overflow:hidden;break-inside:avoid}
@@ -7144,9 +7145,16 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
     .corr-mention{font-size:14px;font-weight:700;margin-bottom:6px}
     .corr-comment{font-size:13px;color:#374151;font-style:italic;margin-bottom:4px}
     .corr-meta{font-size:10px;color:#94a3b8}
-    @media print{.print-bar{display:none}body{padding:0}.page{padding:0}}
+    .run-hdr{display:none}
+    @media print{
+      .print-bar{display:none}
+      body{padding:0}
+      .page{padding:4px 0;max-width:100%}
+      .run-hdr{display:flex;position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:2px solid ${catColor};padding:5px 18mm;font-size:10px;font-weight:700;color:#0f2557;justify-content:space-between;align-items:center;z-index:10}
+    }
   </style></head><body>
-  <div class="print-bar">📄 Devoir téléchargé · <button onclick="window.print()">🖨️ Imprimer sur papier</button></div>
+  <div class="run-hdr"><span>${school} · <strong>${catLabel}</strong></span><span>${esc(d.title)}${d.matiere?' · '+d.matiere:''}</span></div>
+  <div class="print-bar">📄 ${qCount>0?qCount+' question'+(qCount>1?'s':'')+' · ':''}<button onclick="window.print()">🖨️ Imprimer / Exporter PDF</button></div>
   <div class="page">
     <div class="school-header">
       <img class="school-logo" src="${window.SCHOOL_LOGO||''}" alt="Logo" style="width:100%;height:100%;object-fit:cover">
