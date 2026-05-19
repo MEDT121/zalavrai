@@ -5684,6 +5684,8 @@ R.cantine = () => {
   // Stats
   const totalInscrits=inscrits.length;
   const presNb=presAuj.filter(p=>p.present).length;
+  const menuPhotoHtml=menuAuj?.photo_url?`<img src="${esc(menuAuj.photo_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;margin-bottom:12px" onerror="this.style.display='none'">`:'';
+  const menuEmojiAuj=menuAuj?.emoji||'🍲';
 
   let html=`<div class="ww-toolbar" style="flex-wrap:wrap;gap:10px">
     <span style="font-size:16px;font-weight:700">🍽️ Cantine Scolaire</span>
@@ -5713,8 +5715,9 @@ R.cantine = () => {
   <div class="premium-section" style="margin-bottom:14px">
     <div class="premium-section-title">📋 Menu du jour — ${new Date(todayStr).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
     ${menuAuj?`
+    ${menuPhotoHtml}
     <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
-      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">🍲</span><div class="pi-title">Plat principal</div><div class="pi-sub">${esc(menuAuj.plat)}</div></div>`:''}
+      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">${menuEmojiAuj}</span><div class="pi-title">Plat principal</div><div class="pi-sub">${esc(menuAuj.plat)}</div></div>`:''}
       ${menuAuj.dessert?`<div class="premium-item"><span class="pi-icon">🍮</span><div class="pi-title">Dessert</div><div class="pi-sub">${esc(menuAuj.dessert)}</div></div>`:''}
       ${menuAuj.boisson?`<div class="premium-item"><span class="pi-icon">🥤</span><div class="pi-title">Boisson</div><div class="pi-sub">${esc(menuAuj.boisson)}</div></div>`:''}
       ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon">💵</span><div class="pi-title">Prix</div><div class="pi-sub">$${menuAuj.prix} / repas</div></div>`:''}
@@ -5752,7 +5755,7 @@ R.cantine = () => {
     <div class="premium-section-title">📅 Menus récents</div>
     ${(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7).map(m=>`
     <div class="premium-item">
-      <span class="pi-icon">🍽️</span>
+      ${m.photo_url?`<img src="${esc(m.photo_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display='none'">`:`<span class="pi-icon">${m.emoji||'🍽️'}</span>`}
       <div>
         <div class="pi-title">${new Date(m.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>
         <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+m.dessert:''}${m.prix?' · $'+m.prix:''}</div>
@@ -5766,13 +5769,28 @@ R.cantine = () => {
 
 window.openCantinaMenu = (mid) => {
   const m=mid?(DB.cantine_menus||[]).find(x=>x.id===mid):null;
+  const tpls=[
+    {nom:'Patte à la saucisse',emoji:'🍝'},
+    {nom:'Banane plantain + viande',emoji:'🍌'},
+    {nom:'Riz et haricots',emoji:'🍚'},
+    {nom:'Poisson fumé + chikwangue',emoji:'🐟'},
+    {nom:'Thé chaud',emoji:'🫖'},
+    {nom:'Bouillie de maïs',emoji:'🥣'},
+  ];
+  const tplBtns=tpls.map(t=>'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px" onclick="$(\'cmPlat\').value=\''+t.nom+'\';$(\'cmEmoji\').value=\''+t.emoji+'\'">'+t.emoji+' '+t.nom+'</button>').join('');
+  const prevSrc=esc(m?.photo_url||'');
+  const prevStyle=m?.photo_url?'block':'none';
   openM(`📋 ${m?'Modifier':'Publier'} le menu`,`
+  <div style="margin-bottom:12px"><div class="form-label" style="margin-bottom:6px">🍽️ Modèles rapides</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">${tplBtns}</div>
+  </div>
   <div class="form-group"><label class="form-label">Date *</label>
     <input class="form-input" id="cmDate" type="date" value="${m?m.date:today()}">
   </div>
   <div class="form-group"><label class="form-label">Plat principal *</label>
     <input class="form-input" id="cmPlat" placeholder="Ex: Riz sauce gombo + poulet" value="${esc(m?.plat||'')}">
   </div>
+  <input type="hidden" id="cmEmoji" value="${esc(m?.emoji||'🍽️')}">
   <div class="form-group"><label class="form-label">Dessert</label>
     <input class="form-input" id="cmDessert" placeholder="Ex: Banane plantain, fruit de saison" value="${esc(m?.dessert||'')}">
   </div>
@@ -5781,6 +5799,11 @@ window.openCantinaMenu = (mid) => {
   </div>
   <div class="form-group"><label class="form-label">Prix par repas ($)</label>
     <input class="form-input" id="cmPrix" type="number" min="0" step="0.5" placeholder="Ex: 2.5" value="${m?.prix||''}">
+  </div>
+  <div class="form-group"><label class="form-label">📷 Photo du plat (URL image)</label>
+    <input class="form-input" id="cmPhoto" placeholder="https://... (lien d'une photo)" value="${prevSrc}" oninput="const p=document.getElementById('cmPhotoPreview');p.src=this.value;p.style.display=this.value?'block':'none'">
+    <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Collez un lien depuis Google Photos, imgbb.com, etc.</div>
+    <img id="cmPhotoPreview" src="${prevSrc}" style="width:100%;height:130px;object-fit:cover;border-radius:10px;margin-top:8px;display:${prevStyle}" onerror="this.style.display='none'">
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" onclick="saveCantinaMenu('${mid||''}')">💾 Enregistrer</button>`);
@@ -5790,13 +5813,18 @@ window.saveCantinaMenu = (mid) => {
   const date=($('cmDate')?.value||'').trim();
   const plat=($('cmPlat')?.value||'').trim();
   if(!date||!plat){toast('Date et plat principal obligatoires','error');return;}
+  const photo_url=($('cmPhoto')?.value||'').trim();
+  const emoji=($('cmEmoji')?.value||'🍽️').trim();
+  const dessert=$('cmDessert')?.value||'';
+  const boisson=$('cmBoisson')?.value||'';
+  const prix=parseFloat($('cmPrix')?.value)||0;
   if(!DB.cantine_menus) DB.cantine_menus=[];
   if(mid){
     const m=DB.cantine_menus.find(x=>x.id===mid);
-    if(m){m.date=date;m.plat=plat;m.dessert=$('cmDessert')?.value||'';m.boisson=$('cmBoisson')?.value||'';m.prix=parseFloat($('cmPrix')?.value)||0;
-      pushSync('cantine_menus','patch',{date,plat,dessert:m.dessert,boisson:m.boisson,prix:m.prix},'id=eq.'+mid);}
+    if(m){Object.assign(m,{date,plat,dessert,boisson,prix,photo_url,emoji});
+      pushSync('cantine_menus','patch',{date,plat,dessert,boisson,prix,photo_url,emoji},'id=eq.'+mid);}
   } else {
-    const nm={id:'cm'+Date.now(),date,plat,dessert:$('cmDessert')?.value||'',boisson:$('cmBoisson')?.value||'',prix:parseFloat($('cmPrix')?.value)||0};
+    const nm={id:'cm'+Date.now(),date,plat,dessert,boisson,prix,photo_url,emoji};
     DB.cantine_menus.push(nm);
     pushSync('cantine_menus','post',nm);
   }
@@ -5890,6 +5918,20 @@ R.cantine_parent = () => {
   const todayStr=today();
   const menuAuj=(DB.cantine_menus||[]).find(m=>m.date===todayStr);
   const menus7=(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+  const menuPhotoParent=menuAuj?.photo_url?`<img src="${esc(menuAuj.photo_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;margin-bottom:10px" onerror="this.style.display='none'">`:(menuAuj?`<div style="font-size:56px;text-align:center;padding:14px 0;background:var(--bg);border-radius:12px;margin-bottom:10px">${menuAuj.emoji||'🍽️'}</div>`:'');
+  const menus7Html=menus7.length?menus7.map(m=>{
+    const thumb=m.photo_url?('<img src="'+esc(m.photo_url)+'" style="width:80px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display=\'none\'">'):`<div style="width:64px;height:64px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">${m.emoji||'🍽️'}</div>`;
+    const dateStr=new Date(m.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'});
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px">
+      ${thumb}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:capitalize">${dateStr}</div>
+        <div style="font-size:13px;font-weight:700;margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.plat||'—')}</div>
+        ${m.dessert?`<div style="font-size:12px;color:var(--text-muted)">🍮 ${esc(m.dessert)}</div>`:''}
+        ${m.prix?`<span class="pill pill-green" style="font-size:10px;margin-top:2px">$${m.prix}/repas</span>`:''}
+      </div>
+    </div>`;
+  }).join(''):`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu disponible</div>`;
 
   let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🍽️ Cantine</span></div>`;
 
@@ -5897,8 +5939,9 @@ R.cantine_parent = () => {
   html+=`<div class="premium-section" style="margin-bottom:14px">
     <div class="premium-section-title">🍽️ Menu d'aujourd'hui</div>
     ${menuAuj?`
-    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">🍲</span><span class="pi-title">Plat</span><span class="pi-sub">${esc(menuAuj.plat)}</span></div>`:''}
+    ${menuPhotoParent}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">${menuAuj.emoji||'🍲'}</span><span class="pi-title">Plat</span><span class="pi-sub">${esc(menuAuj.plat)}</span></div>`:''}
       ${menuAuj.dessert?`<div class="premium-item"><span class="pi-icon">🍮</span><span class="pi-title">Dessert</span><span class="pi-sub">${esc(menuAuj.dessert)}</span></div>`:''}
       ${menuAuj.boisson?`<div class="premium-item"><span class="pi-icon">🥤</span><span class="pi-title">Boisson</span><span class="pi-sub">${esc(menuAuj.boisson)}</span></div>`:''}
       ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon">💵</span><span class="pi-title">Prix</span><span class="pi-sub">$${menuAuj.prix} / repas</span></div>`:''}
@@ -5936,11 +5979,7 @@ R.cantine_parent = () => {
   // Menus de la semaine
   html+=`<div class="premium-section">
     <div class="premium-section-title">📅 Menus récents</div>
-    ${menus7.map(m=>`<div class="premium-item">
-      <span class="pi-icon">🍽️</span>
-      <div><div class="pi-title">${new Date(m.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'short'})}</div>
-      <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+m.dessert:''}${m.prix?' · $'+m.prix:''}</div></div>
-    </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu disponible</div>`}
+    ${menus7Html}
   </div>`;
 
   return html;
