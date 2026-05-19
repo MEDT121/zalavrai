@@ -253,6 +253,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .toast.success{border-left:3px solid var(--accent-green)}
 .toast.error{border-left:3px solid var(--accent-red)}
 .toast.info{border-left:3px solid var(--primary)}
+.toast.warning{border-left:3px solid #f59e0b}
 
 /* ── CLASS COLORS ── */
 .cls-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;flex-shrink:0}
@@ -397,10 +398,12 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
         <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre">🌙</button>
         <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale">🔍</button>
         <span class="topbar-date" id="TD"></span>
+        <span id="SYNC_IND" title="État synchronisation" style="font-size:11px;font-weight:700;padding:3px 7px;border-radius:20px;cursor:default;transition:all .3s"></span>
         <button class="topbar-notif-btn" onclick="go('notifications')">🔔<span class="notif-badge"></span></button>
         <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
       </div>
     </header>
+    <div id="CLOCK_WARN" style="display:none;background:#fef9c3;color:#92400e;font-size:12px;font-weight:600;text-align:center;padding:5px 12px;border-bottom:1px solid #fde047"></div>
     <div class="page-content" id="PC"></div>
   </div>
   <nav class="bottom-nav"><div class="bottom-nav-inner" id="BN"></div></nav>
@@ -433,8 +436,10 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 // ── GLOBAL HELPERS ──
 window.$ = id => document.getElementById(id);
-window.today = () => new Date().toISOString().slice(0, 10);
-window.nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+window._serverTimeOffset = 0; // ms correction vs horloge serveur
+window._serverNow = () => new Date(Date.now() + window._serverTimeOffset);
+window.today = () => window._serverNow().toISOString().slice(0, 10);
+window.nowTime = () => { const d = window._serverNow(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
 window.ini = n => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 window.gpin = () => { let p; do { p = String(Math.floor(100000 + Math.random() * 900000)); } while (DB.users.some(u => u.pin === p)); return p; };
 
@@ -779,12 +784,15 @@ window.syncQueue = {
 
 // Auto-sync quand la connexion revient
 window.addEventListener('online', async () => {
+  window.DB_ONLINE = true;
+  updateSyncIndicator();
   if (syncQueue.count() > 0) {
     toast(`🔄 Synchronisation de ${syncQueue.count()} changements…`, 'info');
     const done = await syncQueue.flush();
-    if (done > 0) toast(`✅ ${done} changements synchronisés`, 'success');
+    if (done > 0) { toast(`✅ ${done} changements synchronisés`, 'success'); updateSyncIndicator(); }
   }
 });
+window.addEventListener('offline', () => { window.DB_ONLINE = false; updateSyncIndicator(); });
 
 // ── NAVIGATION STRUCTURE v3.0 ──
 window.NAV = {
@@ -1019,8 +1027,35 @@ async function _patch(t,q,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?$
 async function _del(t,q){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{method:'DELETE',headers:_H});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
 async function _upsert(t,b){try{const h={..._H,'Prefer':'resolution=merge-duplicates'};const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:h,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
 
+// Synchronise l'horloge locale avec le serveur Supabase.
+// Lit le header Date de la réponse HTTP — pas d'endpoint supplémentaire.
+window._syncServerClock = async () => {
+  try {
+    const t0 = Date.now();
+    const r = await fetch(`${SUPA_URL}/rest/v1/`, {method:'HEAD', headers:{apikey:SUPA_KEY}});
+    const serverDate = r.headers.get('Date');
+    if (!serverDate) return;
+    const serverMs = new Date(serverDate).getTime();
+    const localMs = (t0 + Date.now()) / 2; // milieu du round-trip
+    window._serverTimeOffset = serverMs - localMs;
+    const driftMin = Math.round(Math.abs(window._serverTimeOffset) / 60000);
+    if (driftMin >= 5) {
+      const dir = window._serverTimeOffset > 0 ? 'retard' : 'avance';
+      console.warn(`[Clock] appareil en ${dir} de ${driftMin} min — corrigé automatiquement`);
+      const el = document.getElementById('CLOCK_WARN');
+      if (el) { el.textContent = `⚠️ Horloge appareil : ${driftMin} min d'${dir} — corrigée`; el.style.display=''; }
+    } else {
+      const el = document.getElementById('CLOCK_WARN');
+      if (el) el.style.display = 'none';
+    }
+  } catch(e) { /* hors ligne — on garde l'heure locale */ }
+};
+// Re-sync automatique toutes les heures
+setInterval(() => { if (window.DB_ONLINE) window._syncServerClock(); }, 3600000);
+
 window.loadFromSupabase = async () => {
   try {
+    await window._syncServerClock();
     const ping = await _get('users','select=id&limit=1');
     if (!ping) throw new Error('no response');
     window.DB_ONLINE = true;
@@ -1107,7 +1142,7 @@ window.loadFromSupabase = async () => {
 
 // ── SYNC HELPER — pousse vers Supabase ou met en file d'attente ──
 window.pushSync = async (table, op, data, query='') => {
-  if (!DB_ONLINE) { syncQueue.add(table, op, query?{query,body:data}:data); return; }
+  if (!DB_ONLINE) { syncQueue.add(table, op, query?{query,body:data}:data); updateSyncIndicator(); return; }
   let ok = false;
   try {
     if (op==='upsert') ok = await _upsert(table, data);
@@ -1116,6 +1151,7 @@ window.pushSync = async (table, op, data, query='') => {
     else if (op==='delete') ok = await _del(table, query);
   } catch(e) { ok=false; }
   if (!ok) syncQueue.add(table, op, query?{query,body:data}:data);
+  updateSyncIndicator();
 };
 
 // ── SYNC MANUAL ──
@@ -1275,19 +1311,55 @@ setInterval(() => { if (DB.users.length > 0) saveToCrypt(); }, 30000);
 
 // ── UI HELPERS ──
 function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
-window.toast = (msg, type='info') => {
-  const icons = {success:'✅',error:'❌',info:'ℹ️'};
-  const el = document.createElement('div');
-  el.className = 'toast ' + type;
-  el.innerHTML = `<span class="ti">${icons[type]}</span>${msg}`;
-  $('TC').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 3000);
+// Toast avec file d'attente — max 3 visibles simultanément
+(()=>{
+  const MAX=3, DURATION=3200, icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+  const queue=[];
+  const show=({msg,type})=>{
+    const tc=$('TC'); if(!tc) return;
+    const el=document.createElement('div');
+    el.className='toast '+type;
+    el.innerHTML=`<span class="ti">${icons[type]||'ℹ️'}</span>${msg}`;
+    tc.appendChild(el);
+    const dismiss=()=>{ el.style.opacity='0'; setTimeout(()=>{ el.remove(); if(queue.length) show(queue.shift()); },300); };
+    setTimeout(dismiss, DURATION);
+  };
+  window.toast=(msg,type='info')=>{
+    const tc=$('TC'); if(!tc) return;
+    if(tc.children.length<MAX) show({msg,type});
+    else queue.push({msg,type});
+  };
+})();
+
+window.updateSyncIndicator = () => {
+  const el = $('SYNC_IND'); if(!el) return;
+  const q = syncQueue.count();
+  if (!window.DB_ONLINE) {
+    el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c';
+  } else if (q > 0) {
+    el.textContent=`🟡 ${q} en attente`; el.style.background='#fef9c3'; el.style.color='#92400e';
+  } else {
+    el.textContent='🟢'; el.style.background='#dcfce7'; el.style.color='#166534';
+  }
 };
+// Mise à jour auto toutes les 10 secondes
+setInterval(window.updateSyncIndicator, 10000);
+
 window.confirmCb = null;
 window.showC = (title, msg, cb) => { $('CT').textContent=title; $('CM').textContent=msg; window.confirmCb=cb; $('CO').classList.add('show'); };
 window.closeConfirm = () => { $('CO').classList.remove('show'); window.confirmCb=null; };
 window.confirmAction = () => { if (window.confirmCb) window.confirmCb(); closeConfirm(); };
 window.openM = (title, body, footer) => { $('MT').textContent=title; $('MB').innerHTML=body; $('MF').innerHTML=footer; $('MO').classList.add('show'); };
+// Surligne un champ en rouge + message inline
+window.markFieldError = (id, msg) => {
+  const el=$(id); if(!el) return;
+  el.style.borderColor='#ef4444'; el.style.boxShadow='0 0 0 2px #fecaca';
+  el.focus();
+  let hint=el.parentNode.querySelector('.field-err');
+  if(!hint){ hint=document.createElement('div'); hint.className='field-err'; hint.style.cssText='font-size:11px;color:#ef4444;margin-top:3px'; el.parentNode.appendChild(hint); }
+  hint.textContent=msg;
+  el.addEventListener('input',()=>{ el.style.borderColor=''; el.style.boxShadow=''; if(hint) hint.textContent=''; },{once:true});
+};
 window.closeModal = () => {
   $('MO').classList.remove('show');
   // Reset grade panel state so next open always starts fresh
@@ -1504,7 +1576,7 @@ window.tryLogin = async () => {
 window.loginAs = user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
-  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
+  setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
 };
 window.logout = () => {
   try { stopScan(); } catch(e) {}
@@ -3497,9 +3569,9 @@ window.stuPhotoChange = (input) => {
 
 window.saveStudent = () => {
   const name=($('stu_name').value||'').trim();
-  if(!name){toast('Entrez le nom complet','error');return;}
+  if(!name){markFieldError('stu_name','Nom complet requis');return;}
   const cid=$('stu_cid').value;
-  if(!cid){toast('Sélectionnez une classe','error');return;}
+  if(!cid){markFieldError('stu_cid','Sélectionnez une classe');return;}
   const mat=($('stu_mat').value||'').trim()||genMat();
   const sid=$('stu_id').value;
   const photo=$('stu_photo_data').value||null;
@@ -3628,18 +3700,18 @@ window.saveUser = () => {
   const nameEl=$('usr_name'); const pinEl=$('usr_pin'); const idEl=$('usr_id'); const roleEl=$('usr_role');
   if(!nameEl||!pinEl||!idEl||!roleEl){toast('Erreur formulaire — réouvrez la fenêtre','error');return;}
   const name=(nameEl.value||'').trim();
-  if(!name){toast('Entrez le nom','error');return;}
+  if(!name){markFieldError('usr_name','Nom requis');return;}
   const uid=idEl.value;
   const role=roleEl.value;
   const isDir=_isDirRole(role);
   const pinRaw=(pinEl.value||'').trim();
   const pinInput=isDir?pinRaw:pinRaw.replace(/\D/g,'');
   if(isDir){
-    if(!uid && (!pinInput||pinInput.length<6)){toast('Mot de passe requis : minimum 6 caractères','error');return;}
-    if(pinInput && pinInput.length<6){toast('Mot de passe invalide : minimum 6 caractères','error');return;}
+    if(!uid && (!pinInput||pinInput.length<6)){markFieldError('usr_pin','Mot de passe requis : minimum 6 caractères');return;}
+    if(pinInput && pinInput.length<6){markFieldError('usr_pin','Minimum 6 caractères');return;}
   } else {
-    if(!uid && (!pinInput||pinInput.length!==6)){toast('PIN requis : exactement 6 chiffres','error');return;}
-    if(pinInput && pinInput.length!==6){toast('PIN invalide : exactement 6 chiffres','error');return;}
+    if(!uid && (!pinInput||pinInput.length!==6)){markFieldError('usr_pin','PIN requis : exactement 6 chiffres');return;}
+    if(pinInput && pinInput.length!==6){markFieldError('usr_pin','Exactement 6 chiffres');return;}
   }
   const initials=($('usr_init')?.value||'').trim()||ini(name);
   const photo=window._userPhoto||null;
@@ -7642,6 +7714,9 @@ window.manualScanEntry = () => {
 };
 
 window.processScanEntry = async code => {
+  if(window._scanBusy) return; // anti-doublon
+  window._scanBusy = true;
+  try {
   const student=DB.students.find(s=>s.mat===code);
   if(!student){showScanResult('red','❓','Inconnu','Code: '+code,'Élève non trouvé dans le système','');return;}
 
@@ -7746,6 +7821,7 @@ window.processScanEntry = async code => {
     });
   }
   saveToCrypt();
+  } finally { setTimeout(()=>{window._scanBusy=false;},1500); }
 };
 
 // ── SCANNER SORTIE ──
