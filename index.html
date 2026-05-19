@@ -465,6 +465,105 @@ window.waBtn = (phone, name) => {
   return `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;flex-shrink:0">💬 WA</a>`;
 };
 
+// ── WHATSAPP MODÈLES PRÉ-DÉFINIS (Direction) ──
+const WA_TEMPLATES = [
+  {id:'absence', icon:'⚠️', label:'Absence signalée', cat:'Présences',
+   text:'Bonjour {parent},\n\nNous vous informons que votre enfant *{eleve}* ({classe}) était absent(e) ce jour, *{date}*.\n\nMerci de nous contacter ou de fournir un justificatif.\n\nCordialement,\nThe Wise School International'},
+  {id:'retard', icon:'⏰', label:'Retard répété', cat:'Présences',
+   text:'Bonjour {parent},\n\nVotre enfant *{eleve}* ({classe}) accumule des retards à l\'école. Nous vous invitons à veiller à l\'heure d\'arrivée.\n\nMerci de votre compréhension.\n\nThe Wise School International'},
+  {id:'convoc', icon:'📋', label:'Convocation Direction', cat:'Administratif',
+   text:'Bonjour {parent},\n\nVous êtes convoqué(e) à la Direction concernant votre enfant *{eleve}* ({classe}).\n\nMerci de vous présenter le *{date}* à *{heure}* muni(e) de cette convocation.\n\nThe Wise School International'},
+  {id:'frais', icon:'💰', label:'Rappel frais scolaires', cat:'Finances',
+   text:'Bonjour {parent},\n\nNous vous rappelons que les frais scolaires de *{eleve}* ({trimestre}) ne sont pas encore réglés.\n\nMerci de régulariser votre situation dans les meilleurs délais.\n\nThe Wise School International'},
+  {id:'resultat', icon:'📊', label:'Résultats disponibles', cat:'Pédagogie',
+   text:'Bonjour {parent},\n\nLes résultats de *{eleve}* ({classe}) pour le *{trimestre}* sont disponibles sur l\'application SchoolSafe.\n\nMoyenne générale : *{moy}%*\n\nThe Wise School International'},
+  {id:'felicitations', icon:'🏆', label:'Félicitations', cat:'Pédagogie',
+   text:'Bonjour {parent},\n\nNous sommes heureux de vous annoncer que votre enfant *{eleve}* s\'est distingué(e) ce trimestre.\n🏆 Mention : *{mention}* — Rang : *{rang}*\n\nFélicitations !\n\nThe Wise School International'},
+  {id:'urgence', icon:'🚨', label:'Urgence / Lockdown', cat:'Sécurité',
+   text:'🚨 ALERTE SÉCURITÉ\n\nBonjour {parent},\n\nNous vous informons d\'une situation exceptionnelle à l\'école. *Aucune sortie d\'élève n\'est autorisée* jusqu\'à nouvel ordre.\n\nRestez attentif(ve) aux communications.\n\nThe Wise School International'},
+  {id:'maladie', icon:'🤒', label:'Élève malade', cat:'Santé',
+   text:'Bonjour {parent},\n\nVotre enfant *{eleve}* a été pris(e) en charge à l\'infirmerie aujourd\'hui. Motif : *{motif}*.\n\nMerci de venir le/la récupérer au plus tôt.\n\nThe Wise School International'},
+  {id:'renvoi', icon:'🔒', label:'Suspension temporaire', cat:'Disciplinaire',
+   text:'Bonjour {parent},\n\nNous vous informons que votre enfant *{eleve}* est temporairement suspendu(e) pour la raison suivante : *{motif}*.\n\nVous êtes convoqué(e) à la Direction pour la suite.\n\nThe Wise School International'},
+];
+window.openWATemplates = (sid) => {
+  const isDir=['direction','direction2','direction3'].includes(S.user.role);
+  if(!isDir){toast('Accès réservé à la Direction','error');return;}
+  const s=sid?(DB.students||[]).find(x=>x.id===sid):null;
+  const parent=s?.pid?(DB.users||[]).find(u=>u.id===s.pid):null;
+  const cl=s?gc(s.cid):null;
+  const trim=DB.settings?.currentTrimestre||'T1';
+  const cats=[...new Set(WA_TEMPLATES.map(t=>t.cat))];
+  openM('💬 Modèles WhatsApp — Direction',`
+    <div style="margin-bottom:12px">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Élève (optionnel)</label>
+          <select class="form-select" id="wa_sid" onchange="window._waUpdatePreview()">
+            <option value="">— Choisir un élève —</option>
+            ${(DB.students||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(st=>`<option value="${st.id}" ${s&&st.id===s.id?'selected':''}>${esc(st.name)} (${gc(st.cid)?.name||'?'})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Téléphone (si non lié)</label>
+          <input class="form-input" id="wa_custom_phone" placeholder="+243..." value="${parent?.phone||''}">
+        </div>
+      </div>
+    </div>
+    ${cats.map(cat=>`
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.6px;margin-bottom:6px">${cat}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${WA_TEMPLATES.filter(t=>t.cat===cat).map(t=>`<button onclick="window._selectWATpl('${t.id}')" id="watpl_${t.id}" class="btn btn-outline btn-sm" style="font-size:12px">${t.icon} ${t.label}</button>`).join('')}
+      </div>
+    </div>`).join('')}
+    <div id="wa_preview_box" style="display:none;margin-top:12px;padding:14px;background:#f0fdf4;border-radius:12px;border-left:3px solid #25D366">
+      <div style="font-size:11px;font-weight:700;color:#065f46;margin-bottom:6px">Aperçu du message</div>
+      <textarea id="wa_preview_text" class="form-input" rows="7" style="font-size:12px;font-family:monospace;background:#fff;white-space:pre-wrap"></textarea>
+      <div id="wa_send_area" style="margin-top:8px"></div>
+    </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+  window._waTplId=null;
+  window._waUpdatePreview=()=>{
+    if(!window._waTplId)return;
+    window._selectWATpl(window._waTplId);
+  };
+  window._selectWATpl=(tid)=>{
+    window._waTplId=tid;
+    document.querySelectorAll('[id^="watpl_"]').forEach(b=>b.style.background='');
+    const btn=document.getElementById('watpl_'+tid);if(btn)btn.style.background='#dcfce7';
+    const tpl=WA_TEMPLATES.find(t=>t.id===tid);if(!tpl)return;
+    const selSid=$('wa_sid')?.value;
+    const selS=selSid?(DB.students||[]).find(x=>x.id===selSid):null;
+    const selPar=selS?.pid?(DB.users||[]).find(u=>u.id===selS.pid):null;
+    const selCl=selS?gc(selS.cid):null;
+    let txt=tpl.text;
+    txt=txt.replace(/\{parent\}/g,selPar?.name||'(Parent)');
+    txt=txt.replace(/\{eleve\}/g,selS?.name||'(Élève)');
+    txt=txt.replace(/\{classe\}/g,selCl?.name||'(Classe)');
+    txt=txt.replace(/\{date\}/g,today());
+    txt=txt.replace(/\{heure\}/g,'08h00');
+    txt=txt.replace(/\{trimestre\}/g,trim);
+    txt=txt.replace(/\{moy\}/g,'—');
+    txt=txt.replace(/\{mention\}/g,'—');
+    txt=txt.replace(/\{rang\}/g,'—');
+    txt=txt.replace(/\{motif\}/g,'(à préciser)');
+    const box=$('wa_preview_box');if(box)box.style.display='';
+    const ta=$('wa_preview_text');if(ta)ta.value=txt;
+    const phone=selPar?.phone||$('wa_custom_phone')?.value||'';
+    const sendArea=$('wa_send_area');
+    if(sendArea){
+      if(phone){
+        const url=waLink(phone,txt);
+        sendArea.innerHTML=`<a href="${url}" target="_blank" rel="noopener" class="btn" style="background:#25D366;color:#fff;border:none;display:inline-flex;align-items:center;gap:8px;text-decoration:none">💬 Envoyer via WhatsApp</a>`;
+      } else {
+        sendArea.innerHTML='<div style="font-size:12px;color:#d97706;background:#fef3c7;padding:8px 10px;border-radius:8px">⚠️ Aucun numéro trouvé — renseignez le numéro ou liez un parent à cet élève.</div>';
+      }
+    }
+  };
+  if(s&&parent){setTimeout(()=>{window._selectWATpl('absence');},80);}
+};
+
 // ── CENTRALIZED COMPRESSION ──
 window.compressImage = (file, maxW, maxH, quality, cb) => {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -573,6 +672,7 @@ window.DB = {
   cantine:[], cantine_menus:[], cantine_presence:[],
   activites:[], activites_inscriptions:[],
   appreciations:[],
+  medical_visits:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -1123,6 +1223,7 @@ function _cryptSnap() {
     activites:DB.activites||[],
     activites_inscriptions:DB.activites_inscriptions||[],
     appreciations:DB.appreciations||[],
+    medical_visits:DB.medical_visits||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -1689,6 +1790,7 @@ function dashboardDirection() {
     <div class="quick-grid">
       ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['payments','💰','Frais'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['primes','💎','Primes'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
       .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+      <button class="quick-btn" onclick="openWATemplates()"><span class="qb-icon">💬</span><span class="qb-label">WA Modèles</span></button>
     </div>
     ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -1706,6 +1808,55 @@ function dashboardDirection() {
       </div>
     </div>`;})()}
   </div>
+  ${(()=>{
+    // Visual stats — donut charts + class bar chart
+    const trimStats=['T1','T2','T3'].map(tr=>{
+      const paid=DB.payments.filter(p=>p.t===tr&&p.paid).length;
+      const total=DB.students.length;
+      const pct=total?Math.round(paid/total*100):0;
+      const col=pct>=80?'#059669':pct>=50?'#d97706':'#dc2626';
+      const dash=Math.round(pct/100*188.5);
+      return {tr,paid,total,pct,col,dash};
+    });
+    const clsPresence=DB.classes.map(c=>{
+      const sc=DB.students.filter(s=>s.cid===c.id);
+      const att=sc.filter(s=>DB.attendance.some(a=>a.sid===s.id&&a.date===today()&&(a.status==='ontime'||a.status==='late'))).length;
+      const pct=sc.length?Math.round(att/sc.length*100):0;
+      const col=pct>=80?'#10b981':pct>=60?'#f59e0b':'#ef4444';
+      return {name:c.name,total:sc.length,att,pct,col};
+    }).sort((a,b)=>b.pct-a.pct);
+    if(!DB.students.length) return '';
+    return `<div class="premium-section" style="border-left:4px solid #7c3aed">
+      <div class="premium-section-title">📊 Statistiques visuelles</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:${clsPresence.length?'14':'4'}px">
+        ${trimStats.map(({tr,paid,total,pct,col,dash})=>`
+        <div style="text-align:center;padding:12px 8px;background:#f8fafc;border-radius:14px;border:1px solid var(--border)">
+          <svg width="76" height="76" viewBox="0 0 80 80" style="display:block;margin:0 auto 6px">
+            <circle cx="40" cy="40" r="30" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+            <circle cx="40" cy="40" r="30" fill="none" stroke="${col}" stroke-width="10"
+              stroke-dasharray="${dash} 188.5" stroke-linecap="round"
+              transform="rotate(-90 40 40)"/>
+            <text x="40" y="45" text-anchor="middle" font-size="13" font-weight="800" fill="${col}" font-family="system-ui,sans-serif">${pct}%</text>
+          </svg>
+          <div style="font-weight:700;font-size:13px;color:#374151">${tr} Payé</div>
+          <div style="font-size:11px;color:var(--text-muted)">${paid}/${total} élèves</div>
+        </div>`).join('')}
+      </div>
+      ${clsPresence.length?`<div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Présences par classe aujourd'hui</div>
+        ${clsPresence.map(({name,att,total,pct,col})=>`
+        <div style="margin-bottom:7px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+            <span style="font-size:12px;font-weight:600;color:var(--text)">${esc(name)}</span>
+            <span style="font-size:11px;font-weight:700;color:${col}">${att}/${total} · ${pct}%</span>
+          </div>
+          <div style="height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${col};border-radius:4px"></div>
+          </div>
+        </div>`).join('')}
+      </div>`:''}
+    </div>`;
+  })()}
   ${(() => {
     const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
     if(!absAlerts.length) return '';
@@ -1784,6 +1935,7 @@ window.showStudentInfo = (sid) => {
     `<button class="btn btn-primary btn-sm" onclick="closeModal();openStudentGrades('${sid}','${esc(s.cid)}')">📝 Notes</button>
      <button class="btn btn-outline btn-sm" onclick="closeModal();go('attendance')">📋 Présences</button>
      ${S.user.role!=='enseignant'?`<button class="btn btn-outline btn-sm" onclick="closeModal();openRapportMensuel('${sid}')">📊 Rapport PDF</button>`:''}
+     ${['direction','direction2','direction3'].includes(S.user.role)?`<button class="btn btn-outline btn-sm" style="background:#d1fae5;border-color:#6ee7b7;color:#065f46" onclick="closeModal();openWATemplates('${sid}')">💬 WA</button>`:''}
      <button class="btn btn-outline btn-sm" onclick="closeModal()">Fermer</button>`
   );
 };
@@ -6335,6 +6487,27 @@ R.devoirs_parent = () => {
       </div>
     </div>`:''}`;
 
+    // Alerte devoirs non rendus
+    const nowTs=Date.now();
+    const overdueDevoirs=devoirsList.filter(d=>{
+      if(!d.deadline) return false;
+      const dl=new Date(d.deadline).getTime();
+      if(dl>=nowTs) return false;
+      const gradeExists=DB.grades.some(g=>g.devoir_id===d.id&&g.sid===k.id);
+      return !gradeExists;
+    });
+    if(overdueDevoirs.length){
+      html+=`<div style="padding:12px 14px;background:#fef2f2;border-radius:12px;border-left:4px solid #ef4444;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:22px;flex-shrink:0">🔴</span>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px;color:#991b1b">Devoir${overdueDevoirs.length>1?'s':''} non rendu${overdueDevoirs.length>1?'s':''} — ${overdueDevoirs.length} alerte${overdueDevoirs.length>1?'s':''}</div>
+          <div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6">
+            ${overdueDevoirs.map(d=>`<span style="display:inline-block;background:#fee2e2;color:#991b1b;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;margin:2px 2px 2px 0">📚 ${esc(d.title)}${d.matiere?' · '+esc(d.matiere):''}</span>`).join('')}
+          </div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:6px">La date de remise est dépassée et aucune correction n'a été enregistrée. Contactez l'enseignant si le devoir a bien été remis.</div>
+        </div>
+      </div>`;
+    }
     // Devoirs section
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
       <div class="premium-section-title">📚 Devoirs</div>
@@ -7626,7 +7799,7 @@ window.confirmExitWith = async (sid,personIdx) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today()};
+  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`✅ ${s.name} a quitté l'école à ${time} avec ${a.name} (${a.relation||'Tutelle'})`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);
@@ -7637,7 +7810,7 @@ window.confirmExitWith = async (sid,personIdx) => {
 window.confirmExitAlone = async sid => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today()};
+  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`ℹ️ ${s.name} a quitté l'école seul(e) à ${time}`);
   showExitDone('orange','🚶','Part seul',s.name,'L\'enfant quitte seul',time);
@@ -7680,7 +7853,7 @@ window.doExitRefused = async (sid) => {
   closeModal();
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'unauthorized',
-    label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo?photo.slice(0,500):null,time,date:today()};
+    label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo?photo.slice(0,500):null,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log);
   const alertMsg=`🚨 ALERTE SÉCURITÉ — Personne inconnue tente de récupérer ${s.name} à ${time}. Description: ${desc}`;
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
@@ -7743,16 +7916,22 @@ R.scan_log = () => {
   ${logs.length?`
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} scan${logs.length>1?'s':''} aujourd'hui</div>
   <div class="ww-section">
-    ${logs.map((l,i)=>`
-    <div class="ww-item" style="animation-delay:${i*.03}s">
-      <div class="ww-item-icon" style="background:${l.status==='ontime'?'#d1fae5':l.status==='late'?'#fef3c7':l.status==='refused'||l.status==='unauthorized'?'#fee2e2':'#dbeafe'}">${typeIcon[l.type]||'📋'}</div>
-      <div class="ww-item-content">
-        <div class="ww-item-title">${l.name}</div>
-        <div class="ww-item-sub">${l.type==='entry'?'Entrée':'Sortie'}${l.label?' — '+l.label:''}</div>
-      </div>
-      <span style="font-size:13px;font-weight:700;color:var(--text-secondary)">${l.time}</span>
-      <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
-    </div>`).join('')}
+    ${logs.map((l,i)=>{
+      const byUser=l.by_uid?(DB.users||[]).find(u=>u.id===l.by_uid):null;
+      const byLabel=l.by_name||(byUser?byUser.name:null);
+      return `<div class="ww-item" style="animation-delay:${i*.03}s">
+        <div class="ww-item-icon" style="background:${l.status==='ontime'?'#d1fae5':l.status==='late'?'#fef3c7':l.status==='refused'||l.status==='unauthorized'?'#fee2e2':'#dbeafe'}">${typeIcon[l.type]||'📋'}</div>
+        <div class="ww-item-content">
+          <div class="ww-item-title">${esc(l.name)}</div>
+          <div class="ww-item-sub">${l.type==='entry'?'Entrée':'Sortie'}${l.label?' — '+esc(l.label):''}</div>
+          ${l.type==='exit'&&byLabel?`<div style="font-size:11px;color:#7c3aed;margin-top:2px;display:flex;align-items:center;gap:4px">
+            <span style="width:18px;height:18px;border-radius:50%;background:#ede9fe;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#7c3aed;flex-shrink:0">${ini(byLabel)}</span>
+            <span>Autorisé par ${esc(byLabel)}</span>
+          </div>`:''}
+        </div>
+        <span style="font-size:13px;font-weight:700;color:var(--text-secondary)">${l.time}</span>
+        <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
+      </div>`;}).join('')}
   </div>`:
   '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>Aucun scan aujourd\'hui</div>'}`;
 };
@@ -10687,21 +10866,116 @@ window.printSanctionLetter = (id) => {
 
 // ── CALENDAR ──
 R.calendar = () => {
-  const ti = {event:{icon:'📌',color:'#2563eb',bg:'#dbeafe'},holiday:{icon:'🎉',color:'#dc2626',bg:'#fee2e2'},vacation:{icon:'🌴',color:'#059669',bg:'#d1fae5'}};
-  const sorted = [...DB.events].sort((a,b)=>a.date.localeCompare(b.date));
-  const ab = (S.user.role==='direction'||S.user.role==='direction2') ? `<button class="btn btn-primary" onclick="openCalM()">➕ Ajouter</button>` : '';
-  const canEdit = S.user.role==='direction'||S.user.role==='direction2';
+  const ti={event:{icon:'📌',color:'#2563eb',bg:'#dbeafe'},holiday:{icon:'🎉',color:'#dc2626',bg:'#fee2e2'},vacation:{icon:'🌴',color:'#059669',bg:'#d1fae5'},exam_period:{icon:'📝',color:'#7c3aed',bg:'#ede9fe'},reunion:{icon:'🤝',color:'#d97706',bg:'#fef3c7'}};
+  const canEdit=S.user.role==='direction'||S.user.role==='direction2';
+  if(!window._calView) window._calView='list';
+  if(!window._calMonth) window._calMonth=today().slice(0,7);
+  const sorted=[...DB.events].sort((a,b)=>a.date.localeCompare(b.date));
+  // Month grid
+  const [yr,mo]=window._calMonth.split('-').map(Number);
+  const firstDay=new Date(yr,mo-1,1);
+  const lastDay=new Date(yr,mo,0);
+  const startDow=(firstDay.getDay()+6)%7; // Mon=0
+  const totalDays=lastDay.getDate();
+  const monthLabel=firstDay.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  const evByDate={};
+  sorted.forEach(e=>{if(!evByDate[e.date])evByDate[e.date]=[];evByDate[e.date].push(e);});
+  window._calPrev=()=>{const d=new Date(yr,mo-2,1);window._calMonth=d.toISOString().slice(0,7);render();};
+  window._calNext=()=>{const d=new Date(yr,mo,1);window._calMonth=d.toISOString().slice(0,7);render();};
+  let gridHTML='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">';
+  ['L','M','M','J','V','S','D'].forEach(d=>{gridHTML+=`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--text-muted);padding:4px 0">${d}</div>`;});
+  gridHTML+='</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+  for(let i=0;i<startDow;i++) gridHTML+=`<div></div>`;
+  for(let d=1;d<=totalDays;d++){
+    const dateStr=`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dayEvs=evByDate[dateStr]||[];
+    const isToday=dateStr===today();
+    const isWeekend=((startDow+d-1)%7)>=5;
+    const dot=dayEvs.length?`<div style="display:flex;justify-content:center;gap:2px;margin-top:2px">${dayEvs.slice(0,3).map(e=>`<div style="width:5px;height:5px;border-radius:50%;background:${(ti[e.type]||ti.event).color}"></div>`).join('')}</div>`:'';
+    gridHTML+=`<div style="aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:4px;border-radius:8px;cursor:${dayEvs.length?'pointer':'default'};background:${isToday?'#2563eb':dayEvs.length?'#f0f9ff':'transparent'};border:${isToday?'none':'1px solid transparent'}"
+      ${dayEvs.length?`onclick="window._showCalDay('${dateStr}')"`:''}
+    >
+      <div style="font-size:12px;font-weight:${isToday?'800':dayEvs.length?'700':'400'};color:${isToday?'#fff':isWeekend?'#dc2626':'var(--text)'};">${d}</div>
+      ${dot}
+    </div>`;
+  }
+  gridHTML+='</div>';
+  // Upcoming events
+  const upcoming=sorted.filter(e=>e.date>=today()).slice(0,10);
+  const listHTML=upcoming.length?upcoming.map((e,i)=>{
+    const tp=ti[e.type]||ti.event;const d=new Date(e.date+'T00:00:00');
+    return `<div class="ww-item" style="animation-delay:${i*.04}s">
+      <div style="text-align:center;min-width:38px;flex-shrink:0"><div style="font-size:18px;font-weight:800;line-height:1;color:${tp.color}">${d.getDate()}</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">${d.toLocaleDateString('fr-FR',{month:'short'})}</div></div>
+      <div style="width:8px;height:8px;border-radius:50%;background:${tp.color};flex-shrink:0;margin-top:6px"></div>
+      <div class="ww-item-content">
+        <div class="ww-item-title">${esc(e.title)}</div>
+        <div class="ww-item-sub">${d.toLocaleDateString('fr-FR',{weekday:'long',month:'long',day:'numeric'})}</div>
+      </div>
+      <span class="pill" style="background:${tp.bg};color:${tp.color}">${tp.icon}</span>
+      ${canEdit?`<button onclick="deleteEvent('${e.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7">🗑️</button>`:''}
+    </div>`;
+  }).join(''):`<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun événement à venir</div>`;
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📅 Calendrier scolaire</span>${ab}</div>
-  <div class="ww-section">${sorted.length ? sorted.map((e,i)=>{
-    const t=ti[e.type]||ti.event; const d=new Date(e.date);
-    return `<div class="ww-item" style="animation-delay:${i*.05}s"><div style="text-align:center;min-width:36px"><div style="font-size:18px;font-weight:800;line-height:1">${d.getDate()}</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase">${d.toLocaleDateString('fr-FR',{month:'short'})}</div></div><div style="width:10px;height:10px;border-radius:50%;background:${t.color};flex-shrink:0"></div><div class="ww-item-content"><div class="ww-item-title">${e.title}</div><div class="ww-item-sub">${d.toLocaleDateString('fr-FR',{weekday:'long',month:'long',day:'numeric'})}</div></div><span class="pill" style="background:${t.bg};color:${t.color}">${t.icon}</span>${canEdit?`<button onclick="deleteEvent('${e.id}')" style="background:none;border:none;font-size:16px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7" title="Supprimer">🗑️</button>`:''}</div>`;
-  }).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📅</div>Aucun événement</div>'}</div>`;
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">📅 Calendrier scolaire</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      ${canEdit?`<button class="btn btn-outline btn-sm" onclick="prefillRDCHolidays()">🇨🇩 Jours fériés RDC</button>`:''}
+      ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openCalM()">➕ Ajouter</button>`:''}
+    </div>
+  </div>
+  <div class="premium-section" style="padding:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button onclick="_calPrev()" class="btn btn-outline btn-sm">◀</button>
+      <span style="font-weight:700;font-size:14px;text-transform:capitalize">${monthLabel}</span>
+      <button onclick="_calNext()" class="btn btn-outline btn-sm">▶</button>
+    </div>
+    ${gridHTML}
+  </div>
+  <div style="font-weight:700;font-size:14px;margin:12px 0 8px;color:var(--text)">📆 Prochains événements</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    ${Object.entries(ti).map(([k,v])=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:${v.bg};color:${v.color};border-radius:20px;font-size:11px;font-weight:700">${v.icon} ${k==='event'?'Événement':k==='holiday'?'Férié':k==='vacation'?'Vacances':k==='exam_period'?'Examens':'Réunion'}</span>`).join('')}
+  </div>
+  <div class="ww-section">${listHTML}</div>`;
+};
+window._showCalDay = (dateStr) => {
+  const ti={event:{icon:'📌',color:'#2563eb',bg:'#dbeafe'},holiday:{icon:'🎉',color:'#dc2626',bg:'#fee2e2'},vacation:{icon:'🌴',color:'#059669',bg:'#d1fae5'},exam_period:{icon:'📝',color:'#7c3aed',bg:'#ede9fe'},reunion:{icon:'🤝',color:'#d97706',bg:'#fef3c7'}};
+  const evs=(DB.events||[]).filter(e=>e.date===dateStr);
+  const d=new Date(dateStr+'T00:00:00');
+  const label=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  openM(`📅 ${label}`,`<div style="display:flex;flex-direction:column;gap:8px">
+    ${evs.map(e=>{const tp=ti[e.type]||ti.event;return`<div style="padding:12px 14px;background:${tp.bg};border-radius:12px;border-left:4px solid ${tp.color}"><div style="font-weight:700;font-size:14px;color:${tp.color}">${tp.icon} ${esc(e.title)}</div></div>`;}).join('')}
+  </div>`,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+};
+window.prefillRDCHolidays = () => {
+  const yr=new Date().getFullYear();
+  const feries=[
+    {d:`${yr}-01-01`,n:'Nouvel An'},{d:`${yr}-01-04`,n:'Journée des Martyrs'},
+    {d:`${yr}-05-01`,n:'Fête du Travail'},{d:`${yr}-05-17`,n:'Journée de Libération'},
+    {d:`${yr}-06-24`,n:'Journée du Héros National'},{d:`${yr}-06-30`,n:'Fête de l\'Indépendance (RDC)'},
+    {d:`${yr}-08-01`,n:'Journée des Parents'},{d:`${yr}-10-14`,n:'Journée de la Jeunesse'},
+    {d:`${yr}-11-17`,n:'Journée Nationale de l\'Armée'},{d:`${yr}-12-25`,n:'Noël'},
+    {d:`${yr+1}-01-01`,n:'Nouvel An '+(yr+1)},
+  ];
+  let added=0;
+  feries.forEach(f=>{
+    if(!(DB.events||[]).some(e=>e.date===f.d&&e.type==='holiday')){
+      const ev={id:'ev'+Date.now()+Math.random().toString(36).slice(2,6),title:f.n,date:f.d,type:'holiday'};
+      DB.events.push(ev);pushSync('events','post',ev);added++;
+    }
+  });
+  if(added){DB.events.sort((a,b)=>a.date.localeCompare(b.date));saveToCrypt();toast('🇨🇩 '+added+' jour'+(added>1?'s':'')+' férié'+(added>1?'s':'')+' ajouté'+(added>1?'s':'')+'!','success');render();}
+  else toast('Jours fériés déjà présents','info');
 };
 window.openCalM = () => openM('Ajouter un événement',`
 <div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="ft2" placeholder="Ex: Réunion parents"></div>
 <div class="form-row"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="fd" type="date"></div>
-<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="fty"><option value="event">📌 Événement</option><option value="holiday">🎉 Jour férié</option><option value="vacation">🌴 Vacances</option></select></div></div>`,
+<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="fty">
+  <option value="event">📌 Événement</option>
+  <option value="holiday">🎉 Jour férié</option>
+  <option value="vacation">🌴 Vacances</option>
+  <option value="exam_period">📝 Période d'examens</option>
+  <option value="reunion">🤝 Réunion parents</option>
+</select></div></div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCal()">💾 Ajouter</button>`);
 window.saveCal = () => {
   const t=$('ft2').value.trim(),d=$('fd').value,ty=$('fty').value;
@@ -12712,7 +12986,16 @@ window.printTenafepList = () => {
 window.openMedicalDossier = (sid) => {
   const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
   const med=(DB.medical||[]).find(m=>m.sid===sid)||{};
-  openM(`🏥 Dossier médical — ${s.name}`,`
+  const visits=(DB.medical_visits||[]).filter(v=>v.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const VAX=['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'];
+  const vaxDates=med.vax_dates||{};
+  openM(`🏥 Dossier médical — ${esc(s.name)}`,`
+  <div style="display:flex;gap:8px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px">
+    <button onclick="document.querySelectorAll('.med-tab').forEach(x=>x.style.display='none');$('med-tab-info').style.display='';document.querySelectorAll('.med-tb').forEach(b=>b.style.fontWeight='400');this.style.fontWeight='800'" class="btn btn-outline btn-sm med-tb" style="font-weight:800">📋 Dossier</button>
+    <button onclick="document.querySelectorAll('.med-tab').forEach(x=>x.style.display='none');$('med-tab-visits').style.display='';document.querySelectorAll('.med-tb').forEach(b=>b.style.fontWeight='400');this.style.fontWeight='800'" class="btn btn-outline btn-sm med-tb">🏥 Visites (${visits.length})</button>
+    <button onclick="document.querySelectorAll('.med-tab').forEach(x=>x.style.display='none');$('med-tab-vax').style.display='';document.querySelectorAll('.med-tb').forEach(b=>b.style.fontWeight='400');this.style.fontWeight='800'" class="btn btn-outline btn-sm med-tb">💉 Vaccins</button>
+  </div>
+  <div id="med-tab-info" class="med-tab">
   <div class="form-row">
     <div class="form-group"><label class="form-label">Groupe sanguin</label>
       <select class="form-select" id="med_blood">
@@ -12722,11 +13005,6 @@ window.openMedicalDossier = (sid) => {
     </div>
     <div class="form-group"><label class="form-label">Allergies connues</label>
       <input class="form-input" id="med_allergies" value="${esc(med.allergies||'')}" placeholder="Ex: pénicilline, arachides...">
-    </div>
-  </div>
-  <div class="form-group"><label class="form-label">Vaccins à jour</label>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
-      ${['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'].map(v=>{const checked=(med.vaccines||[]).includes(v);return`<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;background:${checked?'#d1fae5':'#f1f5f9'};padding:4px 10px;border-radius:20px;border:1px solid ${checked?'#6ee7b7':'#e2e8f0'}"><input type="checkbox" name="vax" value="${v}" ${checked?'checked':''} style="accent-color:#059669"> ${v}</label>`;}).join('')}
     </div>
   </div>
   <div class="form-row">
@@ -12739,15 +13017,110 @@ window.openMedicalDossier = (sid) => {
   </div>
   <div class="form-group"><label class="form-label">Conditions médicales / Notes</label>
     <textarea class="form-input" id="med_notes" rows="3" placeholder="Maladies chroniques, traitements en cours...">${esc(med.medical_notes||'')}</textarea>
+  </div>
+  </div>
+  <div id="med-tab-visits" class="med-tab" style="display:none">
+    <div style="margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Nouvelle visite à l'infirmerie</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="mv_date" type="date" value="${today()}"></div>
+        <div class="form-group"><label class="form-label">Motif</label><input class="form-input" id="mv_reason" placeholder="Fièvre, douleur..."></div>
+      </div>
+      <div class="form-group"><label class="form-label">Traitement / Action</label><input class="form-input" id="mv_treatment" placeholder="Repos, paracétamol, renvoyé chez parent..."></div>
+      <button class="btn btn-primary btn-sm" onclick="addMedVisit('${sid}')">➕ Enregistrer la visite</button>
+    </div>
+    <div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+      ${visits.length?visits.map(v=>`<div style="padding:10px 12px;background:#f8fafc;border-radius:10px;border-left:3px solid #0891b2">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div style="font-weight:700;font-size:13px;color:#0e7490">${esc(v.reason||'Visite')}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${v.date} ${v.treatment?'· '+esc(v.treatment):''}</div></div>
+          <button onclick="deleteMedVisit('${v.id}','${sid}')" style="background:none;border:none;font-size:14px;color:#dc2626;cursor:pointer;padding:2px">🗑️</button>
+        </div></div>`).join(''):
+        `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">Aucune visite enregistrée</div>`}
+    </div>
+  </div>
+  <div id="med-tab-vax" class="med-tab" style="display:none">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Cochez les vaccins reçus et indiquez la date si connue.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${VAX.map(v=>{const checked=(med.vaccines||[]).includes(v);const vd=vaxDates[v]||'';return`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${checked?'#d1fae580':'#f1f5f9'};border-radius:10px;border:1px solid ${checked?'#6ee7b7':'#e2e8f0'}">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1">
+          <input type="checkbox" name="vax" value="${v}" ${checked?'checked':''} style="accent-color:#059669;width:16px;height:16px">
+          <span style="font-size:13px;font-weight:${checked?'700':'400'};color:${checked?'#065f46':'var(--text)'}">${v}</span>
+        </label>
+        <input type="date" name="vax_date_${v.replace(/[^a-z0-9]/gi,'_')}" value="${vd}" style="font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:130px">
+      </div>`;}).join('')}
+    </div>
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-outline" onclick="printFicheSante('${sid}')">🖨️ Fiche PDF</button>
    <button class="btn btn-primary" onclick="saveMedicalRecord('${sid}')">💾 Enregistrer</button>`);
+};
+window.addMedVisit = (sid) => {
+  const reason=$('mv_reason')?.value?.trim();
+  const date=$('mv_date')?.value||today();
+  const treatment=$('mv_treatment')?.value?.trim()||null;
+  if(!reason){toast('Indiquez le motif de la visite','error');return;}
+  if(!DB.medical_visits)DB.medical_visits=[];
+  const v={id:'mv'+Date.now(),sid,date,reason,treatment,by:S.user.name,time:nowTime()};
+  DB.medical_visits.push(v);
+  pushSync('medical_visits','post',v);
+  saveToCrypt();
+  toast('✅ Visite enregistrée','success');
+  closeModal();openMedicalDossier(sid);
+};
+window.deleteMedVisit = (vid, sid) => {
+  if(!DB.medical_visits)return;
+  DB.medical_visits=DB.medical_visits.filter(v=>v.id!==vid);
+  pushSync('medical_visits','delete',null,`id=eq.${vid}`);
+  saveToCrypt();
+  closeModal();openMedicalDossier(sid);
+};
+window.printFicheSante = (sid) => {
+  const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
+  const med=(DB.medical||[]).find(m=>m.sid===sid)||{};
+  const cl=gc(s.cid);
+  const visits=(DB.medical_visits||[]).filter(v=>v.sid===sid).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const VAX=['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'];
+  const vaxDates=med.vax_dates||{};
+  const htmlStr=`<div style="font-family:Arial,sans-serif;max-width:700px;margin:0 auto;padding:24px">
+    <div style="text-align:center;border-bottom:3px solid #2563eb;padding-bottom:16px;margin-bottom:20px">
+      <div style="font-size:20px;font-weight:900;color:#1e3a8a">🏥 FICHE SANTÉ</div>
+      <div style="font-size:14px;color:#374151">The Wise School International — Complexe Scolaire Le Sage</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div><div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:4px">Élève</div><div style="font-size:16px;font-weight:800">${esc(s.name)}</div><div style="font-size:13px;color:#374151">Mat. ${esc(s.mat||'')} · ${cl?esc(cl.name):''}</div></div>
+      <div><div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;margin-bottom:4px">Informations médicales</div><div style="font-size:13px">Groupe sanguin : <strong>${esc(med.blood_type||'—')}</strong></div><div style="font-size:13px">Allergies : <strong>${esc(med.allergies||'Aucune connue')}</strong></div></div>
+    </div>
+    ${med.medical_notes?`<div style="margin-bottom:20px;padding:12px;background:#fef9c3;border-radius:8px;border-left:4px solid #f59e0b"><div style="font-weight:700;font-size:12px;color:#92400e;margin-bottom:4px">CONDITIONS MÉDICALES / TRAITEMENTS</div><div style="font-size:13px">${esc(med.medical_notes)}</div></div>`:''}
+    <div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e3a8a">💉 VACCINATIONS</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#dbeafe"><th style="text-align:left;padding:6px 8px">Vaccin</th><th style="text-align:center;padding:6px 8px">Statut</th><th style="text-align:center;padding:6px 8px">Date</th></tr></thead>
+        <tbody>${VAX.map((v,i)=>{const ok=(med.vaccines||[]).includes(v);const vd=vaxDates[v]||'';return`<tr style="background:${i%2?'#f8fafc':'#fff'}"><td style="padding:5px 8px">${v}</td><td style="text-align:center;padding:5px 8px;color:${ok?'#059669':'#dc2626'};font-weight:700">${ok?'✅ À jour':'❌ Manquant'}</td><td style="text-align:center;padding:5px 8px;color:#6b7280">${vd||'—'}</td></tr>`;}).join('')}</tbody>
+      </table>
+    </div>
+    ${visits.length?`<div style="margin-bottom:20px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px;color:#1e3a8a">🏥 HISTORIQUE DES VISITES À L'INFIRMERIE</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#dcfce7"><th style="text-align:left;padding:6px 8px">Date</th><th style="text-align:left;padding:6px 8px">Motif</th><th style="text-align:left;padding:6px 8px">Traitement</th></tr></thead>
+        <tbody>${visits.map((v,i)=>`<tr style="background:${i%2?'#f8fafc':'#fff'}"><td style="padding:5px 8px;color:#6b7280">${v.date}</td><td style="padding:5px 8px;font-weight:600">${esc(v.reason||'')}</td><td style="padding:5px 8px;color:#374151">${esc(v.treatment||'—')}</td></tr>`).join('')}</tbody>
+      </table></div>`:''}
+    <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+      <div style="border-top:2px solid #374151;padding-top:6px;text-align:center;font-size:12px;color:#6b7280">Signature Direction</div>
+      <div style="border-top:2px solid #374151;padding-top:6px;text-align:center;font-size:12px;color:#6b7280">Signature Infirmier/e</div>
+    </div>
+    <div style="text-align:center;font-size:10px;color:#9ca3af;margin-top:20px">Imprimé le ${today()} — SchoolSafe v3.0</div>
+  </div>`;
+  dlPDF(htmlStr,`FicheSante_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
 window.saveMedicalRecord = (sid) => {
   if(!DB.medical) DB.medical=[];
   const vaxChecked=[...document.querySelectorAll('input[name="vax"]:checked')].map(x=>x.value);
+  const VAX=['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'];
+  const vaxDates={};
+  VAX.forEach(v=>{const key='vax_date_'+v.replace(/[^a-z0-9]/gi,'_');const el=document.querySelector(`input[name="${key}"]`);if(el&&el.value)vaxDates[v]=el.value;});
   const idx=DB.medical.findIndex(m=>m.sid===sid);
-  const obj={id:idx>=0?DB.medical[idx].id:'med'+Date.now(),sid,blood_type:$('med_blood')?.value||null,allergies:$('med_allergies')?.value||null,vaccines:vaxChecked,doctor_name:$('med_doctor')?.value||null,doctor_phone:$('med_doctor_phone')?.value||null,medical_notes:$('med_notes')?.value||null,updated:today()};
+  const obj={id:idx>=0?DB.medical[idx].id:'med'+Date.now(),sid,blood_type:$('med_blood')?.value||null,allergies:$('med_allergies')?.value||null,vaccines:vaxChecked,vax_dates:vaxDates,doctor_name:$('med_doctor')?.value||null,doctor_phone:$('med_doctor_phone')?.value||null,medical_notes:$('med_notes')?.value||null,updated:today()};
   if(idx>=0)DB.medical[idx]=obj;else DB.medical.push(obj);
   pushSync('medical','upsert',obj);saveToCrypt();
   toast('🏥 Dossier médical enregistré','success');closeModal();
