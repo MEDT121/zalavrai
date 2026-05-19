@@ -11105,6 +11105,11 @@ R.profil_enseignant = () => {
   const myNotes=_grades.filter(g=>sids.includes(g.sid)&&g.note!=null).length;
   const studentsWithGrade=students.filter(s=>_grades.some(g=>g.sid===s.id&&g.note!=null)).length;
   const coveragePct=students.length?Math.round(studentsWithGrade/students.length*100):0;
+  const todayAttEns=(DB.attendance||[]).filter(a=>a.date===today()&&sids.includes(a.sid));
+  const attPresEns=todayAttEns.filter(a=>a.status==='ontime').length;
+  const attLateEns=todayAttEns.filter(a=>a.status==='late').length;
+  const attAbsEns=Math.max(0,students.length-attPresEns-attLateEns);
+  const recentDevs=(DB.devoirs||[]).filter(d=>d.cid===cl?.id&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
   const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
   const validTabs=['classe','profil','finances','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
@@ -11113,6 +11118,7 @@ R.profil_enseignant = () => {
   const currentMonth=today().slice(0,7);
   const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,6);
   const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+  const recentDevsHtml=recentDevs.length?('<div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">📋 '+t('Devoirs récents','Recent Tasks')+'</div>'+recentDevs.map(d=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span style="font-size:13px">'+esc(d.title)+'</span><span class="pill pill-blue" style="font-size:10px">'+(d.date||'')+'</span></div>').join('')+'</div>'):'';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
   <div class="premium-section" style="padding:14px 16px">
@@ -11150,8 +11156,22 @@ R.profil_enseignant = () => {
             <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
           </div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${coveragePct<100?t(`${students.length-studentsWithGrade} élève${students.length-studentsWithGrade>1?'s':''} sans note — cliquez ci-dessous pour saisir`,`${students.length-studentsWithGrade} student${students.length-studentsWithGrade>1?'s':''} without grades — tap below to enter`):t('✅ Tous les élèves ont au moins une note','✅ All students have at least one grade')}</div>
-          <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="go('palmares')">🏆 ${t('Aller au Palmarès & Saisir notes','Go to Rankings & Enter Grades')}</button>
-        </div>`:`<div style="font-size:13px;color:var(--text-muted);padding:16px;text-align:center;background:var(--bg);border-radius:12px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" style="font-size:12px" onclick="go('palmares')">🏆 ${t('Palmarès','Rankings')}</button>
+            <button class="btn btn-outline" style="font-size:12px" onclick="go('devoirs')">📋 ${t('Devoir','Task')}</button>
+            <button class="btn btn-outline" style="font-size:12px" onclick="go('cahier_texte')">📓 ${t('Cahier','Log')}</button>
+            <button class="btn btn-outline" style="font-size:12px" onclick="go('attendance')">📅 ${t('Présences','Attendance')}</button>
+          </div>
+        </div>
+        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">📅 ${t("Aujourd'hui","Today")}</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;padding:10px;border-radius:10px;background:#dcfce7;text-align:center"><div style="font-size:20px;font-weight:800;color:#16a34a">${attPresEns}</div><div style="font-size:10px;color:#166534">${t("À l'heure","On time")}</div></div>
+            <div style="flex:1;padding:10px;border-radius:10px;background:#fef3c7;text-align:center"><div style="font-size:20px;font-weight:800;color:#d97706">${attLateEns}</div><div style="font-size:10px;color:#92400e">${t('Retards','Late')}</div></div>
+            <div style="flex:1;padding:10px;border-radius:10px;background:#fee2e2;text-align:center"><div style="font-size:20px;font-weight:800;color:#dc2626">${attAbsEns}</div><div style="font-size:10px;color:#991b1b">${t('Absents','Absent')}</div></div>
+          </div>
+        </div>
+        ${recentDevsHtml}`:`<div style="font-size:13px;color:var(--text-muted);padding:16px;text-align:center;background:var(--bg);border-radius:12px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
       </div>
     </div>
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
@@ -11307,6 +11327,9 @@ R.profil_parent = () => {
           const pays=DB.payments.filter(p=>p.sid===k.id);
           const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
           const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+          const todayScans=(DB.scan_log||[]).filter(sc=>sc.sid===k.id&&sc.date===today()).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+          const lastScan=todayScans[0];
+          const scanBadge=lastScan?(lastScan.type==='entry'?'<span class="pill pill-green" style="font-size:10px">🟢 Entré '+lastScan.time+'</span>':lastScan.type==='exit'?'<span class="pill pill-orange" style="font-size:10px">🔶 Sorti '+lastScan.time+'</span>':'<span class="pill" style="font-size:10px;background:#e0e7ff;color:#3730a3">'+lastScan.type+' '+lastScan.time+'</span>'):'<span class="pill" style="font-size:10px;background:#f1f5f9;color:#64748b">⬜ Pas de scan</span>';
           return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
               <div class="pi-icon" style="background:${cbg};color:${cc};font-size:14px;font-weight:700">${ini(k.name)}</div>
@@ -11318,6 +11341,14 @@ R.profil_parent = () => {
             </div>
             <div style="display:flex;gap:6px;justify-content:space-between;font-size:11px;margin-bottom:8px">
               ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const paid=p&&p.paid;return`<div style="flex:1;text-align:center;padding:5px;border-radius:8px;background:${paid?'#d1fae5':'#f1f5f9'};color:${paid?'#065f46':'#94a3b8'};font-weight:${paid?'700':'400'}">${t} ${paid?'✅':'—'}<div style="font-size:10px">$${fees[t]||0}</div></div>`;}).join('')}
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:6px 0 8px">
+              <span style="font-size:11px;font-weight:600;color:var(--text-secondary)">Aujourd'hui :</span>
+              ${scanBadge}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+              <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="go('devoirs_parent')">📋 Devoirs</button>
+              <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="go('palmares_parent')">🏆 Notes</button>
             </div>
             ${paidAmt>0?`<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px;margin-bottom:6px" onclick="printReport('recu','${k.id}')">🧾 Télécharger le reçu de paiement</button>`:''}
             ${(()=>{
@@ -11720,6 +11751,8 @@ R.profil_gardien = () => {
   const validTabs=['activite','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'activite';
   const clr='#f97316';
+  const recentScans=[...allScans].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,5);
+  const recentScansHtml=recentScans.length?('<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">🕐 Derniers scans</div>'+recentScans.map(sc=>{const st=(DB.students||[]).find(s=>s.id===sc.sid);const typeLabel=sc.type==='entry'?'<span class="pill pill-green" style="font-size:10px">↑ Entrée</span>':sc.type==='exit'?'<span class="pill" style="font-size:10px;background:#ffedd5;color:#f97316">↓ Sortie</span>':'<span class="pill" style="font-size:10px;background:#fee2e2;color:#dc2626">✕ Refusé</span>';return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;font-weight:600">'+(st?esc(st.name):'—')+'</span><div style="display:flex;align-items:center;gap:6px">'+typeLabel+'<span style="font-size:11px;color:var(--text-muted)">'+(sc.date||'')+' '+(sc.time||'')+'</span></div></div>';}).join('')+'</div>'):'';
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 Mon profil</span></div>
   <div class="premium-section" style="padding:14px 16px">
@@ -11754,6 +11787,7 @@ R.profil_gardien = () => {
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('scanner')">📷 Scanner Entrée</button>
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('scanner_exit')">📷 Scanner Sortie</button>
         </div>
+        ${recentScansHtml}
       </div>
     </div>
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
@@ -11802,6 +11836,10 @@ R.profil_caisse = () => {
   const totalExp=exp.reduce((s,e)=>s+(e.amount||0),0);
   const totalAllRec=allRec.reduce((s,r)=>s+(r.amount||0),0);
   const fmt=n=>n.toLocaleString('fr-FR')+' FC';
+  const last7Days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return d.toISOString().slice(0,10);}).reverse();
+  const last7Data=last7Days.map(d=>({date:d,amt:allRec.filter(r=>r.date===d).reduce((s,r)=>s+(r.amount||0),0)}));
+  const maxBar=Math.max(1,...last7Data.map(d=>d.amt));
+  const last7Html='<div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:14px"><div style="font-size:13px;font-weight:700;margin-bottom:12px">📊 Recettes — 7 derniers jours</div><div style="display:flex;align-items:flex-end;gap:3px;height:70px">'+last7Data.map(d=>{const px=Math.max(Math.round(d.amt/maxBar*60),d.amt>0?3:1);const lbl=['Di','Lu','Ma','Me','Je','Ve','Sa'][new Date(d.date).getDay()];return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px"><div title="'+fmt(d.amt)+'" style="width:90%;background:#10b981;border-radius:4px 4px 0 0;height:'+px+'px"></div><div style="font-size:9px;color:var(--text-muted)">'+lbl+'</div></div>';}).join('')+'</div></div>';
   const validTabs=['caisse','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'caisse';
   const clr='#059669';
@@ -11840,6 +11878,7 @@ R.profil_caisse = () => {
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('recettes')">📈 Recettes</button>
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('depenses')">📉 Dépenses</button>
         </div>
+        ${last7Html}
       </div>
     </div>
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
@@ -11925,6 +11964,11 @@ R.profil_direction = () => {
     const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((sum,p)=>sum+(fees[p.t]||0),0);
     return paid<totalFees;
   }).length:(DB.students||[]).length;
+  const todayAttDir=(DB.attendance||[]).filter(a=>a.date===today());
+  const todayPresDir=todayAttDir.filter(a=>a.status==='ontime').length;
+  const todayLateDir=todayAttDir.filter(a=>a.status==='late').length;
+  const attPctDir=totalStudents?Math.round((todayPresDir+todayLateDir)/totalStudents*100):0;
+  const pendingNotifs=(DB.notifs||[]).filter(n=>!n.read).length;
   const validTabs=['stats','profil','donnees','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
   const clr='#0f2557';
@@ -11959,10 +12003,24 @@ R.profil_direction = () => {
           <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('accounts')"><div style="font-size:26px;font-weight:800;color:#0f2557">${totalUsers}</div><div style="font-size:11px;color:var(--text-muted)">Utilisateurs</div></div>
           <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center;cursor:pointer" onclick="go('payments')"><div style="font-size:26px;font-weight:800;color:${pendingPay>0?'#dc2626':'#059669'}">${pendingPay}</div><div style="font-size:11px;color:var(--text-muted)">Impayés</div></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:12px;font-weight:700">📅 Présences aujourd'hui</span>
+            <span style="font-size:12px;font-weight:800;color:${attPctDir>=80?'#059669':attPctDir>=40?'#d97706':'#dc2626'}">${todayPresDir+todayLateDir}/${totalStudents} (${attPctDir}%)</span>
+          </div>
+          <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden">
+            <div style="height:100%;width:${attPctDir}%;background:${attPctDir>=80?'#059669':attPctDir>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('students')">🎓 Élèves</button>
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('payments')">💰 Paiements</button>
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('accounts')">👥 Comptes</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" style="flex:1;position:relative" onclick="go('notifications')">🔔 Notifs${pendingNotifs>0?'<span style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:99px;font-size:9px;padding:1px 5px;font-weight:700">'+pendingNotifs+'</span>':''}</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="go('calendar')">📆 Calendrier</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="openWATemplates()">💬 WA</button>
         </div>
       </div>
     </div>
@@ -12062,8 +12120,8 @@ R.profil_direction2 = () => {
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div class="premium-section" style="padding:14px 16px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir2_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir2_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">📞 Numéro de téléphone</label>
           <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
@@ -12083,8 +12141,9 @@ R.profil_direction2 = () => {
 
 window.saveDirProfile = (inputId) => {
   const phone=(document.getElementById(inputId)?.value||'').trim()||null;
-  const name=(document.getElementById('dir_name')?.value||'').trim();
-  const initials=(document.getElementById('dir_init')?.value||'').trim();
+  const prefix=inputId.startsWith('dir2_')?'dir2_':'dir_';
+  const name=(document.getElementById(prefix+'name')?.value||'').trim();
+  const initials=(document.getElementById(prefix+'init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
