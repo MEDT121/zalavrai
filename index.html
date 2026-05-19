@@ -854,6 +854,7 @@ window.NAV = {
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'devoirs_parent',i:'📚',l:'Devoirs'},
+      {id:'recus_parent',i:'🧾',l:'Mes Reçus'},
       {id:'palmares_parent',i:'🏆',l:'Palmarès'},
       {id:'cantine_parent',i:'🍽️',l:'Cantine'},
       {id:'activites_parent',i:'🎭',l:'Activités'},
@@ -1373,7 +1374,7 @@ window.PT = {
   cahier_texte:'📖 Cahier de texte', teacher_comm:'💬 Communication',
   teacher_activity:'👁️ Activité Profs', audit_log:'🕐 Historique des modifications', year_mgmt:'📆 Année Scolaire',
   export:'📤 Export', alert_urgent:'🚨 Alerte Urgence',
-  devoirs_parent:'📚 Devoirs', palmares_parent:'🏆 Palmarès',
+  devoirs_parent:'📚 Devoirs', palmares_parent:'🏆 Palmarès', recus_parent:'🧾 Mes Reçus',
   caisse_paiement:'💵 Enregistrer Paiement', caisse_depense:'💸 Enregistrer Dépense',
   caisse_rapport:'📋 Rapport du Jour',
   profil_gardien:'👤 Mon profil', profil_caisse:'👤 Mon profil',
@@ -5710,6 +5711,254 @@ R.palmares_parent = () => {
   return html;
 };
 
+// ── REÇUS PARENT ──
+window.downloadRecuFrais = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const fees=getFees();
+  const pays=DB.payments.filter(p=>p.sid===sid&&p.paid);
+  if(!pays.length){toast('Aucun frais payé pour cet élève','info');return;}
+  const dir=DB.users.find(u=>u.role==='direction');
+  const labels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre',inscription:'Inscription'};
+  const rows=pays.map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${labels[p.t]||p.t}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">$${fees[p.t]||0}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${p.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${p.by?esc(DB.users.find(u=>u.id===p.by)?.name||p.by):'—'}</td></tr>`).join('');
+  const total=pays.reduce((a,p)=>a+(fees[p.t]||0),0);
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #0f2557">`:'';
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #0f2557;padding-bottom:16px;margin-bottom:20px">
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#0f2557">Reçu de Paiement — Frais Scolaires</div><div style="font-size:12px;color:#64748b">${DB.settings.school?.name||'The Wise School International'} · Kinshasa, RDC</div></div>
+      <div style="text-align:right;font-size:11px;color:#64748b">Année ${DB.settings.year||'2025-2026'}<br>Réf: REC-${sid.slice(-6).toUpperCase()}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">ÉLÈVE</div>
+        <div style="font-weight:700;font-size:15px">${esc(s.name)}</div>
+        <div style="font-size:12px;color:#64748b">Matricule : ${esc(s.mat||'—')}</div>
+        <div style="font-size:12px;color:#64748b">Classe : ${cl?esc(cl.name):'—'}</div>
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">DOCUMENT</div>
+        <div style="font-size:12px;color:#64748b">Émis le : ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:12px;color:#64748b">Statut : <span style="color:#059669;font-weight:700">PAYÉ ✓</span></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead><tr style="background:#0f2557;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Trimestre</th><th style="padding:10px 12px;text-align:right">Montant</th><th style="padding:10px 12px;text-align:left">Date</th><th style="padding:10px 12px;text-align:left;border-radius:0 8px 0 0">Encaissé par</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#059669">$${total}</td><td colspan="2"></td></tr></tfoot>
+    </table>
+    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+  </div>`;
+  dlPDF(html,`recu_frais_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadRecuRattrapage = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const rats=(DB.rattrapages||[]).filter(r=>r.sid===sid&&r.payment_signaled&&(r.amount||0)>0);
+  if(!rats.length){toast('Aucun rattrapage payé pour cet élève','info');return;}
+  const dir=DB.users.find(u=>u.role==='direction');
+  const rows=rats.map(r=>{
+    const prof=DB.users.find(u=>u.id===r.teacher_id);
+    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${esc(r.matiere||'—')}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">$${r.amount||0}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${r.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${prof?esc(prof.name):'—'}</td></tr>`;
+  }).join('');
+  const total=rats.reduce((a,r)=>a+(r.amount||0),0);
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #0f2557">`:'';
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #0f2557;padding-bottom:16px;margin-bottom:20px">
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#0f2557">Reçu — Cours de Rattrapage</div><div style="font-size:12px;color:#64748b">${DB.settings.school?.name||'The Wise School International'} · Kinshasa, RDC</div></div>
+      <div style="text-align:right;font-size:11px;color:#64748b">Année ${DB.settings.year||'2025-2026'}<br>Réf: RAT-${sid.slice(-6).toUpperCase()}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">ÉLÈVE</div>
+        <div style="font-weight:700;font-size:15px">${esc(s.name)}</div>
+        <div style="font-size:12px;color:#64748b">Matricule : ${esc(s.mat||'—')}</div>
+        <div style="font-size:12px;color:#64748b">Classe : ${cl?esc(cl.name):'—'}</div>
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">DOCUMENT</div>
+        <div style="font-size:12px;color:#64748b">Émis le : ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:12px;color:#64748b">Statut : <span style="color:#059669;font-weight:700">PAYÉ ✓</span></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead><tr style="background:#0f2557;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Matière</th><th style="padding:10px 12px;text-align:right">Montant</th><th style="padding:10px 12px;text-align:left">Date</th><th style="padding:10px 12px;text-align:left;border-radius:0 8px 0 0">Enseignant</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#059669">$${total}</td><td colspan="2"></td></tr></tfoot>
+    </table>
+    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+  </div>`;
+  dlPDF(html,`recu_rattrapage_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadRecuCantine = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const ins=(DB.cantine||[]).find(c=>c.sid===sid&&c.active);
+  if(!ins){toast('Pas d\'inscription cantine active pour cet élève','info');return;}
+  const dir=DB.users.find(u=>u.role==='direction');
+  const encaisseur=ins.by?DB.users.find(u=>u.id===ins.by):null;
+  const typeLabel={jour:'Journalier',mois:'Mensuel',annee:'Annuel'};
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #0f2557">`:'';
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #0f2557;padding-bottom:16px;margin-bottom:20px">
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#0f2557">Reçu d'Inscription — Cantine Scolaire</div><div style="font-size:12px;color:#64748b">${DB.settings.school?.name||'The Wise School International'} · Kinshasa, RDC</div></div>
+      <div style="text-align:right;font-size:11px;color:#64748b">Année ${DB.settings.year||'2025-2026'}<br>Réf: CAN-${sid.slice(-6).toUpperCase()}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">ÉLÈVE</div>
+        <div style="font-weight:700;font-size:15px">${esc(s.name)}</div>
+        <div style="font-size:12px;color:#64748b">Matricule : ${esc(s.mat||'—')}</div>
+        <div style="font-size:12px;color:#64748b">Classe : ${cl?esc(cl.name):'—'}</div>
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">DOCUMENT</div>
+        <div style="font-size:12px;color:#64748b">Émis le : ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:12px;color:#64748b">Statut : <span style="color:#059669;font-weight:700">ACTIF ✓</span></div>
+      </div>
+    </div>
+    <div style="border:1.5px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">TYPE D'ABONNEMENT</div><div style="font-weight:700;font-size:16px">${typeLabel[ins.type]||ins.type||'—'}</div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">MONTANT MENSUEL</div><div style="font-weight:900;font-size:22px;color:#059669">$${ins.amount||0}</div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">DATE D'INSCRIPTION</div><div style="font-weight:700">${ins.date_inscription?new Date(ins.date_inscription).toLocaleDateString('fr-FR'):'—'}</div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">ENCAISSÉ PAR</div><div style="font-weight:700">${encaisseur?esc(encaisseur.name):'—'}</div></div>
+      </div>
+    </div>
+    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+  </div>`;
+  dlPDF(html,`recu_cantine_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadRecuActivites = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const insActs=(DB.activites_inscriptions||[]).filter(i=>i.sid===sid&&i.active);
+  if(!insActs.length){toast('Aucune activité inscrite pour cet élève','info');return;}
+  const dir=DB.users.find(u=>u.role==='direction');
+  const rows=insActs.map(i=>{
+    const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
+    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${act.emoji||'🎭'} ${esc(act.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.jour||'—'} ${act.heure||''}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.lieu||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">$${act.frais||0}/mois</td></tr>`;
+  }).join('');
+  const totalMensuel=insActs.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #0f2557">`:'';
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #0f2557;padding-bottom:16px;margin-bottom:20px">
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#0f2557">Reçu d'Inscription — Activités Extrascolaires</div><div style="font-size:12px;color:#64748b">${DB.settings.school?.name||'The Wise School International'} · Kinshasa, RDC</div></div>
+      <div style="text-align:right;font-size:11px;color:#64748b">Année ${DB.settings.year||'2025-2026'}<br>Réf: ACT-${sid.slice(-6).toUpperCase()}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">ÉLÈVE</div>
+        <div style="font-weight:700;font-size:15px">${esc(s.name)}</div>
+        <div style="font-size:12px;color:#64748b">Matricule : ${esc(s.mat||'—')}</div>
+        <div style="font-size:12px;color:#64748b">Classe : ${cl?esc(cl.name):'—'}</div>
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 16px"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px">DOCUMENT</div>
+        <div style="font-size:12px;color:#64748b">Émis le : ${new Date().toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:12px;color:#64748b">Statut : <span style="color:#059669;font-weight:700">ACTIF ✓</span></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead><tr style="background:#0f2557;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Activité</th><th style="padding:10px 12px;text-align:left">Horaire</th><th style="padding:10px 12px;text-align:left">Lieu</th><th style="padding:10px 12px;text-align:right;border-radius:0 8px 0 0">Frais/mois</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="3" style="padding:10px 12px;font-weight:700">TOTAL MENSUEL</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#059669">$${totalMensuel}/mois</td></tr></tfoot>
+    </table>
+    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+  </div>`;
+  dlPDF(html,`recu_activites_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+R.recus_parent = () => {
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🧾</div>Aucun enfant lié</div>`;
+  const fees=getFees();
+  const trimLabels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre',inscription:'Inscription'};
+
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🧾 Mes Reçus de Paiement</span></div>`;
+
+  kids.forEach(k=>{
+    const cl=gc(k.cid);
+    // Frais scolaires
+    const pays=(DB.payments||[]).filter(p=>p.sid===k.id&&p.paid);
+    const totalFrais=pays.reduce((a,p)=>a+(fees[p.t]||0),0);
+    // Rattrapages
+    const rats=(DB.rattrapages||[]).filter(r=>r.sid===k.id&&r.payment_signaled&&(r.amount||0)>0);
+    const totalRat=rats.reduce((a,r)=>a+(r.amount||0),0);
+    // Cantine
+    const insC=(DB.cantine||[]).find(c=>c.sid===k.id&&c.active);
+    // Activités
+    const insActs=(DB.activites_inscriptions||[]).filter(i=>i.sid===k.id&&i.active);
+    const totalAct=insActs.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
+
+    html+=`<div class="premium-section" style="margin-bottom:14px">
+      <div class="premium-section-title">👶 ${esc(k.name)} ${cl?`<span style="font-size:12px;font-weight:400;opacity:.8">— ${esc(cl.name)}</span>`:''}
+        <span style="font-size:11px;font-weight:400;opacity:.7;margin-left:8px">Matricule: ${esc(k.mat||'—')}</span>
+      </div>
+
+      <!-- Frais scolaires -->
+      <div style="border:1.5px solid ${pays.length?'#22c55e':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${pays.length?'#f0fdf4':'#f8fafc'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:24px">📚</span>
+            <div>
+              <div style="font-weight:700;font-size:14px">Frais Scolaires</div>
+              ${pays.length?`<div style="font-size:12px;color:#059669;font-weight:600">${pays.length} paiement(s) · Total payé : $${totalFrais}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${pays.map(p=>`<span class="pill pill-green" style="font-size:10px">${trimLabels[p.t]||p.t} · $${fees[p.t]||0}</span>`).join('')}</div>`
+              :`<div style="font-size:12px;color:#94a3b8">Aucun paiement enregistré</div>`}
+            </div>
+          </div>
+          ${pays.length?`<button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuFrais('${k.id}')">⬇️ Reçu PDF</button>`:''}
+        </div>
+      </div>
+
+      <!-- Rattrapages -->
+      <div style="border:1.5px solid ${rats.length?'#3b82f6':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${rats.length?'#eff6ff':'#f8fafc'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:24px">📖</span>
+            <div>
+              <div style="font-weight:700;font-size:14px">Cours de Rattrapage</div>
+              ${rats.length?`<div style="font-size:12px;color:#1d4ed8;font-weight:600">${rats.length} cours payé(s) · Total : $${totalRat}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${rats.map(r=>`<span class="pill pill-blue" style="font-size:10px">${esc(r.matiere||'—')} · $${r.amount}</span>`).join('')}</div>`
+              :`<div style="font-size:12px;color:#94a3b8">Aucun rattrapage payé</div>`}
+            </div>
+          </div>
+          ${rats.length?`<button class="btn btn-sm" style="background:#1d4ed8;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuRattrapage('${k.id}')">⬇️ Reçu PDF</button>`:''}
+        </div>
+      </div>
+
+      <!-- Cantine -->
+      <div style="border:1.5px solid ${insC?'#f59e0b':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${insC?'#fffbeb':'#f8fafc'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:24px">🍽️</span>
+            <div>
+              <div style="font-weight:700;font-size:14px">Cantine Scolaire</div>
+              ${insC?`<div style="font-size:12px;color:#b45309;font-weight:600">Inscrit · ${insC.type==='jour'?'Journalier':insC.type==='mois'?'Mensuel':'Annuel'} · $${insC.amount||0}/mois</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px">Depuis le ${insC.date_inscription?new Date(insC.date_inscription).toLocaleDateString('fr-FR'):'—'}</div>`
+              :`<div style="font-size:12px;color:#94a3b8">Non inscrit à la cantine</div>`}
+            </div>
+          </div>
+          ${insC?`<button class="btn btn-sm" style="background:#b45309;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuCantine('${k.id}')">⬇️ Reçu PDF</button>`:''}
+        </div>
+      </div>
+
+      <!-- Activités -->
+      <div style="border:1.5px solid ${insActs.length?'#8b5cf6':'#e2e8f0'};border-radius:12px;padding:14px;background:${insActs.length?'#f5f3ff':'#f8fafc'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:24px">🎭</span>
+            <div>
+              <div style="font-weight:700;font-size:14px">Activités Extrascolaires</div>
+              ${insActs.length?`<div style="font-size:12px;color:#6d28d9;font-weight:600">${insActs.length} activité(s) · $${totalAct}/mois</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${insActs.map(i=>{const act=(DB.activites||[]).find(a=>a.id===i.act_id);return act?`<span class="pill" style="background:#ede9fe;color:#5b21b6;font-size:10px">${act.emoji||'🎭'} ${esc(act.name)}</span>`:''}).join('')}</div>`
+              :`<div style="font-size:12px;color:#94a3b8">Aucune activité inscrite</div>`}
+            </div>
+          </div>
+          ${insActs.length?`<button class="btn btn-sm" style="background:#6d28d9;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  return html;
+};
+
 // ── CANTINE SCOLAIRE ──
 R.cantine = () => {
   if(!DB.cantine) DB.cantine=[];
@@ -5996,12 +6245,15 @@ R.cantine_parent = () => {
     html+=`<div class="premium-section" style="margin-bottom:14px">
       <div class="premium-section-title">👶 ${esc(k.name)}</div>
       ${ins?`
-      <div style="display:flex;align-items:center;gap:10px;padding:12px;background:#d1fae5;border-radius:12px;margin-top:8px">
-        <span style="font-size:28px">✅</span>
-        <div>
-          <div style="font-weight:700;font-size:14px">Inscrit(e) à la cantine</div>
-          <div style="font-size:12px;color:#065f46">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'} — $${ins.amount}/mois · Depuis le ${new Date(ins.date_inscription).toLocaleDateString('fr-FR')}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px;background:#d1fae5;border-radius:12px;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:28px">✅</span>
+          <div>
+            <div style="font-weight:700;font-size:14px">Inscrit(e) à la cantine</div>
+            <div style="font-size:12px;color:#065f46">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'} — $${ins.amount}/mois · Depuis le ${new Date(ins.date_inscription).toLocaleDateString('fr-FR')}</div>
+          </div>
         </div>
+        <button class="btn btn-sm" style="background:#059669;color:#fff;border:none;flex-shrink:0" onclick="downloadRecuCantine('${k.id}')">⬇️ Reçu PDF</button>
       </div>
       ${pr7.length?`<div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px">PRÉSENCES RÉCENTES</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -13657,9 +13909,13 @@ R.activites_parent = () => {
 
   kids.forEach(k=>{
     const insKid=(DB.activites_inscriptions||[]).filter(i=>i.sid===k.id&&i.active);
+    const totalAct=insKid.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
     html+=`<div class="premium-section" style="margin-bottom:14px">
-      <div class="premium-section-title">👶 ${esc(k.name)}</div>
-      ${insKid.length?insKid.map(i=>{
+      <div class="premium-section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span>👶 ${esc(k.name)}</span>
+        ${insKid.length?`<button class="btn btn-sm" style="background:#6d28d9;color:#fff;border:none;font-size:11px" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
+      </div>
+      ${insKid.length?`<div style="margin-bottom:8px"><span style="font-size:12px;color:#6d28d9;font-weight:600">${insKid.length} activité(s) · $${totalAct}/mois</span></div>`+insKid.map(i=>{
         const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
         return `<div class="premium-item">
           <span class="pi-icon">${act.emoji||'🎭'}</span>
