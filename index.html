@@ -1747,7 +1747,10 @@ window.showStudentInfo = (sid) => {
     <div style="background:var(--bg);border-radius:12px;padding:12px 16px;margin-bottom:14px">
       ${s.nom_papa?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👨 Papa</span><span style="font-weight:600">${esc(s.nom_papa)}</span></div>`:''}
       ${s.nom_maman?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">👩 Maman</span><span style="font-weight:600">${esc(s.nom_maman)}</span></div>`:''}
-      ${parent?.phone?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Téléphone</span><div style="display:flex;align-items:center;gap:6px"><a href="tel:${esc(parent.phone)}" style="font-weight:700;color:#2563eb">${esc(parent.phone)}</a>${waBtn(parent.phone,parent.name)}</div></div>`:''}
+      ${S.user.role==='enseignant'
+        ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Contact</span><span style="font-size:12px;color:#b45309;font-style:italic">Passez par la Direction pour joindre ce parent</span></div>`
+        : (parent?.phone?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border-light)"><span style="color:var(--text-muted)">📞 Téléphone</span><div style="display:flex;align-items:center;gap:6px"><a href="tel:${esc(parent.phone)}" style="font-weight:700;color:#2563eb">${esc(parent.phone)}</a>${waBtn(parent.phone,parent.name)}</div></div>`:'')}
+
       ${s.adresse?`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px"><span style="color:var(--text-muted)">📍 Adresse</span><span style="font-weight:600;text-align:right;max-width:170px;line-height:1.3">${esc(s.adresse)}</span></div>`:''}
     </div>
 
@@ -6358,19 +6361,18 @@ window.saveCorrecteurDevoir = dvId => {
   });
   saveToCrypt(); closeModal(); render();
   toast(`✅ ${saved} côte(s) enregistrée(s)`,'success');
+  // Notify Direction to relay WhatsApp messages to parents (no direct teacher→parent contact)
   if(waLinks.length){
-    setTimeout(()=>{
-      openM('📱 Notifier les parents via WhatsApp',`
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Cliquez sur chaque bouton pour envoyer le résultat au parent via WhatsApp :</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${waLinks.map(w=>`<a href="https://wa.me/${w.phone}?text=${w.msg}" target="_blank" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#d1fae5;border-radius:10px;text-decoration:none;color:#065f46;font-weight:700">
-          <span style="font-size:18px">📱</span>
-          <span style="flex:1">Notifier le parent de ${w.name}</span>
-          <span style="font-size:11px;background:#059669;color:#fff;padding:3px 8px;border-radius:6px">WhatsApp →</span>
-        </a>`).join('')}
-      </div>`,
-      `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
-    },600);
+    const dirUsers=(DB.users||[]).filter(u=>['direction','direction2','direction3'].includes(u.role));
+    const notifMsg=`📊 ${S.user.name} a noté ${waLinks.length} élève(s) pour "${d.title}"${d.matiere?' ('+d.matiere+')':''}. Veuillez notifier les parents si nécessaire.`;
+    dirUsers.forEach(du=>{
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:du.id,type:'correction_dir',
+        msg:notifMsg,read:false,date:today(),devoir_id:dvId,
+        wa_links:waLinks.map(w=>({name:w.name,phone:w.phone,msg:w.msg}))};
+      if(!DB.notifs) DB.notifs=[];
+      DB.notifs.push(n);
+      pushSync('notifs','post',n);
+    });
   }
 };
 
@@ -11655,11 +11657,14 @@ window.confirmConvocationParent = (cid) => {
   });
 };
 
-// ── MESSAGE PARENT → PROF ──
+// ── MESSAGE PARENT → PROF (via Direction) ──
 window.messageTeacher = (uid, kidId) => {
   const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
   if(!teacher){toast('Professeur introuvable','error');return;}
   openM(`📨 Message à ${teacher.name}`,`
+  <div style="background:#fef3c7;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:14px">
+    ℹ️ Votre message sera transmis à la <strong>Direction</strong> qui le relayera au professeur après validation.
+  </div>
   <div style="background:#dbeafe;border-radius:10px;padding:10px 14px;font-size:13px;color:#1e40af;margin-bottom:14px">
     À : <strong>${teacher.name}</strong>${kid?' · Concernant : '+kid.name:''}
   </div>
@@ -11674,14 +11679,20 @@ window.sendMessageToTeacher = async (uid, kidId) => {
   const body=(document.getElementById('msgToTeacher')?.value||'').trim();
   if(!body){toast('Écrivez un message','error');return;}
   const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
+  // status:'pending' → passes through Direction approval before reaching teacher
   const msg={id:'m'+Date.now(),from:S.user.id,from_name:S.user.name,to:uid,to_name:teacher?teacher.name:'',
-    body,date:today(),time:nowTime(),read:false,status:'sent',type:'parent_to_teacher',
+    body,date:today(),time:nowTime(),read:false,status:'pending',type:'parent_to_teacher',
     about_sid:kidId||null,about_name:kid?kid.name:null};
+  if(!DB.messages) DB.messages=[];
   DB.messages.unshift(msg);
   pushSync('messages','post',msg);
-  await pushNotif(uid,`📨 Message de ${S.user.name}${kid?' à propos de '+kid.name:''} : ${body.slice(0,80)}${body.length>80?'...':''}`);
+  // Notify Direction (not the teacher directly)
+  const dirUsers=(DB.users||[]).filter(u=>['direction','direction2'].includes(u.role));
+  for(const du of dirUsers){
+    await pushNotif(du.id,`📨 Message de ${S.user.name}${kid?' à propos de '+kid.name:''} pour ${teacher.name} — en attente de validation.`);
+  }
   closeModal();
-  toast(`📨 Message envoyé à ${teacher?teacher.name:''}`, 'success');
+  toast('📨 Message envoyé à la Direction pour validation', 'success');
   saveToCrypt();
 };
 
