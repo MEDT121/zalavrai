@@ -633,91 +633,27 @@ window.compressWithProfile = (file, profile, cb) => {
   compressImage(file, p.maxW, p.maxH, p.quality, cb);
 };
 
-// ── DATABASE ──
+// ── DATABASE — données chargées depuis Supabase au démarrage ──
 window.DB = {
-  users: [
-    { id:'u1', name:'Admin', role:'direction', pin:'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', pin_hashed:true, initials:'AD', phone:'+243 816 722 901' },
-    { id:'u2', name:'Kabongo', role:'enseignant', pin:'bcb15f821479b4d5772bd0ca866c00ad5f926e3580720659cc80d39c9d09802a', pin_hashed:true, initials:'KB', phone:'+243 978 111 111', class_id:'c4', lang:'fr' },
-    { id:'u3', name:'Okonkwo', role:'enseignant', pin:'4cc8f4d609b717356701c57a03e737e5ac8fe885da8c7163d3de47e01849c635', pin_hashed:true, initials:'OK', phone:'+243 978 222 222', class_id:'c4', lang:'en' },
-    { id:'u4', name:'Mbuyi', role:'gardien', pin:'68487dc295052aa79c530e283ce698b8c6bb1b42ff0944252e1910dbecdc5425', pin_hashed:true, initials:'MB', phone:'+243 978 333 333' },
-    { id:'u5', name:'Lomela', role:'parent', pin:'69f7f7a7f8bca9970fa6f9c0b8dad06901d3ef23fd599d3213aa5eee5621c3e3', pin_hashed:true, initials:'LO', phone:'+243 978 444 444' },
-    { id:'u6', name:'Direction2', role:'direction2', pin:'af41e68e1309fa29a5044cbdc36b90a3821d8807e68c7675a6c495112bc8a55f', pin_hashed:true, initials:'D2', phone:'+243 816 000 002' },
-    { id:'u7', name:'Caisse', role:'direction3', pin:'94edf28c6d6da38fd35d7ad53e485307f89fbeaf120485c8d17a43f323deee71', pin_hashed:true, initials:'CA', phone:'+243 816 000 003' },
-  ],
-  classes: [
-    { id:'c1', name:'Petite Section',  cycle:'maternelle', teacher_id:null, teacher_id_en:null },
-    { id:'c2', name:'Moyenne Section', cycle:'maternelle', teacher_id:null, teacher_id_en:null },
-    { id:'c3', name:'Grande Section',  cycle:'maternelle', teacher_id:null, teacher_id_en:null },
-    { id:'c4', name:'CP1', cycle:'primaire', teacher_id:'u2', teacher_id_en:'u3' },
-    { id:'c5', name:'CP2', cycle:'primaire', teacher_id:null, teacher_id_en:null },
-    { id:'c6', name:'CE1', cycle:'primaire', teacher_id:null, teacher_id_en:null },
-    { id:'c7', name:'CE2', cycle:'primaire', teacher_id:null, teacher_id_en:null },
-    { id:'c8', name:'CM1', cycle:'primaire', teacher_id:null, teacher_id_en:null },
-    { id:'c9', name:'CM2', cycle:'primaire', teacher_id:null, teacher_id_en:null },
-  ],
-  students:[
-    { id:'s1', mat:'STU-0001', name:'Lomela Dodo', cid:'c4', pid:'u5', photo:null,
-      dob:'2018-05-12', adresse:'Avenue Lukusa 12, Gombe', nom_papa:'Lomela Jean', nom_maman:'Lomela Marie',
-      access_parent:false },
-    { id:'s2', mat:'STU-0002', name:'Mukeba Jean-Paul', cid:'c4', pid:null, photo:null,
-      dob:'2017-11-03', adresse:'Av. Kasa-Vubu 45', nom_papa:'Mukeba Paul', nom_maman:'Mukeba Anne',
-      access_parent:false },
-    { id:'s3', mat:'STU-0003', name:'Kabila Sarah', cid:'c4', pid:null, photo:null,
-      dob:'2018-02-20', adresse:'Bd du 30 Juin 88', nom_papa:'Kabila Pierre', nom_maman:'Kabila Grâce',
-      access_parent:false },
-    { id:'s4', mat:'STU-0004', name:'Ngoy David', cid:'c4', pid:null, photo:null,
-      dob:'2017-08-15', adresse:'Av. Victoire 33', nom_papa:'Ngoy Michel', nom_maman:'Ngoy Claire',
-      access_parent:false },
-    { id:'s5', mat:'STU-0005', name:'Tshilombo Ruth', cid:'c4', pid:null, photo:null,
-      dob:'2018-06-01', adresse:'Av. Kabambare 7', nom_papa:'Tshilombo André', nom_maman:'Tshilombo Esther',
-      access_parent:false },
-  ],
-  aps:[],
-  daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[], advances:[],
-  cantine:[], cantine_menus:[], cantine_presence:[],
-  activites:[], activites_inscriptions:[],
-  appreciations:[],
-  medical_visits:[],
-  payments:[
-    { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
-    { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
-    { sid:'s3', t:'T1', paid:true },{ sid:'s3', t:'T2', paid:false },{ sid:'s3', t:'T3', paid:false },
-    { sid:'s4', t:'T1', paid:false },{ sid:'s4', t:'T2', paid:false },{ sid:'s4', t:'T3', paid:false },
-    { sid:'s5', t:'T1', paid:true },{ sid:'s5', t:'T2', paid:true },{ sid:'s5', t:'T3', paid:true },
-  ],
-  notifs:[], events:[], messages:[],
-  attendance:[], scan_log:[],
-  conduct:[
-    {id:'cd1',sid:'s1',date:'2026-04-24',score:'Bien',remark:'Participatif',by:'u2'},
-    {id:'cd2',sid:'s2',date:'2026-04-24',score:'Excellent',remark:'Très attentif',by:'u2'},
-    {id:'cd3',sid:'s3',date:'2026-04-24',score:'Moyen',remark:'Bavardage',by:'u2'},
-    {id:'cd4',sid:'s4',date:'2026-04-24',score:'Mauvais',remark:'Perturbateur',by:'u2'},
-    {id:'cd5',sid:'s5',date:'2026-04-24',score:'Excellent',remark:'Exemplaire',by:'u2'},
-  ],
-  grades:[
-    {id:'g1',sid:'s1',matiere:'Mathématiques',trimester:'T1',year:'2025-2026',pct:72},
-    {id:'g2',sid:'s1',matiere:'Français',trimester:'T1',year:'2025-2026',pct:68},
-    {id:'g3',sid:'s2',matiere:'Mathématiques',trimester:'T1',year:'2025-2026',pct:85},
-    {id:'g4',sid:'s2',matiere:'Français',trimester:'T1',year:'2025-2026',pct:90},
-    {id:'g5',sid:'s3',matiere:'Mathématiques',trimester:'T1',year:'2025-2026',pct:55},
-    {id:'g6',sid:'s3',matiere:'Français',trimester:'T1',year:'2025-2026',pct:60},
-    {id:'g7',sid:'s4',matiere:'Mathématiques',trimester:'T1',year:'2025-2026',pct:42},
-    {id:'g8',sid:'s4',matiere:'Français',trimester:'T1',year:'2025-2026',pct:38},
-    {id:'g9',sid:'s5',matiere:'Mathématiques',trimester:'T1',year:'2025-2026',pct:95},
-    {id:'g10',sid:'s5',matiere:'Français',trimester:'T1',year:'2025-2026',pct:88},
-  ],
-  absences:[],
-  devoirs:[], cahier_texte:[], matieres:[], approbations:[], teacher_notes:[],
-  _sid:6, _uid:6, _apid:1,
+  users: [], classes: [], students: [], payments: [],
+  attendance: [], scan_log: [], conduct: [], grades: [],
+  absences: [], notifs: [], events: [], messages: [], aps: [],
+  daily_records: [], daily_expenses: [], daily_reports: [],
+  devoirs: [], cahier_texte: [], matieres: [], rattrapages: [],
+  convocations: [], timetables: [], approbations: [],
+  teacher_notes: [], audit_log: [], teacher_absences: [],
+  sanctions: [], medical: [], tenafep: [], evaluations: [],
+  salaries: [], advances: [],
+  cantine: [], cantine_menus: [], cantine_presence: [],
+  activites: [], activites_inscriptions: [], appreciations: [], medical_visits: [],
+  _sid: 1, _uid: 1, _apid: 1,
   settings: {
     id: 'main',
-    horaires: {
-      primaire: { ontime:455, late:480 },
-      maternelle: { ontime:485, late:510 },
-    },
+    horaires: { primaire:{ ontime:455, late:480 }, maternelle:{ ontime:485, late:510 } },
     toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true, bulletin:false },
     year: '2025-2026',
-    feesControl: { active:false, trimestre:'T1' }
+    feesControl: { active:false, trimestre:'T1' },
+    retention: { notifs:30, scan_log:90, audit_log:90, approbations:60 }
   }
 };
 
@@ -1017,7 +953,8 @@ window.NAV = {
 
 // ── SUPABASE ──
 const SUPA_URL='https://dysupsxqlluuuizopzyq.supabase.co';
-const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5c3Vwc3hxbGx1dXVpem9wenlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDUzMDk5NiwiZXhwIjoyMDkwMTA2OTk2fQ.nXtAwGRRmIZygYL1eNJbufU-eV9shFqrZjzWDbHYVRU';
+// ⚠️ REMPLACER par la clé ANON depuis : Supabase → Settings → API → Project API keys → anon public
+const SUPA_KEY='REMPLACER_PAR_CLE_ANON_SUPABASE';
 window.DB_ONLINE = false;
 const _H = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'};
 
