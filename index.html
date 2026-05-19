@@ -3570,7 +3570,7 @@ window._simpleList = (role, icon, gradient) => {
         </div>
         ${role==='enseignant'?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">📚 ${DB.classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id).map(c=>esc(c.name)).join(', ')||'Aucune classe assignée'}</div>`:''}
         <div style="display:flex;gap:6px;align-items:center">
-          <span class="pill pill-blue" style="font-family:monospace">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
+          <span class="pill pill-blue" style="font-family:monospace">${_isDirRole(u.role)?'Mdp':'PIN'}: ${u.pin_hashed?'••••••':u.pin}</span>
           <span style="flex:1"></span>
           <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">🗑️</button>
@@ -3587,7 +3587,7 @@ window.openUserForm = (role, uid) => {
   if(uid && !u){ toast('Utilisateur introuvable — rechargez la page','error'); return; }
   const meta = ROLE_META[role]||{label:role,icon:'👤'};
   const existingLang = uid ? (classes.find(x=>x.teacher_id_en===uid)?'en':'fr') : 'fr';
-  const pinDisplay = u&&u.pin&&!u.pin_hashed ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">PIN actuel : <span style="font-family:monospace;font-weight:700;color:#2563eb">${u.pin}</span></div>` : (u?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">PIN chiffré — entrez un nouveau PIN pour le réinitialiser</div>`:'');
+  const pinDisplay = u&&u.pin&&!u.pin_hashed ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${_isDirRole(role)?'Mot de passe':'PIN'} actuel : <span style="font-family:monospace;font-weight:700;color:#2563eb">${u.pin}</span></div>` : (u?`<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${_isDirRole(role)?'Mot de passe':'PIN'} chiffré — entrez un nouveau pour le réinitialiser</div>`:'');
   const classOpts = role==='enseignant' ? `
 <div class="form-group"><label class="form-label">Section d'enseignement</label>
   <div style="display:flex;gap:12px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
@@ -3615,8 +3615,7 @@ ${photoOpts}
 <div class="form-row">
   <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?u.phone:''}" placeholder="+243 8XX XXX XXX"></div>
   <div class="form-group">
-    <label class="form-label">PIN (6 chiffres)${u?' — vide = conserver':' *'}</label>
-    <input class="form-input" id="usr_pin" type="text" inputmode="numeric" maxlength="6" placeholder="${u?'Laisser vide pour garder':'••••••'}">
+    ${(()=>{const isDir=_isDirRole(role);const lbl=isDir?'Mot de passe':'PIN (6 chiffres)';const ph=u?'Laisser vide pour garder':(isDir?'Min. 6 caractères':'••••••');const ml=isDir?'64':'6';const im=isDir?'text':'numeric';return`<label class="form-label">${lbl}${u?' — vide = conserver':' *'}</label><input class="form-input" id="usr_pin" type="password" inputmode="${im}" maxlength="${ml}" placeholder="${ph}" autocomplete="new-password">`;})()}
     ${pinDisplay}
   </div>
 </div>
@@ -3630,11 +3629,18 @@ window.saveUser = () => {
   if(!nameEl||!pinEl||!idEl||!roleEl){toast('Erreur formulaire — réouvrez la fenêtre','error');return;}
   const name=(nameEl.value||'').trim();
   if(!name){toast('Entrez le nom','error');return;}
-  const pinInput=(pinEl.value||'').replace(/\D/g,''); // digits only
   const uid=idEl.value;
   const role=roleEl.value;
-  if(!uid && (!pinInput||pinInput.length!==6)){toast('PIN requis : exactement 6 chiffres','error');return;}
-  if(pinInput && pinInput.length!==6){toast('PIN invalide : exactement 6 chiffres','error');return;}
+  const isDir=_isDirRole(role);
+  const pinRaw=(pinEl.value||'').trim();
+  const pinInput=isDir?pinRaw:pinRaw.replace(/\D/g,'');
+  if(isDir){
+    if(!uid && (!pinInput||pinInput.length<6)){toast('Mot de passe requis : minimum 6 caractères','error');return;}
+    if(pinInput && pinInput.length<6){toast('Mot de passe invalide : minimum 6 caractères','error');return;}
+  } else {
+    if(!uid && (!pinInput||pinInput.length!==6)){toast('PIN requis : exactement 6 chiffres','error');return;}
+    if(pinInput && pinInput.length!==6){toast('PIN invalide : exactement 6 chiffres','error');return;}
+  }
   const initials=($('usr_init')?.value||'').trim()||ini(name);
   const photo=window._userPhoto||null;
   const users=DB.users||[];
@@ -3744,7 +3750,7 @@ R.parents = () => {
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:16px">${esc(u.name)}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
-            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">${_isDirRole(u.role)?'Mdp':'PIN'}: ${u.pin_hashed?'••••••':u.pin}</span>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
             <button class="btn btn-outline btn-sm" onclick="openUserForm('parent','${u.id}')">✏️ Modifier</button>
@@ -12079,7 +12085,7 @@ R.accounts = () => {
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
-            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">PIN: ${u.pin_hashed?'••••••':u.pin}</span>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">${_isDirRole(u.role)?'Mdp':'PIN'}: ${u.pin_hashed?'••••••':u.pin}</span>
           </div>
           <div style="display:flex;gap:5px;flex-shrink:0">
             <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">✏️ Modifier</button>
@@ -12617,7 +12623,9 @@ R.acces_parents = () => {
         ${par?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:8px">
           <span style="font-size:11px;color:var(--text-muted)">👨‍👩‍👧</span>
           <span style="font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(par.name)}</span>
+          ${par.pin&&!par.pin_hashed?`<span style="font-family:monospace;font-size:12px;font-weight:700;padding:2px 8px;background:#dbeafe;color:#1d4ed8;border-radius:8px;flex-shrink:0">PIN: ${par.pin}</span>`:''}
           ${par.phone?waBtn(par.phone,par.name):''}
+          <button onclick="resetParentPin('${par.id}')" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;color:#64748b" title="Réinitialiser le PIN">🔑</button>
         </div>`:`<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;padding:6px 10px;background:#fef9c3;border-radius:8px">⚠️ Aucun compte parent lié</div>`}
         ${pTotal>0?`<div style="margin-bottom:8px">
           <div style="height:6px;border-radius:4px;background:#e2e8f0;overflow:hidden">
@@ -12653,6 +12661,19 @@ window.autoActivatePaid = () => {
   });
   if(count>0){saveToCrypt();render();toast(`⚡ ${count} élève(s) activé(s) automatiquement`,'success');}
   else toast('Tous les élèves à jour sont déjà activés','info');
+};
+
+window.resetParentPin = (uid) => {
+  const u=DB.users.find(x=>x.id===uid); if(!u||u.role!=='parent') return;
+  const newPin=Math.floor(100000+Math.random()*900000).toString();
+  u.pin=newPin; u.pin_hashed=false;
+  pushSync('users','patch',{pin:newPin,pin_hashed:false},'id=eq.'+uid);
+  saveToCrypt(); render();
+  openM('🔑 Nouveau PIN parent',`<div style="text-align:center;padding:20px 0">
+    <div style="font-size:14px;margin-bottom:8px;color:var(--text-secondary)">Nouveau code pour <strong>${esc(u.name)}</strong></div>
+    <div style="font-size:42px;font-weight:900;letter-spacing:12px;color:#1d4ed8;font-family:monospace;padding:18px;background:#dbeafe;border-radius:16px;margin:10px auto">${newPin}</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:10px">Communiquez ce code au parent. Il sera masqué dès la première connexion.</div>
+  </div>`,`<button class="btn btn-primary" onclick="closeModal()">OK</button>`);
 };
 
 // ── RECHERCHE GLOBALE ──
@@ -12978,7 +12999,8 @@ window.importCSVConfirm = () => {
         parent=(DB.users||[]).find(u=>u.role==='parent'&&u.name.toLowerCase().trim()===(parentName||'').toLowerCase().trim());
       }
       if(!parent&&parentName){
-        const newParent={id:'u'+Date.now()+Math.random().toString(36).slice(2,5),role:'parent',name:parentName,phone:parentPhone||null,pin:'000000',pin_hashed:false,initials:ini(parentName)};
+        const genPin6=()=>Math.floor(100000+Math.random()*900000).toString();
+        const newParent={id:'u'+Date.now()+Math.random().toString(36).slice(2,5),role:'parent',name:parentName,phone:parentPhone||null,pin:genPin6(),pin_hashed:false,initials:ini(parentName)};
         DB.users.push(newParent);pushSync('users','upsert',newParent);pid=newParent.id;
       } else if(parent){pid=parent.id;}
     }
