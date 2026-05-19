@@ -572,6 +572,7 @@ window.DB = {
   daily_records:[], daily_expenses:[], daily_reports:[], rattrapages:[], convocations:[], audit_log:[], teacher_absences:[], timetables:[], sanctions:[], medical:[], tenafep:[], evaluations:[], salaries:[], advances:[],
   cantine:[], cantine_menus:[], cantine_presence:[],
   activites:[], activites_inscriptions:[],
+  appreciations:[],
   payments:[
     { sid:'s1', t:'T1', paid:true },{ sid:'s1', t:'T2', paid:false },{ sid:'s1', t:'T3', paid:false },
     { sid:'s2', t:'T1', paid:true },{ sid:'s2', t:'T2', paid:true },{ sid:'s2', t:'T3', paid:false },
@@ -1121,6 +1122,7 @@ function _cryptSnap() {
     cantine_presence:DB.cantine_presence||[],
     activites:DB.activites||[],
     activites_inscriptions:DB.activites_inscriptions||[],
+    appreciations:DB.appreciations||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -3147,8 +3149,9 @@ R.notifications = () => {
   // Mark all as read
   unread.forEach(n=>{ n.read=true; pushSync('notifs','patch',{read:true},'id=eq.'+n.id); });
   if(unread.length) setTimeout(()=>render(),300);
-  const typeIcon={academic:'📚',alert:'🚨',info:'ℹ️',approval:'⏳',receipt:'🧾',report:'📊'};
-  const typeBg={academic:'#dbeafe',alert:'#fee2e2',approval:'#fef3c7',receipt:'#d1fae5',report:'#ede9fe',info:'#f1f5f9'};
+  const typeIcon={academic:'📚',alert:'🚨',urgent:'🔴',info:'ℹ️',approval:'⏳',receipt:'🧾',report:'📊',correction:'✅',correction_dir:'📊',message:'✉️'};
+  const typeBg={academic:'#dbeafe',alert:'#fee2e2',urgent:'#fef2f2',approval:'#fef3c7',receipt:'#d1fae5',report:'#ede9fe',info:'#f1f5f9',correction:'#d1fae5',correction_dir:'#ede9fe',message:'#dbeafe'};
+  const typeBorder={urgent:'#ef4444',alert:'#fca5a5'};
   return `
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🔔 Notifications</span>
@@ -3159,9 +3162,10 @@ R.notifications = () => {
     </div>
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
-  <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);':''}">
+  <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);':''}${typeBorder[n.type]?';border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f1f5f9'}">${typeIcon[n.type]||'🔔'}</div>
     <div class="ww-item-content">
+      ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
       <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${n.msg}</div>
       ${n.receipt?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${n.receipt.num}</div>
@@ -4246,7 +4250,11 @@ R.payments = () => {
             ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" class="pill ${p.paid?'pill-green':'pill-red'}" style="border:none;cursor:pointer;flex:1">${p.t} ${p.paid?'✅':'❌'}</button>`).join('')}
           </div>
           <div class="ww-bar-wrap"><div class="ww-bar" style="width:${paidC/3*100}%;background:${barColor}"></div></div>
-          ${debt>0?`<div style="display:flex;gap:6px;margin-top:8px"><button class="btn btn-outline btn-sm" style="flex:1" onclick="openAssignCaissePayment('${s.id}')">💵 Affecter paiement caisse</button>${(()=>{const par=gu(s.pid);return par?.phone?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0">💬</a>`:'';})()} </div>`:''}
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            ${debt>0?`<button class="btn btn-outline btn-sm" style="flex:1" onclick="openAssignCaissePayment('${s.id}')">💵 Affecter paiement caisse</button>`:''}
+            <button class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="downloadRecuPaiement('${s.id}')">🧾 Reçu PDF</button>
+            ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0">💬</a>`:'';})()}
+          </div>
           <button onclick="toggleStudentAccess('${s.id}')"
             style="width:100%;margin-top:8px;padding:7px;border-radius:9px;border:1px solid ${s.access_blocked?'#7c3aed':'#e2e8f0'};
             background:${s.access_blocked?'#ede9fe':'transparent'};cursor:pointer;font-size:12px;font-weight:700;
@@ -4315,6 +4323,72 @@ window.unblockAll = () => {
     toast(`🔓 ${blocked.length} élève(s) débloqué(s)`,'success');
     saveToCrypt(); render();
   });
+};
+
+window.downloadRecuPaiement = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const pays=DB.payments.filter(p=>p.sid===sid);
+  const fees=getFees();
+  const paidTrims=pays.filter(p=>p.paid);
+  const totalPaid=paidTrims.reduce((sum,p)=>sum+(fees[p.t]||0),0);
+  const totalDue=pays.reduce((sum,p)=>sum+(fees[p.t]||0),0);
+  const sc=DB.settings.school||{};
+  const yr=DB.settings.year||'2025-2026';
+  const recuNum='REC-'+s.mat+'-'+Date.now().toString().slice(-6);
+
+  const htmlStr=`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;padding:24px;color:#1e293b;font-size:14px;background:#f8fafc}
+    .page{max-width:640px;margin:0 auto;background:#fff;border-radius:14px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f2557;padding-bottom:14px;margin-bottom:16px}
+    .school-name{font-weight:800;font-size:18px;color:#0f2557}
+    .school-sub{font-size:12px;color:#64748b;margin-top:2px}
+    .badge{background:#0f2557;color:#fff;padding:5px 16px;border-radius:20px;font-size:13px;font-weight:700}
+    .info-box{background:#f0f9ff;border-radius:10px;padding:14px 16px;margin-bottom:16px}
+    .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+    .row:last-child{border-bottom:none}
+    .total{display:flex;justify-content:space-between;padding:10px 14px;background:#0f2557;border-radius:8px;color:#fff;font-weight:700;font-size:15px;margin-top:10px}
+    .paid{background:#d1fae5;color:#065f46;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+    .unpaid{background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+    .seal{text-align:center;margin-top:24px;padding-top:16px;border-top:2px dashed #e2e8f0}
+    .footer{font-size:11px;color:#94a3b8;text-align:center;margin-top:12px}
+    @media print{body{background:#fff;padding:0}.page{box-shadow:none;padding:20px}}
+  </style></head><body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="school-name">${esc(sc.name||'The Wise School International')}</div>
+        <div class="school-sub">${esc(sc.sub||'Complexe Scolaire Le Sage — Kinshasa, RDC')}</div>
+        ${sc.phone?`<div style="font-size:11px;color:#64748b;margin-top:2px">📞 ${esc(sc.phone)}</div>`:''}
+      </div>
+      <div style="text-align:right">
+        <div class="badge">REÇU DE PAIEMENT</div>
+        <div style="font-size:12px;color:#64748b;margin-top:6px">${recuNum}</div>
+        <div style="font-size:12px;color:#64748b">${today()}</div>
+      </div>
+    </div>
+    <div class="info-box">
+      <div style="font-weight:700;font-size:16px;margin-bottom:4px">${esc(s.name)}</div>
+      <div style="font-size:12px;color:#64748b">Matricule : ${esc(s.mat||'—')} · Classe : ${esc(cl?.name||'—')} · Année : ${yr}</div>
+    </div>
+    <div style="font-weight:700;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Détail des frais scolaires</div>
+    ${pays.map(p=>`<div class="row">
+      <span>Frais ${p.t} <span class="${p.paid?'paid':'unpaid'}">${p.paid?'✅ Payé':'❌ Non payé'}</span></span>
+      <span style="font-weight:${p.paid?700:400};color:${p.paid?'#059669':'#94a3b8'}">$${fees[p.t]||0}</span>
+    </div>`).join('')}
+    <div class="total">
+      <span>TOTAL PAYÉ</span>
+      <span>$${totalPaid} / $${totalDue}</span>
+    </div>
+    <div class="seal">
+      <div style="font-size:13px;font-weight:700;margin-bottom:16px">Cachet et signature de la Direction</div>
+      <div style="width:120px;height:60px;border:2px solid #e2e8f0;border-radius:8px;margin:0 auto"></div>
+    </div>
+    <div class="footer">🔒 Document officiel — SchoolSafe v3.0 · ${DB.settings.school?.name||''} · Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
+  </div>
+  </body></html>`;
+  dlPDF(htmlStr, `Recu_${s.name.replace(/\s+/g,'_')}_${today()}.pdf`);
 };
 
 window.openFeesConfig = () => {
@@ -4937,6 +5011,55 @@ window.signalerRattrapage = (sid) => {
    <button class="btn btn-primary" style="background:#f59e0b;border-color:#f59e0b" onclick="submitRattrapage('${sid}')">⚠️ Signaler à la Direction</button>`);
 };
 
+window.openAppreciationM = (sid, cid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const selTrim=window._palmTrim||DB.settings?.currentTrimestre||'T1';
+  const existing=(DB.appreciations||[]).find(a=>a.sid===sid&&a.cid===cid&&a.trim===selTrim);
+  const templates=[
+    'Élève sérieux(se) et appliqué(e). Continue ainsi !',
+    'Bon trimestre, maintenir ce niveau.',
+    'Des efforts sont à fournir pour le prochain trimestre.',
+    'Capacités certaines, mais le travail doit être plus régulier.',
+    'Excellent comportement et très bons résultats. Félicitations !',
+    'Résultats insuffisants. Un suivi particulier est recommandé.',
+  ];
+  openM(`💬 ${t('Appréciation titulaire','Class teacher note')} — ${esc(s.name)} (${selTrim})`,`
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+    ${templates.map(tmpl=>`<button class="btn btn-outline btn-sm" onclick="document.getElementById('appTxt').value='${tmpl.replace(/'/g,"\\'")}'" style="font-size:11px;text-align:left">${tmpl.slice(0,35)}…</button>`).join('')}
+  </div>
+  <div class="form-group"><label class="form-label">Appréciation *</label>
+    <textarea class="form-input" id="appTxt" rows="3" placeholder="Ex: Élève sérieux(se), bon niveau...">${esc(existing?.text||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   ${existing?`<button class="btn btn-danger btn-sm" onclick="deleteAppreciation('${existing.id}')">🗑️ Supprimer</button>`:''}
+   <button class="btn btn-primary" onclick="saveAppreciation('${sid}','${cid}','${existing?.id||''}')">💾 Enregistrer</button>`);
+};
+
+window.saveAppreciation = (sid, cid, existingId) => {
+  const text=($('appTxt')?.value||'').trim();
+  if(!text){toast('Écrivez une appréciation','error');return;}
+  if(!DB.appreciations) DB.appreciations=[];
+  const selTrim=window._palmTrim||DB.settings?.currentTrimestre||'T1';
+  if(existingId){
+    const ap=DB.appreciations.find(x=>x.id===existingId);
+    if(ap){ap.text=text;ap.updated=today();}
+    pushSync('appreciations','patch',{text,updated:today()},'id=eq.'+existingId);
+  } else {
+    const na={id:'app'+Date.now(),sid,cid,trim:selTrim,text,by:S.user.id,date:today()};
+    DB.appreciations.push(na);
+    pushSync('appreciations','post',na);
+  }
+  closeModal(); saveToCrypt(); render();
+  toast(`✅ Appréciation enregistrée`,'success');
+};
+
+window.deleteAppreciation = (appId) => {
+  DB.appreciations=(DB.appreciations||[]).filter(x=>x.id!==appId);
+  pushSync('appreciations','delete',{},'id=eq.'+appId);
+  closeModal(); saveToCrypt(); render();
+  toast('Appréciation supprimée','info');
+};
+
 window.submitRattrapage = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const mat=($('rat_mat').value||'').trim();
@@ -5224,7 +5347,9 @@ R.palmares = () => {
             ${isTeacher?`<button class="action-btn" onclick="openStudentGrades('${s.id}','${cl.id}')" style="flex-shrink:0" title="${t('Voir/modifier notes','View/edit grades')}">📝</button>`:''}
             ${isTeacher?`<button class="action-btn" onclick="openConductM('${s.id}')" style="flex-shrink:0;background:#d1fae5;border-color:#6ee7b7" title="${t('Note de conduite','Conduct')}">📊</button>`:''}
             ${isTeacher?`<button class="action-btn" onclick="signalerRattrapage('${s.id}')" style="flex-shrink:0;background:#fef3c7;border-color:#fcd34d" title="${t('Signaler rattrapage','Flag for catch-up')}">⚠️</button>`:''}
-          </div>`;
+            ${isTeacher?`<button class="action-btn" onclick="openAppreciationM('${s.id}','${cl.id}')" style="flex-shrink:0;background:#ede9fe;border-color:#c4b5fd" title="${t('Appréciation titulaire','Class teacher note')}">💬</button>`:''}
+          </div>
+          ${(()=>{const app=(DB.appreciations||[]).find(a=>a.sid===s.id&&a.cid===cl.id&&a.trim===selTrim);return app?`<div style="font-size:11px;color:#7c3aed;background:#ede9fe;border-radius:6px;padding:5px 10px;margin-top:4px;font-style:italic">💬 ${esc(app.text)}</div>`:'';})()}`;
         }).join('')}
       </div>
     </div>`;
@@ -5383,6 +5508,7 @@ R.palmares_parent = () => {
           </div>`;
         }).join('')}
       `}
+      ${(()=>{const app=(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cl.id&&a.trim===selTrim);return app?`<div style="background:#ede9fe;border-radius:10px;padding:10px 14px;margin-top:10px"><div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px">💬 Appréciation du professeur titulaire</div><div style="font-size:13px;font-style:italic;color:#4c1d95">"${esc(app.text)}"</div></div>`:''})()}
       ${trimEvo}
       ${bulletinBtn}
     </div>`;
