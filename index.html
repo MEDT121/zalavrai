@@ -11840,7 +11840,7 @@ R.scan_history = () => {
 R.profil_parent = () => {
   const u=S.user;
   const kids=DB.students.filter(s=>s.pid===u.id);
-  const validTabs=['enfants','profil','honneur','securite'];
+  const validTabs=['enfants','profil','bulletin','honneur','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'enfants';
   const clr='#7c3aed';
   // payment summary for pills
@@ -11867,10 +11867,11 @@ R.profil_parent = () => {
   </div>
   <div style="padding:0 4px 4px">
     <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
-      <button data-ptab-btn="enfants" data-ptab-color="${clr}" onclick="window._pTab='enfants';_setProfileTab('enfants')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='enfants'?'700':'500'};background:${tab==='enfants'?clr:'transparent'};color:${tab==='enfants'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">👶<div style="font-size:10px">Enfants</div></button>
-      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">Modifier</div></button>
-      <button data-ptab-btn="honneur" data-ptab-color="${clr}" onclick="window._pTab='honneur';_setProfileTab('honneur')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='honneur'?'700':'500'};background:${tab==='honneur'?clr:'transparent'};color:${tab==='honneur'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🏆<div style="font-size:10px">Honneur</div></button>
-      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">Sécurité</div></button>
+      <button data-ptab-btn="enfants" data-ptab-color="${clr}" onclick="window._pTab='enfants';_setProfileTab('enfants')" style="flex:1;min-width:0;padding:7px 2px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='enfants'?'700':'500'};background:${tab==='enfants'?clr:'transparent'};color:${tab==='enfants'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">👶<div style="font-size:9px">Enfants</div></button>
+      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:7px 2px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:9px">Profil</div></button>
+      <button data-ptab-btn="bulletin" data-ptab-color="${clr}" onclick="window._pTab='bulletin';_setProfileTab('bulletin')" style="flex:1;min-width:0;padding:7px 2px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='bulletin'?'700':'500'};background:${tab==='bulletin'?clr:'transparent'};color:${tab==='bulletin'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🏆<div style="font-size:9px">Bulletin</div></button>
+      <button data-ptab-btn="honneur" data-ptab-color="${clr}" onclick="window._pTab='honneur';_setProfileTab('honneur')" style="flex:1;min-width:0;padding:7px 2px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='honneur'?'700':'500'};background:${tab==='honneur'?clr:'transparent'};color:${tab==='honneur'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🎖️<div style="font-size:9px">Honneur</div></button>
+      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:7px 2px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:9px">Sécurité</div></button>
     </div>
     <div data-ptab="enfants" style="${tab==='enfants'?'':'display:none'}">
       <div class="premium-section" style="padding:14px 16px">
@@ -11903,7 +11904,7 @@ R.profil_parent = () => {
               <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="go('devoirs_parent')">📋 Devoirs</button>
               <button class="btn btn-outline btn-sm" style="font-size:11px" onclick="go('palmares_parent')">🏆 Notes</button>
             </div>
-            ${paidAmt>0?`<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px;margin-bottom:6px" onclick="printReport('recu','${k.id}')">🧾 Télécharger le reçu de paiement</button>`:''}
+            ${paidAmt>0?`<button class="btn btn-outline btn-sm" style="width:100%;font-size:12px;margin-bottom:6px" onclick="downloadRecuFrais('${k.id}')">🧾 Télécharger le reçu de paiement</button>`:''}
             ${(()=>{
               const isCM2=cl&&(cl.name.toUpperCase().includes('CM2')||cl.name.toUpperCase().includes('6EME')||cl.name.toUpperCase().includes('6ÈME'));
               if(!isCM2) return '';
@@ -11946,6 +11947,9 @@ R.profil_parent = () => {
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="saveParentProfile()">💾 Enregistrer</button>
       </div>
+    </div>
+    <div data-ptab="bulletin" style="${tab==='bulletin'?'':'display:none'}">
+      ${R.palmares_parent()}
     </div>
     <div data-ptab="honneur" style="${tab==='honneur'?'':'display:none'}">
       ${(()=>{
