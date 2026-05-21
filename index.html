@@ -11949,38 +11949,45 @@ R.profil_parent = () => {
   const kids=DB.students.filter(s=>s.pid===u.id);
   const validTabs=['enfants','ecole','compte'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'enfants';
-  const clr='#7c3aed';
+  const clr='#6d28d9'; const clr2='#4f46e5';
   const fees=getFees();
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
 
-  // Selected child
   if(!window._parentKid||!kids.find(k=>k.id===window._parentKid)) window._parentKid=kids[0]?.id||null;
   const kid=kids.find(k=>k.id===window._parentKid)||kids[0]||null;
-  // ── helpers ──
-  const BIG_BTN=(color,textColor,icon,label,onclick)=>
-    `<button onclick="${onclick}" class="pp-btn" style="width:100%;padding:16px;background:${color};color:${textColor};border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;box-shadow:0 4px 14px ${color}44;transition:transform .1s,opacity .1s">${icon} ${label}</button>`;
 
-  // ── child grid selector (2 columns, large photos) ──
+  // ── helpers ──
+  const BTN=(bg,tc,label,onclick)=>
+    `<button onclick="${onclick}" class="pp-btn" style="width:100%;padding:15px 20px;background:${bg};color:${tc};border:none;border-radius:16px;font-size:15px;font-weight:700;cursor:pointer;text-align:center;margin-bottom:10px;box-shadow:0 4px 16px rgba(0,0,0,.15);letter-spacing:-.2px">${label}</button>`;
+  const OUTLINE_BTN=(bclr,tc,label,onclick)=>
+    `<button onclick="${onclick}" class="pp-btn" style="width:100%;padding:15px 20px;background:transparent;color:${tc};border:2px solid ${bclr};border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;text-align:center;margin-bottom:10px;letter-spacing:-.2px">${label}</button>`;
+  const SECTION=(text,color)=>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><div style="width:3px;height:14px;border-radius:2px;background:${color}"></div><div style="font-size:10px;font-weight:800;color:${color};letter-spacing:1.5px;text-transform:uppercase">${text}</div></div>`;
+
+  // ── child grid selector (2 columns) ──
   const childSelector=kids.length?`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;animation:fadeInUp .3s ease both">
-      ${kids.map((k,_ki)=>{
+      ${kids.map((k)=>{
         const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?.name||'');
         const sel=k.id===kid?.id;
         const photo=k.photo||k.photo_url;
         const kScans=(DB.scan_log||[]).filter(sc=>sc.sid===k.id&&sc.date===today()).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
         const kAtt=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
         const kLast=kScans[0];
-        let badge='⏳',badgeBg='#64748b';
-        if(kLast?.type==='entry'||kAtt?.status==='ontime'){badge='✅';badgeBg='#059669';}
-        else if(kAtt?.status==='late'){badge='⚠️';badgeBg='#d97706';}
-        else if(kAtt?.status==='absent'){badge='❌';badgeBg='#dc2626';}
-        else if(kLast?.type==='exit'){badge='🏠';badgeBg='#3b82f6';}
+        let dotColor='#94a3b8',dotLabel='—';
+        if(kLast?.type==='entry'||kAtt?.status==='ontime'){dotColor='#059669';dotLabel='Présent';}
+        else if(kAtt?.status==='late'){dotColor='#d97706';dotLabel='Retard';}
+        else if(kAtt?.status==='absent'){dotColor='#dc2626';dotLabel='Absent';}
+        else if(kLast?.type==='exit'){dotColor='#3b82f6';dotLabel='Sorti';}
         return `<div onclick="window._parentKid='${k.id}';render()" class="kid-tile" style="cursor:pointer;border-radius:22px;overflow:hidden;border:${sel?'3px solid '+clr:'2.5px solid #e2e8f0'};box-shadow:${sel?'0 8px 28px '+clr+'55':'0 2px 10px rgba(0,0,0,.06)'};background:#fff">
           <div style="position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:${cbg}">
             ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800\\'>${ini(k.name)}</div>'">`
             :`<div style="width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800">${ini(k.name)}</div>`}
-            <div style="position:absolute;top:8px;right:8px;background:${badgeBg};border-radius:10px;padding:3px 8px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.25);animation:badgePop .4s cubic-bezier(.34,1.56,.64,1) both">${badge}</div>
-            ${sel?`<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:${clr}"></div>`:''}
+            <div style="position:absolute;top:8px;right:8px;background:rgba(255,255,255,.92);border-radius:20px;padding:3px 8px;display:flex;align-items:center;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.18);animation:badgePop .4s cubic-bezier(.34,1.56,.64,1) both">
+              <div style="width:7px;height:7px;border-radius:50%;background:${dotColor}"></div>
+              <span style="font-size:10px;font-weight:700;color:${dotColor}">${dotLabel}</span>
+            </div>
+            ${sel?`<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:linear-gradient(90deg,${clr},${clr2})"></div>`:''}
           </div>
           <div style="padding:10px 12px 12px">
             <div style="font-size:15px;font-weight:800;color:${sel?clr:'#0f172a'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.name.split(' ')[0])}</div>
@@ -11992,7 +11999,7 @@ R.profil_parent = () => {
 
   // ── per-child content ──
   const kidContent=(()=>{
-    if(!kid) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">👶</div>Aucun enfant lié à ce compte</div>`;
+    if(!kid) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="width:64px;height:64px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><div style="font-size:28px;font-weight:900;color:#cbd5e1">?</div></div><div style="margin-top:8px">Aucun enfant lié à ce compte</div></div>`;
     const cl=gc(kid.cid); const [cc,cbg]=clsColor(cl?.name||'');
     const pays=(DB.payments||[]).filter(p=>p.sid===kid.id);
     const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
@@ -12005,17 +12012,17 @@ R.profil_parent = () => {
     const scans=(DB.scan_log||[]).filter(sc=>sc.sid===kid.id&&sc.date===today()).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
     const lastScan=scans[0];
     const att=(DB.attendance||[]).find(a=>a.sid===kid.id&&a.date===today());
-    let presIcon,presText,presClr,presBg;
+    let presText,presClr,presBg,presRing=false;
     if(lastScan?.type==='entry'||att?.status==='ontime'){
-      presIcon='✅';presText=`Arrivé(e) à l'école${lastScan?.time?' à '+lastScan.time:''}`;presClr='#059669';presBg='#f0fdf4';
+      presText=`Arrivé(e) à l'école${lastScan?.time?' à '+lastScan.time:''}`;presClr='#059669';presBg='#f0fdf4';presRing=true;
     } else if(att?.status==='late'){
-      presIcon='⚠️';presText=`Arrivé(e) en retard${lastScan?.time?' à '+lastScan.time:''}`;presClr='#d97706';presBg='#fffbeb';
+      presText=`Arrivé(e) en retard${lastScan?.time?' à '+lastScan.time:''}`;presClr='#d97706';presBg='#fffbeb';
     } else if(att?.status==='absent'){
-      presIcon='❌';presText="Absent(e) aujourd'hui";presClr='#dc2626';presBg='#fef2f2';
+      presText="Absent(e) aujourd'hui";presClr='#dc2626';presBg='#fef2f2';
     } else if(lastScan?.type==='exit'){
-      presIcon='🏠';presText=`Sorti(e) à ${lastScan.time}`;presClr='#3b82f6';presBg='#eff6ff';
+      presText=`Sorti(e) à ${lastScan.time}`;presClr='#3b82f6';presBg='#eff6ff';
     } else {
-      presIcon='⏳';presText="Pas encore de scan aujourd'hui";presClr='#94a3b8';presBg='#f8fafc';
+      presText="Pas encore de scan aujourd'hui";presClr='#94a3b8';presBg='#f8fafc';
     }
 
     // Notes
@@ -12039,22 +12046,22 @@ R.profil_parent = () => {
     const enafepBlock=(()=>{
       if(!isCM2) return '';
       const rec=(DB.tenafep||[]).find(t=>t.sid===kid.id)||{};
-      if(totalFees>0&&paidAmt<totalFees) return `<div style="background:#fef3c7;border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <span style="font-size:32px">🔒</span>
-        <div><div style="font-weight:700;font-size:14px;color:#92400e">Code ENAFEP non disponible</div><div style="font-size:12px;color:#b45309;margin-top:2px">Réglez les frais scolaires pour accéder à ce service</div></div>
+      if(totalFees>0&&paidAmt<totalFees) return `<div style="background:#fef3c7;border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:10px;border-left:4px solid #d97706">
+        <div style="width:42px;height:42px;border-radius:12px;background:#fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:50%;background:#d97706"></div></div>
+        <div><div style="font-weight:700;font-size:14px;color:#92400e">Code ENAFEP non disponible</div><div style="font-size:12px;color:#b45309;margin-top:2px">Réglez les frais scolaires pour accéder</div></div>
       </div>`;
       return `<div style="background:#f5f3ff;border-radius:14px;padding:16px;border-left:4px solid #7c3aed;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:700;color:#7c3aed;margin-bottom:10px">🎓 ENAFEP ${DB.settings.year||''} — Fin de primaire</div>
+        <div style="font-size:12px;font-weight:700;color:#7c3aed;margin-bottom:10px">ENAFEP ${DB.settings.year||''} — Fin de primaire</div>
         ${rec.enafep_code?`<div style="font-family:monospace;font-size:22px;font-weight:900;letter-spacing:4px;color:#1e293b;background:#ede9fe;padding:10px;border-radius:10px;text-align:center;margin-bottom:12px">${esc(rec.enafep_code)}</div>
         <div style="display:flex;gap:8px">
-          <a href="https://play.google.com/store/apps/details?id=com.krmservices.digidec.mepsa" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#059669;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:700">📱 Android</a>
-          <a href="https://apps.apple.com/fr/app/digidec/id1577808144" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#1d4ed8;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:700">🍎 iPhone</a>
+          <a href="https://play.google.com/store/apps/details?id=com.krmservices.digidec.mepsa" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#059669;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:700">Android</a>
+          <a href="https://apps.apple.com/fr/app/digidec/id1577808144" target="_blank" rel="noopener" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#1d4ed8;color:#fff;padding:12px;border-radius:12px;text-decoration:none;font-size:13px;font-weight:700">iPhone</a>
         </div>`:`<div style="font-size:13px;color:#94a3b8;text-align:center;padding:4px">Code non encore attribué — contactez la direction</div>`}
       </div>`;
     })();
 
     return `
-    <!-- En-tête enfant — photo pleine largeur -->
+    <!-- En-tête enfant -->
     <div style="border-radius:22px;overflow:hidden;margin-bottom:16px;position:relative;background:${cbg};animation:fadeInUp .3s ease both;box-shadow:0 8px 32px rgba(0,0,0,.12)">
       ${photo
         ?`<img src="${photo}" style="width:100%;height:210px;object-fit:cover;display:block" onerror="this.style.display='none'">`
@@ -12065,66 +12072,68 @@ R.profil_parent = () => {
       </div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:20px 16px 16px">
         <div style="color:#fff;font-size:23px;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,.4);line-height:1.2">${esc(kid.name)}</div>
-        <div style="color:rgba(255,255,255,.82);font-size:13px;font-weight:600;margin-top:4px">📋 ${esc(kid.mat||'—')}</div>
+        <div style="color:rgba(255,255,255,.82);font-size:13px;font-weight:600;margin-top:4px">N° ${esc(kid.mat||'—')}</div>
       </div>
     </div>
 
     <!-- Présence -->
-    <div style="background:${presBg};border:2px solid ${presClr}33;border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.04s">
-      <div style="font-size:10px;font-weight:800;color:${presClr};letter-spacing:1.5px;margin-bottom:12px">📅 AUJOURD'HUI</div>
+    <div style="background:${presBg};border-left:4px solid ${presClr};border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.04s">
+      ${SECTION("Aujourd'hui", presClr)}
       <div style="display:flex;align-items:center;gap:16px">
-        <div style="width:62px;height:62px;border-radius:18px;background:${presClr}18;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;color:${presClr};${presClr==='#059669'?'animation:ringPulse 2s ease infinite':''}">
-          ${presIcon}
+        <div style="width:62px;height:62px;border-radius:18px;background:${presClr}18;display:flex;align-items:center;justify-content:center;flex-shrink:0;${presRing?'animation:ringPulse 2s ease infinite':''}">
+          <div style="width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px ${presClr}44">
+            <div style="width:16px;height:16px;border-radius:50%;background:${presClr}"></div>
+          </div>
         </div>
         <div>
-          <div style="font-size:17px;font-weight:800;color:${presClr};line-height:1.3">${presText}</div>
+          <div style="font-size:16px;font-weight:800;color:${presClr};line-height:1.3">${presText}</div>
           <div style="font-size:12px;color:#94a3b8;margin-top:3px">École — ${today()}</div>
         </div>
       </div>
     </div>
 
     <!-- Paiements -->
-    <div style="background:${payBg};border:2px solid ${payClr}33;border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.1s">
-      <div style="font-size:10px;font-weight:800;color:${payClr};letter-spacing:1.5px;margin-bottom:12px">💰 FRAIS SCOLAIRES</div>
+    <div style="background:${payBg};border-left:4px solid ${payClr};border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.1s">
+      ${SECTION('Frais scolaires', payClr)}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-size:28px;font-weight:900;color:${payClr}">$${paidAmt}</div>
           <div style="font-size:13px;color:#64748b;font-weight:600;margin-top:1px">${paidCount} trimestre${paidCount!==1?'s':''} payé${paidCount!==1?'s':''} sur 3</div>
         </div>
-        <div style="width:56px;height:56px;border-radius:50%;background:${payClr}18;display:flex;align-items:center;justify-content:center;flex-direction:column;border:3px solid ${payClr}44">
+        <div style="width:56px;height:56px;border-radius:50%;background:${payClr}18;display:flex;align-items:center;justify-content:center;border:3px solid ${payClr}44">
           <div style="font-size:16px;font-weight:900;color:${payClr}">${payPct}%</div>
         </div>
       </div>
       <div style="height:10px;border-radius:10px;background:#e2e8f0;overflow:hidden;margin-bottom:${totalFees>0&&paidAmt<totalFees?10:paidAmt>0?10:0}px">
         <div style="height:100%;width:${payPct}%;background:linear-gradient(90deg,${payClr},${payClr}bb);border-radius:10px;transform-origin:left;animation:progressFill .8s cubic-bezier(.4,0,.2,1) both;animation-delay:.3s"></div>
       </div>
-      ${totalFees>0&&paidAmt<totalFees?`<div style="font-size:13px;color:${payClr};font-weight:600;margin-bottom:12px">⚠️ Reste à payer : $${totalFees-paidAmt}</div>`:''}
-      ${paidAmt>0?BIG_BTN(payClr,'#fff','⬇️','Télécharger le reçu',"downloadRecuFrais('"+kid.id+"')"):''}
+      ${totalFees>0&&paidAmt<totalFees?`<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${payClr};font-weight:600;margin-bottom:12px"><div style="width:8px;height:8px;border-radius:50%;background:${payClr}"></div>Reste à payer : $${totalFees-paidAmt}</div>`:''}
+      ${paidAmt>0?BTN(payClr,'#fff','Télécharger le reçu',"downloadRecuFrais('"+kid.id+"')"):''}
     </div>
 
     <!-- Notes -->
-    ${palOk?`<div style="background:${mention?mention.bg:'#f8fafc'};border:2px solid ${mention?mention.c+'33':'#e2e8f0'};border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.16s">
-      <div style="font-size:10px;font-weight:800;color:${mention?mention.c:'#94a3b8'};letter-spacing:1.5px;margin-bottom:12px">📊 RÉSULTATS — ${trim}</div>
+    ${palOk?`<div style="background:${mention?mention.bg:'#f8fafc'};border-left:4px solid ${mention?mention.c:'#e2e8f0'};border-radius:20px;padding:18px;margin-bottom:12px;animation:fadeInUp .35s ease both;animation-delay:.16s">
+      ${SECTION('Résultats — '+trim, mention?mention.c:'#94a3b8')}
       ${moy!==null?`
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
         <div>
-          <div style="font-size:30px;font-weight:900;color:${mention.c};line-height:1">${mention.l}</div>
-          ${rank>0?`<div style="display:inline-flex;align-items:center;gap:4px;background:${mention.c}18;border-radius:20px;padding:4px 12px;margin-top:6px"><span style="font-size:12px;font-weight:700;color:${mention.c}">${rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'#'+rank} sur ${classStudents.length} élèves</span></div>`:''}
+          <div style="font-size:28px;font-weight:900;color:${mention.c};line-height:1">${mention.l}</div>
+          ${rank>0?`<div style="display:inline-flex;align-items:center;gap:4px;background:${mention.c}18;border-radius:20px;padding:4px 12px;margin-top:6px"><span style="font-size:12px;font-weight:700;color:${mention.c}">${rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':'N° '+rank} sur ${classStudents.length}</span></div>`:''}
         </div>
         <div style="background:linear-gradient(135deg,${mention.c},${mention.c}cc);color:#fff;border-radius:20px;padding:14px 20px;text-align:center;box-shadow:0 6px 20px ${mention.c}44;min-width:80px">
           <div style="font-size:32px;font-weight:900;line-height:1">${moy}%</div>
           <div style="font-size:10px;font-weight:700;opacity:.85;margin-top:3px">Moyenne</div>
         </div>
       </div>
-      ${bulOk&&paidAmt>0?BIG_BTN(mention.c,'#fff','📋','Voir le bulletin complet',"go('palmares_parent')")
-      :!paidAmt?`<div style="background:#fef2f2;border-radius:14px;padding:12px 14px;font-size:13px;color:#dc2626;font-weight:600;text-align:center">🔒 Réglez les frais pour accéder au bulletin</div>`
-      :`<div style="background:#f1f5f9;border-radius:14px;padding:12px 14px;font-size:13px;color:#64748b;text-align:center">🔒 Bulletin non encore publié par la Direction</div>`}
+      ${bulOk&&paidAmt>0?BTN(mention.c,'#fff','Voir le bulletin complet',"go('palmares_parent')")
+      :!paidAmt?`<div style="background:#fef2f2;border-radius:14px;padding:12px 14px;font-size:13px;color:#dc2626;font-weight:600;text-align:center;border-left:3px solid #dc2626">Réglez les frais pour accéder au bulletin</div>`
+      :`<div style="background:#f1f5f9;border-radius:14px;padding:12px 14px;font-size:13px;color:#64748b;text-align:center">Bulletin non encore publié par la Direction</div>`}
       `:`<div style="text-align:center;color:#94a3b8;font-size:13px;padding:10px 0">Notes non encore disponibles pour ${trim}</div>`}
     </div>`:''}
 
     <!-- Devoirs -->
     <div style="animation:fadeInUp .35s ease both;animation-delay:.22s">
-      ${BIG_BTN('#3b82f6','#fff','📚','Voir les devoirs',"go('devoirs_parent')")}
+      ${BTN('linear-gradient(135deg,#3b82f6,#2563eb)','#fff','Voir les devoirs',"go('devoirs_parent')")}
     </div>
 
     <!-- ENAFEP -->
@@ -12134,13 +12143,13 @@ R.profil_parent = () => {
 
   // ── école tab ──
   const ecoleContent=(()=>{
-    if(!(DB.settings.toggles?.palmares??true)) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🔒</div><div style="font-size:15px;font-weight:700">Classement non disponible</div><div style="font-size:13px;margin-top:6px">La Direction l'activera prochainement</div></div>`;
+    if(!(DB.settings.toggles?.palmares??true)) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="width:56px;height:56px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><div style="font-size:26px;font-weight:900;color:#cbd5e1">?</div></div><div style="font-size:15px;font-weight:700;margin-top:8px">Classement non disponible</div><div style="font-size:13px;margin-top:6px">La Direction l'activera prochainement</div></div>`;
     const trim=DB.settings.currentTrimestre||'T1';
     const top=getSchoolTop10();
     const medals=['🥇','🥈','🥉'];
-    if(!top.length) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="font-size:48px;margin-bottom:12px">🏆</div>Aucun classement disponible pour ${trim}</div>`;
+    if(!top.length) return `<div style="text-align:center;padding:40px;color:#94a3b8"><div style="font-size:42px;margin-bottom:12px">🏆</div>Aucun classement disponible pour ${trim}</div>`;
     const podium=top.slice(0,Math.min(3,top.length));
-    return `<div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:16px">🏫 TOP 10 DE L'ÉCOLE — ${trim}</div>
+    return `${SECTION("Top 10 de l'école — "+trim, '#6d28d9')}
     ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin-bottom:20px">
       ${[1,0,2].map(pos=>{
         const s=podium[pos]; if(!s) return '';
@@ -12149,7 +12158,7 @@ R.profil_parent = () => {
         const bgP=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
         const isMyKid=kids.some(k=>k.id===s.id);
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <div style="font-size:${pos===0?'28':'22'}px">${medals[pos]}${isMyKid?' 👶':''}</div>
+          <div style="font-size:${pos===0?'28':'22'}px;line-height:1">${medals[pos]}${isMyKid?'<span style="font-size:10px;background:#6d28d9;color:#fff;border-radius:6px;padding:1px 5px;vertical-align:top;margin-left:2px">Moi</span>':''}</div>
           <div style="width:44px;height:44px;border-radius:12px;background:${cbg2};color:${cc2};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700">${ini(s.name)}</div>
           <div style="font-size:11px;font-weight:700;text-align:center;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
           <div style="font-size:10px;color:#64748b">${esc(s.cl.name)}</div>
@@ -12160,11 +12169,11 @@ R.profil_parent = () => {
     ${top.map((s,i)=>{
       const [cc2,cbg2]=clsColor(s.cl.name);
       const isMyKid=kids.some(k=>k.id===s.id);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:${isMyKid?'#f0fdf4':'#f8fafc'};border:${isMyKid?'2px solid #86efac':'2px solid #f1f5f9'};margin-bottom:6px">
+      return `<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:${isMyKid?'#f5f3ff':'#f8fafc'};border:${isMyKid?'2px solid #c4b5fd':'2px solid #f1f5f9'};margin-bottom:6px">
         <span style="font-size:${i<3?20:15}px;width:30px;text-align:center;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
         <div style="width:38px;height:38px;border-radius:10px;background:${cbg2};color:${cc2};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700">${esc(s.name)}${isMyKid?' 👶':''}</div>
+          <div style="font-size:14px;font-weight:700">${esc(s.name)}${isMyKid?'<span style="font-size:10px;background:#6d28d9;color:#fff;border-radius:5px;padding:1px 5px;margin-left:4px;vertical-align:middle">Mon enfant</span>':''}</div>
           <div style="font-size:12px;color:#64748b">${esc(s.cl.name)}</div>
         </div>
         <div style="font-size:20px;font-weight:900;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
@@ -12174,12 +12183,23 @@ R.profil_parent = () => {
 
   return `
   <div style="padding:0 0 8px">
-    <!-- 3 tabs glassmorphism -->
-    <div style="display:flex;gap:4px;background:rgba(241,245,249,.92);backdrop-filter:blur(12px);border-radius:18px;padding:5px;margin-bottom:20px;box-shadow:0 2px 16px rgba(0,0,0,.07)">
-      ${[['enfants','👶','Mes enfants'],['ecole','🏫','École'],['compte','⚙️','Mon compte']].map(([id,ic,lbl])=>`
-      <button onclick="window._pTab='${id}';render()" class="pp-btn" style="flex:1;padding:10px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#94a3b8'};font-weight:${tab===id?700:500};font-size:11px;transition:all .2s;text-align:center;line-height:1.3;box-shadow:${tab===id?'0 4px 14px '+clr+'55':'none'}">
-        <div style="font-size:22px;margin-bottom:2px">${ic}</div>${lbl}
-      </button>`).join('')}
+    <!-- gradient header -->
+    <div style="background:linear-gradient(135deg,#6d28d9,#4f46e5);border-radius:24px;padding:24px 20px 22px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .25s ease both">
+      <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
+      <div style="position:absolute;bottom:-30px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05)"></div>
+      <div style="display:flex;align-items:center;gap:14px;position:relative">
+        <div style="width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;border:2px solid rgba(255,255,255,.3);flex-shrink:0">${esc(u.initials||ini(u.name||'?'))}</div>
+        <div>
+          <div style="font-size:19px;font-weight:900;color:#fff;line-height:1.2">${esc(u.name||'Parent')}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:3px">${kids.length} enfant${kids.length!==1?'s':''} inscrit${kids.length!==1?'s':''}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- tabs -->
+    <div style="display:flex;gap:4px;background:rgba(241,245,249,.95);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:18px;padding:5px;margin-bottom:20px;box-shadow:0 2px 16px rgba(0,0,0,.07)">
+      ${[['enfants','Mes enfants'],['ecole','École'],['compte','Mon compte']].map(([id,lbl])=>`
+      <button onclick="window._pTab='${id}';render()" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#6d28d9,#4f46e5)':'transparent'};color:${tab===id?'#fff':'#94a3b8'};font-weight:${tab===id?700:500};font-size:12px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 14px rgba(109,40,217,.4)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
     </div>
 
     <!-- Mes enfants -->
@@ -12195,24 +12215,25 @@ R.profil_parent = () => {
 
     <!-- Mon compte -->
     <div style="${tab==='compte'?'':'display:none'}">
-      <div style="background:#f8fafc;border-radius:18px;padding:18px;margin-bottom:14px">
-        <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:16px">✏️ MES INFORMATIONS</div>
+      <div style="background:#f8fafc;border-radius:18px;padding:18px;margin-bottom:14px;border-left:4px solid ${clr}">
+        ${SECTION('Mes informations', clr)}
         <div class="form-group"><label class="form-label">Nom affiché</label>
           <input class="form-input" id="pp_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo" style="font-size:15px;padding:14px;border-radius:12px">
         </div>
         <div class="form-group"><label class="form-label">Initiales</label>
           <input class="form-input" id="pp_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK" style="font-size:15px;padding:14px;border-radius:12px">
         </div>
-        <div class="form-group"><label class="form-label">📞 Téléphone</label>
+        <div class="form-group"><label class="form-label">Téléphone</label>
           <input class="form-input" id="pp_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel" style="font-size:15px;padding:14px;border-radius:12px">
         </div>
-        ${BIG_BTN(clr,'#fff','💾','Enregistrer',"saveParentProfile()")}
+        ${BTN('linear-gradient(135deg,'+clr+','+clr2+')','#fff','Enregistrer',"saveParentProfile()")}
       </div>
-      ${BIG_BTN('#f8fafc','#0f172a','🔑','Changer mon code PIN',"openProfile()").replace('border:none','border:2px solid #e2e8f0')}
-      ${BIG_BTN('#fef2f2','#dc2626','⎋','Se déconnecter',"logout()").replace('border:none','border:2px solid #fecaca')}
+      ${OUTLINE_BTN(clr,clr,'Changer mon code PIN',"openProfile()")}
+      ${OUTLINE_BTN('#dc2626','#dc2626','Se déconnecter',"logout()")}
     </div>
   </div>`;
-};
+}
+;
 
 window.saveParentProfile = () => {
   const phone=(document.getElementById('pp_phone')?.value||'').trim()||null;
