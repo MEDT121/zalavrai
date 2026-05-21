@@ -1985,128 +1985,208 @@ function dashboardEnseignant() {
   const todayAtt = DB.attendance.filter(a=>a.date===today()&&students.some(s=>s.id===a.sid));
   const scannedToday = cl ? DB.scan_log.filter(l=>l.date===today()&&l.type==='entry'&&students.some(s=>s.id===l.sid)) : [];
   const validatedToday = todayAtt.some(a=>a.teacher_validated);
-  const clColor = cl ? clsColor(cl.name)[0] : '#2563eb';
+  const clColor = cl ? clsColor(cl.name)[0] : '#1d4ed8';
+  const presentToday = todayAtt.filter(a=>a.status==='ontime').length;
+  const lateToday = todayAtt.filter(a=>a.status==='late').length;
+  const absentToday = Math.max(0, students.length - presentToday - lateToday);
 
   // Devoirs upcoming (next 7 days)
   const in7 = new Date(); in7.setDate(in7.getDate()+7);
-  const upcomingDevoirs = cl ? DB.devoirs.filter(d=>d.cid===cl.id&&d.deadline&&new Date(d.deadline)>=new Date()&&new Date(d.deadline)<=in7).sort((a,b)=>a.deadline.localeCompare(b.deadline)) : [];
+  const upcomingDevoirs = cl ? DB.devoirs.filter(d=>d.cid===cl.id&&d.status==='published'&&d.deadline&&new Date(d.deadline)>=new Date()&&new Date(d.deadline)<=in7).sort((a,b)=>a.deadline.localeCompare(b.deadline)) : [];
 
   // Unread messages
   const unreadMsgs = DB.messages.filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
 
   // Co-titulaire
-  const coId = lang==='fr' ? cl?.teacher_id_en : cl?.teacher_id;
+  const coId = lang==='FR' ? cl?.teacher_id_en : cl?.teacher_id;
   const coTeacher = coId ? gu(coId) : null;
 
+  const clr='#1d4ed8'; const clr2='#2563eb';
+
   return `
-  <div class="hero-premium" style="background:linear-gradient(160deg,${clColor}dd,${clColor}99,var(--navy))">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">${cl?esc(cl.name):'Ma Classe'}</div>
-    <div class="hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' ⭐ Titulaire':''} · ${students.length} élèves${DB.settings.currentTrimestre?' · <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:1px 8px;font-weight:800">'+DB.settings.currentTrimestre+'</span>':''}</div>
-    <div class="hero-bar"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${scannedToday.length}</div><div class="hero-stat-lbl">Scannés</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${todayAtt.length}</div><div class="hero-stat-lbl">Présents</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${students.length-scannedToday.length}</div><div class="hero-stat-lbl">Absents</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(29,78,216,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${cl?esc(cl.name):'Ma Classe'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' · Titulaire':''} · ${students.length} élève${students.length!==1?'s':''}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[students.length,'Total'],[scannedToday.length,'Scannés'],[unreadMsgs,'Messages']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
 
   ${cl && !validatedToday && scannedToday.length>0 ? `
-  <div class="premium-section" style="border-left:4px solid #3b82f6;cursor:pointer" onclick="go('attendance')">
+  <div style="background:#fff;border-left:4px solid #3b82f6;border-radius:20px;padding:16px;margin-bottom:14px;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,.15);animation:fadeInUp .3s ease both" onclick="go('attendance')">
     <div style="display:flex;align-items:center;gap:12px">
-      <div style="font-size:32px">🚪</div>
-      <div style="flex:1">
-        <div style="font-weight:700">${scannedToday.length} élève${scannedToday.length>1?'s':''} scanné${scannedToday.length>1?'s':''} au portail</div>
-        <div style="font-size:13px;color:var(--text-secondary)">Présences en attente de votre validation</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;animation:ringPulse 2s ease infinite"></div>
       </div>
-      <span class="premium-badge" style="background:#dbeafe;color:#1d4ed8">Valider →</span>
+      <div style="flex:1">
+        <div style="font-weight:700;color:#0f172a">${scannedToday.length} élève${scannedToday.length>1?'s':''} scanné${scannedToday.length>1?'s':''} au portail</div>
+        <div style="font-size:13px;color:#64748b">Présences en attente de votre validation</div>
+      </div>
+      <span style="background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;padding:6px 12px;border-radius:10px">Valider →</span>
     </div>
   </div>` : cl && validatedToday ? `
-  <div class="premium-section" style="border-left:4px solid #10b981">
+  <div style="background:#fff;border-left:4px solid #10b981;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 4px 14px rgba(16,185,129,.1);animation:fadeInUp .3s ease both">
     <div style="display:flex;align-items:center;gap:12px">
-      <div style="font-size:32px">✅</div>
-      <div><div style="font-weight:700">Présences validées</div><div style="font-size:13px;color:var(--text-secondary)">${todayAtt.length} présent${todayAtt.length>1?'s':''} confirmé${todayAtt.length>1?'s':''} · ${students.length-scannedToday.length} absent${students.length-scannedToday.length>1?'s':''}</div></div>
+      <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <div style="width:14px;height:14px;border-radius:4px;background:#10b981"></div>
+      </div>
+      <div>
+        <div style="font-weight:700;color:#0f172a">Présences validées</div>
+        <div style="font-size:13px;color:#64748b">${todayAtt.length} présent${todayAtt.length>1?'s':''} · ${students.length-scannedToday.length} absent${students.length-scannedToday.length>1?'s':''}</div>
+      </div>
     </div>
   </div>` : ''}
 
-  <div class="action-grid">
-    <button class="action-card" onclick="go('attendance')" style="background:linear-gradient(135deg,#2563eb,#4f46e5);position:relative"><span class="ac-icon">📋</span><span class="ac-label">Présences</span>${!validatedToday&&scannedToday.length>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px">!</span>`:''}</button>
-    <button class="action-card" onclick="go('palmares')" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>
-    <button class="action-card" onclick="go('devoirs')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
-    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:8px">${unreadMsgs}</span>`:''}</button>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;animation:fadeInUp .3s ease both;animation-delay:.1s">
+    ${[[students.length,'Total élèves','#1d4ed8','#dbeafe'],[presentToday,"Présents auj.",'#059669','#d1fae5'],[absentToday,"Absents auj.",'#dc2626','#fee2e2'],[lateToday,"Retards auj.",'#d97706','#fef3c7']].map(([n,lbl,tc,bg])=>`
+    <div style="background:#fff;border-radius:18px;padding:16px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06)">
+      <div style="font-size:30px;font-weight:900;color:${tc};line-height:1">${n}</div>
+      <div style="font-size:11px;font-weight:700;color:#475569;margin-top:4px;letter-spacing:.3px">${lbl.toUpperCase()}</div>
+    </div>`).join('')}
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.15s">
+    ${[['attendance','linear-gradient(135deg,#1d4ed8,#2563eb)','Présences',!validatedToday&&scannedToday.length>0],
+       ['palmares','linear-gradient(135deg,#7c3aed,#6d28d9)','Palmarès',false],
+       ['devoirs','linear-gradient(135deg,#c9a030,#a68520)','Devoirs',false],
+       ['messages','linear-gradient(135deg,#059669,#047857)','Messages',unreadMsgs>0]
+    ].map(([page,bg,label,badge])=>`
+    <button class="pp-btn" onclick="go('${page}')"
+      style="background:${bg};border:none;border-radius:18px;padding:16px 6px 14px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
+      ${badge?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${label==='Messages'&&unreadMsgs>0?unreadMsgs:'!'}</span>`:''}
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:-.2px">${label}</div>
+    </button>`).join('')}
+  </div>
+
+  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(29,78,216,.1);animation:fadeInUp .35s ease both;animation-delay:.2s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Mes élèves aujourd'hui</div>
+    </div>
+    ${cl ? students.slice(0,8).map((s,si)=>{
+      const [cc,cbg]=clsColor(cl?cl.name:'');
+      const hasAtt=todayAtt.find(a=>a.sid===s.id);
+      const attClr=hasAtt?(hasAtt.status==='ontime'?'#059669':hasAtt.status==='late'?'#d97706':hasAtt.status==='sick'?'#ec4899':hasAtt.status==='excused'?'#3b82f6':'#94a3b8'):'#94a3b8';
+      const attTxt=hasAtt?(hasAtt.status==='ontime'?'À l\'heure'+(hasAtt.arr_time?' — '+hasAtt.arr_time:''):hasAtt.status==='late'?'Retard'+(hasAtt.arr_time?' — '+hasAtt.arr_time:''):hasAtt.status==='sick'?'Maladie':hasAtt.status==='excused'?'Justifié':'Autre'):'Pas encore arrivé';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${si<Math.min(7,students.slice(0,8).length-1)?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:${attClr};flex-shrink:0"></div>
+        <div style="width:32px;height:32px;border-radius:10px;background:${cbg};overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${cc}">
+          ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(s.name)}</div>
+          <div style="font-size:11px;color:${attClr};font-weight:600">${attTxt}</div>
+        </div>
+      </div>`;
+    }).join('') : `<div style="font-size:13px;color:#94a3b8;padding:16px;text-align:center">Aucune classe assignée</div>`}
+    ${students.length>8?`<div style="text-align:center;padding:8px 0 2px;font-size:13px;color:${clr};cursor:pointer;font-weight:600" onclick="go('attendance')">Voir les ${students.length-8} autres élèves →</div>`:''}
   </div>
 
   ${upcomingDevoirs.length?`
-  <div class="premium-section">
-    <div class="premium-section-title">⏰ Devoirs à venir (7 jours)</div>
-    ${upcomingDevoirs.map(d=>{
+  <div style="background:#fff;border-left:4px solid #c9a030;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(201,160,48,.1);animation:fadeInUp .35s ease both;animation-delay:.25s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#c9a030"></div>
+      <div style="font-size:10px;font-weight:800;color:#c9a030;letter-spacing:1.5px;text-transform:uppercase">Devoirs à venir (7 jours)</div>
+    </div>
+    ${upcomingDevoirs.map((d,di)=>{
       const dl=new Date(d.deadline);
       const daysLeft=Math.ceil((dl-new Date())/86400000);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${daysLeft<=2?'#fef3c7':'#dbeafe'}">${daysLeft<=2?'⏰':'📝'}</div><div style="flex:1"><div class="pi-title">${d.title}</div><div class="pi-sub">${d.lang==='fr'?'🇫🇷':'🇬🇧'} · À rendre dans ${daysLeft} jour${daysLeft>1?'s':''}</div></div><span class="pill ${daysLeft<=2?'pill-orange':'pill-blue'}">${daysLeft}j</span></div>`;
+      const urgClr=daysLeft<=2?'#dc2626':'#c9a030';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${di<upcomingDevoirs.length-1?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:${urgClr};flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(d.title)}</div>
+          <div style="font-size:11px;color:#64748b">${d.matiere?esc(d.matiere)+' · ':''}À rendre dans ${daysLeft} jour${daysLeft>1?'s':''}</div>
+        </div>
+        <span style="font-size:11px;font-weight:700;background:${daysLeft<=2?'#fee2e2':'#fef3c7'};color:${urgClr};border-radius:8px;padding:3px 8px">${daysLeft}j</span>
+      </div>`;
     }).join('')}
   </div>`:''}
 
   ${coTeacher?`
-  <div class="premium-section">
-    <div class="premium-section-title">👥 Co-titulaire</div>
-    <div class="premium-item" style="cursor:pointer" onclick="go('teacher_comm')">
-      <div class="pi-icon" style="background:${lang==='fr'?'#d1fae5':'#dbeafe'}">${ini(coTeacher.name)}</div>
-      <div style="flex:1"><div class="pi-title">${coTeacher.name}</div><div class="pi-sub">${lang==='fr'?'🇬🇧 Professeur Anglais':'🇫🇷 Professeur Français'}</div></div>
-      ${cl&&cl.titulaire_id===coTeacher.id?`<span class="pill" style="background:#fef3c7;color:#92400e">⭐ Titulaire</span>`:''}
-      <span class="premium-badge">Communiquer →</span>
+  <div style="background:#fff;border-left:4px solid #10b981;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(16,185,129,.1);animation:fadeInUp .35s ease both;animation-delay:.3s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#10b981"></div>
+      <div style="font-size:10px;font-weight:800;color:#10b981;letter-spacing:1.5px;text-transform:uppercase">Co-titulaire</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="go('teacher_comm')">
+      <div style="width:40px;height:40px;border-radius:12px;background:${lang==='FR'?'#d1fae5':'#dbeafe'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${lang==='FR'?'#065f46':'#1e40af'};flex-shrink:0">${ini(coTeacher.name)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:700;color:#0f172a">${esc(coTeacher.name)}</div>
+        <div style="font-size:12px;color:#64748b">${lang==='FR'?'Professeur Anglais':'Professeur Français'}${cl&&cl.titulaire_id===coTeacher.id?' · Titulaire':''}</div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:#10b981;background:#d1fae5;border-radius:10px;padding:6px 12px">Communiquer →</span>
     </div>
   </div>`:''}
 
-  <div class="premium-section">
-    <div class="premium-section-title">👨‍🎓 Mes élèves</div>
-    ${students.slice(0,6).map(s=>{
-      const [cc,cbg]=clsColor(cl?cl.name:'');
-      const hasAtt=todayAtt.find(a=>a.sid===s.id);
-      const attIcon=hasAtt?(hasAtt.status==='ontime'?'✅':hasAtt.status==='late'?'⚠️':hasAtt.status==='sick'?'🤒':hasAtt.status==='excused'?'📄':'📄'):'⏳';
-      const attTip=hasAtt?(hasAtt.status==='ontime'?'À l\'heure — '+hasAtt.arr_time:hasAtt.status==='late'?'Retard — '+hasAtt.arr_time:hasAtt.status==='sick'?'Maladie':hasAtt.status==='excused'?'Absent justifié':'Autre'):'Pas encore arrivé';
-      return `<div class="premium-item" style="cursor:pointer" onclick="showStudentInfo('${s.id}')"><div class="pi-icon" style="background:${cbg}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div><div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)}</div></div><span style="font-size:18px" title="${attTip}">${attIcon}</span></div>`;
-    }).join('')}
-    ${students.length>6?`<div style="text-align:center;padding:10px;font-size:13px;color:var(--text-muted);cursor:pointer" onclick="go('attendance')">+ ${students.length-6} autres · Voir tout →</div>`:''}
-  </div>
   ${(()=>{
     const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).slice(0,5);
     if(!myRats.length) return '';
-    const statusLabel={pending:'⏳ En attente',validated:'✅ Validé',refused:'❌ Refusé'};
+    const statusLabel={pending:'En attente',validated:'Validé',refused:'Refusé'};
     const statusColor={pending:'#f59e0b',validated:'#059669',refused:'#dc2626'};
     const pendingN=myRats.filter(r=>!r.validated_by&&r.status!=='refused').length;
-    const validatedN=myRats.filter(r=>r.validated_by).length;
-    return `<div class="premium-section" style="border-left:4px solid #f59e0b">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="premium-section-title" style="margin-bottom:0">⚠️ Mes signalements rattrapage</div>
-        ${pendingN>0?`<span class="pill" style="background:#fef3c7;color:#92400e">${pendingN} en attente</span>`:''}
+    return `<div style="background:#fff;border-left:4px solid #f59e0b;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(245,158,11,.1);animation:fadeInUp .35s ease both;animation-delay:.35s">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:3px;height:14px;border-radius:2px;background:#f59e0b"></div>
+          <div style="font-size:10px;font-weight:800;color:#f59e0b;letter-spacing:1.5px;text-transform:uppercase">Rattrapages signalés</div>
+        </div>
+        ${pendingN>0?`<span style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border-radius:8px;padding:3px 8px">${pendingN} en attente</span>`:''}
       </div>
-      ${myRats.map(r=>{
+      ${myRats.map((r,ri)=>{
         const s=DB.students.find(x=>x.id===r.sid);
         const status=r.validated_by?'validated':r.status==='refused'?'refused':'pending';
-        return `<div class="premium-item">
-          <div class="pi-icon" style="background:${statusColor[status]+'22'};font-size:14px">⚠️</div>
-          <div style="flex:1"><div class="pi-title" style="font-size:13px">${s?esc(s.name):'?'} — ${esc(r.matiere)}</div>
-            <div class="pi-sub">${r.date}${r.amount>0?` · Prime: $${r.amount}`:''}${r.paid?' · ✅ Versée':r.validated_by&&r.amount>0?' · ⏳ À percevoir':''}</div>
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${ri<myRats.length-1?'border-bottom:1px solid #f1f5f9':''}">
+          <div style="width:8px;height:8px;border-radius:50%;background:${statusColor[status]};flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:#0f172a">${s?esc(s.name):'?'} — ${esc(r.matiere)}</div>
+            <div style="font-size:11px;color:#64748b">${r.date}${r.amount>0?' · Prime: $'+r.amount:''}${r.paid?' · Versée':r.validated_by&&r.amount>0?' · À percevoir':''}</div>
           </div>
           <span style="font-size:10px;font-weight:700;color:${statusColor[status]}">${statusLabel[status]}</span>
         </div>`;
       }).join('')}
     </div>`;
   })()}
-  <div class="premium-section">
-    <div class="premium-section-title">⚡ Actions</div>
-    <div class="quick-grid">
-      ${[['cahier_texte','📖','Cahier'],['matieres','📐','Matières'],['teacher_comm','💬','Co-titulaire'],['mes_primes','💰','Primes'],['mes_absences','📅','Absences'],['profil_enseignant','👤','Mon profil']]
-      .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+
+  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:8px;animation:fadeInUp .35s ease both;animation-delay:.4s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      ${[['cahier_texte','#1d4ed8','Cahier'],['matieres','#7c3aed','Matières'],['teacher_comm','#10b981','Co-prof'],['mes_primes','#c9a030','Primes'],['mes_absences','#f59e0b','Absences'],['profil_enseignant','#64748b','Profil']]
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
+          <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
+      </button>`).join('')}
     </div>
   </div>
+
   ${(()=>{
     const myAbsToday=DB.teacher_absences.filter(a=>a.uid===S.user.id&&a.date===today());
-    return `<div class="premium-section" style="border-left:4px solid ${myAbsToday.length?'#059669':'#f59e0b'}">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${myAbsToday.length?0:10}px">
-        <span style="font-size:22px">${myAbsToday.length?'✅':'🏠'}</span>
-        <div style="flex:1"><div style="font-weight:700">${myAbsToday.length?'Absence signalée aujourd\'hui':'Signaler mon absence'}</div>
-          ${myAbsToday.length?`<div style="font-size:12px;color:var(--text-secondary)">${myAbsToday[0].motif||'—'} · Signalé à ${myAbsToday[0].time}</div>`:'<div style="font-size:12px;color:var(--text-secondary)">Si vous êtes absent(e), prévenez la Direction</div>'}
+    return `<div style="background:#fff;border-left:4px solid ${myAbsToday.length?'#059669':'#f59e0b'};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.45s">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:${myAbsToday.length?'#d1fae5':'#fef3c7'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:14px;height:14px;border-radius:50%;background:${myAbsToday.length?'#059669':'#f59e0b'}"></div>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;color:#0f172a">${myAbsToday.length?'Absence signalée':'Signaler mon absence'}</div>
+          ${myAbsToday.length?`<div style="font-size:12px;color:#64748b">${myAbsToday[0].motif||'—'} · Signalé à ${myAbsToday[0].time}</div>`:'<div style="font-size:12px;color:#64748b">Si vous êtes absent(e), prévenez la Direction</div>'}
         </div>
         ${!myAbsToday.length?`<button class="btn btn-primary btn-sm" onclick="declareTeacherAbsence()">Signaler</button>`:''}
       </div>
@@ -4441,7 +4521,7 @@ window.getStudentBalance = (sid) => {
 };
 
 R.payments = () => {
-  if (S.user.role === 'direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="font-size:60px;margin-bottom:16px">🔒</div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">Les pages de paiement sont réservées à la Direction 1.</p></div>`;
+  if (S.user.role === 'direction2') return `<div style="text-align:center;padding:60px 20px;background:var(--bg-card);border-radius:20px"><div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:6px;background:#94a3b8"></div></div><h2>Accès Finance Réservé</h2><p style="color:var(--text-secondary)">Les pages de paiement sont réservées à la Direction 1.</p></div>`;
   if (S.user.role === 'parent') {
     const kids=DB.students.filter(s=>s.pid===S.user.id);
     if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💰</div>Aucun enfant lié</div>`;
@@ -5628,19 +5708,19 @@ R.palmares = () => {
     </div>`;
   });
 
-  if(!anyContent) return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>${t('Aucun élève inscrit','No students enrolled')}</div>`;
+  if(!anyContent) return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#fef3c7;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#f59e0b"></div></div>${t('Aucun élève inscrit','No students enrolled')}</div>`;
   return html;
 };
 
 // ── Parent palmarès (lecture seule, respecte toggles et paiements) ──
 R.palmares_parent = () => {
-  if(!(DB.settings.toggles?.palmares ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
+  if(!(DB.settings.toggles?.palmares ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:6px;background:#94a3b8"></div></div>Le palmarès n'est pas encore disponible.<br><span style="font-size:12px">La Direction l'activera prochainement.</span></div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
-  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏆</div>Aucun enfant lié</div>`;
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#fef3c7;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#f59e0b"></div></div>Aucun enfant lié</div>`;
   const bulletinGlobal=DB.settings.toggles?.bulletin??false;
   const anyAccess=kids.some(k=>k.access_parent);
-  if(!bulletinGlobal) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Bulletins non publiés</div><div style="font-size:14px">La Direction n'a pas encore publié les bulletins.<br>Revenez plus tard.</div></div>`;
-  if(!anyAccess) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Accès restreint</div><div style="font-size:14px">Les bulletins ne sont pas encore activés pour vos enfants.<br>Contactez la direction.</div></div>`;
+  if(!bulletinGlobal) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:6px;background:#94a3b8"></div></div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Bulletins non publiés</div><div style="font-size:14px">La Direction n'a pas encore publié les bulletins.<br>Revenez plus tard.</div></div>`;
+  if(!anyAccess) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:6px;background:#94a3b8"></div></div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">Accès restreint</div><div style="font-size:14px">Les bulletins ne sont pas encore activés pour vos enfants.<br>Contactez la direction.</div></div>`;
 
   if(!window._palmPTrim) window._palmPTrim=DB.settings?.currentTrimestre||'T1';
   const selTrim=window._palmPTrim;
@@ -5649,7 +5729,7 @@ R.palmares_parent = () => {
 
   let html=`<div class="ww-toolbar" style="animation:fadeInUp .35s ease both">
     <div style="display:flex;align-items:center;gap:10px">
-      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 10px rgba(245,158,11,.3)">🏆</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(245,158,11,.3)"><div style="width:16px;height:16px;border-radius:50%;background:#fff"></div></div>
       <span style="font-size:16px;font-weight:700">Palmarès</span>
     </div>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
@@ -5658,9 +5738,9 @@ R.palmares_parent = () => {
   </div>`;
 
   html+=kids.map(k=>{
-    if(!k.access_parent) return `<div class="premium-section" style="border-left:4px solid #94a3b8"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#64748b">Accès non activé pour cet enfant — contactez la direction</div></div></div></div>`;
+    if(!k.access_parent) return `<div class="premium-section" style="border-left:4px solid #94a3b8"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#94a3b8"></div></div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#64748b">Accès non activé pour cet enfant — contactez la direction</div></div></div></div>`;
     const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
-    if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef4444"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:32px">🔒</div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
+    if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef4444"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#ef4444"></div></div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
 
     const cl=gc(k.cid); if(!cl) return '';
     const students=DB.students.filter(s=>s.cid===cl.id);
@@ -5726,7 +5806,7 @@ R.palmares_parent = () => {
       }).filter(x=>x.avg!==null);
       if(!trimData.length) return '';
       return `<div style="margin-top:14px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:700;margin-bottom:12px">📈 Évolution par trimestre</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">Évolution par trimestre</div>
         <div style="display:flex;align-items:flex-end;gap:12px;height:80px;padding:0 8px">
           ${trimData.map((x,i)=>{
             const prev=trimData[i-1];
@@ -5749,8 +5829,8 @@ R.palmares_parent = () => {
     })();
 
     const bulletinBtn=(()=>{
-      if(!bulletinGlobal||!k.access_parent) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><span style="font-size:22px">🔒</span><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
-      if(!DB.payments.some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><span style="font-size:22px">💳</span><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
+      if(!bulletinGlobal||!k.access_parent) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:4px;background:#94a3b8"></div></div><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
+      if(!DB.payments.some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
       return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
     })();
 
@@ -5771,20 +5851,20 @@ R.palmares_parent = () => {
         ${renderSection(enMats,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eff6ff')}
         ${comMats.length?renderSection(comMats,'Matières communes','📚',null,'#fafafa'):''}
       `:`
-        <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 Notes par matière ${selTrim!=='Tous'?'('+selTrim+')':''}</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:10px">Notes par matière ${selTrim!=='Tous'?'('+selTrim+')':''}</div>
         ${matieres.map(m=>{
           const pct=matAvgPct(k.id,m.name,trimFilter);
           const barColor=pct===null?'#e2e8f0':pct>=70?'#10b981':pct>=50?'#f59e0b':'#ef4444';
           return `<div style="margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
+              <span style="color:var(--text-secondary)">${esc(m.name)} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
               <span style="font-weight:700;color:${barColor==='#e2e8f0'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
           </div>`;
         }).join('')}
       `}
-      ${(()=>{const app=(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cl.id&&a.trim===selTrim);return app?`<div style="background:#ede9fe;border-radius:10px;padding:10px 14px;margin-top:10px"><div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px">💬 Appréciation du professeur titulaire</div><div style="font-size:13px;font-style:italic;color:#4c1d95">"${esc(app.text)}"</div></div>`:''})()}
+      ${(()=>{const app=(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cl.id&&a.trim===selTrim);return app?`<div style="background:#ede9fe;border-radius:10px;padding:10px 14px;margin-top:10px"><div style="font-size:11px;font-weight:700;color:#7c3aed;margin-bottom:4px">Appréciation du professeur titulaire</div><div style="font-size:13px;font-style:italic;color:#4c1d95">"${esc(app.text)}"</div></div>`:''})()}
       ${trimEvo}
       ${bulletinBtn}
     </div>`;
@@ -5797,7 +5877,7 @@ R.palmares_parent = () => {
     const podium=top10.slice(0,Math.min(3,top10.length));
     html+=`<div class="premium-section" style="margin-top:14px;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);border-left:4px solid #c9a030">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:20px">🏫</div>
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;border-radius:50%;background:#fff"></div></div>
         <div style="flex:1">
           <div class="premium-section-title" style="margin-bottom:0">Top 10 — Toute l'école</div>
           <div style="font-size:11px;color:var(--text-muted)">Meilleurs élèves tous niveaux confondus</div>
@@ -5813,7 +5893,7 @@ R.palmares_parent = () => {
           const bgPodium=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
           const isMyKid=kids.some(k=>k.id===s.id);
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}${isMyKid?' 👶':''}</div>
+            <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}</div>
             <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
             <div style="font-size:11px;font-weight:700;text-align:center;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
             <div style="font-size:10px;color:var(--text-muted)">${esc(s.cl.name)}</div>
@@ -5829,7 +5909,7 @@ R.palmares_parent = () => {
             <span style="font-size:${i<3?18:13}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
             <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700">${esc(s.name)}${isMyKid?' 👶':''}</div>
+              <div style="font-size:13px;font-weight:700">${esc(s.name)}${isMyKid?' *':''}</div>
               <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
@@ -6852,7 +6932,7 @@ R.devoirs = () => {
     </div>`;
   }).join(''):`
   <div style="text-align:center;padding:60px;color:var(--text-muted)">
-    <div style="font-size:60px;margin-bottom:16px">📚</div>
+    <div style="width:48px;height:48px;border-radius:14px;background:#dbeafe;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#2563eb"></div></div>
     Aucun devoir publié
     ${isTeacher?'<br><button class="btn btn-primary" style="margin-top:16px" onclick="openDevoirM()">➕ Premier devoir</button>':''}
   </div>`}`;
@@ -6860,9 +6940,9 @@ R.devoirs = () => {
 
 // ── Parent: devoirs (respecte toggle + paiement) ──
 R.devoirs_parent = () => {
-  if(!(DB.settings.toggles?.devoirs ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔒</div>Les devoirs ne sont pas encore disponibles.</div>`;
+  if(!(DB.settings.toggles?.devoirs ?? true)) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:6px;background:#94a3b8"></div></div>Les devoirs ne sont pas encore disponibles.</div>`;
   const kids=DB.students.filter(s=>s.pid===S.user.id);
-  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📚</div>Aucun enfant lié à votre profil</div>`;
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#dbeafe;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#2563eb"></div></div>Aucun enfant lié à votre profil</div>`;
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condColor={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
   const condTextColor={Excellent:'#065f46',Bien:'#1e40af',Moyen:'#92400e',Mauvais:'#991b1b'};
@@ -6871,7 +6951,7 @@ R.devoirs_parent = () => {
     const now=new Date();
     const overdue=deadline&&deadline<now;
     const daysLeft=deadline?Math.ceil((deadline-now)/(1000*60*60*24)):null;
-    const catIcon={devoir:'📚',interro:'⚠️',examen:'📝'}[d.category]||'📚';
+    const catIcon={devoir:'',interro:'',examen:''}[d.category]||'';
     const catBg={devoir:'#dbeafe',interro:'#fef3c7',examen:'#ede9fe'}[d.category]||'#dbeafe';
     const catBorder={devoir:'#3b82f6',interro:'#f59e0b',examen:'#7c3aed'}[d.category]||'#3b82f6';
     const dateLabel=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'}):'';
@@ -6882,7 +6962,7 @@ R.devoirs_parent = () => {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-size:16px">${catIcon}</span>
+              <div style="width:10px;height:10px;border-radius:50%;background:${catBorder};flex-shrink:0"></div>
               <span style="font-weight:800;font-size:14px">${esc(d.title)}</span>
               ${passed?`<span style="padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:700">Passé</span>`:`<span style="padding:2px 8px;background:${catBg};color:${catBorder};border-radius:8px;font-size:10px;font-weight:700">À venir</span>`}
             </div>
@@ -6891,7 +6971,7 @@ R.devoirs_parent = () => {
           </div>
         </div>
         ${d.chapters||d.description?`<div style="padding:10px 12px;background:#fff;border-radius:8px;border:1px solid ${catBorder}40">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${catBorder};margin-bottom:5px;letter-spacing:.6px">📖 À réviser</div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;color:${catBorder};margin-bottom:5px;letter-spacing:.6px">À réviser</div>
           <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description)}</div>
         </div>`:''}
         ${(()=>{
@@ -6909,7 +6989,7 @@ R.devoirs_parent = () => {
       </div>`;
     }
     return `<div class="premium-item" style="border-left:3px solid ${overdue?'#ef4444':catBorder};padding:14px">
-      <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg};flex-shrink:0">${overdue?'⏰':catIcon}</div>
+      <div class="pi-icon" style="background:${overdue?'#fee2e2':catBg};flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:${overdue?'#dc2626':catBorder}"></div></div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
@@ -6918,12 +6998,12 @@ R.devoirs_parent = () => {
           </div>
           <button onclick="printDevoir('${d.id}','${esc(kidName||'')}','${esc(kidMat||'')}','${esc(kidClass||'')}','${kidId||''}')" title="Télécharger ce devoir en PDF"
             style="flex-shrink:0;background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">
-            📥 PDF
+            PDF
           </button>
         </div>
         ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:8px;padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;white-space:pre-wrap">${esc(d.description)}</div>`:''}
         ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;margin-top:8px;border:1px solid var(--border)">`:''}
-        ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">📄 Ouvrir le PDF</button>`:''}
+        ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">Ouvrir le PDF</button>`:''}
         ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📄 PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
       </div>
     </div>`;
@@ -6935,11 +7015,10 @@ R.devoirs_parent = () => {
     const canSeeCorr=k.access_parent&&togCorr;
     const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid); // used for conduite gate check only
     const kidColors=['#2563eb','#7c3aed','#059669','#dc2626','#d97706','#0891b2','#7c3aed','#be185d'];
-    const kidEmojis=['👦','👧','🧒','👦🏽','👧🏽','🧒🏽','👦🏿','👧🏿'];
     const kidColor=kidColors[ki%kidColors.length];
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,${kidColor}22,${kidColor}0a);border-radius:18px;border-left:4px solid ${kidColor};margin-bottom:12px;box-shadow:0 2px 10px ${kidColor}20;animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
-        <div style="width:48px;height:48px;border-radius:14px;background:${kidColor};display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 10px ${kidColor}50;flex-shrink:0">${kidEmojis[ki%kidEmojis.length]}</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:${kidColor};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;box-shadow:0 3px 10px ${kidColor}50;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800">${ini(k.name)}</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:17px">${esc(k.name)}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:1px">${cl?esc(cl.name):''}</div>
@@ -6965,7 +7044,7 @@ R.devoirs_parent = () => {
       ${canSeeCorr&&avgNote!==null?`<span style="padding:4px 10px;background:${avgNote>=70?'#d1fae5':avgNote>=50?'#fef3c7':'#fee2e2'};border-radius:20px;font-size:12px;font-weight:600;color:${avgNote>=70?'#065f46':avgNote>=50?'#92400e':'#991b1b'}">📊 Moy. ${avgNote}%</span>`:''}
     </div>
     ${canSeeCorr&&(needsRat||badConduct)?`<div style="padding:12px 14px;background:#fef9c3;border-radius:12px;border-left:4px solid #f59e0b;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
-      <span style="font-size:22px;flex-shrink:0">⚠️</span>
+      <div style="width:32px;height:32px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div></div>
       <div>
         <div style="font-weight:700;font-size:13px;color:#92400e">Recommandation — Cours de rattrapage</div>
         <div style="font-size:12px;color:#78350f;margin-top:4px">
@@ -6987,11 +7066,11 @@ R.devoirs_parent = () => {
     });
     if(overdueDevoirs.length){
       html+=`<div style="padding:12px 14px;background:#fef2f2;border-radius:12px;border-left:4px solid #ef4444;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
-        <span style="font-size:22px;flex-shrink:0">🔴</span>
+        <div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px;color:#991b1b">Devoir${overdueDevoirs.length>1?'s':''} non rendu${overdueDevoirs.length>1?'s':''} — ${overdueDevoirs.length} alerte${overdueDevoirs.length>1?'s':''}</div>
           <div style="font-size:12px;color:#7f1d1d;margin-top:4px;line-height:1.6">
-            ${overdueDevoirs.map(d=>`<span style="display:inline-block;background:#fee2e2;color:#991b1b;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;margin:2px 2px 2px 0">📚 ${esc(d.title)}${d.matiere?' · '+esc(d.matiere):''}</span>`).join('')}
+            ${overdueDevoirs.map(d=>`<span style="display:inline-block;background:#fee2e2;color:#991b1b;border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;margin:2px 2px 2px 0">${esc(d.title)}${d.matiere?' · '+esc(d.matiere):''}</span>`).join('')}
           </div>
           <div style="font-size:11px;color:#9ca3af;margin-top:6px">La date de remise est dépassée et aucune correction n'a été enregistrée. Contactez l'enseignant si le devoir a bien été remis.</div>
         </div>
@@ -7000,29 +7079,29 @@ R.devoirs_parent = () => {
     // Devoirs section
     html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #2563eb">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px">📚</div>
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px"><div style="width:14px;height:14px;border-radius:50%;background:#2563eb"></div></div>
         <div class="premium-section-title" style="margin-bottom:0">Devoirs</div>
         <span style="margin-left:auto;background:#dbeafe;color:#1e40af;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${devoirsList.length}</span>
       </div>
-      ${devoirsList.length?devoirsList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">✅</div>Aucun devoir en cours</div>`}
+      ${devoirsList.length?devoirsList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
     </div>`;
     // Interrogations section
     html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #f59e0b">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px">📋</div>
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px"><div style="width:14px;height:14px;border-radius:50%;background:#f59e0b"></div></div>
         <div class="premium-section-title" style="margin-bottom:0">Interrogations</div>
         <span style="margin-left:auto;background:#fef3c7;color:#92400e;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${interroList.length}</span>
       </div>
-      ${interroList.length?interroList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">📅</div>Aucune interrogation programmée</div>`}
+      ${interroList.length?interroList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
     html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #7c3aed">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#6d28d9);display:flex;align-items:center;justify-content:center;font-size:18px">📝</div>
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#6d28d9);display:flex;align-items:center;justify-content:center;font-size:18px"><div style="width:14px;height:14px;border-radius:50%;background:#7c3aed"></div></div>
         <div class="premium-section-title" style="margin-bottom:0">Examens</div>
         <span style="margin-left:auto;background:#ede9fe;color:#5b21b6;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${examenList.length}</span>
       </div>
-      ${examenList.length?examenList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">🗓️</div>Aucun examen programmé</div>`}
+      ${examenList.length?examenList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
     </div>`;
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
@@ -7048,9 +7127,9 @@ R.devoirs_parent = () => {
           +'</div></div>';
       }).join('');
       html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #10b981">
-        <div class="premium-section-title">📊 Corrections & Côtes — ${esc(k.name)}</div>
+        <div class="premium-section-title">Corrections & Côtes — ${esc(k.name)}</div>
         ${!recentGrades.length
-          ?'<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">⏳ Aucune correction saisie par les enseignants pour l\'instant</div>'
+          ?'<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune correction saisie par les enseignants pour l\'instant</div>'
           :'<div style="display:flex;flex-direction:column;gap:8px">'+gradeRows+'</div>'}
       </div>`;
     }
@@ -8841,11 +8920,11 @@ R.absences = () => {
   // Direction: voir toutes les justifications
   if (role === 'direction' || role === 'direction2') {
     const all = DB.absences.slice().sort((a,b)=>b.date.localeCompare(a.date));
-    if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📄</div>Aucune justification soumise</div>`;
+    if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune justification soumise</div>`;
     const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
-    const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+    const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
     return `
-    <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📄 Justifications (${all.length})</span></div>
+    <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Justifications (${all.length})</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
       ${['','pending','approved','refused'].map(s=>`<button class="pill ${(window._absFilter||'')===(s)?'pill-blue':''}" onclick="window._absFilter='${s}';render()" style="cursor:pointer;border:none">${s===''?'Toutes':statusLabel[s]}</button>`).join('')}
     </div>
@@ -8854,7 +8933,7 @@ R.absences = () => {
         const s=DB.students.find(x=>x.id===a.sid);
         const p=gu(a.pid);
         return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
-          <div class="pi-icon" style="background:#fef3c7">📄</div>
+          <div class="pi-icon" style="background:#fef3c7"><div style="width:10px;height:10px;border-radius:3px;background:#c9a030"></div></div>
           <div style="flex:1;min-width:150px">
             <div class="pi-title">${s?esc(s.name):'?'}</div>
             <div class="pi-sub">${esc(a.dates)} · ${esc(a.motif)}</div>
@@ -8863,7 +8942,7 @@ R.absences = () => {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
             <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
-            ${a.status==='pending'&&(role==='direction'||role==='direction2')?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div>`:''}
+            ${a.status==='pending'&&(role==='direction'||role==='direction2')?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">Approuver</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">Refuser</button></div>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -8873,10 +8952,10 @@ R.absences = () => {
   const kids = DB.students.filter(s=>s.pid===S.user.id);
   const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>b.submitted.localeCompare(a.submitted));
   const statusColor={pending:'#f59e0b',approved:'#059669',refused:'#ef4444'};
-  const statusLabel={pending:'⏳ En attente',approved:'✅ Approuvée',refused:'❌ Refusée'};
+  const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
   return `
   <div class="premium-section">
-    <div class="premium-section-title">📄 Soumettre une justification</div>
+    <div class="premium-section-title">Soumettre une justification</div>
     ${!kids.length?`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à votre compte.</div>`:`
     <div class="form-group" style="margin-top:12px"><label class="form-label">Enfant concerné *</label>
       <select class="form-select" id="abs_sid">${kids.map(k=>`<option value="${k.id}">${k.name}</option>`).join('')}</select>
@@ -8886,19 +8965,19 @@ R.absences = () => {
     </div>
     <div class="form-group"><label class="form-label">Motif *</label>
       <select class="form-select" id="abs_motif">
-        <option value="Maladie">🤒 Maladie</option>
-        <option value="Décès familial">🕊️ Décès familial</option>
-        <option value="Raison médicale">🏥 Raison médicale</option>
-        <option value="Voyage">✈️ Voyage</option>
-        <option value="Autre">📝 Autre</option>
+        <option value="Maladie">Maladie</option>
+        <option value="Décès familial">Décès familial</option>
+        <option value="Raison médicale">Raison médicale</option>
+        <option value="Voyage">Voyage</option>
+        <option value="Autre">Autre</option>
       </select>
     </div>
     <div class="form-group"><label class="form-label">Précisions (optionnel)</label>
       <input class="form-input" id="abs_note" placeholder="Ex: Certificat médical disponible">
     </div>
-    <button class="btn btn-primary" style="width:100%;padding:14px" onclick="submitAbsence()">📤 Soumettre la justification</button>`}
+    <button class="btn btn-primary" style="width:100%;padding:14px" onclick="submitAbsence()">Soumettre la justification</button>`}
   </div>
-  ${myAbs.length?`<div class="premium-section"><div class="premium-section-title">📋 Mes justifications</div>
+  ${myAbs.length?`<div class="premium-section"><div class="premium-section-title">Mes justifications</div>
     ${myAbs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
       return `<div class="premium-item">
@@ -8921,7 +9000,7 @@ window.submitAbsence = () => {
   DB.absences.push(abs);
   pushSync('absences','post',abs);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const notif={id:'n'+Date.now(),uid:u.id,msg:`📄 Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   });
@@ -11817,13 +11896,12 @@ R.mes_absences = () => {
 R.profil_enseignant = () => {
   const u=S.user;
   const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-  const langLabel=cl?(cl.teacher_id===u.id?'Français 🇫🇷':'Anglais 🇬🇧'):'—';
+  const langLabel=cl?(cl.teacher_id===u.id?'Français':'Anglais'):'—';
   const isTitulaire=cl&&cl.titulaire_id===u.id;
   const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
   const myDevoirs=(DB.devoirs||[]).filter(d=>d.cid===(cl?.id)).length;
   const myRats=(DB.rattrapages||[]).filter(r=>r.teacher_id===u.id).length;
   const myCahier=(DB.cahier_texte||[]).filter(e=>e.by===u.id).length;
-  // Grades entered for students of this class
   const sids=students.map(s=>s.id);
   const _grades=DB.grades||[];
   const myNotes=_grades.filter(g=>sids.includes(g.sid)&&g.note!=null).length;
@@ -11834,118 +11912,137 @@ R.profil_enseignant = () => {
   const attLateEns=todayAttEns.filter(a=>a.status==='late').length;
   const attAbsEns=Math.max(0,students.length-attPresEns-attLateEns);
   const recentDevs=(DB.devoirs||[]).filter(d=>d.cid===cl?.id&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
-  const [cc,cbg]=cl?clsColor(cl.name):['#2563eb','#dbeafe'];
+  const [cc,cbg]=cl?clsColor(cl.name):['#1d4ed8','#dbeafe'];
   const validTabs=['classe','profil','finances','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
-  const clr='#2563eb';
-  // Données finances enseignant (lecture seule — confidentiel)
-  const currentMonth=today().slice(0,7);
+  const clr='#1d4ed8';
   const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,6);
   const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
-  const recentDevsHtml=recentDevs.length?('<div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">📋 '+t('Devoirs récents','Recent Tasks')+'</div>'+recentDevs.map(d=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span style="font-size:13px">'+esc(d.title)+'</span><span class="pill pill-blue" style="font-size:10px">'+(d.date||'')+'</span></div>').join('')+'</div>'):'';
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👤 ${t('Mon profil','My Profile')}</span></div>
-  <div class="premium-section" style="padding:14px 16px">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
-      <div style="width:56px;height:56px;border-radius:16px;background:${cbg};color:${cc};font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${u.initials||ini(u.name)}</div>
+  <div style="background:linear-gradient(135deg,${clr},#4f46e5);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 12px 40px rgba(29,78,216,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative;display:flex;align-items:center;gap:14px">
+      <div style="width:62px;height:62px;border-radius:18px;background:${cbg};overflow:hidden;flex-shrink:0;border:2px solid rgba(255,255,255,.3)">
+        <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:${cc}">${u.initials||ini(u.name)}</div>
+      </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:17px;font-weight:800">${esc(u.name)}</div>
-        <div style="font-size:12px;color:var(--text-secondary)">${t('Enseignant · Section','Teacher · Section')} ${langLabel}</div>
-        ${cl?`<div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)} · ${students.length} ${t('élèves','students')}${isTitulaire?(' · ⭐ '+t('Titulaire','Class Teacher')):''}</div>`:`<div style="font-size:12px;color:#dc2626">${t('Aucune classe assignée','No class assigned')}</div>`}
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">The Wise School International</div>
+        <div style="font-size:20px;font-weight:900;color:#fff;line-height:1.2">${esc(u.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:3px">${t('Enseignant · Section','Teacher · Section')} ${langLabel}${isTitulaire?' · Titulaire':''}</div>
+        ${cl?`<div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">${esc(cl.name)} · ${students.length} ${t('élèves','students')}</div>`:`<div style="font-size:11px;color:rgba(255,100,100,.9);margin-top:2px">${t('Aucune classe assignée','No class assigned')}</div>`}
       </div>
     </div>
   </div>
   <div style="padding:0 4px 4px">
-    <div style="display:flex;gap:3px;background:var(--bg);border-radius:13px;padding:4px;margin-bottom:14px">
-      <button data-ptab-btn="classe" data-ptab-color="${clr}" onclick="window._pTab='classe';_setProfileTab('classe')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='classe'?'700':'500'};background:${tab==='classe'?clr:'transparent'};color:${tab==='classe'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">📚<div style="font-size:10px">${t('Ma classe','My class')}</div></button>
-      <button data-ptab-btn="profil" data-ptab-color="${clr}" onclick="window._pTab='profil';_setProfileTab('profil')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='profil'?'700':'500'};background:${tab==='profil'?clr:'transparent'};color:${tab==='profil'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">✏️<div style="font-size:10px">${t('Modifier','Edit')}</div></button>
-      <button data-ptab-btn="finances" data-ptab-color="${clr}" onclick="window._pTab='finances';_setProfileTab('finances')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='finances'?'700':'500'};background:${tab==='finances'?clr:'transparent'};color:${tab==='finances'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">💶<div style="font-size:10px">${t('Finances','Finances')}</div></button>
-      <button data-ptab-btn="securite" data-ptab-color="${clr}" onclick="window._pTab='securite';_setProfileTab('securite')" style="flex:1;min-width:0;padding:8px 4px;border:none;border-radius:9px;cursor:pointer;font-size:11px;font-weight:${tab==='securite'?'700':'500'};background:${tab==='securite'?clr:'transparent'};color:${tab==='securite'?'#fff':'var(--text-secondary)'};transition:all .2s;white-space:nowrap;text-align:center">🔒<div style="font-size:10px">${t('Sécurité','Security')}</div></button>
+    <div style="display:flex;gap:2px;background:#f1f5f9;border-radius:14px;padding:4px;margin-bottom:16px">
+      ${[['classe',t('Ma classe','My class')],['profil',t('Modifier','Edit')],['finances',t('Finances','Finances')],['securite',t('Sécurité','Security')]].map(([id,label])=>`
+      <button data-ptab-btn="${id}" data-ptab-color="${clr}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#64748b'};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
+
     <div data-ptab="classe" style="${tab==='classe'?'':'display:none'}">
-      <div class="premium-section" style="padding:14px 16px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#2563eb">${myDevoirs}</div><div style="font-size:11px;color:var(--text-muted)">${t('Devoirs','Tasks')}</div></div>
-          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#059669">${myCahier}</div><div style="font-size:11px;color:var(--text-muted)">${t('Cahier','Lesson log')}</div></div>
-          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#7c3aed">${myNotes}</div><div style="font-size:11px;color:var(--text-muted)">${t('Notes','Grades')}</div></div>
-          <div style="padding:14px;border-radius:12px;background:var(--bg);text-align:center"><div style="font-size:26px;font-weight:800;color:#f59e0b">${myRats}</div><div style="font-size:11px;color:var(--text-muted)">Rattrapages</div></div>
-        </div>
-        ${cl?`
-        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:14px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:700">🏆 ${t('Palmarès — couverture notes','Rankings — grade coverage')}</span>
-            <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#059669':coveragePct>=40?'#d97706':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
-          </div>
-          <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden">
-            <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${coveragePct<100?t(`${students.length-studentsWithGrade} élève${students.length-studentsWithGrade>1?'s':''} sans note — cliquez ci-dessous pour saisir`,`${students.length-studentsWithGrade} student${students.length-studentsWithGrade>1?'s':''} without grades — tap below to enter`):t('✅ Tous les élèves ont au moins une note','✅ All students have at least one grade')}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
-            <button class="btn btn-primary" style="font-size:12px" onclick="go('palmares')">🏆 ${t('Palmarès','Rankings')}</button>
-            <button class="btn btn-outline" style="font-size:12px" onclick="go('devoirs')">📋 ${t('Devoir','Task')}</button>
-            <button class="btn btn-outline" style="font-size:12px" onclick="go('cahier_texte')">📓 ${t('Cahier','Log')}</button>
-            <button class="btn btn-outline" style="font-size:12px" onclick="go('attendance')">📅 ${t('Présences','Attendance')}</button>
-          </div>
-        </div>
-        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:8px">📅 ${t("Aujourd'hui","Today")}</div>
-          <div style="display:flex;gap:8px">
-            <div style="flex:1;padding:10px;border-radius:10px;background:#dcfce7;text-align:center"><div style="font-size:20px;font-weight:800;color:#16a34a">${attPresEns}</div><div style="font-size:10px;color:#166534">${t("À l'heure","On time")}</div></div>
-            <div style="flex:1;padding:10px;border-radius:10px;background:#fef3c7;text-align:center"><div style="font-size:20px;font-weight:800;color:#d97706">${attLateEns}</div><div style="font-size:10px;color:#92400e">${t('Retards','Late')}</div></div>
-            <div style="flex:1;padding:10px;border-radius:10px;background:#fee2e2;text-align:center"><div style="font-size:20px;font-weight:800;color:#dc2626">${attAbsEns}</div><div style="font-size:10px;color:#991b1b">${t('Absents','Absent')}</div></div>
-          </div>
-        </div>
-        ${recentDevsHtml}`:`<div style="font-size:13px;color:var(--text-muted);padding:16px;text-align:center;background:var(--bg);border-radius:12px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        ${[[myDevoirs,t('Devoirs','Tasks'),'#1d4ed8','#dbeafe'],[myCahier,t('Cahier','Lesson log'),'#059669','#d1fae5'],[myNotes,t('Notes','Grades'),'#7c3aed','#ede9fe'],[myRats,'Rattrapages','#f59e0b','#fef3c7']].map(([n,lbl,tc,bg])=>`
+        <div style="background:#fff;border-radius:18px;padding:16px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06)">
+          <div style="font-size:30px;font-weight:900;color:${tc};line-height:1">${n}</div>
+          <div style="font-size:11px;font-weight:700;color:#475569;margin-top:4px">${lbl}</div>
+        </div>`).join('')}
       </div>
+      ${cl?`
+      <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(29,78,216,.08)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+          <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+          <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">${t("Aujourd'hui","Today")}</div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1;padding:12px;border-radius:14px;background:#d1fae5;text-align:center"><div style="font-size:24px;font-weight:800;color:#059669">${attPresEns}</div><div style="font-size:11px;color:#065f46;font-weight:600">${t("À l'heure","On time")}</div></div>
+          <div style="flex:1;padding:12px;border-radius:14px;background:#fef3c7;text-align:center"><div style="font-size:24px;font-weight:800;color:#d97706">${attLateEns}</div><div style="font-size:11px;color:#92400e;font-weight:600">${t('Retards','Late')}</div></div>
+          <div style="flex:1;padding:12px;border-radius:14px;background:#fee2e2;text-align:center"><div style="font-size:24px;font-weight:800;color:#dc2626">${attAbsEns}</div><div style="font-size:11px;color:#991b1b;font-weight:600">${t('Absents','Absent')}</div></div>
+        </div>
+      </div>
+      <div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
+            <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">${t('Couverture notes','Grade coverage')}</div>
+          </div>
+          <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#059669':coveragePct>=40?'#d97706':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
+        </div>
+        <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden;margin-bottom:12px">
+          <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#059669':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="btn btn-primary" style="font-size:12px;border-radius:12px" onclick="go('palmares')">${t('Palmarès','Rankings')}</button>
+          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('devoirs')">${t('Devoirs','Tasks')}</button>
+          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('cahier_texte')">${t('Cahier','Log')}</button>
+          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('attendance')">${t('Présences','Attendance')}</button>
+        </div>
+      </div>
+      ${recentDevs.length?`<div style="background:#fff;border-left:4px solid #c9a030;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(201,160,48,.08)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+          <div style="width:3px;height:14px;border-radius:2px;background:#c9a030"></div>
+          <div style="font-size:10px;font-weight:800;color:#c9a030;letter-spacing:1.5px;text-transform:uppercase">${t('Devoirs récents','Recent Tasks')}</div>
+        </div>
+        ${recentDevs.map((d,di)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${di<recentDevs.length-1?'border-bottom:1px solid #f1f5f9':''}"><span style="font-size:13px;font-weight:600;color:#0f172a">${esc(d.title)}</span><span style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:8px;padding:2px 8px;font-weight:600">${d.date||''}</span></div>`).join('')}
+      </div>`:''}`:`<div style="font-size:13px;color:#94a3b8;padding:24px;text-align:center;background:#f8fafc;border-radius:16px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
     </div>
+
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
-      <div class="premium-section" style="padding:14px 16px">
+      <div style="background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.06)">
         <div class="form-row">
           <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
           <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
         </div>
-        <div class="form-group"><label class="form-label">📞 ${t('Numéro de téléphone','Phone Number')}</label>
+        <div class="form-group"><label class="form-label">${t('Numéro de téléphone','Phone Number')}</label>
           <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
-        <button class="btn btn-primary" style="width:100%" onclick="saveTeacherProfile()">${t('💾 Enregistrer','💾 Save')}</button>
+        <button class="btn btn-primary" style="width:100%;border-radius:14px;padding:14px" onclick="saveTeacherProfile()">${t('Enregistrer','Save')}</button>
       </div>
     </div>
+
     <div data-ptab="finances" style="${tab==='finances'?'':'display:none'}">
-      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#78350f">
-        🔒 ${t('Ces informations sont strictement confidentielles — visibles uniquement par vous et la Direction.','This information is strictly confidential — visible only to you and Management.')}
+      <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#78350f">
+        ${t('Ces informations sont strictement confidentielles — visibles uniquement par vous et la Direction.','This information is strictly confidential — visible only to you and Management.')}
       </div>
       ${mySals.length?mySals.map(sal=>{
         const {count:rc,prime:rp}=_getRatPrime(u.id,sal.month);
         const advList=(DB.advances||[]).filter(a=>a.teacher_id===u.id&&a.month===sal.month);
         const [yr2,mo2]=sal.month.split('-');
         const ml=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][parseInt(mo2)-1]+' '+yr2;
-        return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-weight:700;font-size:14px">${ml}</span>
-            <span class="pill ${sal.paid?'pill-green':'pill-orange'}">${sal.paid?'✅ Payé':'⏳ En attente'}</span>
+        return `<div style="background:#fff;border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 4px 14px rgba(0,0,0,.06)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-weight:700;font-size:14px;color:#0f172a">${ml}</span>
+            <span class="pill ${sal.paid?'pill-green':'pill-orange'}">${sal.paid?'Payé':'En attente'}</span>
           </div>
           <div style="font-size:12px">
-            <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9"><span>Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
-            ${rp?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#7c3aed"><span>🔄 Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
-            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#059669"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
-            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#dc2626"><span>💸 Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
-            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f1f5f9;color:#f97316"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
-            <div style="display:flex;justify-content:space-between;padding:5px 0;font-weight:800;font-size:14px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#059669':'#dc2626'}">$${sal.net||0}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9"><span style="color:#64748b">Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
+            ${rp?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;color:#7c3aed"><span>Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
+            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;color:#059669"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
+            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;color:#dc2626"><span>Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
+            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f9;color:#f97316"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid #e2e8f0;margin-top:4px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#059669':'#dc2626'}">$${sal.net||0}</span></div>
           </div>
         </div>`;
-      }).join(''):`<div style="text-align:center;padding:32px;color:var(--text-muted)"><div style="font-size:40px;margin-bottom:10px">💶</div>${t('Aucun salaire enregistré','No salary recorded')}</div>`}
+      }).join(''):`<div style="text-align:center;padding:40px;color:#94a3b8;background:#f8fafc;border-radius:18px">
+        <div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
+          <div style="width:20px;height:20px;border-radius:50%;background:#94a3b8"></div>
+        </div>
+        ${t('Aucun salaire enregistré','No salary recorded')}
+      </div>`}
     </div>
+
     <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
-      <div class="premium-section" style="border-left:4px solid #e2e8f0;padding:14px 16px">
-        <div class="premium-section-title" style="color:var(--text-muted)">🔒 ${t('Sécurité','Security')}</div>
-        <div style="font-size:12px;color:var(--text-muted);padding:8px 0 10px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
-        <button class="btn btn-outline" style="width:100%;margin-bottom:8px" onclick="openProfile()">🔑 ${t('Changer mon code PIN','Change my PIN')}</button>
-        <button class="btn btn-danger" style="width:100%" onclick="logout()">⎋ ${t('Se déconnecter','Log Out')}</button>
+      <div style="background:#fff;border-left:4px solid #e2e8f0;border-radius:20px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.06)">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">${t('Sécurité','Security')}</div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:16px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:10px;border-radius:12px;padding:12px" onclick="openProfile()">${t('Changer mon code PIN','Change my PIN')}</button>
+        <button class="btn btn-danger" style="width:100%;border-radius:12px;padding:12px" onclick="logout()">${t('Se déconnecter','Log Out')}</button>
       </div>
     </div>
   </div>`;
 };
-
 window.saveTeacherProfile = () => {
   const phone=(document.getElementById('tp_phone')?.value||'').trim()||null;
   const name=(document.getElementById('tp_name')?.value||'').trim();
@@ -11963,8 +12060,8 @@ window.saveTeacherProfile = () => {
 // ── HISTORIQUE ENTRÉES / SORTIES PARENT ──
 R.scan_history = () => {
   const kids=DB.students.filter(s=>s.pid===S.user.id);
-  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🚪</div>Aucun enfant lié à ce compte</div>`;
-  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🚪 Historique Entrées / Sorties</span></div>`;
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucun enfant lié à ce compte</div>`;
+  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Historique Entrées / Sorties</span></div>`;
   kids.forEach(kid=>{
     const cl=gc(kid.cid);
     const [cc]=clsColor(cl?cl.name:'');
@@ -11975,7 +12072,7 @@ R.scan_history = () => {
     att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
     const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).slice(0,30);
     const statusColor={ontime:'#059669',late:'#d97706',excused:'#2563eb',sick:'#ec4899'};
-    const statusLabel={ontime:'✅ À l\'heure',late:'⚠️ Retard',excused:'📄 Justifié',sick:'🤒 Maladie'};
+    const statusLabel={ontime:'À l\'heure',late:'Retard',excused:'Justifié',sick:'Maladie'};
     html+=`<div class="ww-section" style="margin-bottom:18px">
       <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${kid.name}</span><span style="font-size:11px;color:var(--text-muted)">${cl?cl.name:''} · 30 derniers jours</span></div>
       ${dates.length?dates.map(date=>{
@@ -11995,8 +12092,8 @@ R.scan_history = () => {
           <div style="flex:1">
             <div style="font-size:11px;font-weight:700;color:${sc};margin-bottom:4px">${sl}</div>
             <div style="display:flex;gap:12px;flex-wrap:wrap">
-              ${entry?`<span style="font-size:12px;color:#059669;font-weight:600">🏫 ${entry.time}</span>`:'<span style="font-size:11px;color:#94a3b8">Pas d\'entrée</span>'}
-              ${exit?`<span style="font-size:12px;color:#f97316;font-weight:600">🏠 ${exit.time}${exit.status==='emergency_exit'?' ⚡':''}</span>`:''}
+              ${entry?`<span style="font-size:12px;color:#059669;font-weight:600">Entrée ${entry.time}</span>`:'<span style="font-size:11px;color:#94a3b8">Pas d\'entrée</span>'}
+              ${exit?`<span style="font-size:12px;color:#f97316;font-weight:600">Sortie ${exit.time}${exit.status==='emergency_exit'?' (!!)':''}</span>`:''}
             </div>
           </div>
           ${a&&a.arr_time&&!entry?`<div style="font-size:10px;color:var(--text-muted);text-align:right;flex-shrink:0">Arr. ${a.arr_time}</div>`:''}
