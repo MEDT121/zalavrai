@@ -4177,7 +4177,7 @@ R.approbations = () => {
   ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
-      return `<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📄</div><div style="flex:1"><div class="pi-title">${s?esc(s.name):''}</div><div class="pi-sub">${esc(a.dates)} — ${esc(a.motif||'')}</div></div>
+      return `<div class="premium-item"><div style="width:34px;height:34px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div></div><div style="flex:1"><div class="pi-title">${s?esc(s.name):''}</div><div class="pi-sub">${esc(a.dates)} — ${esc(a.motif||'')}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">✅</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">❌</button></div></div>`;
     }).join('')}</div>`:''}
   ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
@@ -5831,7 +5831,7 @@ R.palmares_parent = () => {
     const bulletinBtn=(()=>{
       if(!bulletinGlobal||!k.access_parent) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#f8fafc;border-radius:10px;border:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:4px;background:#94a3b8"></div></div><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
       if(!DB.payments.some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
-      return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
+      return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
     })();
 
     return `<div class="premium-section" style="margin-bottom:16px;border-radius:20px;padding:18px;box-shadow:0 6px 22px rgba(0,0,0,.09);border-left:4px solid ${pos<=3?'#f59e0b':cc};animation:fadeInUp .4s ease both">
@@ -5849,7 +5849,7 @@ R.palmares_parent = () => {
       ${isBilingual?`
         ${renderSection(frMats,'Bulletin Français','🇫🇷',profFR?profFR.name:null,'#f0fdf4')}
         ${renderSection(enMats,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eff6ff')}
-        ${comMats.length?renderSection(comMats,'Matières communes','📚',null,'#fafafa'):''}
+        ${comMats.length?renderSection(comMats,'Matières communes','·',null,'#fafafa'):''}
       `:`
         <div style="font-weight:700;font-size:14px;margin-bottom:10px">Notes par matière ${selTrim!=='Tous'?'('+selTrim+')':''}</div>
         ${matieres.map(m=>{
@@ -6047,7 +6047,7 @@ window.downloadRecuActivites = (sid) => {
   const dir=DB.users.find(u=>u.role==='direction');
   const rows=insActs.map(i=>{
     const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
-    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${act.emoji||'🎭'} ${esc(act.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.jour||'—'} ${act.heure||''}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.lieu||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">$${act.frais||0}/mois</td></tr>`;
+    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0">${act.emoji||'·'} ${esc(act.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.jour||'—'} ${act.heure||''}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#64748b">${act.lieu||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">$${act.frais||0}/mois</td></tr>`;
   }).join('');
   const totalMensuel=insActs.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #0f2557">`:'';
@@ -6170,7 +6170,7 @@ R.recus_parent = () => {
             <div>
               <div style="font-weight:700;font-size:14px">Activités Extrascolaires</div>
               ${insActs.length?`<div style="font-size:12px;color:#6d28d9;font-weight:600">${insActs.length} activité(s) · $${totalAct}/mois</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${insActs.map(i=>{const act=(DB.activites||[]).find(a=>a.id===i.act_id);return act?`<span class="pill" style="background:#ede9fe;color:#5b21b6;font-size:10px">${act.emoji||'🎭'} ${esc(act.name)}</span>`:''}).join('')}</div>`
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${insActs.map(i=>{const act=(DB.activites||[]).find(a=>a.id===i.act_id);return act?`<span class="pill" style="background:#ede9fe;color:#5b21b6;font-size:10px">${act.emoji||'·'} ${esc(act.name)}</span>`:''}).join('')}</div>`
               :`<div style="font-size:12px;color:#94a3b8">Aucune activité inscrite</div>`}
             </div>
           </div>
@@ -6904,7 +6904,7 @@ R.devoirs = () => {
           <div style="background:${accentBg};border-radius:10px;padding:12px 14px;margin-bottom:10px">
             <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${accentCol};margin-bottom:6px">📖 Chapitres / Thèmes à réviser</div>
             <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description||'—')}</div>
-            ${d.duration?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px">⏱️ Durée : ${esc(d.duration)}</div>`:''}
+            ${d.duration?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Durée : ${esc(d.duration)}</div>`:''}
           </div>
           <div style="display:flex;gap:8px;margin-top:8px">
             ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:${accentCol};color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
@@ -6966,8 +6966,8 @@ R.devoirs_parent = () => {
               <span style="font-weight:800;font-size:14px">${esc(d.title)}</span>
               ${passed?`<span style="padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:8px;font-size:10px;font-weight:700">Passé</span>`:`<span style="padding:2px 8px;background:${catBg};color:${catBorder};border-radius:8px;font-size:10px;font-weight:700">À venir</span>`}
             </div>
-            <div style="font-size:12px;color:var(--text-secondary)">📐 ${esc(d.matiere||'')} · 📅 ${dateLabel||d.date||''}</div>
-            ${d.duration?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">⏱️ Durée : ${esc(d.duration)}</div>`:''}
+            <div style="font-size:12px;color:var(--text-secondary)">${esc(d.matiere||'')}${dateLabel?' · '+dateLabel:d.date?' · '+d.date:''}</div>
+            ${d.duration?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Durée : ${esc(d.duration)}</div>`:''}
           </div>
         </div>
         ${d.chapters||d.description?`<div style="padding:10px 12px;background:#fff;border-radius:8px;border:1px solid ${catBorder}40">
@@ -6983,7 +6983,7 @@ R.devoirs_parent = () => {
           return `<div style="margin-top:8px;padding:10px 12px;background:${bg};border-radius:10px;border-left:3px solid ${col};display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <div><div style="font-size:18px;font-weight:900;color:${col}">${g.note}<span style="font-size:12px;color:#64748b">/${g.max}</span></div><div style="font-size:10px;color:${col};font-weight:700">${pct}%</div></div>
             ${g.comment?`<div style="flex:1;font-size:12px;color:#374151;font-style:italic">"${esc(g.comment)}"</div>`:'<div style="flex:1"></div>'}
-            <button onclick="printDevoir('${d.id}','${kidName}','${kidMat}','${kidClass}','${kidId}')" style="background:${col};color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">📋 Feuille corrigée</button>
+            <button onclick="printDevoir('${d.id}','${kidName}','${kidMat}','${kidClass}','${kidId}')" style="background:${col};color:#fff;border:none;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">Feuille corrigée</button>
           </div>`;
         })()}
       </div>`;
@@ -6994,7 +6994,7 @@ R.devoirs_parent = () => {
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
             <div class="pi-title">${esc(d.title)}</div>
-            <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · 📅 À remettre : '+dateLabel:''}${daysLeft!==null&&!overdue?' · '+daysLeft+' jour'+(daysLeft>1?'s':'')+' restant'+(daysLeft>1?'s':''):''}</div>
+            <div class="pi-sub">${esc(d.matiere||'')}${dateLabel?' · À remettre : '+dateLabel:''}${daysLeft!==null&&!overdue?' · '+daysLeft+' jour'+(daysLeft>1?'s':'')+' restant'+(daysLeft>1?'s':''):''}</div>
           </div>
           <button onclick="printDevoir('${d.id}','${esc(kidName||'')}','${esc(kidMat||'')}','${esc(kidClass||'')}','${kidId||''}')" title="Télécharger ce devoir en PDF"
             style="flex-shrink:0;background:#2563eb;color:#fff;border:none;padding:6px 10px;border-radius:10px;font-size:12px;cursor:pointer;font-weight:700;white-space:nowrap">
@@ -7004,7 +7004,7 @@ R.devoirs_parent = () => {
         ${d.description?`<div style="font-size:12px;color:var(--text);margin-top:8px;padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;white-space:pre-wrap">${esc(d.description)}</div>`:''}
         ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;margin-top:8px;border:1px solid var(--border)">`:''}
         ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">Ouvrir le PDF</button>`:''}
-        ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">📄 PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
+        ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
       </div>
     </div>`;
   };
@@ -7038,10 +7038,10 @@ R.devoirs_parent = () => {
     const needsRat=avgNote!==null&&avgNote<60;
     const badConduct=condAvg2!==null&&condAvg2<2.5;
     html+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-      <span style="padding:4px 10px;background:#dbeafe;border-radius:20px;font-size:12px;font-weight:600;color:#1e40af">📚 ${devoirsList.length} devoir${devoirsList.length!==1?'s':''}</span>
-      <span style="padding:4px 10px;background:#fef3c7;border-radius:20px;font-size:12px;font-weight:600;color:#92400e">⚠️ ${interroList.length} interro${interroList.length!==1?'s':''}</span>
-      <span style="padding:4px 10px;background:#ede9fe;border-radius:20px;font-size:12px;font-weight:600;color:#5b21b6">📝 ${examenList.length} examen${examenList.length!==1?'s':''}</span>
-      ${canSeeCorr&&avgNote!==null?`<span style="padding:4px 10px;background:${avgNote>=70?'#d1fae5':avgNote>=50?'#fef3c7':'#fee2e2'};border-radius:20px;font-size:12px;font-weight:600;color:${avgNote>=70?'#065f46':avgNote>=50?'#92400e':'#991b1b'}">📊 Moy. ${avgNote}%</span>`:''}
+      <span style="padding:4px 10px;background:#dbeafe;border-radius:20px;font-size:12px;font-weight:600;color:#1e40af">${devoirsList.length} devoir${devoirsList.length!==1?'s':''}</span>
+      <span style="padding:4px 10px;background:#fef3c7;border-radius:20px;font-size:12px;font-weight:600;color:#92400e">${interroList.length} interro${interroList.length!==1?'s':''}</span>
+      <span style="padding:4px 10px;background:#ede9fe;border-radius:20px;font-size:12px;font-weight:600;color:#5b21b6">${examenList.length} examen${examenList.length!==1?'s':''}</span>
+      ${canSeeCorr&&avgNote!==null?`<span style="padding:4px 10px;background:${avgNote>=70?'#d1fae5':avgNote>=50?'#fef3c7':'#fee2e2'};border-radius:20px;font-size:12px;font-weight:600;color:${avgNote>=70?'#065f46':avgNote>=50?'#92400e':'#991b1b'}">Moy. ${avgNote}%</span>`:''}
     </div>
     ${canSeeCorr&&(needsRat||badConduct)?`<div style="padding:12px 14px;background:#fef9c3;border-radius:12px;border-left:4px solid #f59e0b;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px">
       <div style="width:32px;height:32px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div></div>
@@ -7106,7 +7106,7 @@ R.devoirs_parent = () => {
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
       const recentGrades=DB.grades.filter(g=>g.sid===k.id&&(g.type==='devoir'||g.type==='interro'||g.type==='examen')).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
-      const tIcon2={devoir:'📚',interro:'⚠️',examen:'📝'};
+      
       const tCol2={devoir:'#1d4ed8',interro:'#b45309',examen:'#6d28d9'};
       const gradeRows=recentGrades.map(g=>{
         const note=g.note!==undefined?g.note:'—';
@@ -7116,7 +7116,7 @@ R.devoirs_parent = () => {
         const bg=pct===null?'#f1f5f9':pct>=70?'#d1fae5':pct>=50?'#fef3c7':'#fee2e2';
         const pctDiv=pct!==null?'<div style="font-size:10px;font-weight:700;color:'+col+'">'+pct+'%</div>':'';
         return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+bg+';border-radius:10px">'
-          +'<div style="font-size:20px;flex-shrink:0">'+(tIcon2[g.type]||'📝')+'</div>'
+          +'<div style="width:34px;height:34px;border-radius:10px;flex-shrink:0;background:'+(tCol2[g.type]||'#64748b')+'20;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:'+(tCol2[g.type]||'#64748b')+'"></div></div>'
           +'<div style="flex:1;min-width:0">'
           +'<div style="font-weight:700;font-size:13px;color:'+(tCol2[g.type]||'#374151')+'">'+esc(g.label||g.type)+' — '+esc(g.matiere||'')+'</div>'
           +'<div style="font-size:11px;color:var(--text-muted)">'+(g.date||'')+' · Trimestre '+(g.trimester||'')+' · Coeff. '+(g.weight||1)+'</div>'
@@ -7137,20 +7137,20 @@ R.devoirs_parent = () => {
     const canAddConduct = S.user.role==='enseignant'||S.user.role==='direction'||S.user.role==='direction2';
     html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #10b981">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="premium-section-title" style="margin-bottom:0">📊 Conduite</div>
-        ${canAddConduct?`<button class="btn btn-outline btn-sm" onclick="openConductM('${k.id}')">➕ Ajouter</button>`:''}
+        <div class="premium-section-title" style="margin-bottom:0">Conduite</div>
+        ${canAddConduct?`<button class="btn btn-outline btn-sm" onclick="openConductM('${k.id}')">Ajouter</button>`:''}
       </div>
       ${conduites.length?conduites.map(cd=>{
         const bg=condColor[cd.score]||'#f3f4f6';
         const tc=condTextColor[cd.score]||'#374151';
         return `<div class="premium-item">
-          <div class="pi-icon" style="background:${bg}">📊</div>
+          <div style="width:34px;height:34px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:${tc}"></div></div>
           <div style="flex:1">
             <div class="pi-title" style="color:${tc};font-weight:700">${cd.score}</div>
             <div class="pi-sub">${cd.date}${cd.remark?' · '+cd.remark:''}</div>
           </div>
-          <span style="padding:4px 10px;background:${bg};color:${tc};border-radius:20px;font-size:12px;font-weight:600">${{Excellent:'⭐⭐⭐',Bien:'⭐⭐',Moyen:'⭐',Mauvais:'⚠️'}[cd.score]||''}</span>
-          ${canAddConduct?`<button onclick="deleteConductEntry('${cd.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7">🗑️</button>`:''}
+          
+          ${canAddConduct?`<button onclick="deleteConductEntry('${cd.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7;font-weight:700">×</button>`:''}
         </div>`;
       }).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune note de conduite</div>`}
     </div>`;
@@ -7159,7 +7159,7 @@ R.devoirs_parent = () => {
       if(!canSeeCorr) {
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
           <div style="display:flex;align-items:center;gap:14px;padding:6px 0">
-            <div style="font-size:36px">🔒</div>
+            <div style="width:40px;height:40px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#f59e0b"></div></div>
             <div>
               <div style="font-weight:700;font-size:14px">Corrections & Côtes — Accès bloqué</div>
               <div style="font-size:13px;color:#92400e;margin-top:4px">La Direction n'a pas encore activé l'accès aux corrections pour ${esc(k.name)}.<br><span style="font-size:11px;color:#78350f">Cet accès dépend du règlement des frais scolaires.</span></div>
@@ -7171,7 +7171,7 @@ R.devoirs_parent = () => {
         const matieres=cl2?getClassMatieres(cl2.id):[];
         const trimestres=['T1','T2','T3'];
         html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
-          <div class="premium-section-title">📊 Notes / Côtes — ${esc(k.name)}</div>
+          <div class="premium-section-title">Notes / Côtes — ${esc(k.name)}</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px">
             <thead><tr>
               <th style="text-align:left;padding:6px 8px;background:var(--bg);border-radius:8px 0 0 0;font-weight:700">Matière</th>
@@ -7197,20 +7197,18 @@ R.devoirs_parent = () => {
           </div>`:''}
         </div>
         <div class="premium-section" style="margin-bottom:10px;border-left:4px solid #7c3aed">
-          <div class="premium-section-title">📋 Détail des évaluations</div>
+          <div class="premium-section-title">Détail des évaluations</div>
           ${(()=>{
             const allG = DB.grades.filter(g=>g.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
             if(!allG.length) return '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune évaluation enregistrée</div>';
-            const tIcon={devoir:'📚',interro:'⚠️',examen:'📝'};
             const tCol ={devoir:'#7c3aed',interro:'#f59e0b',examen:'#dc2626'};
             return allG.map(g=>{
               const note = g.note !== undefined ? g.note : '—';
               const max  = g.max || 20;
               const pct  = gradePct(g);
               const col  = tCol[g.type]||'#64748b';
-              const ico  = tIcon[g.type]||'📝';
               return `<div class="premium-item">
-                <div class="pi-icon" style="background:${col}18;font-size:18px">${ico}</div>
+                <div style="width:34px;height:34px;border-radius:10px;background:${col}18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:${col}"></div></div>
                 <div style="flex:1;min-width:0">
                   <div class="pi-title" style="color:${col}">${g.label||g.type} — ${g.matiere}</div>
                   <div class="pi-sub">${g.date||''} · Trim. ${g.trimester||''} · Coeff. ${g.weight||1}</div>
@@ -8981,7 +8979,7 @@ R.absences = () => {
     ${myAbs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
       return `<div class="premium-item">
-        <div class="pi-icon" style="background:#fef3c7">📄</div>
+        <div style="width:34px;height:34px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div></div>
         <div style="flex:1"><div class="pi-title">${s?esc(s.name):'?'} — ${esc(a.dates)}</div><div class="pi-sub">${esc(a.motif)}${a.note?' · '+esc(a.note):''}</div><div style="font-size:11px;color:var(--text-muted)">${a.submitted}</div></div>
         <span class="pill" style="background:${statusColor[a.status]}22;color:${statusColor[a.status]}">${statusLabel[a.status]}</span>
       </div>`;
@@ -11715,7 +11713,7 @@ R.calendar = () => {
         <div class="ww-item-sub">${d.toLocaleDateString('fr-FR',{weekday:'long',month:'long',day:'numeric'})}</div>
       </div>
       <span class="pill" style="background:${tp.bg};color:${tp.color}">${tp.icon}</span>
-      ${canEdit?`<button onclick="deleteEvent('${e.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7">🗑️</button>`:''}
+      ${canEdit?`<button onclick="deleteEvent('${e.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7;font-weight:700">×</button>`:''}
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun événement à venir</div>`;
   return `
@@ -14179,7 +14177,7 @@ R.activites = () => {
     const inscrits=insAll.filter(i=>i.act_id===act.id&&i.active);
     html+=`<div class="premium-section" style="margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <div style="width:48px;height:48px;border-radius:14px;background:${act.color||'#6366f1'}22;display:flex;align-items:center;justify-content:center;font-size:24px">${act.emoji||'🎭'}</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:${act.color||'#6366f1'}22;display:flex;align-items:center;justify-content:center;font-size:24px">${act.emoji||'·'}</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:16px">${esc(act.name)}</div>
           <div style="font-size:12px;color:var(--text-secondary)">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}</div>
@@ -14337,7 +14335,7 @@ R.activites_parent = () => {
         const ac=actColors[ai%actColors.length];
         const abg=actBgs[ai%actBgs.length];
         return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${abg};border-radius:14px;border-left:3px solid ${ac};margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:calc(${ai}*.08s)">
-          <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'🎭'}</div>
+          <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'·'}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px;color:${ac}">${esc(act.name)}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
@@ -14359,7 +14357,7 @@ R.activites_parent = () => {
       const ac=actColors[ai%actColors.length];
       const abg=actBgs[ai%actBgs.length];
       return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${abg};border-radius:14px;border-left:3px solid ${ac};margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:calc(${ai}*.07s)">
-        <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'🎭'}</div>
+        <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'·'}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:14px">${esc(act.name)}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
