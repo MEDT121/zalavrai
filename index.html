@@ -2339,7 +2339,7 @@ function dashboardParent() {
   const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
 
   return `
-  <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#2555a8,#4f46e5)">
+  <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#2555a8,#4f46e5);animation:fadeInUp .4s ease both">
     <div class="hero-school">The Wise School International</div>
     <div class="hero-title">Bonjour ${esc(u.name.split(' ')[0])} 👋</div>
     <div class="hero-sub">${kids.length} enfant${kids.length>1?'s':''} inscrit${kids.length>1?'s':''}</div>
@@ -2351,10 +2351,10 @@ function dashboardParent() {
     </div>
   </div>
 
-  ${kidStatus.map(k=>`
-  <div class="premium-section" style="border-left:4px solid ${k.bg==='#d1fae5'?'#10b981':k.bg==='#fef3c7'?'#f59e0b':k.bg==='#fce7f3'?'#ec4899':'#64748b'};margin-bottom:10px">
+  ${kidStatus.map((k,ki)=>`
+  <div class="premium-section" style="--i:${ki};animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s);border-left:4px solid ${k.bg==='#d1fae5'?'#10b981':k.bg==='#fef3c7'?'#f59e0b':k.bg==='#fce7f3'?'#ec4899':'#64748b'};border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:56px;height:56px;border-radius:16px;background:${k.bg};display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">${k.emoji}</div>
+      <div style="width:62px;height:62px;border-radius:18px;background:${k.bg};display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.1)">${k.emoji}</div>
       <div style="flex:1">
         <div style="font-size:17px;font-weight:800">${esc(k.name)}</div>
         <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${esc(k.status)}</div>
@@ -2362,27 +2362,27 @@ function dashboardParent() {
           <span style="font-size:12px;color:var(--text-muted)">${gc(k.cid)?esc(gc(k.cid).name):''}</span>
           ${(()=>{const r=getRankInClass(k.id);return r?`<span style="font-size:11px;font-weight:700;background:${r.pos<=3?'#fef3c7':'#f1f5f9'};color:${r.pos<=3?'#92400e':'#475569'};border-radius:6px;padding:1px 7px">${r.pos<=3?['🥇','🥈','🥉'][r.pos-1]:r.pos+'e'} / ${r.outOf}</span>`:''})()}
         </div>
-        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn btn-sm" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px" onclick="go('devoirs_parent')">📚 Devoirs</button>
-          ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none;font-size:11px" onclick="go('devoirs_parent')">📊 Corrections</button>`:''}
-          ${k.access_parent&&(DB.settings.toggles?.bulletin??false)?`<button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:none;font-size:11px" onclick="go('palmares_parent')">📋 Mon Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — contactez la direction</span>`}
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-sm pp-btn" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px;border-radius:10px" onclick="go('devoirs_parent')">📚 Devoirs</button>
+          ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm pp-btn" style="background:#d1fae5;color:#065f46;border:none;font-size:11px;border-radius:10px" onclick="go('devoirs_parent')">📊 Corrections</button>`:''}
+          ${k.access_parent&&(DB.settings.toggles?.bulletin??false)?`<button class="btn btn-sm pp-btn" style="background:#fef3c7;color:#92400e;border:none;font-size:11px;border-radius:10px" onclick="go('palmares_parent')">📋 Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — voir la direction</span>`}
         </div>
       </div>
-      <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none" onclick="go('children')">Détails →</button>
+      <button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:none;border-radius:12px;padding:8px 14px;box-shadow:0 2px 8px rgba(37,99,235,.35)" onclick="go('children')">Détails →</button>
     </div>
   </div>`).join('')}
 
-  <div class="action-grid" style="grid-template-columns:repeat(4,1fr)">
+  <div class="action-grid" style="grid-template-columns:repeat(4,1fr);animation:fadeInUp .35s ease both;animation-delay:.25s">
     <button class="action-card" onclick="go('children')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">👶</span><span class="ac-label">Enfants</span></button>
-    ${kids.some(k=>k.access_parent)&&(DB.settings.toggles?.bulletin??false)?`<button class="action-card" onclick="go('palmares_parent')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>`:`<button class="action-card" style="background:#94a3b8;opacity:.6;cursor:not-allowed"><span class="ac-icon">🔒</span><span class="ac-label">Palmarès</span></button>`}
+    ${kids.some(k=>k.access_parent)&&(DB.settings.toggles?.bulletin??false)?`<button class="action-card" onclick="go('palmares_parent')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>`:`<button class="action-card" style="background:linear-gradient(135deg,#94a3b8,#64748b);opacity:.7;cursor:not-allowed"><span class="ac-icon">🔒</span><span class="ac-label">Palmarès</span></button>`}
     <button class="action-card" onclick="go('devoirs_parent')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
-    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px">${unreadMsgs}</span>`:''}</button>
+    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${unreadMsgs}</span>`:''}</button>
   </div>
 
   ${myNotifs.length>0?`
-  <div class="premium-section" style="border-left:4px solid #3b82f6">
+  <div class="premium-section" style="border-left:4px solid #3b82f6;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.35s">
     <div class="premium-section-title">🔔 Nouvelles notifications (${myNotifs.length})</div>
-    ${myNotifs.slice(0,3).map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#dbeafe;font-size:16px">${n.type==='alert'?'⚠️':n.type==='message'?'✉️':'ℹ️'}</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
+    ${myNotifs.slice(0,3).map((n,ni)=>`<div class="premium-item" style="animation:fadeInUp .3s ease both;animation-delay:calc(${ni}*.07s)"><div class="pi-icon" style="background:#dbeafe;font-size:16px">${n.type==='alert'?'⚠️':n.type==='message'?'✉️':'ℹ️'}</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg}</div><div class="pi-sub">${n.date} ${n.time||''}</div></div></div>`).join('')}
     ${myNotifs.length>3?`<div style="text-align:center;padding:8px;font-size:13px;color:var(--primary);cursor:pointer" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
   </div>`:''}
 
@@ -2410,17 +2410,17 @@ function dashboardParent() {
         </div>
       </div>`;
     });
-    return `<div class="premium-section" style="border-left:4px solid #059669">
+    return `<div class="premium-section" style="border-left:4px solid #059669;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.45s">
       <div class="premium-section-title">💰 Frais scolaires</div>
       ${rows}
-      <div style="font-size:12px;color:var(--text-muted);margin-top:8px;cursor:pointer;text-decoration:underline" onclick="go('children')">Voir le détail →</div>
+      <div style="font-size:12px;color:var(--primary);margin-top:8px;cursor:pointer;font-weight:600" onclick="go('children')">Voir le détail →</div>
     </div>`;
   })()}
-  <div class="premium-section">
+  <div class="premium-section" style="border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.55s">
     <div class="premium-section-title">⚡ Accès rapides</div>
     <div class="quick-grid">
       ${[['attendance','📋','Présences'],['absences','📄','Justifier'],['authorized','🔑','Autorisés'],['calendar','📅','Calendrier'],['notifications','🔔','Notifs']]
-      .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+      .map(([p,ic,lb])=>`<button class="quick-btn pp-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
     </div>
   </div>
 
@@ -5583,7 +5583,7 @@ R.palmares_parent = () => {
   const trimFilter=selTrim==='Tous'?undefined:selTrim;
   const getMention=pct=>pct>=90?{l:'Excellent',c:'#059669'}:pct>=75?{l:'Très Bien',c:'#0891b2'}:pct>=60?{l:'Bien',c:'#2563eb'}:pct>=50?{l:'Assez Bien',c:'#d97706'}:{l:'Insuffisant',c:'#dc2626'};
 
-  let html=`<div class="ww-toolbar">
+  let html=`<div class="ww-toolbar" style="animation:fadeInUp .35s ease both">
     <span style="font-size:16px;font-weight:700">🏆 Palmarès</span>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
       ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmPTrim='${tr}';render()">${tr}</button>`).join('')}
