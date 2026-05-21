@@ -11908,19 +11908,32 @@ R.profil_parent = () => {
   const BIG_BTN=(color,textColor,icon,label,onclick)=>
     `<button onclick="${onclick}" style="width:100%;padding:16px;background:${color};color:${textColor};border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px">${icon} ${label}</button>`;
 
-  // ── child selector (photo row) ──
+  // ── child grid selector (2 columns, large photos) ──
   const childSelector=kids.length?`
-    <div style="display:flex;gap:14px;overflow-x:auto;padding:4px 2px 14px;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
       ${kids.map(k=>{
         const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?.name||'');
         const sel=k.id===kid?.id;
         const photo=k.photo||k.photo_url;
-        return `<div onclick="window._parentKid='${k.id}';render()" style="display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;cursor:pointer">
-          <div style="width:${sel?72:60}px;height:${sel?72:60}px;border-radius:${sel?20:16}px;overflow:hidden;border:${sel?'3px solid '+clr:'2px solid #e2e8f0'};box-shadow:${sel?'0 4px 18px '+clr+'44':'none'};transition:all .2s;flex-shrink:0">
-            ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:${sel?22:18}px;font-weight:800\\'>${ini(k.name)}</div>'">`
-            :`<div style="width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:${sel?22:18}px;font-weight:800">${ini(k.name)}</div>`}
+        const kScans=(DB.scan_log||[]).filter(sc=>sc.sid===k.id&&sc.date===today()).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+        const kAtt=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
+        const kLast=kScans[0];
+        let badge='⏳',badgeBg='#64748b';
+        if(kLast?.type==='entry'||kAtt?.status==='ontime'){badge='✅';badgeBg='#059669';}
+        else if(kAtt?.status==='late'){badge='⚠️';badgeBg='#d97706';}
+        else if(kAtt?.status==='absent'){badge='❌';badgeBg='#dc2626';}
+        else if(kLast?.type==='exit'){badge='🏠';badgeBg='#3b82f6';}
+        return `<div onclick="window._parentKid='${k.id}';render()" style="cursor:pointer;border-radius:20px;overflow:hidden;border:${sel?'3px solid '+clr:'2.5px solid #e2e8f0'};box-shadow:${sel?'0 6px 24px '+clr+'44':'0 2px 8px rgba(0,0,0,.06)'};transition:all .2s;background:#fff">
+          <div style="position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:${cbg}">
+            ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800\\'>${ini(k.name)}</div>'">`
+            :`<div style="width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800">${ini(k.name)}</div>`}
+            <div style="position:absolute;top:8px;right:8px;background:${badgeBg};border-radius:10px;padding:3px 8px;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${badge}</div>
+            ${sel?`<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:${clr}"></div>`:''}
           </div>
-          <div style="font-size:${sel?12:11}px;font-weight:${sel?700:500};color:${sel?clr:'#94a3b8'};max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center">${esc(k.name.split(' ')[0])}</div>
+          <div style="padding:10px 12px 12px">
+            <div style="font-size:15px;font-weight:800;color:${sel?clr:'#0f172a'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.name.split(' ')[0])}</div>
+            <div style="font-size:12px;color:#64748b;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cl?esc(cl.name):'—'}</div>
+          </div>
         </div>`;
       }).join('')}
     </div>` : '';
@@ -11989,16 +12002,14 @@ R.profil_parent = () => {
     })();
 
     return `
-    <!-- En-tête enfant -->
-    <div style="display:flex;align-items:center;gap:14px;padding:14px;background:${cbg}18;border-radius:18px;border:2px solid ${cbg};margin-bottom:14px">
-      <div style="width:68px;height:68px;border-radius:18px;overflow:hidden;flex-shrink:0;border:2.5px solid ${cc}">
-        ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentNode.innerHTML='<div style=\\'width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800\\'>${ini(kid.name)}</div>'">`
-        :`<div style="width:100%;height:100%;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800">${ini(kid.name)}</div>`}
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:20px;font-weight:900;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(kid.name)}</div>
-        <div style="font-size:13px;font-weight:600;color:${cc};margin-top:2px">${cl?esc(cl.name):'Classe non assignée'}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:1px">Matricule : ${esc(kid.mat||'—')}</div>
+    <!-- En-tête enfant — photo pleine largeur -->
+    <div style="border-radius:20px;overflow:hidden;margin-bottom:16px;position:relative;background:${cbg}">
+      ${photo
+        ?`<img src="${photo}" style="width:100%;height:200px;object-fit:cover;display:block" onerror="this.style.display='none'">`
+        :`<div style="width:100%;height:200px;background:${cbg};display:flex;align-items:center;justify-content:center;font-size:72px;font-weight:800;color:${cc}">${ini(kid.name)}</div>`}
+      <div style="position:absolute;bottom:0;left:0;right:0;padding:18px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.72))">
+        <div style="color:#fff;font-size:22px;font-weight:900;text-shadow:0 1px 4px rgba(0,0,0,.4)">${esc(kid.name)}</div>
+        <div style="color:rgba(255,255,255,.88);font-size:13px;font-weight:600;margin-top:3px">${cl?esc(cl.name):'Classe non assignée'} &nbsp;·&nbsp; ${esc(kid.mat||'—')}</div>
       </div>
     </div>
 
