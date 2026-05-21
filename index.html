@@ -12,7 +12,6 @@
 <title>SchoolSafe — The Wise School International</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 <style>
 /* ═══════════════════════════════════════════
    SCHOOLSAFE v3.0 — WESTWOOD PREMIUM DESIGN
@@ -358,6 +357,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
     <div id="LP_HINT" style="font-size:11px;color:#94a3b8;text-align:center;margin-bottom:12px;min-height:16px"></div>
     <div class="pin-message" id="PM"></div>
     <button class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:8px" onclick="tryLogin()">🔓 Connexion</button>
+    <div id="LOAD_IND" style="display:none;margin-top:12px;text-align:center;font-size:12px;color:rgba(255,255,255,.5);animation:pulse 1.5s ease-in-out infinite">⏳ Synchronisation en cours…</div>
   </div>
 </div>
 
@@ -14475,7 +14475,7 @@ window.printRapportSecope = () => {
 })();
 
 // ── INIT ──
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   // Dark mode
   try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.textContent='☀️';} } catch(e){}
   initParticles();
@@ -14485,22 +14485,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   if(lp) lp.addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
   if(ln) ln.addEventListener('keydown', e=>{ if(e.key==='Enter' && lp) lp.focus(); });
 
-  // Splash — tap sur mobile (touchstart = réponse immédiate)
+  // Splash — tap immédiat ou auto après 1.5s
   const splash=$('SPLASH');
+  let gone=false;
+  const goLogin=()=>{ if(gone) return; gone=true; showLogin(); };
   if(splash){
-    let gone=false;
-    function goLogin(){ if(gone) return; gone=true; showLogin(); }
     splash.addEventListener('touchstart', goLogin, {passive:true});
     splash.addEventListener('click', goLogin);
     document.addEventListener('keydown', e=>{ if(e.key==='Enter') goLogin(); });
   }
+  // Affiche le login automatiquement après 1.5s sans attendre Supabase
+  setTimeout(goLogin, 1500);
 
-  // Chargement Supabase (max 5 secondes)
-  const ok = await Promise.race([
-    loadFromSupabase(),
-    new Promise(res => setTimeout(()=>res(false), 5000))
-  ]);
-  if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
+  // Supabase charge en arrière-plan — n'est plus bloquant
+  const ind=$('LOAD_IND');
+  if(ind) ind.style.display='';
+  loadFromSupabase()
+    .then(ok=>{
+      if(ind) ind.style.display='none';
+      if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
+    })
+    .catch(()=>{ if(ind) ind.style.display='none'; });
 });
 </script>
 </body>
