@@ -2325,117 +2325,162 @@ function dashboardGardien() {
 }
 
 function dashboardParent() {
-  const u = S.user;
-  const kids = DB.students.filter(s=>s.pid===u.id);
-  const myNotifs = DB.notifs.filter(n=>n.uid===u.id&&!n.read);
-  const unreadMsgs = DB.messages.filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  const u=S.user;
+  const kids=DB.students.filter(s=>s.pid===u.id);
+  const myNotifs=DB.notifs.filter(n=>n.uid===u.id&&!n.read);
+  const unreadMsgs=DB.messages.filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  const clr='#6d28d9';const clr2='#4f46e5';
+  const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
 
-  // Build real-time status for each child
-  const kidStatus = kids.map(k=>{
-    const att = DB.attendance.find(a=>a.sid===k.id&&a.date===today());
-    const exitScan = DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
-    let status, bg, emoji;
-    if(exitScan){status='Sorti(e) à '+exitScan.time; bg='#fef3c7'; emoji='🏠';}
-    else if(att&&att.status==='ontime'){status='À l\'école ✅ depuis '+att.arr_time; bg='#d1fae5'; emoji='🏫';}
-    else if(att&&att.status==='late'){status='À l\'école ⚠️ (retard '+att.arr_time+')'; bg='#fef3c7'; emoji='⚠️';}
-    else if(att&&att.status==='sick'){status='Sorti(e) — maladie'; bg='#fce7f3'; emoji='🤒';}
-    else if(att&&att.status==='excused'){status='Absent(e) — justifié'; bg='#dbeafe'; emoji='📄';}
-    else{status='Pas encore arrivé(e)'; bg='#f1f5f9'; emoji='⏳';}
-    return{...k,status,bg,emoji};
+  const kidStatus=kids.map(k=>{
+    const att=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
+    const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+    let statText,statClr,pulse=false;
+    if(exitScan){statText='Sorti(e) à '+exitScan.time;statClr='#3b82f6';}
+    else if(att&&att.status==='ontime'){statText="À l'école depuis "+(att.arr_time||'');statClr='#059669';pulse=true;}
+    else if(att&&att.status==='late'){statText='Retard — '+(att.arr_time||'');statClr='#d97706';}
+    else if(att&&att.status==='sick'){statText='Absent(e) — maladie';statClr='#ec4899';}
+    else if(att&&att.status==='excused'){statText='Absent(e) — justifié';statClr='#3b82f6';}
+    else{statText='Pas encore arrivé(e)';statClr='#94a3b8';}
+    return{...k,statText,statClr,pulse};
   });
 
-  const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
-  const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-
   return `
-  <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#2555a8,#4f46e5);animation:fadeInUp .4s ease both">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">Bonjour ${esc(u.name.split(' ')[0])} 👋</div>
-    <div class="hero-sub">${kids.length} enfant${kids.length>1?'s':''} inscrit${kids.length>1?'s':''}</div>
-    <div class="hero-bar"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${kids.length}</div><div class="hero-stat-lbl">Enfants</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${myNotifs.length}</div><div class="hero-stat-lbl">Notifs</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${unreadMsgs}</div><div class="hero-stat-lbl">Messages</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">Bonjour, ${esc(u.name.split(' ')[0])}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${kids.length} enfant${kids.length>1?'s':''} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[kids.length,'Enfants'],[myNotifs.length,'Notifs'],[unreadMsgs,'Messages']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
 
-  ${kidStatus.map((k,ki)=>`
-  <div class="premium-section" style="--i:${ki};animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s);border-left:4px solid ${k.bg==='#d1fae5'?'#10b981':k.bg==='#fef3c7'?'#f59e0b':k.bg==='#fce7f3'?'#ec4899':'#64748b'};border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);margin-bottom:12px">
-    <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:62px;height:62px;border-radius:18px;background:${k.bg};display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.1)">${k.emoji}</div>
-      <div style="flex:1">
-        <div style="font-size:17px;font-weight:800">${esc(k.name)}</div>
-        <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">${esc(k.status)}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:2px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text-muted)">${gc(k.cid)?esc(gc(k.cid).name):''}</span>
-          ${(()=>{const r=getRankInClass(k.id);return r?`<span style="font-size:11px;font-weight:700;background:${r.pos<=3?'#fef3c7':'#f1f5f9'};color:${r.pos<=3?'#92400e':'#475569'};border-radius:6px;padding:1px 7px">${r.pos<=3?['🥇','🥈','🥉'][r.pos-1]:r.pos+'e'} / ${r.outOf}</span>`:''})()}
+  ${kidStatus.map((k,ki)=>{
+    const cl=gc(k.cid);const [cc,cbg]=clsColor(cl?.name||'');
+    const photo=k.photo||k.photo_url;
+    const rank=getRankInClass(k.id);
+    return `
+  <div style="background:#fff;border-radius:22px;overflow:hidden;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:${ki*.1}s;box-shadow:0 4px 24px ${k.statClr}18,0 2px 8px rgba(0,0,0,.05);border-left:4px solid ${k.statClr}">
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="position:relative;flex-shrink:0">
+          <div style="width:62px;height:62px;border-radius:18px;background:${cbg};overflow:hidden">
+            ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:${cc}">${ini(k.name)}</div>`}
+          </div>
+          <div style="position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-radius:50%;background:${k.statClr};border:2.5px solid #fff;${k.pulse?'animation:ringPulse 2s ease infinite':''}"></div>
         </div>
-        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-          <button class="btn btn-sm pp-btn" style="background:#dbeafe;color:#1e40af;border:none;font-size:11px;border-radius:10px" onclick="go('devoirs_parent')">📚 Devoirs</button>
-          ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm pp-btn" style="background:#d1fae5;color:#065f46;border:none;font-size:11px;border-radius:10px" onclick="go('devoirs_parent')">📊 Corrections</button>`:''}
-          ${k.access_parent&&(DB.settings.toggles?.bulletin??false)?`<button class="btn btn-sm pp-btn" style="background:#fef3c7;color:#92400e;border:none;font-size:11px;border-radius:10px" onclick="go('palmares_parent')">📋 Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8">🔒 Bulletin — voir la direction</span>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:17px;font-weight:800;color:#0f172a">${esc(k.name)}</div>
+          <div style="font-size:13px;color:${k.statClr};font-weight:600;margin-top:2px">${k.statText}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#64748b">${cl?esc(cl.name):''}</span>
+            ${rank?`<span style="font-size:11px;font-weight:700;background:${rank.pos<=3?'#fef3c7':'#f1f5f9'};color:${rank.pos<=3?'#92400e':'#475569'};border-radius:6px;padding:1px 7px">${rank.pos<=3?['🥇','🥈','🥉'][rank.pos-1]:rank.pos+'e'} / ${rank.outOf}</span>`:''}
+          </div>
         </div>
+        <button class="pp-btn" style="background:linear-gradient(135deg,${clr},${clr2});color:#fff;border:none;border-radius:12px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(109,40,217,.4);white-space:nowrap;flex-shrink:0" onclick="go('children')">Détails</button>
       </div>
-      <button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:none;border-radius:12px;padding:8px 14px;box-shadow:0 2px 8px rgba(37,99,235,.35)" onclick="go('children')">Détails →</button>
+      <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-sm pp-btn" style="background:#eff6ff;color:#1d4ed8;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('devoirs_parent')">Devoirs</button>
+        ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm pp-btn" style="background:#f0fdf4;color:#065f46;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('devoirs_parent')">Corrections</button>`:''}
+        ${k.access_parent&&(DB.settings.toggles?.bulletin??false)?`<button class="btn btn-sm pp-btn" style="background:#fef9c3;color:#92400e;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('palmares_parent')">Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8;padding:6px 0">Bulletin — contactez la direction</span>`}
+      </div>
     </div>
-  </div>`).join('')}
+  </div>`;
+  }).join('')}
 
-  <div class="action-grid" style="grid-template-columns:repeat(4,1fr);animation:fadeInUp .35s ease both;animation-delay:.25s">
-    <button class="action-card" onclick="go('children')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">👶</span><span class="ac-label">Enfants</span></button>
-    ${kids.some(k=>k.access_parent)&&(DB.settings.toggles?.bulletin??false)?`<button class="action-card" onclick="go('palmares_parent')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🏆</span><span class="ac-label">Palmarès</span></button>`:`<button class="action-card" style="background:linear-gradient(135deg,#94a3b8,#64748b);opacity:.7;cursor:not-allowed"><span class="ac-icon">🔒</span><span class="ac-label">Palmarès</span></button>`}
-    <button class="action-card" onclick="go('devoirs_parent')" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><span class="ac-icon">📚</span><span class="ac-label">Devoirs</span></button>
-    <button class="action-card" onclick="go('messages')" style="background:linear-gradient(135deg,#059669,#047857);position:relative"><span class="ac-icon">✉️</span><span class="ac-label">Messages</span>${unreadMsgs>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${unreadMsgs}</span>`:''}</button>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.25s">
+    ${[['children','linear-gradient(135deg,#6d28d9,#4f46e5)','Enfants'],
+       [kids.some(k=>k.access_parent)&&(DB.settings.toggles?.bulletin??false)?'palmares_parent':'','linear-gradient(135deg,#c9a030,#a68520)','Palmarès'],
+       ['devoirs_parent','linear-gradient(135deg,#8b5cf6,#7c3aed)','Devoirs'],
+       ['messages','linear-gradient(135deg,#059669,#047857)','Messages']
+    ].map(([page,bg,label])=>`
+    <button class="pp-btn" onclick="${page?`go('${page}')`:``}"
+      style="background:${!page?'linear-gradient(135deg,#94a3b8,#64748b)':bg};border:none;border-radius:18px;padding:16px 6px 14px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
+      ${unreadMsgs>0&&label==='Messages'?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${unreadMsgs}</span>`:''}
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:-.2px">${label}</div>
+    </button>`).join('')}
   </div>
 
   ${myNotifs.length>0?`
-  <div class="premium-section" style="border-left:4px solid #3b82f6;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.35s">
-    <div class="premium-section-title">🔔 Nouvelles notifications (${myNotifs.length})</div>
-    ${myNotifs.slice(0,3).map((n,ni)=>`<div class="premium-item" style="animation:fadeInUp .3s ease both;animation-delay:calc(${ni}*.07s)"><div class="pi-icon" style="background:#dbeafe;font-size:16px">${n.type==='alert'?'⚠️':n.type==='message'?'✉️':'ℹ️'}</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg}</div><div class="pi-sub">${n.date} ${n.time||''}</div></div></div>`).join('')}
-    ${myNotifs.length>3?`<div style="text-align:center;padding:8px;font-size:13px;color:var(--primary);cursor:pointer" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
+  <div style="background:#fff;border-left:4px solid #3b82f6;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(59,130,246,.1);animation:fadeInUp .35s ease both;animation-delay:.35s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#3b82f6"></div>
+      <div style="font-size:10px;font-weight:800;color:#3b82f6;letter-spacing:1.5px;text-transform:uppercase">Notifications (${myNotifs.length})</div>
+    </div>
+    ${myNotifs.slice(0,3).map((n,ni)=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;${ni<Math.min(2,myNotifs.slice(0,3).length-1)?'border-bottom:1px solid #f1f5f9':''}">
+      <div style="width:32px;height:32px;border-radius:10px;background:${n.type==='alert'?'#fef2f2':n.type==='message'?'#eff6ff':'#f0fdf4'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <div style="width:10px;height:10px;border-radius:50%;background:${n.type==='alert'?'#dc2626':n.type==='message'?'#3b82f6':'#059669'}"></div>
+      </div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${n.msg}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${n.date} ${n.time||''}</div></div>
+    </div>`).join('')}
+    ${myNotifs.length>3?`<div style="text-align:center;padding:8px 0 2px;font-size:13px;color:#3b82f6;cursor:pointer;font-weight:600" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
   </div>`:''}
 
   ${(()=>{
     if(!kids.length) return '';
-    const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
-    const trims=['T1','T2','T3'];
-    let rows='';
+    const trims=['T1','T2','T3'];let rows='';
     kids.forEach(k=>{
       const pays=DB.payments.filter(p=>p.sid===k.id);
       const totalPaid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
       const totalDue=trims.reduce((s,t)=>s+Number(fees[t]||0),0);
       const balance=totalDue-totalPaid;
-      rows+=`<div class="premium-item">
-        <div class="pi-icon" style="background:${balance===0?'#d1fae5':'#fef3c7'}">${balance===0?'✅':'💰'}</div>
-        <div style="flex:1">
-          <div class="pi-title">${esc(k.name)}</div>
-          <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
-            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};color:${p&&p.paid?'#065f46':'#991b1b'};font-weight:600">${t} ${p&&p.paid?'✅':'$'+Number(fees[t]||0)}</span>`;}).join('')}
+      rows+=`<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f1f5f9">
+        <div style="width:36px;height:36px;border-radius:10px;background:${balance===0?'#f0fdf4':'#fef2f2'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:12px;height:12px;border-radius:50%;background:${balance===0?'#059669':'#dc2626'}"></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700">${esc(k.name)}</div>
+          <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p&&p.paid?'#dcfce7':'#fee2e2'};color:${p&&p.paid?'#166534':'#991b1b'};font-weight:600">${t} ${p&&p.paid?'OK':'$'+(fees[t]||0)}</span>`;}).join('')}
           </div>
         </div>
-        <div style="text-align:right">
-          <div style="font-weight:800;font-size:15px;color:${balance===0?'#059669':'#dc2626'}">${balance===0?'Tout payé':'$'+balance+' dû'}</div>
-          <div style="font-size:10px;color:var(--text-muted)">sur $${totalDue}</div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-weight:800;font-size:15px;color:${balance===0?'#059669':'#dc2626'}">${balance===0?'Payé':'$'+balance}</div>
+          <div style="font-size:10px;color:#94a3b8">sur $${totalDue}</div>
         </div>
       </div>`;
     });
-    return `<div class="premium-section" style="border-left:4px solid #059669;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.45s">
-      <div class="premium-section-title">💰 Frais scolaires</div>
+    return `<div style="background:#fff;border-left:4px solid #059669;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(5,150,105,.1);animation:fadeInUp .35s ease both;animation-delay:.45s">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+        <div style="width:3px;height:14px;border-radius:2px;background:#059669"></div>
+        <div style="font-size:10px;font-weight:800;color:#059669;letter-spacing:1.5px;text-transform:uppercase">Frais scolaires</div>
+      </div>
       ${rows}
-      <div style="font-size:12px;color:var(--primary);margin-top:8px;cursor:pointer;font-weight:600" onclick="go('children')">Voir le détail →</div>
+      <div style="font-size:12px;color:${clr};margin-top:10px;cursor:pointer;font-weight:600" onclick="go('children')">Voir le détail →</div>
     </div>`;
   })()}
-  <div class="premium-section" style="border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:.55s">
-    <div class="premium-section-title">⚡ Accès rapides</div>
-    <div class="quick-grid">
-      ${[['attendance','📋','Présences'],['absences','📄','Justifier'],['authorized','🔑','Autorisés'],['calendar','📅','Calendrier'],['notifications','🔔','Notifs']]
-      .map(([p,ic,lb])=>`<button class="quick-btn pp-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+
+  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:8px;animation:fadeInUp .35s ease both;animation-delay:.55s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+      ${[['attendance','#3b82f6','Présences'],['absences','#f59e0b','Justifier'],['authorized','#6d28d9','Autorisés'],['calendar','#ec4899','Calendrier'],['notifications','#64748b','Notifs']]
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
+          <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
+      </button>`).join('')}
     </div>
   </div>
 
   </div>`;
 }
-
 // ── CARDS SYSTEM (intégré depuis carte_verrouillee_source.html) ──
 
 // Constantes du système de cartes
