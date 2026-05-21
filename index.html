@@ -4656,248 +4656,258 @@ window.assignTrimestre = (sid) => {
 
 // ── PARENT: MES ENFANTS ──
 R.children = () => {
-  const kids = DB.students.filter(s=>s.pid===S.user.id);
-  if (!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">👶</div>Aucun enfant lié à ce compte</div>`;
+  const kids=DB.students.filter(s=>s.pid===S.user.id);
+  const clr='#6d28d9'; const clr2='#4f46e5';
+
+  const BTN=(bg,tc,label,onclick)=>
+    `<button onclick="${onclick}" class="pp-btn" style="width:100%;padding:13px 18px;background:${bg};color:${tc};border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;margin-bottom:8px;letter-spacing:-.2px">${label}</button>`;
+  const SECTION=(text,color)=>
+    `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px"><div style="width:3px;height:14px;border-radius:2px;background:${color}"></div><div style="font-size:10px;font-weight:800;color:${color};letter-spacing:1.5px;text-transform:uppercase">${text}</div></div>`;
+
+  if(!kids.length) return `<div style="text-align:center;padding:60px;color:#94a3b8"><div style="width:64px;height:64px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><div style="font-size:28px;font-weight:900;color:#cbd5e1">?</div></div><div style="margin-top:8px">Aucun enfant lié à ce compte</div></div>`;
 
   return kids.map((k,i)=>{
-    const c = gc(k.cid);
-    const pays = DB.payments.filter(p=>p.sid===k.id);
-    const hasPaid = pays.some(p=>p.paid);
-    const [cc,cbg] = clsColor(c?c.name:'');
-
-    // Solde
-    const fees = DB.settings.fees||{T1:0,T2:0,T3:0};
-    const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-    const paidAmt = pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-    const debt = totalFees - paidAmt;
-
-    // Présence aujourd'hui
-    const ta = DB.attendance.find(a=>a.sid===k.id&&a.date===today());
-    const exitScan = DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
-
-    // Historique 14 derniers jours
-    const days14 = Array.from({length:14},(_,j)=>{
-      const d=new Date(); d.setDate(d.getDate()-j);
-      return d.toISOString().slice(0,10);
-    }).reverse();
-
-    // Profs de la classe
-    const profFR = c&&c.teacher_id ? gu(c.teacher_id) : null;
-    const profEN = c&&c.teacher_id_en ? gu(c.teacher_id_en) : null;
-    const titulaireProf = c&&c.titulaire_id ? gu(c.titulaire_id) : null;
+    const c=gc(k.cid);
+    const pays=DB.payments.filter(p=>p.sid===k.id);
+    const [cc,cbg]=clsColor(c?c.name:'');
+    const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
+    const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+    const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
+    const debt=totalFees-paidAmt;
+    const ta=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
+    const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+    let statText,statClr,statBg;
+    if(exitScan){statText=`Sorti(e) à ${exitScan.time}`;statClr='#3b82f6';statBg='#eff6ff';}
+    else if(ta&&ta.status==='ontime'){statText=`À l'école depuis ${ta.arr_time||''}`;statClr='#059669';statBg='#f0fdf4';}
+    else if(ta&&ta.status==='late'){statText=`Arrivé(e) en retard — ${ta.arr_time||''}`;statClr='#d97706';statBg='#fffbeb';}
+    else if(ta&&ta.status==='sick'){statText='Absent(e) pour maladie';statClr='#ec4899';statBg='#fdf2f8';}
+    else if(ta&&ta.status==='excused'){statText='Absent(e) — justifié';statClr='#3b82f6';statBg='#eff6ff';}
+    else{statText="Pas encore arrivé(e)";statClr='#94a3b8';statBg='#f8fafc';}
+    const days14=Array.from({length:14},(_,j)=>{const d=new Date();d.setDate(d.getDate()-j);return d.toISOString().slice(0,10);}).reverse();
+    const profFR=c&&c.teacher_id?gu(c.teacher_id):null;
+    const profEN=c&&c.teacher_id_en?gu(c.teacher_id_en):null;
+    const titulaireProf=c&&c.titulaire_id?gu(c.titulaire_id):null;
+    const photo=k.photo||k.photo_url;
 
     return `
-    <div class="ww-section" style="margin-bottom:18px;animation-delay:${i*.08}s">
+    <div style="background:#fff;border-radius:24px;overflow:hidden;margin-bottom:18px;box-shadow:0 4px 24px rgba(0,0,0,.08);animation:fadeInUp .3s ease both;animation-delay:${i*.08}s">
 
-      <!-- EN-TÊTE ENFANT -->
-      <div style="padding:20px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border-light)">
-        <div style="width:68px;height:68px;border-radius:18px;background:${cbg};color:${cc};font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
-          ${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:ini(k.name)}
+      <!-- EN-TÊTE -->
+      <div style="background:linear-gradient(135deg,${cbg},${cbg}ee);padding:20px;display:flex;align-items:center;gap:14px">
+        <div style="width:72px;height:72px;border-radius:18px;background:rgba(255,255,255,.25);overflow:hidden;flex-shrink:0;border:2.5px solid rgba(255,255,255,.4)">
+          ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:${cc}">${ini(k.name)}</div>`}
         </div>
-        <div style="flex:1">
-          <div style="font-size:19px;font-weight:800">${esc(k.name)}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">${esc(k.mat)} · ${c?esc(c.name):''} · ${c?c.cycle:''}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Matricule : ${esc(k.mat)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:20px;font-weight:900;color:${cc};line-height:1.2">${esc(k.name)}</div>
+          <div style="font-size:13px;color:${cc}bb;margin-top:3px">${c?esc(c.name):''} · ${c?c.cycle:''}</div>
+          <div style="font-size:11px;color:${cc}88;margin-top:2px">N° ${esc(k.mat||'—')}</div>
         </div>
-        <button class="btn btn-sm" style="background:#dbeafe;color:#1d4ed8;border:none;flex-shrink:0" onclick="showChildQR('${k.id}')">🪪 Carte</button>
+        <button class="pp-btn" style="background:rgba(255,255,255,.22);color:${cc};border:1.5px solid rgba(255,255,255,.4);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap" onclick="showChildQR('${k.id}')">Carte</button>
       </div>
 
-      <!-- STATUT TEMPS RÉEL -->
-      <div style="padding:14px 20px;background:${exitScan?'#fef3c7':ta&&(ta.status==='ontime'||ta.status==='late')?'#f0fdf4':'#f8fafc'};border-bottom:1px solid var(--border-light)">
-        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:4px">📍 Statut aujourd'hui</div>
-        <div style="font-size:15px;font-weight:700;color:${exitScan?'#92400e':ta&&ta.status==='ontime'?'#065f46':ta&&ta.status==='late'?'#92400e':'#475569'}">
-          ${exitScan?`🏠 Sorti(e) à ${exitScan.time}`:ta&&ta.status==='ontime'?`🏫 À l'école depuis ${ta.arr_time}`:ta&&ta.status==='late'?`⚠️ À l'école (retard — ${ta.arr_time})`:ta&&ta.status==='sick'?'🤒 Sorti(e) pour maladie':ta&&ta.status==='excused'?'📄 Absent(e) — justifié':'⏳ Pas encore arrivé(e)'}
-        </div>
-      </div>
+      <div style="padding:16px">
 
-      <!-- SOLDE FRAIS -->
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border-light)">
-        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">💰 Frais scolaires</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-          ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);return`<div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:${p&&p.paid?'#d1fae5':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#059669':'#dc2626'}">${p&&p.paid?'✅ Payé':'❌ Dû'}</div><div style="font-size:11px;color:var(--text-muted)">${fees[t]?'$'+fees[t]:'—'}</div></div>`;}).join('')}
-        </div>
-        ${totalFees>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 12px;background:${debt>0?'#fee2e2':'#d1fae5'};border-radius:10px">
-          <span style="font-weight:600">${debt>0?'💳 Solde dû':'✅ Tout payé'}</span>
-          <span style="font-weight:800;color:${debt>0?'#dc2626':'#059669'}">${debt>0?'$'+debt:'$0'}</span>
-        </div>`:'<div style="font-size:12px;color:var(--text-muted)">Montants non configurés par la Direction</div>'}
-        ${paidAmt>0?`<button class="btn btn-outline" style="width:100%;margin-top:10px;font-size:12px" onclick="printReport('recu','${k.id}')">🧾 Reçu de paiement</button>`:''}
-      </div>
-
-      <!-- PROFS DE LA CLASSE -->
-      ${c&&c.cycle==='primaire'&&(profFR||profEN)?`
-      <div style="padding:14px 20px;border-bottom:1px solid var(--border-light)">
-        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">👨‍🏫 Professeurs</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${profFR?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
-            <div style="width:38px;height:38px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profFR.name)}</div>
-            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇫🇷 ${profFR.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Français${titulaireProf&&titulaireProf.id===profFR.id?' ⭐ Titulaire':''}</div></div>
-            <button class="btn btn-outline btn-sm" onclick="messageTeacher('${profFR.id}','${k.id}')">📨</button>
-          </div>`:''}
-          ${profEN?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:10px">
-            <div style="width:38px;height:38px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">${ini(profEN.name)}</div>
-            <div style="flex:1"><div style="font-weight:700;font-size:13px">🇬🇧 ${profEN.name}</div><div style="font-size:11px;color:var(--text-secondary)">Professeur Anglais${titulaireProf&&titulaireProf.id===profEN.id?' ⭐ Titulaire':''}</div></div>
-            <button class="btn btn-outline btn-sm" onclick="messageTeacher('${profEN.id}','${k.id}')">📨</button>
-          </div>`:''}
-        </div>
-      </div>`:''}
-
-      <!-- HISTORIQUE PRÉSENCES 14 JOURS -->
-      <div style="padding:14px 20px">
-        <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">📅 Présences — 14 derniers jours</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${days14.map(d=>{
-            const a=DB.attendance.find(x=>x.sid===k.id&&x.date===d);
-            const isToday=d===today();
-            const dot=a?(a.status==='ontime'?{bg:'#10b981',label:'✅',tip:'À l\'heure'}:a.status==='late'?{bg:'#f59e0b',label:'⚠',tip:'Retard'}:a.status==='excused'?{bg:'#3b82f6',label:'📄',tip:'Justifié'}:a.status==='sick'?{bg:'#ec4899',label:'🤒',tip:'Maladie'}:{bg:'#ef4444',label:'✗',tip:'Refusé'}):{bg:'#e2e8f0',label:'—',tip:'Absent'};
-            const dayName=new Date(d).toLocaleDateString('fr-FR',{weekday:'short'}).slice(0,2);
-            const dayNum=new Date(d).getDate();
-            return `<div style="text-align:center;min-width:30px">
-              <div style="width:28px;height:28px;border-radius:8px;background:${dot.bg};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700;margin:0 auto;${isToday?'box-shadow:0 0 0 2px #2563eb;':''}cursor:default" title="${d} — ${dot.tip}">${dot.label}</div>
-              <div style="font-size:9px;color:var(--text-muted);margin-top:2px">${dayNum}</div>
-            </div>`;
-          }).join('')}
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--text-secondary)">
-          <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:3px"></span> À l'heure</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:3px"></span> Retard</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:3px"></span> Justifié</span>
-          <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border-radius:3px"></span> Absent</span>
-        </div>
-      </div>
-
-      <!-- ANALYSE AUTO RATTRAPAGE -->
-      ${(()=>{
-        const rats=DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
-        if(rats.length) return ''; // déjà affiché en bas
-        const grades=DB.grades.filter(g=>g.sid===k.id);
-        if(!grades.length) return '';
-        const avg=Math.round(grades.reduce((a,g)=>a+gradePct(g),0)/grades.length);
-        const conds=DB.conduct.filter(c=>c.sid===k.id).slice(0,10);
-        const condMap2={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-        const condAvg2=conds.length?conds.reduce((a,c)=>a+(condMap2[c.score]||0),0)/conds.length:null;
-        const needsRat=avg<60;
-        const badCond=condAvg2!==null&&condAvg2<2.5;
-        if(!needsRat&&!badCond) return '';
-        const weakMats=[...new Set(grades.filter(g=>gradePct(g)<60).map(g=>g.matiere))];
-        return `<div style="padding:14px 20px;border-top:1px solid var(--border-light);background:#fef9c3">
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <span style="font-size:24px;flex-shrink:0">🔍</span>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:6px">Analyse SchoolSafe — Suivi recommandé</div>
-              <div style="font-size:12px;color:#78350f;margin-bottom:8px">
-                ${needsRat?`Moyenne générale <strong>${avg}%</strong> (seuil : 60%). `:''}
-                ${badCond?'Conduite insuffisante sur les dernières séances. ':''}
-                ${weakMats.length?`Matières concernées : <strong>${weakMats.slice(0,3).join(', ')}</strong>.`:''}
-              </div>
-              <div style="font-size:11px;color:#92400e;padding:6px 10px;background:#fef3c7;border-radius:8px">
-                💡 Contactez la Direction pour planifier des cours de rattrapage personnalisés.
-              </div>
+        <!-- STATUT TEMPS RÉEL -->
+        <div style="background:${statBg};border-left:4px solid ${statClr};border-radius:16px;padding:14px 16px;margin-bottom:12px">
+          ${SECTION("Aujourd'hui", statClr)}
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:46px;height:46px;border-radius:14px;background:${statClr}18;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <div style="width:18px;height:18px;border-radius:50%;background:${statClr}"></div>
             </div>
+            <div style="font-size:15px;font-weight:700;color:${statClr}">${statText}</div>
           </div>
-        </div>`;
-      })()}
+        </div>
 
-      <!-- TUTELLES SECONDAIRES (lecture seule — enregistrées par Direction) -->
-      ${(()=>{
-        const tuts = DB.aps.filter(a=>a.sid===k.id&&a.active!==false);
-        if(!tuts.length) return `
-        <div style="padding:14px 20px;border-top:1px solid var(--border-light)">
-          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">🔑 Personnes autorisées pour la sortie</div>
-          <div style="font-size:12px;color:var(--text-muted);padding:10px;background:var(--bg);border-radius:10px">Aucune tutelle secondaire enregistrée.<br>Contactez la Direction pour ajouter des personnes autorisées.</div>
-        </div>`;
-        return `
-        <div style="padding:14px 20px;border-top:1px solid var(--border-light)">
-          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">🔑 Personnes autorisées pour la sortie (${tuts.length}/3)</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            ${tuts.map(t=>`<div style="text-align:center;flex:1;min-width:80px;max-width:110px">
-              <div style="width:64px;height:80px;border-radius:12px;background:#f1f5f9;margin:0 auto 6px;overflow:hidden;border:2px solid var(--border)">
-                ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#64748b">${ini(t.name)}</div>`}
-              </div>
-              <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
-              <div style="font-size:10px;color:var(--text-muted)">${esc(t.relation)}</div>
-              ${t.phone?`<div style="font-size:10px;color:var(--primary)">${esc(t.phone)}</div>`:''}
-            </div>`).join('')}
+        <!-- FRAIS SCOLAIRES -->
+        <div style="border-left:4px solid ${debt>0?'#ef4444':totalFees>0?'#059669':'#94a3b8'};background:${debt>0?'#fef2f2':totalFees>0?'#f0fdf4':'#f8fafc'};border-radius:16px;padding:14px 16px;margin-bottom:12px">
+          ${SECTION('Frais scolaires', debt>0?'#ef4444':totalFees>0?'#059669':'#94a3b8')}
+          <div style="display:flex;gap:6px;margin-bottom:${totalFees>0||!totalFees?10:0}px">
+            ${['T1','T2','T3'].map(t=>{
+              const p=pays.find(x=>x.t===t);
+              const paid=p&&p.paid;
+              return `<div style="flex:1;padding:10px 8px;border-radius:12px;background:${paid?'#dcfce7':'#fee2e2'};text-align:center;border:1.5px solid ${paid?'#86efac':'#fca5a5'}">
+                <div style="font-size:11px;font-weight:800;color:${paid?'#166534':'#991b1b'};margin-bottom:3px">${t}</div>
+                <div style="font-size:12px;font-weight:700;color:${paid?'#059669':'#dc2626'}">${paid?'Payé':'Dû'}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px">${fees[t]?'$'+fees[t]:'—'}</div>
+              </div>`;
+            }).join('')}
           </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:8px">⚠️ Ces personnes sont autorisées à récupérer l'enfant. Leur visage s'affiche lors du scan de sortie au gardien.</div>
-        </div>`;
-      })()}
+          ${totalFees>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 12px;background:${debt>0?'#fee2e2':'#dcfce7'};border-radius:10px;margin-bottom:${paidAmt>0?10:0}px">
+            <span style="font-weight:600;color:${debt>0?'#991b1b':'#166534'}">${debt>0?'Solde dû':'Tout payé'}</span>
+            <span style="font-weight:900;color:${debt>0?'#dc2626':'#059669'}">${debt>0?'$'+debt:'$0'}</span>
+          </div>`:'<div style="font-size:12px;color:#94a3b8">Montants non configurés par la Direction</div>'}
+          ${paidAmt>0?BTN('#f1f5f9','#1e293b','Reçu de paiement',"printReport('recu','"+k.id+"')"):''}
+        </div>
 
-      <!-- CONVOCATION RDV -->
-      ${(()=>{
-        const convs=DB.convocations.filter(c=>c.sid===k.id&&(c.status==='scheduled'));
-        if(!convs.length) return '';
-        return convs.map(c=>`
-        <div style="padding:12px 20px;border-top:1px solid var(--border-light);background:#fef2f2">
-          <div style="display:flex;align-items:center;gap:10px">
-            <div style="font-size:24px">📅</div>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:13px;color:#dc2626">Convocation Direction</div>
-              <div style="font-size:13px;font-weight:600">RDV : ${new Date(c.rdv_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-              ${c.note?`<div style="font-size:12px;color:var(--text-secondary)">${c.note}</div>`:''}
-            </div>
-            <span class="pill" style="background:#fee2e2;color:#dc2626">⚠️ Important</span>
-          </div>
-        </div>`).join('');
-      })()}
-      <!-- RATTRAPAGE -->
-      ${(()=>{
-        const rats = DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
-        if(!rats.length) return '';
-        return `
-        <div style="padding:14px 20px;border-top:1px solid var(--border-light);background:#fef9c3">
-          <div style="font-size:13px;font-weight:700;color:#92400e;margin-bottom:8px">📚 Cours de rattrapage recommandés par la Direction</div>
-          ${rats.map(r=>{
-            const scoreColor=r.score!=null?(r.score<30?'#dc2626':r.score<50?'#d97706':'#374151'):null;
-            return `<div style="padding:10px;background:#fff;border-radius:10px;border-left:3px solid ${r.status==='paid'?'#10b981':'#f59e0b'};margin-bottom:8px">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-weight:700;font-size:13px">${esc(r.matiere)}</span>
-              ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">Automatique</span>`:''}
-            </div>
-            ${r.score!=null?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-              <span style="font-size:12px;font-weight:700;color:${scoreColor}">📊 Moyenne: ${r.score}%</span>
-              <div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden">
-                <div style="width:${r.score}%;height:100%;background:${scoreColor};border-radius:3px"></div>
-              </div>
+        <!-- PROFS -->
+        ${c&&c.cycle==='primaire'&&(profFR||profEN)?`
+        <div style="border-left:4px solid #0284c7;background:#f0f9ff;border-radius:16px;padding:14px 16px;margin-bottom:12px">
+          ${SECTION('Professeurs', '#0284c7')}
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${profFR?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:12px">
+              <div style="width:38px;height:38px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1d4ed8">${ini(profFR.name)}</div>
+              <div><div style="font-weight:700;font-size:13px">${esc(profFR.name)}</div><div style="font-size:11px;color:#64748b">Français${titulaireProf&&titulaireProf.id===profFR.id?' · Titulaire':''}</div></div>
             </div>`:''}
-            <div style="font-size:12px;color:var(--text-secondary)">${r.motif}</div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-              <span style="font-weight:700;color:${r.status==='paid'?'#059669':'#d97706'}">${r.status==='paid'?'✅ Payé ($'+r.amount+')':r.amount?'💳 $'+r.amount+' à régler':'⏳ Montant à fixer'}</span>
-              ${r.status==='pending'&&r.amount?`<span class="pill" style="background:#fef3c7;color:#92400e">À régler à la Direction</span>`:r.status==='paid'?`<span class="pill" style="background:#d1fae5;color:#065f46">Payé ✅</span>`:`<span class="pill" style="background:#fee2e2;color:#dc2626">En attente Direction</span>`}
-            </div>
-            ${r.status==='pending'&&r.amount>0&&r.validated_by&&!r.payment_signaled?`
-            <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">
-              📲 Signaler mon paiement à la Direction
-            </button>`:''}
-            ${r.payment_signaled&&r.status!=='paid'?`<div style="font-size:11px;color:#059669;margin-top:6px;text-align:center">✅ Paiement signalé — en attente de confirmation Direction</div>`:''}
-            ${r.session_date?`<div style="margin-top:8px;background:#dbeafe;border-radius:8px;padding:8px 10px;font-size:12px;color:#1e40af;font-weight:600">📅 Séance prévue : ${new Date(r.session_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}${r.session_time?' à '+r.session_time:''}${r.session_place?' — '+esc(r.session_place):''}</div>`:''}
-            ${r.done?`<div style="margin-top:6px;background:#d1fae5;border-radius:8px;padding:8px 10px;font-size:12px;color:#065f46;font-weight:600">✅ Cours effectué le ${r.done_date||''}${r.done_note?' · '+esc(r.done_note.slice(0,80)):''}</div>`:''}
-          </div>`;}).join('')}
-        </div>`;
-      })()}
+            ${profEN?`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:12px">
+              <div style="width:38px;height:38px;border-radius:10px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#065f46">${ini(profEN.name)}</div>
+              <div><div style="font-weight:700;font-size:13px">${esc(profEN.name)}</div><div style="font-size:11px;color:#64748b">Anglais${titulaireProf&&titulaireProf.id===profEN.id?' · Titulaire':''}</div></div>
+            </div>`:''}
+          </div>
+        </div>`:''}
 
-      <!-- CONDUITE DÉTAILLÉE -->
-      ${(()=>{
-        const conds=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
-        if(!conds.length) return '';
-        const colors={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};
-        const bgs={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
-        return `<div style="padding:14px 20px;border-top:1px solid var(--border-light)">
-          <div style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px">📊 Conduite — 8 dernières évaluations</div>
-          ${conds.map(c=>`
-          <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-light)">
-            <div style="width:30px;height:30px;border-radius:8px;background:${bgs[c.score]||'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${colors[c.score]||'#64748b'};flex-shrink:0">${(c.score||'?').slice(0,2)}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:700;color:${colors[c.score]||'var(--text)'}">${c.score||'—'}</div>
-              ${c.remark?`<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.remark}</div>`:''}
-            </div>
-            <div style="font-size:10px;color:var(--text-muted);flex-shrink:0">${c.date?new Date(c.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'—'}</div>
-          </div>`).join('')}
-        </div>`;
-      })()}
+        <!-- PRÉSENCES 14 JOURS -->
+        <div style="background:#f8fafc;border-radius:16px;padding:14px 16px;margin-bottom:12px">
+          ${SECTION('Présences — 14 derniers jours', clr)}
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${days14.map(d=>{
+              const a=DB.attendance.find(x=>x.sid===k.id&&x.date===d);
+              const isToday=d===today();
+              const dot=a?(a.status==='ontime'?{bg:'#10b981',label:'A',tip:"À l'heure"}:a.status==='late'?{bg:'#f59e0b',label:'R',tip:'Retard'}:a.status==='excused'?{bg:'#3b82f6',label:'J',tip:'Justifié'}:a.status==='sick'?{bg:'#ec4899',label:'M',tip:'Maladie'}:{bg:'#ef4444',label:'×',tip:'Refusé'}):{bg:'#e2e8f0',label:'—',tip:'Absent'};
+              const dayNum=new Date(d).getDate();
+              return `<div style="text-align:center;min-width:30px">
+                <div style="width:28px;height:28px;border-radius:8px;background:${dot.bg};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;margin:0 auto;${isToday?'outline:2px solid '+clr+';outline-offset:2px;':''}" title="${d} — ${dot.tip}">${dot.label}</div>
+                <div style="font-size:9px;color:#94a3b8;margin-top:2px">${dayNum}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:#64748b">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#10b981;border-radius:3px;vertical-align:middle;margin-right:3px"></span>À l'heure</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f59e0b;border-radius:3px;vertical-align:middle;margin-right:3px"></span>Retard</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:3px;vertical-align:middle;margin-right:3px"></span>Justifié</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#e2e8f0;border-radius:3px;vertical-align:middle;margin-right:3px"></span>Absent</span>
+          </div>
+        </div>
 
+        <!-- ANALYSE RATTRAPAGE -->
+        ${(()=>{
+          const rats=DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
+          if(rats.length) return '';
+          const grades=DB.grades.filter(g=>g.sid===k.id);
+          if(!grades.length) return '';
+          const avg=Math.round(grades.reduce((a,g)=>a+gradePct(g),0)/grades.length);
+          const conds=DB.conduct.filter(c=>c.sid===k.id).slice(0,10);
+          const condMap2={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+          const condAvg2=conds.length?conds.reduce((a,c)=>a+(condMap2[c.score]||0),0)/conds.length:null;
+          const needsRat=avg<60;
+          const badCond=condAvg2!==null&&condAvg2<2.5;
+          if(!needsRat&&!badCond) return '';
+          const weakMats=[...new Set(grades.filter(g=>gradePct(g)<60).map(g=>g.matiere))];
+          return `<div style="border-radius:14px;padding:14px 16px;background:#fef9c3;border-left:4px solid #d97706;margin-bottom:12px">
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fde68a;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:50%;background:#d97706"></div></div>
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:13px;color:#92400e;margin-bottom:4px">Analyse — Suivi recommandé</div>
+                <div style="font-size:12px;color:#78350f;margin-bottom:6px">
+                  ${needsRat?`Moyenne générale <strong>${avg}%</strong> (seuil : 60%). `:''}
+                  ${badCond?'Conduite insuffisante. ':''}
+                  ${weakMats.length?`Matières : <strong>${weakMats.slice(0,3).join(', ')}</strong>.`:''}
+                </div>
+                <div style="font-size:11px;color:#92400e;padding:6px 10px;background:#fef3c7;border-radius:8px">Contactez la Direction pour planifier des cours de rattrapage.</div>
+              </div>
+            </div>
+          </div>`;
+        })()}
+
+        <!-- PERSONNES AUTORISÉES -->
+        ${(()=>{
+          const tuts=DB.aps.filter(a=>a.sid===k.id&&a.active!==false);
+          if(!tuts.length) return `
+          <div style="border-left:4px solid #94a3b8;background:#f8fafc;border-radius:16px;padding:14px 16px;margin-bottom:12px">
+            ${SECTION('Personnes autorisées pour la sortie', '#94a3b8')}
+            <div style="font-size:12px;color:#94a3b8;padding:4px 0">Aucune tutelle enregistrée. Contactez la Direction pour en ajouter.</div>
+          </div>`;
+          return `
+          <div style="border-left:4px solid ${clr};background:#f5f3ff;border-radius:16px;padding:14px 16px;margin-bottom:12px">
+            ${SECTION('Personnes autorisées — sortie ('+tuts.length+'/3)', clr)}
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              ${tuts.map(t=>`<div style="text-align:center;flex:1;min-width:80px;max-width:110px">
+                <div style="width:64px;height:80px;border-radius:12px;background:#ede9fe;margin:0 auto 6px;overflow:hidden;border:2px solid #c4b5fd">
+                  ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:${clr}">${ini(t.name)}</div>`}
+                </div>
+                <div style="font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
+                <div style="font-size:10px;color:#64748b">${esc(t.relation)}</div>
+                ${t.phone?`<div style="font-size:10px;color:${clr}">${esc(t.phone)}</div>`:''}
+              </div>`).join('')}
+            </div>
+            <div style="font-size:11px;color:#7c3aed;margin-top:8px;padding:6px 10px;background:#ede9fe;border-radius:8px">Ces personnes sont autorisées à récupérer l'enfant. Leur visage s'affiche lors du scan de sortie.</div>
+          </div>`;
+        })()}
+
+        <!-- CONVOCATION -->
+        ${(()=>{
+          const convs=DB.convocations.filter(c=>c.sid===k.id&&c.status==='scheduled');
+          if(!convs.length) return '';
+          return convs.map(c=>`
+          <div style="border-radius:14px;padding:14px 16px;background:#fef2f2;border-left:4px solid #dc2626;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:36px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:50%;background:#dc2626"></div></div>
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:13px;color:#dc2626">Convocation Direction</div>
+                <div style="font-size:13px;font-weight:600;margin-top:2px">RDV : ${new Date(c.rdv_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+                ${c.note?`<div style="font-size:12px;color:#64748b;margin-top:2px">${c.note}</div>`:''}
+              </div>
+            </div>
+          </div>`).join('');
+        })()}
+
+        <!-- RATTRAPAGE -->
+        ${(()=>{
+          const rats=DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
+          if(!rats.length) return '';
+          return `
+          <div style="border-left:4px solid #f59e0b;background:#fffbeb;border-radius:16px;padding:14px 16px;margin-bottom:12px">
+            ${SECTION('Cours de rattrapage', '#d97706')}
+            ${rats.map(r=>{
+              const scoreColor=r.score!=null?(r.score<30?'#dc2626':r.score<50?'#d97706':'#374151'):null;
+              const paid=r.status==='paid';
+              return `<div style="padding:12px;background:#fff;border-radius:12px;border-left:3px solid ${paid?'#10b981':'#f59e0b'};margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+                <span style="font-weight:700;font-size:13px">${esc(r.matiere)}</span>
+                ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">Auto</span>`:''}
+              </div>
+              ${r.score!=null?`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:12px;font-weight:700;color:${scoreColor}">Moy: ${r.score}%</span>
+                <div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="width:${r.score}%;height:100%;background:${scoreColor};border-radius:3px"></div></div>
+              </div>`:''}
+              <div style="font-size:12px;color:#64748b">${r.motif}</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                <span style="font-weight:700;color:${paid?'#059669':'#d97706'}">${paid?'Payé ($'+r.amount+')':r.amount?'$'+r.amount+' à régler':'Montant à fixer'}</span>
+                ${r.status==='pending'&&r.amount?`<span class="pill" style="background:#fef3c7;color:#92400e">À régler</span>`:paid?`<span class="pill" style="background:#d1fae5;color:#065f46">Payé</span>`:`<span class="pill" style="background:#fee2e2;color:#dc2626">En attente</span>`}
+              </div>
+              ${r.status==='pending'&&r.amount>0&&r.validated_by&&!r.payment_signaled?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">Signaler mon paiement à la Direction</button>`:''}
+              ${r.payment_signaled&&r.status!=='paid'?`<div style="font-size:11px;color:#059669;margin-top:6px;text-align:center">Paiement signalé — en attente de confirmation</div>`:''}
+              ${r.session_date?`<div style="margin-top:8px;background:#dbeafe;border-radius:8px;padding:8px 10px;font-size:12px;color:#1e40af;font-weight:600">Séance : ${new Date(r.session_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}${r.session_time?' à '+r.session_time:''}${r.session_place?' — '+esc(r.session_place):''}</div>`:''}
+              ${r.done?`<div style="margin-top:6px;background:#d1fae5;border-radius:8px;padding:8px 10px;font-size:12px;color:#065f46;font-weight:600">Cours effectué le ${r.done_date||''}${r.done_note?' · '+esc(r.done_note.slice(0,80)):''}</div>`:''}
+            </div>`;}).join('')}
+          </div>`;
+        })()}
+
+        <!-- CONDUITE -->
+        ${(()=>{
+          const conds=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+          if(!conds.length) return '';
+          const colors={Excellent:'#059669',Bien:'#0284c7',Moyen:'#d97706',Mauvais:'#dc2626'};
+          const bgs={Excellent:'#d1fae5',Bien:'#dbeafe',Moyen:'#fef3c7',Mauvais:'#fee2e2'};
+          return `
+          <div style="background:#f8fafc;border-radius:16px;padding:14px 16px">
+            ${SECTION('Conduite — 8 dernières évaluations', '#64748b')}
+            ${conds.map(c=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f1f5f9">
+              <div style="width:30px;height:30px;border-radius:8px;background:${bgs[c.score]||'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${colors[c.score]||'#64748b'};flex-shrink:0">${(c.score||'?').slice(0,2)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:700;color:${colors[c.score]||'#1e293b'}">${c.score||'—'}</div>
+                ${c.remark?`<div style="font-size:11px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.remark}</div>`:''}
+              </div>
+              <div style="font-size:10px;color:#94a3b8;flex-shrink:0">${c.date?new Date(c.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'—'}</div>
+            </div>`).join('')}
+          </div>`;
+        })()}
+
+      </div>
     </div>`;
   }).join('');
-};
+}
+;
 
 // Parents ne contactent jamais les enseignants directement — communication bloquée
 
