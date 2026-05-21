@@ -5018,7 +5018,7 @@ R.attendance = () => {
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon">✅</div><div class="ww-stat-val">${present.length}</div><div class="ww-stat-label">${t('Présents','Present')}</div></div>
     <div class="ww-stat" style="border-left-color:#d97706"><div class="ww-stat-icon">⚠️</div><div class="ww-stat-val">${late.length}</div><div class="ww-stat-label">${t('Retards','Late')}</div></div>
-    <div class="ww-stat" style="border-left-color:#6366f1"><div class="ww-stat-icon">❌</div><div class="ww-stat-val">${absent.length}</div><div class="ww-stat-label">${t('Absents','Absent')}</div></div>
+    <div class="ww-stat" style="border-left-color:#6366f1"><div class="ww-stat-icon">🔴</div><div class="ww-stat-val">${absent.length}</div><div class="ww-stat-label">${t('Absents','Absent')}</div></div>
   </div>
   ${students.length?'':`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">📋</div>Aucun élève dans cette classe</div>`}
   <div class="ww-section">
@@ -5027,7 +5027,7 @@ R.attendance = () => {
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
       const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
       const [cc,cbg]=clsColor(c?c.name:'');
-      const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:t("À l'heure",'On time'),i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:t('Retard','Late'),i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:t('Justifié','Excused'),i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:t('Absent','Absent'),i:'❌'};
+      const st=a?(a.status==='ontime'?{b:'#d1fae5',c:'#065f46',l:t("À l'heure",'On time'),i:'✅'}:a.status==='late'?{b:'#fef3c7',c:'#92400e',l:t('Retard','Late'),i:'⚠️'}:a.status==='excused'?{b:'#dbeafe',c:'#1e40af',l:t('Justifié','Excused'),i:'📄'}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:'🤒'}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:'🚫'}):{b:'#f1f5f9',c:'#475569',l:t('Absent','Absent'),i:'🔴'};
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${esc(s.name)}</div><div class="ww-item-sub">${scanEntry?'🚪 Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
@@ -5584,9 +5584,12 @@ R.palmares_parent = () => {
   const getMention=pct=>pct>=90?{l:'Excellent',c:'#059669'}:pct>=75?{l:'Très Bien',c:'#0891b2'}:pct>=60?{l:'Bien',c:'#2563eb'}:pct>=50?{l:'Assez Bien',c:'#d97706'}:{l:'Insuffisant',c:'#dc2626'};
 
   let html=`<div class="ww-toolbar" style="animation:fadeInUp .35s ease both">
-    <span style="font-size:16px;font-weight:700">🏆 Palmarès</span>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 10px rgba(245,158,11,.3)">🏆</div>
+      <span style="font-size:16px;font-weight:700">Palmarès</span>
+    </div>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
-      ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmPTrim='${tr}';render()">${tr}</button>`).join('')}
+      ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" style="border-radius:10px" onclick="window._palmPTrim='${tr}';render()">${tr}</button>`).join('')}
     </div>
   </div>`;
 
@@ -5687,15 +5690,15 @@ R.palmares_parent = () => {
       return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">📥 Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
     })();
 
-    return `<div class="premium-section" style="margin-bottom:16px">
+    return `<div class="premium-section" style="margin-bottom:16px;border-radius:20px;padding:18px;box-shadow:0 6px 22px rgba(0,0,0,.09);border-left:4px solid ${pos<=3?'#f59e0b':cc};animation:fadeInUp .4s ease both">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-        <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cc};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2)">${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}</div>
-        <div>
+        <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cc};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:badgePop .4s ease both">${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}</div>
+        <div style="flex:1">
           <div style="font-size:20px;font-weight:800">${esc(k.name)}</div>
           <div style="font-size:14px;color:var(--text-secondary)">${esc(cl.name)} — ${pos}${pos===1?'er':'ème'} sur ${ranked.length}</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
             <div style="font-size:22px;font-weight:800;color:${me&&me.total>=70?'#059669':me&&me.total>=50?'#d97706':'#dc2626'}">${me?me.total:0} pts</div>
-            <span style="font-size:12px;font-weight:700;color:${mention.c};background:${mention.c}22;border-radius:6px;padding:3px 8px">${mention.l}</span>
+            <span style="font-size:12px;font-weight:700;color:${mention.c};background:${mention.c}22;border-radius:20px;padding:4px 12px">${mention.l}</span>
           </div>
         </div>
       </div>
@@ -5728,12 +5731,16 @@ R.palmares_parent = () => {
   if(top10.length){
     const medals=['🥇','🥈','🥉'];
     const podium=top10.slice(0,Math.min(3,top10.length));
-    html+=`<div class="premium-section" style="margin-top:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-        <div class="premium-section-title" style="margin-bottom:0">🏫 Top 10 — Toute l'école</div>
+    html+=`<div class="premium-section" style="margin-top:14px;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);border-left:4px solid #c9a030">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:20px">🏫</div>
+        <div style="flex:1">
+          <div class="premium-section-title" style="margin-bottom:0">Top 10 — Toute l'école</div>
+          <div style="font-size:11px;color:var(--text-muted)">Meilleurs élèves tous niveaux confondus</div>
+        </div>
         <span class="pill pill-blue" style="font-size:10px">${selTrim}</span>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px">Meilleurs élèves tous niveaux confondus</div>
+      <div style="margin-bottom:14px"></div>
       ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin:0 0 16px">
         ${[1,0,2].map(pos=>{
           const s=podium[pos]; if(!s) return '';
@@ -5750,18 +5757,21 @@ R.palmares_parent = () => {
           </div>`;
         }).join('')}
       </div>`:''}
-      <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="display:flex;flex-direction:column;gap:4px">
         ${top10.map((s,i)=>{
           const [cc,cbg]=clsColor(s.cl.name);
           const isMyKid=kids.some(k=>k.id===s.id);
-          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:${isMyKid?'#f0fdf4':'transparent'};border:${isMyKid?'1.5px solid #86efac':'1px solid transparent'}">
-            <span style="font-size:${i<3?18:14}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
-            <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:${isMyKid?'linear-gradient(135deg,#f0fdf4,#dcfce7)':i%2===0?'var(--bg)':'transparent'};border:${isMyKid?'1.5px solid #86efac':'1px solid transparent'};animation:fadeInUp .3s ease both;animation-delay:calc(${i}*.06s)">
+            <span style="font-size:${i<3?18:13}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
+            <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:700">${esc(s.name)}${isMyKid?' 👶':''}</div>
               <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
             </div>
-            <div style="font-size:16px;font-weight:800;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:16px;font-weight:800;color:${s.score>=70?'#059669':s.score>=50?'#d97706':'#dc2626'}">${s.score}</div>
+              <div style="font-size:9px;color:var(--text-muted)">pts</div>
+            </div>
           </div>`;
         }).join('')}
       </div>
@@ -5929,9 +5939,14 @@ R.recus_parent = () => {
   const fees=getFees();
   const trimLabels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre',inscription:'Inscription'};
 
-  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🧾 Mes Reçus de Paiement</span></div>`;
+  let html=`<div class="ww-toolbar" style="animation:fadeInUp .3s ease both">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6d28d9,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 10px rgba(109,40,217,.3)">🧾</div>
+      <span style="font-size:16px;font-weight:700">Mes Reçus de Paiement</span>
+    </div>
+  </div>`;
 
-  kids.forEach(k=>{
+  kids.forEach((k,ki)=>{
     const cl=gc(k.cid);
     // Frais scolaires
     const pays=(DB.payments||[]).filter(p=>p.sid===k.id&&p.paid);
@@ -5945,32 +5960,37 @@ R.recus_parent = () => {
     const insActs=(DB.activites_inscriptions||[]).filter(i=>i.sid===k.id&&i.active);
     const totalAct=insActs.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
 
-    html+=`<div class="premium-section" style="margin-bottom:14px">
-      <div class="premium-section-title">👶 ${esc(k.name)} ${cl?`<span style="font-size:12px;font-weight:400;opacity:.8">— ${esc(cl.name)}</span>`:''}
-        <span style="font-size:11px;font-weight:400;opacity:.7;margin-left:8px">Matricule: ${esc(k.mat||'—')}</span>
+    html+=`<div class="premium-section" style="margin-bottom:16px;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+        <div style="width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 10px rgba(37,99,235,.3)">👶</div>
+        <div>
+          <div style="font-size:16px;font-weight:800">${esc(k.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${cl?esc(cl.name):''} ${k.mat?`· Matr: ${esc(k.mat)}`:''}
+          </div>
+        </div>
       </div>
 
       <!-- Frais scolaires -->
-      <div style="border:1.5px solid ${pays.length?'#22c55e':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${pays.length?'#f0fdf4':'#f8fafc'}">
+      <div style="border-radius:16px;padding:14px;margin-bottom:10px;background:${pays.length?'linear-gradient(135deg,#f0fdf4,#dcfce7)':'#f8fafc'};border:1.5px solid ${pays.length?'#86efac':'#e2e8f0'}">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:24px">📚</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:42px;height:42px;border-radius:12px;background:${pays.length?'#059669':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:22px">📚</div>
             <div>
               <div style="font-weight:700;font-size:14px">Frais Scolaires</div>
-              ${pays.length?`<div style="font-size:12px;color:#059669;font-weight:600">${pays.length} paiement(s) · Total payé : $${totalFrais}</div>
+              ${pays.length?`<div style="font-size:12px;color:#059669;font-weight:600">${pays.length} paiement(s) · Total : $${totalFrais}</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${pays.map(p=>`<span class="pill pill-green" style="font-size:10px">${trimLabels[p.t]||p.t} · $${fees[p.t]||0}</span>`).join('')}</div>`
               :`<div style="font-size:12px;color:#94a3b8">Aucun paiement enregistré</div>`}
             </div>
           </div>
-          ${pays.length?`<button class="btn btn-sm" style="background:#059669;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuFrais('${k.id}')">⬇️ Reçu PDF</button>`:''}
+          ${pays.length?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#059669,#047857);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(5,150,105,.3);white-space:nowrap" onclick="downloadRecuFrais('${k.id}')">⬇️ Reçu PDF</button>`:''}
         </div>
       </div>
 
       <!-- Rattrapages -->
-      <div style="border:1.5px solid ${rats.length?'#3b82f6':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${rats.length?'#eff6ff':'#f8fafc'}">
+      <div style="border-radius:16px;padding:14px;margin-bottom:10px;background:${rats.length?'linear-gradient(135deg,#eff6ff,#dbeafe)':'#f8fafc'};border:1.5px solid ${rats.length?'#93c5fd':'#e2e8f0'}">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:24px">📖</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:42px;height:42px;border-radius:12px;background:${rats.length?'#2563eb':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:22px">📖</div>
             <div>
               <div style="font-weight:700;font-size:14px">Cours de Rattrapage</div>
               ${rats.length?`<div style="font-size:12px;color:#1d4ed8;font-weight:600">${rats.length} cours payé(s) · Total : $${totalRat}</div>
@@ -5978,31 +5998,31 @@ R.recus_parent = () => {
               :`<div style="font-size:12px;color:#94a3b8">Aucun rattrapage payé</div>`}
             </div>
           </div>
-          ${rats.length?`<button class="btn btn-sm" style="background:#1d4ed8;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuRattrapage('${k.id}')">⬇️ Reçu PDF</button>`:''}
+          ${rats.length?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(37,99,235,.3);white-space:nowrap" onclick="downloadRecuRattrapage('${k.id}')">⬇️ Reçu PDF</button>`:''}
         </div>
       </div>
 
       <!-- Cantine -->
-      <div style="border:1.5px solid ${insC?'#f59e0b':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${insC?'#fffbeb':'#f8fafc'}">
+      <div style="border-radius:16px;padding:14px;margin-bottom:10px;background:${insC?'linear-gradient(135deg,#fffbeb,#fef3c7)':'#f8fafc'};border:1.5px solid ${insC?'#fcd34d':'#e2e8f0'}">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:24px">🍽️</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:42px;height:42px;border-radius:12px;background:${insC?'#b45309':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>
             <div>
               <div style="font-weight:700;font-size:14px">Cantine Scolaire</div>
               ${insC?`<div style="font-size:12px;color:#b45309;font-weight:600">Inscrit · ${insC.type==='jour'?'Journalier':insC.type==='mois'?'Mensuel':'Annuel'} · $${insC.amount||0}/mois</div>
               <div style="font-size:11px;color:#64748b;margin-top:2px">Depuis le ${insC.date_inscription?new Date(insC.date_inscription).toLocaleDateString('fr-FR'):'—'}</div>`
-              :`<div style="font-size:12px;color:#94a3b8">Non inscrit à la cantine</div>`}
+              :`<div style="font-size:12px;color:#94a3b8">Non inscrit(e) à la cantine</div>`}
             </div>
           </div>
-          ${insC?`<button class="btn btn-sm" style="background:#b45309;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuCantine('${k.id}')">⬇️ Reçu PDF</button>`:''}
+          ${insC?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#b45309,#92400e);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(180,83,9,.3);white-space:nowrap" onclick="downloadRecuCantine('${k.id}')">⬇️ Reçu PDF</button>`:''}
         </div>
       </div>
 
       <!-- Activités -->
-      <div style="border:1.5px solid ${insActs.length?'#8b5cf6':'#e2e8f0'};border-radius:12px;padding:14px;background:${insActs.length?'#f5f3ff':'#f8fafc'}">
+      <div style="border-radius:16px;padding:14px;background:${insActs.length?'linear-gradient(135deg,#f5f3ff,#ede9fe)':'#f8fafc'};border:1.5px solid ${insActs.length?'#c4b5fd':'#e2e8f0'}">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:24px">🎭</span>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:42px;height:42px;border-radius:12px;background:${insActs.length?'#6d28d9':'#e2e8f0'};display:flex;align-items:center;justify-content:center;font-size:22px">🎭</div>
             <div>
               <div style="font-weight:700;font-size:14px">Activités Extrascolaires</div>
               ${insActs.length?`<div style="font-size:12px;color:#6d28d9;font-weight:600">${insActs.length} activité(s) · $${totalAct}/mois</div>
@@ -6010,7 +6030,7 @@ R.recus_parent = () => {
               :`<div style="font-size:12px;color:#94a3b8">Aucune activité inscrite</div>`}
             </div>
           </div>
-          ${insActs.length?`<button class="btn btn-sm" style="background:#6d28d9;color:#fff;border:none;white-space:nowrap" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
+          ${insActs.length?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#6d28d9,#5b21b6);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(109,40,217,.3);white-space:nowrap" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
         </div>
       </div>
     </div>`;
@@ -6854,13 +6874,12 @@ R.devoirs_parent = () => {
     const kidEmojis=['👦','👧','🧒','👦🏽','👧🏽','🧒🏽','👦🏿','👧🏿'];
     const kidColor=kidColors[ki%kidColors.length];
     html+=`<div style="margin-bottom:20px">
-      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${kidColor}18;border-radius:14px;border-left:4px solid ${kidColor};margin-bottom:10px">
-        <div style="font-size:28px">${kidEmojis[ki%kidEmojis.length]}</div>
-        <div>
-          <div style="font-weight:700;font-size:16px">${esc(k.name)}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${cl?esc(cl.name):''}</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,${kidColor}22,${kidColor}0a);border-radius:18px;border-left:4px solid ${kidColor};margin-bottom:12px;box-shadow:0 2px 10px ${kidColor}20;animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
+        <div style="width:48px;height:48px;border-radius:14px;background:${kidColor};display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 10px ${kidColor}50;flex-shrink:0">${kidEmojis[ki%kidEmojis.length]}</div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:17px">${esc(k.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:1px">${cl?esc(cl.name):''}</div>
         </div>
-
       </div>`;
     const _now=Date.now();
     const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -6915,19 +6934,31 @@ R.devoirs_parent = () => {
       </div>`;
     }
     // Devoirs section
-    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #2563eb">
-      <div class="premium-section-title">📚 Devoirs</div>
-      ${devoirsList.length?devoirsList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
+    html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #2563eb">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#2563eb,#1d4ed8);display:flex;align-items:center;justify-content:center;font-size:18px">📚</div>
+        <div class="premium-section-title" style="margin-bottom:0">Devoirs</div>
+        <span style="margin-left:auto;background:#dbeafe;color:#1e40af;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${devoirsList.length}</span>
+      </div>
+      ${devoirsList.length?devoirsList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">✅</div>Aucun devoir en cours</div>`}
     </div>`;
     // Interrogations section
-    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #f59e0b">
-      <div class="premium-section-title">⚠️ Interrogations</div>
-      ${interroList.length?interroList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
+    html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #f59e0b">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px">📋</div>
+        <div class="premium-section-title" style="margin-bottom:0">Interrogations</div>
+        <span style="margin-left:auto;background:#fef3c7;color:#92400e;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${interroList.length}</span>
+      </div>
+      ${interroList.length?interroList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">📅</div>Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
-    html+=`<div class="premium-section" style="margin-bottom:10px;border-left:4px solid #7c3aed">
-      <div class="premium-section-title">📝 Examens</div>
-      ${examenList.length?examenList.map(d=>renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)).join(''):`<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
+    html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #7c3aed">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#6d28d9);display:flex;align-items:center;justify-content:center;font-size:18px">📝</div>
+        <div class="premium-section-title" style="margin-bottom:0">Examens</div>
+        <span style="margin-left:auto;background:#ede9fe;color:#5b21b6;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${examenList.length}</span>
+      </div>
+      ${examenList.length?examenList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px"><div style="font-size:30px;margin-bottom:6px">🗓️</div>Aucun examen programmé</div>`}
     </div>`;
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
@@ -14082,36 +14113,66 @@ R.activites_parent = () => {
   const kids=DB.students.filter(s=>s.pid===S.user.id);
   if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🎭</div>Aucun enfant lié</div>`;
 
-  let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🎭 Activités Extrascolaires</span></div>`;
+  const actColors=['#6d28d9','#0891b2','#059669','#d97706','#dc2626','#be185d'];
+  const actBgs=['#f5f3ff','#ecfeff','#f0fdf4','#fffbeb','#fff1f2','#fdf2f8'];
 
-  kids.forEach(k=>{
+  let html=`<div class="ww-toolbar" style="animation:fadeInUp .3s ease both">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6d28d9,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 3px 10px rgba(109,40,217,.3)">🎭</div>
+      <span style="font-size:16px;font-weight:700">Activités Extrascolaires</span>
+    </div>
+  </div>`;
+
+  kids.forEach((k,ki)=>{
     const insKid=(DB.activites_inscriptions||[]).filter(i=>i.sid===k.id&&i.active);
     const totalAct=insKid.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
-    html+=`<div class="premium-section" style="margin-bottom:14px">
-      <div class="premium-section-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <span>👶 ${esc(k.name)}</span>
-        ${insKid.length?`<button class="btn btn-sm" style="background:#6d28d9;color:#fff;border:none;font-size:11px" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
+    html+=`<div class="premium-section" style="margin-bottom:16px;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);border-left:4px solid ${insKid.length?'#6d28d9':'#94a3b8'};animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:44px;height:44px;border-radius:12px;background:${insKid.length?'linear-gradient(135deg,#6d28d9,#8b5cf6)':'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:${insKid.length?'0 3px 10px rgba(109,40,217,.3)':'none'}">👶</div>
+          <div>
+            <div style="font-weight:700;font-size:16px">${esc(k.name)}</div>
+            ${insKid.length?`<div style="font-size:12px;color:#6d28d9;font-weight:600">${insKid.length} activité(s) · $${totalAct}/mois</div>`:'<div style="font-size:12px;color:var(--text-muted)">Aucune inscription</div>'}
+          </div>
+        </div>
+        ${insKid.length?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#6d28d9,#5b21b6);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(109,40,217,.3)" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
       </div>
-      ${insKid.length?`<div style="margin-bottom:8px"><span style="font-size:12px;color:#6d28d9;font-weight:600">${insKid.length} activité(s) · $${totalAct}/mois</span></div>`+insKid.map(i=>{
+      ${insKid.length?insKid.map((i,ai)=>{
         const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
-        return `<div class="premium-item">
-          <span class="pi-icon">${act.emoji||'🎭'}</span>
-          <div><div class="pi-title">${esc(act.name)}</div>
-          <div class="pi-sub">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}${act.frais?' · $'+act.frais+'/mois':''}</div></div>
+        const ac=actColors[ai%actColors.length];
+        const abg=actBgs[ai%actBgs.length];
+        return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${abg};border-radius:14px;border-left:3px solid ${ac};margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:calc(${ai}*.08s)">
+          <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'🎭'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px;color:${ac}">${esc(act.name)}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
+          </div>
+          ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">$${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
         </div>`;
-      }).join(''):`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Pas encore inscrit(e) dans une activité</div>`}
+      }).join(''):`<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px"><div style="font-size:36px;margin-bottom:8px">🎨</div>Pas encore inscrit(e) dans une activité</div>`}
     </div>`;
   });
 
   const allActs=DB.activites||[];
   if(allActs.length){
-    html+=`<div class="premium-section"><div class="premium-section-title">📋 Toutes les activités disponibles</div>
-    ${allActs.map(act=>`<div class="premium-item">
-      <span class="pi-icon">${act.emoji||'🎭'}</span>
-      <div><div class="pi-title">${esc(act.name)}</div>
-      <div class="pi-sub">${act.jour||''} ${act.heure||''} ${act.lieu?'· '+act.lieu:''}${act.frais?' · $'+act.frais+'/mois':''}</div>
-      ${act.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(act.description)}</div>`:''}</div>
-    </div>`).join('')}
+    html+=`<div class="premium-section" style="border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);border-left:4px solid #0891b2;animation:fadeInUp .35s ease both;animation-delay:.3s">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:20px">📋</div>
+        <div class="premium-section-title" style="margin-bottom:0">Activités disponibles</div>
+      </div>
+    ${allActs.map((act,ai)=>{
+      const ac=actColors[ai%actColors.length];
+      const abg=actBgs[ai%actBgs.length];
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:${abg};border-radius:14px;border-left:3px solid ${ac};margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:calc(${ai}*.07s)">
+        <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'🎭'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${esc(act.name)}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
+          ${act.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-style:italic">${esc(act.description)}</div>`:''}
+        </div>
+        ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">$${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
+      </div>`;
+    }).join('')}
     </div>`;
   }
   return html;
