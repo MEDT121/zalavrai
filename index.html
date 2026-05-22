@@ -1710,149 +1710,199 @@ R.dashboard = () => {
 };
 
 function dashboardDirection() {
-  const ts = DB.students.length;
-  const te = DB.users.filter(u=>u.role==='enseignant').length;
-  const tp = DB.users.filter(u=>u.role==='parent').length;
-  const paid = DB.payments.filter(p=>p.paid).length;
-  const totalP = DB.payments.length;
-  const payPct = totalP ? Math.round(paid/totalP*100) : 0;
-  const todayAtt = DB.attendance.filter(a=>a.date===today());
-  const present = todayAtt.filter(a=>a.status==='ontime').length;
-  const late = todayAtt.filter(a=>a.status==='late').length;
-  const refused = todayAtt.filter(a=>a.status==='refused').length;
-  const pending = getPendingCount();
-  const presencePct = ts ? Math.round((present+late)/ts*100) : 0;
-
-  // Caisse du jour
-  const casseIn = DB.daily_records.filter(r=>r.date===today()).reduce((s,r)=>s+Number(r.amount||0),0);
-  const casseOut = DB.daily_expenses.filter(e=>e.date===today()).reduce((s,e)=>s+Number(e.amount||0),0);
-  const casseSolde = casseIn - casseOut;
-
-  // Rattrapages en attente de validation D1
-  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-
-  // Élèves bloqués
-  const blockedStudents = DB.students.filter(s=>s.access_blocked);
-
-  // Profs absents aujourd'hui
-  const teacherAbsentsToday = DB.teacher_absences.filter(a=>a.date===today());
-
-  // Cahier de texte — enseignants sans entrée aujourd'hui
-  const allTeachers = DB.users.filter(u=>u.role==='enseignant');
-  const noCahierToday = allTeachers.filter(u=>{
+  const ts=DB.students.length;
+  const te=DB.users.filter(u=>u.role==='enseignant').length;
+  const tp=DB.users.filter(u=>u.role==='parent').length;
+  const paid=DB.payments.filter(p=>p.paid).length;
+  const totalP=DB.payments.length;
+  const payPct=totalP?Math.round(paid/totalP*100):0;
+  const todayAtt=DB.attendance.filter(a=>a.date===today());
+  const present=todayAtt.filter(a=>a.status==='ontime').length;
+  const late=todayAtt.filter(a=>a.status==='late').length;
+  const refused=todayAtt.filter(a=>a.status==='refused').length;
+  const pending=getPendingCount();
+  const presencePct=ts?Math.round((present+late)/ts*100):0;
+  const casseIn=DB.daily_records.filter(r=>r.date===today()).reduce((s,r)=>s+Number(r.amount||0),0);
+  const casseOut=DB.daily_expenses.filter(e=>e.date===today()).reduce((s,e)=>s+Number(e.amount||0),0);
+  const casseSolde=casseIn-casseOut;
+  const pendingRats=DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
+  const blockedStudents=DB.students.filter(s=>s.access_blocked);
+  const teacherAbsentsToday=DB.teacher_absences.filter(a=>a.date===today());
+  const allTeachers=DB.users.filter(u=>u.role==='enseignant');
+  const noCahierToday=allTeachers.filter(u=>{
     const hasCl=DB.classes.some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-    return hasCl && !DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
+    return hasCl&&!DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
   });
-
+  const clr='#0f2557';const clr2='#1e40af';
+  const fc=DB.settings.feesControl||{};
   return `
-  <div class="hero-premium">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'SchoolSafe'}</div>
-    <div class="hero-sub">${S.lockdown?'Aucune sortie autorisée.':'Chaque enfant protégé, chaque parent informé'}${DB.settings.currentTrimestre?' · <span style="background:rgba(255,255,255,.25);border-radius:8px;padding:1px 8px;font-weight:800">'+DB.settings.currentTrimestre+'</span>':''}</div>
-    <div class="hero-bar"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${ts}</div><div class="hero-stat-lbl">Élèves</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${te}</div><div class="hero-stat-lbl">Profs</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${tp}</div><div class="hero-stat-lbl">Parents</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${payPct}%</div><div class="hero-stat-lbl">Payé</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(15,37,87,.5)">
+    <div style="position:absolute;top:-20px;right:-15px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${S.lockdown?'LOCKDOWN':'SchoolSafe'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">Direction 1 · ${DB.settings.currentTrimestre||''} · ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long'})}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[ts,'Élèves'],[te,'Profs'],[tp,'Parents'],[payPct+'%','Payé']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:18px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
 
-  <div class="action-grid">
-    <button class="action-card" onclick="go('students')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">🎓</span><span class="ac-label">Élèves</span></button>
-    <button class="action-card" onclick="go('approbations')" style="background:linear-gradient(135deg,#c9a030,#a68520);position:relative"><span class="ac-icon">✅</span><span class="ac-label">Approuver</span>${pending>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px">${pending}</span>`:''}</button>
-    <button class="action-card" onclick="go('payments')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">💰</span><span class="ac-label">Paiements</span></button>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
+    ${[['students','linear-gradient(135deg,#2563eb,#4f46e5)','Élèves',false],
+       ['approbations','linear-gradient(135deg,#c9a030,#a68520)','Approuver',pending>0],
+       ['payments','linear-gradient(135deg,#059669,#047857)','Paiements',false]
+    ].map(([p,bg,lbl,badge])=>`
+    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
+      ${badge?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${pending}</span>`:''}
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
+    </button>`).join('')}
   </div>
 
   ${pending>0||pendingRats.length||blockedStudents.length?`
-  <div class="premium-section" style="border-left:4px solid #ef4444;padding-bottom:4px">
-    <div class="premium-section-title" style="color:#991b1b">🚨 Alertes immédiates</div>
-    ${pending>0?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fef3c7">⏳</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente d'approbation</div><div class="pi-sub">Messages, rapports, justifications...</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>`:''}
-    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).slice(0,3).join(', ')}${pendingRats.length>3?` +${pendingRats.length-3}`:''}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
-    ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('payments')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''} à l'entrée</div><div class="pi-sub">${blockedStudents.slice(0,3).map(s=>esc(s.name)).join(', ')}${blockedStudents.length>3?` +${blockedStudents.length-3}`:''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
+  <div style="background:#fff;border-left:4px solid #ef4444;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(239,68,68,.1);animation:fadeInUp .35s ease both;animation-delay:.15s">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:ringPulse 2s ease infinite"></div>
+      <div style="font-size:10px;font-weight:800;color:#dc2626;letter-spacing:1.5px;text-transform:uppercase">Alertes immédiates</div>
+    </div>
+    ${pending>0?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pending} élément${pending>1?'s':''} en attente</div><div style="font-size:11px;color:#94a3b8">Messages, rapports, justifications...</div></div>
+      <span style="font-size:12px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:10px;padding:4px 10px">Voir</span>
+    </div>`:''}
+    ${pendingRats.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#dc2626"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div>
+        <div style="font-size:11px;color:#94a3b8">${pendingRats.map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).slice(0,3).join(', ')}${pendingRats.length>3?' +'+( pendingRats.length-3):''}</div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:#991b1b;background:#fee2e2;border-radius:10px;padding:4px 10px">Valider</span>
+    </div>`:''}
+    ${blockedStudents.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer" onclick="go('payments')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#7c3aed"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}</div>
+        <div style="font-size:11px;color:#94a3b8">${blockedStudents.slice(0,3).map(s=>esc(s.name)).join(', ')}</div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:#6d28d9;background:#ede9fe;border-radius:10px;padding:4px 10px">Gérer</span>
+    </div>`:''}
   </div>`:''}
 
-  <div class="premium-section">
-    <div class="premium-section-title">📊 Présences du jour</div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="flex:1;height:8px;background:#e5e7eb;border-radius:6px;overflow:hidden">
-        <div style="width:${presencePct}%;height:100%;background:${presencePct>=80?'#10b981':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:6px;transition:width .5s"></div>
+  <div style="background:#fff;border-left:4px solid ${clr2};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(30,64,175,.08);animation:fadeInUp .35s ease both;animation-delay:.2s">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:3px;height:14px;border-radius:2px;background:${clr2}"></div>
+        <div style="font-size:10px;font-weight:800;color:${clr2};letter-spacing:1.5px;text-transform:uppercase">Présences du jour</div>
       </div>
-      <span style="font-weight:700;font-size:14px;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${presencePct}%</span>
+      <span style="font-size:13px;font-weight:800;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${present+late}/${ts} · ${presencePct}%</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46">À l'heure</div></div>
-      <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e">Retards</div></div>
-      <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b">Absents</div></div>
+    <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden;margin-bottom:12px">
+      <div style="height:100%;width:${presencePct}%;background:${presencePct>=80?'#059669':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .5s"></div>
     </div>
-    ${ts-(present+late+refused)>0?`<button class="btn" style="width:100%;margin-top:10px;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;font-size:13px" onclick="notifyAbsentParents()">📣 Notifier les parents des absents (${ts-(present+late+refused)})</button>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="padding:10px;border-radius:12px;background:#d1fae5;text-align:center"><div style="font-size:20px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46;font-weight:600">À l'heure</div></div>
+      <div style="padding:10px;border-radius:12px;background:#fef3c7;text-align:center"><div style="font-size:20px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e;font-weight:600">Retards</div></div>
+      <div style="padding:10px;border-radius:12px;background:#fee2e2;text-align:center"><div style="font-size:20px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b;font-weight:600">Absents</div></div>
+    </div>
+    ${ts-(present+late+refused)>0?`<button class="btn pp-btn" style="width:100%;background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;font-size:13px" onclick="notifyAbsentParents()">Notifier les parents des absents (${ts-(present+late+refused)})</button>`:''}
   </div>
 
   ${teacherAbsentsToday.length?`
-  <div class="premium-section" style="border-left:4px solid #f97316">
-    <div class="premium-section-title" style="color:#c2410c">🏠 Profs absents aujourd'hui (${teacherAbsentsToday.length})</div>
-    ${teacherAbsentsToday.map(a=>{
+  <div style="background:#fff;border-left:4px solid #f97316;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(249,115,22,.1);animation:fadeInUp .35s ease both;animation-delay:.25s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#f97316"></div>
+      <div style="font-size:10px;font-weight:800;color:#c2410c;letter-spacing:1.5px;text-transform:uppercase">Profs absents (${teacherAbsentsToday.length})</div>
+    </div>
+    ${teacherAbsentsToday.map((a,i)=>{
       const t=gu(a.uid);
       const cl=DB.classes.find(c=>c.teacher_id===a.uid||c.teacher_id_en===a.uid);
-      return `<div class="premium-item">
-        <div class="pi-icon" style="background:#fff7ed">🏠</div>
-        <div style="flex:1"><div class="pi-title">${t?t.name:a.uid}</div>
-          <div class="pi-sub">${cl?cl.name:'—'} · ${a.motif||'Absence'} · ${a.time}</div>
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<teacherAbsentsToday.length-1?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:#f97316;flex-shrink:0"></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">${t?esc(t.name):a.uid}</div>
+          <div style="font-size:11px;color:#94a3b8">${cl?esc(cl.name):'—'} · ${a.motif||'Absence'} · ${a.time}</div>
         </div>
-        ${cl?`<button class="btn btn-outline btn-sm" onclick="notifyAbsenceTeacherParents('${a.uid}')">📣</button>`:''}
+        ${cl?`<button class="btn btn-outline btn-sm pp-btn" onclick="notifyAbsenceTeacherParents('${a.uid}')">Notifier</button>`:''}
       </div>`;
     }).join('')}
   </div>`:''}
 
-  <div class="premium-section" style="border-left:4px solid #059669">
-    <div class="premium-section-title">💵 Caisse du jour</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
-      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:#065f46">+$${casseIn}</div><div style="font-size:10px;color:#065f46">Encaissé</div></div>
-      <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:#991b1b">-$${casseOut}</div><div style="font-size:10px;color:#991b1b">Dépensé</div></div>
-      <div style="background:${casseSolde>=0?'#dbeafe':'#fef3c7'};border-radius:10px;padding:10px;text-align:center"><div style="font-size:16px;font-weight:800;color:${casseSolde>=0?'#1d4ed8':'#92400e'}">$${casseSolde}</div><div style="font-size:10px;color:${casseSolde>=0?'#1d4ed8':'#92400e'}">Solde</div></div>
+  <div style="background:#fff;border-left:4px solid #059669;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(5,150,105,.08);animation:fadeInUp .35s ease both;animation-delay:.3s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#059669"></div>
+      <div style="font-size:10px;font-weight:800;color:#059669;letter-spacing:1.5px;text-transform:uppercase">Caisse du jour</div>
     </div>
-    ${DB.daily_reports.some(r=>r.date===today()&&r.status==='pending')?`<div style="font-size:12px;color:#d97706;background:#fef3c7;border-radius:8px;padding:6px 10px">⏳ Rapport journalier en attente de validation</div>`:`<div style="font-size:12px;color:var(--text-muted)">Rapport journalier de la Direction 3</div>`}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+      <div style="padding:10px;border-radius:12px;background:#d1fae5;text-align:center"><div style="font-size:16px;font-weight:800;color:#065f46">+$${casseIn}</div><div style="font-size:10px;color:#065f46;font-weight:600">Encaissé</div></div>
+      <div style="padding:10px;border-radius:12px;background:#fee2e2;text-align:center"><div style="font-size:16px;font-weight:800;color:#991b1b">-$${casseOut}</div><div style="font-size:10px;color:#991b1b;font-weight:600">Dépensé</div></div>
+      <div style="padding:10px;border-radius:12px;background:${casseSolde>=0?'#dbeafe':'#fef3c7'};text-align:center"><div style="font-size:16px;font-weight:800;color:${casseSolde>=0?'#1d4ed8':'#92400e'}">$${casseSolde}</div><div style="font-size:10px;color:${casseSolde>=0?'#1d4ed8':'#92400e'};font-weight:600">Solde</div></div>
+    </div>
+    ${DB.daily_reports.some(r=>r.date===today()&&r.status==='pending')?`<div style="font-size:12px;color:#d97706;background:#fef3c7;border-radius:8px;padding:6px 10px">Rapport journalier en attente de validation</div>`:`<div style="font-size:12px;color:#94a3b8">Rapport de Direction 3</div>`}
   </div>
 
   ${noCahierToday.length?`
-  <div class="premium-section" style="border-left:4px solid #8b5cf6">
-    <div class="premium-section-title">📖 Cahier de texte — Non rempli aujourd'hui</div>
-    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${cl?esc(cl.name):'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
-    <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('cahier_texte')">Voir le suivi complet →</div>
+  <div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.35s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
+      <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">Cahier de texte manquant</div>
+    </div>
+    ${noCahierToday.map((u,i)=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<noCahierToday.length-1?'border-bottom:1px solid #f1f5f9':''}">
+      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#7c3aed;flex-shrink:0">${ini(u.name)}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:#94a3b8">${cl?esc(cl.name):'?'}</div></div>
+      <span style="font-size:10px;font-weight:700;background:#ede9fe;color:#6d28d9;border-radius:8px;padding:3px 8px">Manquant</span>
+    </div>`;}).join('')}
+    <div style="font-size:12px;color:#7c3aed;margin-top:10px;cursor:pointer;font-weight:600" onclick="go('cahier_texte')">Voir le suivi complet →</div>
   </div>`:''}
 
-  <div class="premium-section">
-    <div class="premium-section-title">⚡ Actions rapides</div>
-    <div class="quick-grid">
-      ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['payments','💰','Frais'],['cards','🪪','Cartes'],['palmares','🏆','Palmarès'],['primes','💎','Primes'],['lockdown','🚨','Urgence'],['settings','⚙️','Système'],['year_mgmt','📆','Année'],['export','📤','Export']]
-      .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
-      <button class="quick-btn" onclick="openWATemplates()"><span class="qb-icon">💬</span><span class="qb-label">WA Modèles</span></button>
+  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.4s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr2}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr2};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
     </div>
-    ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:24px">${fc.active?'🔴':'💰'}</span>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px;color:${fc.active?'#991b1b':'var(--text)'}">${fc.active?`CONTRÔLE FRAIS ACTIF — ${fc.trimestre}`:'Contrôle de frais scolaires'}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${fc.active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      ${[['students','#2563eb','Élèves'],['teachers','#059669','Profs'],['guardians','#f97316','Gardiens'],['parents','#ec4899','Parents'],['payments','#10b981','Frais'],['cards','#64748b','Cartes'],['palmares','#c9a030','Palmarès'],['primes','#7c3aed','Primes'],['lockdown','#dc2626','Urgence'],['settings','#475569','Système'],['year_mgmt','#3b82f6','Année'],['export','#6d28d9','Export']]
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="width:28px;height:28px;border-radius:9px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
         </div>
-        <select id="fcTrim" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:13px;color:var(--text)" onchange="DB.settings.feesControl.trimestre=this.value">
-          <option value="T1" ${fc.trimestre==='T1'?'selected':''}>Trimestre 1</option>
-          <option value="T2" ${fc.trimestre==='T2'?'selected':''}>Trimestre 2</option>
-          <option value="T3" ${fc.trimestre==='T3'?'selected':''}>Trimestre 3</option>
+        <div style="font-size:9px;font-weight:700;color:#475569">${lb}</div>
+      </button>`).join('')}
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-outline pp-btn btn-sm" style="flex:1" onclick="openWATemplates()">Modèles WA</button>
+      <button class="btn btn-outline pp-btn btn-sm" style="flex:1" onclick="go('notifications')">Notifications</button>
+      <button class="btn btn-outline pp-btn btn-sm" style="flex:1" onclick="go('calendar')">Calendrier</button>
+    </div>
+    <div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'#e2e8f0'}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="width:14px;height:14px;border-radius:50%;background:${fc.active?'#dc2626':'#94a3b8'};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:${fc.active?'#991b1b':'#374151'}">${fc.active?`Contrôle frais actif — ${fc.trimestre}`:'Contrôle de frais scolaires'}</div>
+          <div style="font-size:12px;color:#64748b">${fc.active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div>
+        </div>
+        <select id="fcTrim" style="padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:13px" onchange="DB.settings.feesControl.trimestre=this.value">
+          ${['T1','T2','T3'].map(t=>`<option value="${t}" ${fc.trimestre===t?'selected':''}>${t}</option>`).join('')}
         </select>
-        <button class="btn ${fc.active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${fc.active?'🔓 Désactiver':'🔴 Activer'}</button>
+        <button class="btn ${fc.active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${fc.active?'Désactiver':'Activer'}</button>
       </div>
-    </div>`;})()}
+    </div>
   </div>
+
   ${(()=>{
-    // Visual stats — donut charts + class bar chart
     const trimStats=['T1','T2','T3'].map(tr=>{
-      const paid=DB.payments.filter(p=>p.t===tr&&p.paid).length;
+      const paidN=DB.payments.filter(p=>p.t===tr&&p.paid).length;
       const total=DB.students.length;
-      const pct=total?Math.round(paid/total*100):0;
+      const pct=total?Math.round(paidN/total*100):0;
       const col=pct>=80?'#059669':pct>=50?'#d97706':'#dc2626';
-      const dash=Math.round(pct/100*188.5);
-      return {tr,paid,total,pct,col,dash};
+      const circ=188.5;const dash=Math.round(pct/100*circ);
+      return {tr,paidN,total,pct,col,dash,circ};
     });
     const clsPresence=DB.classes.map(c=>{
       const sc=DB.students.filter(s=>s.cid===c.id);
@@ -1862,55 +1912,60 @@ function dashboardDirection() {
       return {name:c.name,total:sc.length,att,pct,col};
     }).sort((a,b)=>b.pct-a.pct);
     if(!DB.students.length) return '';
-    return `<div class="premium-section" style="border-left:4px solid #7c3aed">
-      <div class="premium-section-title">📊 Statistiques visuelles</div>
+    return `<div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.45s">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+        <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
+        <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">Statistiques paiements</div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:${clsPresence.length?'14':'4'}px">
-        ${trimStats.map(({tr,paid,total,pct,col,dash})=>`
-        <div style="text-align:center;padding:12px 8px;background:#f8fafc;border-radius:14px;border:1px solid var(--border)">
+        ${trimStats.map(({tr,paidN,total,pct,col,dash,circ})=>`
+        <div style="text-align:center;padding:12px 8px;background:#f8fafc;border-radius:14px">
           <svg width="76" height="76" viewBox="0 0 80 80" style="display:block;margin:0 auto 6px">
             <circle cx="40" cy="40" r="30" fill="none" stroke="#e5e7eb" stroke-width="10"/>
             <circle cx="40" cy="40" r="30" fill="none" stroke="${col}" stroke-width="10"
-              stroke-dasharray="${dash} 188.5" stroke-linecap="round"
-              transform="rotate(-90 40 40)"/>
+              stroke-dasharray="${dash} ${circ}" stroke-linecap="round" transform="rotate(-90 40 40)"/>
             <text x="40" y="45" text-anchor="middle" font-size="13" font-weight="800" fill="${col}" font-family="system-ui,sans-serif">${pct}%</text>
           </svg>
-          <div style="font-weight:700;font-size:13px;color:#374151">${tr} Payé</div>
-          <div style="font-size:11px;color:var(--text-muted)">${paid}/${total} élèves</div>
+          <div style="font-weight:700;font-size:12px;color:#374151">${tr} Payé</div>
+          <div style="font-size:11px;color:#94a3b8">${paidN}/${total}</div>
         </div>`).join('')}
       </div>
-      ${clsPresence.length?`<div>
-        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Présences par classe aujourd'hui</div>
-        ${clsPresence.map(({name,att,total,pct,col})=>`
-        <div style="margin-bottom:7px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-            <span style="font-size:12px;font-weight:600;color:var(--text)">${esc(name)}</span>
-            <span style="font-size:11px;font-weight:700;color:${col}">${att}/${total} · ${pct}%</span>
-          </div>
-          <div style="height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden">
-            <div style="width:${pct}%;height:100%;background:${col};border-radius:4px"></div>
-          </div>
-        </div>`).join('')}
-      </div>`:''}
+      ${clsPresence.length?`<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <div style="width:3px;height:14px;border-radius:2px;background:#475569"></div>
+        <div style="font-size:10px;font-weight:800;color:#475569;letter-spacing:1.5px;text-transform:uppercase">Présences par classe</div>
+      </div>
+      ${clsPresence.map(({name,att,total,pct,col})=>`
+      <div style="margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:12px;font-weight:600;color:#374151">${esc(name)}</span>
+          <span style="font-size:11px;font-weight:700;color:${col}">${att}/${total} · ${pct}%</span>
+        </div>
+        <div style="height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${col};border-radius:4px"></div>
+        </div>
+      </div>`).join('')}`:''}
     </div>`;
   })()}
-  ${(() => {
-    const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
-    if(!absAlerts.length) return '';
-    return `
-    <div class="premium-section" style="border-left:4px solid #f59e0b">
-      <div class="premium-section-title">⚠️ Signalements d'absences (${absAlerts.length})</div>
-      ${absAlerts.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg.replace('⚠️ Absences signalées par ','')}</div><div class="pi-sub">${n.time}</div></div></div>`).join('')}
-    </div>`;
-  })()}
-  <div class="premium-section">
-    <div class="premium-section-title">🏫 Classes</div>
-    ${DB.classes.map(c=>{
-      const sc = DB.students.filter(s=>s.cid===c.id).length;
-      const tf = DB.users.find(u=>u.id===c.teacher_id);
-      const te = DB.users.find(u=>u.id===c.teacher_id_en);
-      const tit = c.titulaire_id ? DB.users.find(u=>u.id===c.titulaire_id) : null;
+
+  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.5s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#64748b"></div>
+      <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase">Classes</div>
+    </div>
+    ${DB.classes.map((c,i)=>{
+      const sc=DB.students.filter(s=>s.cid===c.id).length;
+      const tf=DB.users.find(u=>u.id===c.teacher_id);
+      const te=DB.users.find(u=>u.id===c.teacher_id_en);
+      const tit=c.titulaire_id?DB.users.find(u=>u.id===c.titulaire_id):null;
       const [cc]=clsColor(c.name);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cc}22;color:${cc}">${c.name.charAt(0)}</div><div style="flex:1"><div class="pi-title">${c.name}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px">⭐ ${tit.name}</span>`:''}</div><div class="pi-sub">${c.cycle==='maternelle'?(te?te.name:'—'):`FR: ${tf?tf.name:'—'} · EN: ${te?te.name:'—'}`} · ${sc} élèves</div></div><span class="premium-badge" style="background:${cc}15;color:${cc}">${c.cycle}</span></div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<DB.classes.length-1?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:34px;height:34px;border-radius:10px;background:${cc}22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${cc};flex-shrink:0">${c.name.charAt(0)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(c.name)}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:5px;padding:1px 5px">Tit. ${esc(tit.name)}</span>`:''}</div>
+          <div style="font-size:11px;color:#94a3b8">${c.cycle==='maternelle'?(te?esc(te.name):'—'):`FR: ${tf?esc(tf.name):'—'} · EN: ${te?esc(te.name):'—'}`} · ${sc} élèves</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:${cc}15;color:${cc};border-radius:8px;padding:3px 8px">${c.cycle}</span>
+      </div>`;
     }).join('')}
   </div>`;
 }
@@ -2195,213 +2250,332 @@ function dashboardEnseignant() {
 }
 
 function dashboardDirection2() {
-  const ts = DB.students.length;
-  const te = DB.users.filter(u=>u.role==='enseignant').length;
-  const tp = DB.users.filter(u=>u.role==='parent').length;
-  const todayAtt = DB.attendance.filter(a=>a.date===today());
-  const present = todayAtt.filter(a=>a.status==='ontime').length;
-  const late = todayAtt.filter(a=>a.status==='late').length;
-  const refused = todayAtt.filter(a=>a.status==='refused').length;
-  const pending = getPendingCount();
-  const presencePct = ts ? Math.round((present+late)/ts*100) : 0;
-  const pendingRats = DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated);
-  const blockedStudents = DB.students.filter(s=>s.access_blocked);
-  const allTeachers = DB.users.filter(u=>u.role==='enseignant');
-  const noCahierToday = allTeachers.filter(u=>{
+  const ts=DB.students.length;
+  const te=DB.users.filter(u=>u.role==='enseignant').length;
+  const tp=DB.users.filter(u=>u.role==='parent').length;
+  const todayAtt=DB.attendance.filter(a=>a.date===today());
+  const present=todayAtt.filter(a=>a.status==='ontime').length;
+  const late=todayAtt.filter(a=>a.status==='late').length;
+  const refused=todayAtt.filter(a=>a.status==='refused').length;
+  const pending=getPendingCount();
+  const presencePct=ts?Math.round((present+late)/ts*100):0;
+  const pendingRats=DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated);
+  const blockedStudents=DB.students.filter(s=>s.access_blocked);
+  const allTeachers=DB.users.filter(u=>u.role==='enseignant');
+  const noCahierToday=allTeachers.filter(u=>{
     const hasCl=DB.classes.some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-    return hasCl && !DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
+    return hasCl&&!DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
   });
   const pendingConvs=DB.convocations.filter(c=>c.status==='pending');
+  const clr='#2563eb';const clr2='#4f46e5';
   return `
-  <div class="hero-premium">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'SchoolSafe'}</div>
-    <div class="hero-sub">${S.lockdown?'Aucune sortie autorisée.':'Direction 2 — Gestion scolaire'}</div>
-    <div class="hero-bar"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${ts}</div><div class="hero-stat-lbl">Élèves</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${te}</div><div class="hero-stat-lbl">Profs</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${tp}</div><div class="hero-stat-lbl">Parents</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${presencePct}%</div><div class="hero-stat-lbl">Présences</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(37,99,235,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${S.lockdown?'LOCKDOWN':'SchoolSafe'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">Direction 2 · Pédagogie · ${DB.settings.currentTrimestre||''}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[ts,'Élèves'],[te,'Profs'],[tp,'Parents'],[presencePct+'%','Présences']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:18px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
-  <div class="action-grid">
-    <button class="action-card" onclick="go('students')" style="background:linear-gradient(135deg,#2563eb,#4f46e5)"><span class="ac-icon">🎓</span><span class="ac-label">Élèves</span></button>
-    <button class="action-card" onclick="go('approbations')" style="background:linear-gradient(135deg,#c9a030,#a68520);position:relative"><span class="ac-icon">✅</span><span class="ac-label">Approuver</span>${pending>0?`<span style="position:absolute;top:8px;right:8px;background:#ef4444;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:8px">${pending}</span>`:''}</button>
-    <button class="action-card" onclick="go('attendance')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📋</span><span class="ac-label">Présences</span></button>
-  </div>
-  ${pending>0||pendingRats.length||blockedStudents.length||pendingConvs.length?`
-  <div class="premium-section" style="border-left:4px solid #ef4444;padding-bottom:4px">
-    <div class="premium-section-title" style="color:#991b1b">🚨 Alertes immédiates</div>
-    ${pending>0?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fef3c7">⏳</div><div style="flex:1"><div class="pi-title">${pending} élément${pending>1?'s':''} en attente d'approbation</div></div><span class="premium-badge" style="background:#fef3c7;color:#92400e">Voir →</span></div>`:''}
-    ${pendingRats.length?`<div class="premium-item" style="cursor:pointer" onclick="go('approbations')"><div class="pi-icon" style="background:#fee2e2">📚</div><div style="flex:1"><div class="pi-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="pi-sub">${pendingRats.slice(0,3).map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).join(', ')}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">Valider →</span></div>`:''}
-    ${blockedStudents.length?`<div class="premium-item" style="cursor:pointer" onclick="go('students')"><div class="pi-icon" style="background:#ede9fe">🔒</div><div style="flex:1"><div class="pi-title">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}</div></div><span class="premium-badge" style="background:#ede9fe;color:#6d28d9">Gérer →</span></div>`:''}
-    ${pendingConvs.length?`<div class="premium-item" style="cursor:pointer" onclick="go('convocations')"><div class="pi-icon" style="background:#dbeafe">📋</div><div style="flex:1"><div class="pi-title">${pendingConvs.length} convocation${pendingConvs.length>1?'s':''} à planifier</div></div><span class="premium-badge" style="background:#dbeafe;color:#1e40af">Voir →</span></div>`:''}
-  </div>`:''}
-  <div class="premium-section">
-    <div class="premium-section-title">📊 Présences du jour</div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="flex:1;height:8px;background:#e5e7eb;border-radius:6px;overflow:hidden">
-        <div style="width:${presencePct}%;height:100%;background:${presencePct>=80?'#10b981':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:6px;transition:width .5s"></div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
+    ${[['students','linear-gradient(135deg,#2563eb,#4f46e5)','Élèves',false],
+       ['approbations','linear-gradient(135deg,#c9a030,#a68520)','Approuver',pending>0],
+       ['attendance','linear-gradient(135deg,#059669,#047857)','Présences',false]
+    ].map(([p,bg,lbl,badge])=>`
+    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
+      ${badge?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${pending}</span>`:''}
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
       </div>
-      <span style="font-weight:700;font-size:14px;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${presencePct}%</span>
+      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
+    </button>`).join('')}
+  </div>
+
+  ${pending>0||pendingRats.length||blockedStudents.length||pendingConvs.length?`
+  <div style="background:#fff;border-left:4px solid #ef4444;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(239,68,68,.1);animation:fadeInUp .35s ease both;animation-delay:.15s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:ringPulse 2s ease infinite"></div>
+      <div style="font-size:10px;font-weight:800;color:#dc2626;letter-spacing:1.5px;text-transform:uppercase">Alertes immédiates</div>
+    </div>
+    ${pending>0?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pending} élément${pending>1?'s':''} en attente d'approbation</div></div>
+      <span style="font-size:12px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:10px;padding:4px 10px">Voir</span>
+    </div>`:''}
+    ${pendingRats.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#dc2626"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div>
+        <div style="font-size:11px;color:#94a3b8">${pendingRats.slice(0,3).map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).join(', ')}</div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:#991b1b;background:#fee2e2;border-radius:10px;padding:4px 10px">Valider</span>
+    </div>`:''}
+    ${blockedStudents.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('students')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#7c3aed"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}</div></div>
+      <span style="font-size:12px;font-weight:700;color:#6d28d9;background:#ede9fe;border-radius:10px;padding:4px 10px">Gérer</span>
+    </div>`:''}
+    ${pendingConvs.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer" onclick="go('convocations')">
+      <div style="width:32px;height:32px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#3b82f6"></div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pendingConvs.length} convocation${pendingConvs.length>1?'s':''} à planifier</div></div>
+      <span style="font-size:12px;font-weight:700;color:#1e40af;background:#dbeafe;border-radius:10px;padding:4px 10px">Voir</span>
+    </div>`:''}
+  </div>`:''}
+
+  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(37,99,235,.08);animation:fadeInUp .35s ease both;animation-delay:.2s">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+        <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Présences du jour</div>
+      </div>
+      <span style="font-size:13px;font-weight:800;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${presencePct}%</span>
+    </div>
+    <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden;margin-bottom:12px">
+      <div style="height:100%;width:${presencePct}%;background:${presencePct>=80?'#059669':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .5s"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div style="background:#d1fae5;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46">À l'heure</div></div>
-      <div style="background:#fef3c7;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e">Retards</div></div>
-      <div style="background:#fee2e2;border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b">Absents</div></div>
+      <div style="padding:10px;border-radius:12px;background:#d1fae5;text-align:center"><div style="font-size:20px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46;font-weight:600">À l'heure</div></div>
+      <div style="padding:10px;border-radius:12px;background:#fef3c7;text-align:center"><div style="font-size:20px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e;font-weight:600">Retards</div></div>
+      <div style="padding:10px;border-radius:12px;background:#fee2e2;text-align:center"><div style="font-size:20px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b;font-weight:600">Absents</div></div>
     </div>
   </div>
+
   ${noCahierToday.length?`
-  <div class="premium-section" style="border-left:4px solid #8b5cf6">
-    <div class="premium-section-title">📖 Cahier de texte — Non rempli aujourd'hui</div>
-    ${noCahierToday.map(u=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="premium-item"><div class="pi-icon" style="background:#ede9fe;color:#7c3aed;font-size:12px;font-weight:700">${ini(u.name)}</div><div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${cl?esc(cl.name):'?'}</div></div><span class="pill" style="background:#ede9fe;color:#6d28d9;font-size:10px">Manquant</span></div>`;}).join('')}
-    <div style="font-size:12px;color:var(--text-muted);margin-top:6px;cursor:pointer;text-decoration:underline" onclick="go('cahier_texte')">Voir le suivi complet →</div>
-  </div>`:''}
-  <div class="premium-section">
-    <div class="premium-section-title">⚡ Actions rapides</div>
-    <div class="quick-grid">
-      ${[['students','➕','Inscrire'],['teachers','👨‍🏫','Profs'],['guardians','🛡️','Gardiens'],['parents','👨‍👩‍👧','Parents'],['classes','🏫','Classes'],['cards','🪪','Cartes'],['convocations','📋','Convocations'],['palmares','🏆','Palmarès'],['calendar','📅','Calendrier'],['lockdown','🚨','Urgence'],['year_mgmt','📆','Année'],['export','📤','Export']]
-      .map(([p,ic,lb])=>`<button class="quick-btn" onclick="go('${p}')"><span class="qb-icon">${ic}</span><span class="qb-label">${lb}</span></button>`).join('')}
+  <div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.25s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
+      <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">Cahier de texte manquant</div>
     </div>
-    ${(()=>{const fc=DB.settings.feesControl||{};return`<div style="margin-top:12px;padding:14px;background:${fc.active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${fc.active?'#ef4444':'var(--border)'}">
+    ${noCahierToday.map((u,i)=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<noCahierToday.length-1?'border-bottom:1px solid #f1f5f9':''}">
+      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#7c3aed;flex-shrink:0">${ini(u.name)}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:#94a3b8">${cl?esc(cl.name):'?'}</div></div>
+      <span style="font-size:10px;font-weight:700;background:#ede9fe;color:#6d28d9;border-radius:8px;padding:3px 8px">Manquant</span>
+    </div>`;}).join('')}
+    <div style="font-size:12px;color:#7c3aed;margin-top:10px;cursor:pointer;font-weight:600" onclick="go('cahier_texte')">Voir le suivi complet →</div>
+  </div>`:''}
+
+  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.3s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      ${[['students','#2563eb','Élèves'],['teachers','#059669','Profs'],['guardians','#f97316','Gardiens'],['parents','#ec4899','Parents'],['classes','#7c3aed','Classes'],['cards','#64748b','Cartes'],['convocations','#c9a030','Convoc.'],['palmares','#c9a030','Palmarès'],['calendar','#3b82f6','Calendrier'],['lockdown','#dc2626','Urgence'],['year_mgmt','#475569','Année'],['export','#6d28d9','Export']]
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        <div style="width:28px;height:28px;border-radius:9px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
+        </div>
+        <div style="font-size:9px;font-weight:700;color:#475569">${lb}</div>
+      </button>`).join('')}
+    </div>
+    <div style="margin-top:12px;padding:14px;background:${(DB.settings.feesControl||{}).active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${(DB.settings.feesControl||{}).active?'#ef4444':'#e2e8f0'}">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:24px">${fc.active?'🔴':'💰'}</span>
-        <div style="flex:1"><div style="font-weight:700;font-size:14px;color:${fc.active?'#991b1b':'var(--text)'}">${fc.active?`CONTRÔLE FRAIS ACTIF — ${fc.trimestre}`:'Contrôle de frais scolaires'}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${fc.active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div></div>
-        <select id="fcTrim2" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:13px;color:var(--text)" onchange="DB.settings.feesControl.trimestre=this.value">
-          <option value="T1" ${fc.trimestre==='T1'?'selected':''}>Trimestre 1</option>
-          <option value="T2" ${fc.trimestre==='T2'?'selected':''}>Trimestre 2</option>
-          <option value="T3" ${fc.trimestre==='T3'?'selected':''}>Trimestre 3</option>
+        <div style="width:14px;height:14px;border-radius:50%;background:${(DB.settings.feesControl||{}).active?'#dc2626':'#94a3b8'};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:14px;color:${(DB.settings.feesControl||{}).active?'#991b1b':'#374151'}">${(DB.settings.feesControl||{}).active?`Contrôle frais actif — ${(DB.settings.feesControl||{}).trimestre}`:'Contrôle de frais scolaires'}</div>
+          <div style="font-size:12px;color:#64748b">${(DB.settings.feesControl||{}).active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div>
+        </div>
+        <select id="fcTrim2" style="padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:13px" onchange="DB.settings.feesControl.trimestre=this.value">
+          ${['T1','T2','T3'].map(t=>`<option value="${t}" ${(DB.settings.feesControl||{}).trimestre===t?'selected':''}>${t}</option>`).join('')}
         </select>
-        <button class="btn ${fc.active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${fc.active?'🔓 Désactiver':'🔴 Activer'}</button>
+        <button class="btn ${(DB.settings.feesControl||{}).active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${(DB.settings.feesControl||{}).active?'Désactiver':'Activer'}</button>
       </div>
-    </div>`;})()}
+    </div>
   </div>
-  ${(() => {
-    const absAlerts = DB.notifs.filter(n=>n.date===today()&&n.type==='alert'&&n.msg.startsWith('⚠️ Absences signalées'));
-    if(!absAlerts.length) return '';
-    return `<div class="premium-section" style="border-left:4px solid #f59e0b">
-      <div class="premium-section-title">⚠️ Signalements d'absences (${absAlerts.length})</div>
-      ${absAlerts.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fef3c7">📋</div><div style="flex:1"><div class="pi-title" style="font-size:13px">${n.msg.replace('⚠️ Absences signalées par ','')}</div><div class="pi-sub">${n.time}</div></div></div>`).join('')}
-    </div>`;
-  })()}
-  <div class="premium-section">
-    <div class="premium-section-title">🏫 Classes</div>
-    ${DB.classes.map(c=>{
-      const sc = DB.students.filter(s=>s.cid===c.id).length;
-      const tf = DB.users.find(u=>u.id===c.teacher_id);
-      const te2 = DB.users.find(u=>u.id===c.teacher_id_en);
-      const tit = c.titulaire_id ? DB.users.find(u=>u.id===c.titulaire_id) : null;
+
+  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.35s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:#64748b"></div>
+      <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase">Classes</div>
+    </div>
+    ${DB.classes.map((c,i)=>{
+      const sc=DB.students.filter(s=>s.cid===c.id).length;
+      const tf=DB.users.find(u=>u.id===c.teacher_id);
+      const te=DB.users.find(u=>u.id===c.teacher_id_en);
+      const tit=c.titulaire_id?DB.users.find(u=>u.id===c.titulaire_id):null;
       const [cc]=clsColor(c.name);
-      return `<div class="premium-item"><div class="pi-icon" style="background:${cc}22;color:${cc}">${c.name.charAt(0)}</div><div style="flex:1"><div class="pi-title">${c.name}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:4px">⭐ ${tit.name}</span>`:''}</div><div class="pi-sub">${c.cycle==='maternelle'?(te2?te2.name:'—'):`FR: ${tf?tf.name:'—'} · EN: ${te2?te2.name:'—'}`} · ${sc} élèves</div></div><span class="premium-badge" style="background:${cc}15;color:${cc}">${c.cycle}</span></div>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<DB.classes.length-1?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:34px;height:34px;border-radius:10px;background:${cc}22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${cc};flex-shrink:0">${c.name.charAt(0)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(c.name)}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:5px;padding:1px 5px">Tit. ${esc(tit.name)}</span>`:''}</div>
+          <div style="font-size:11px;color:#94a3b8">${c.cycle==='maternelle'?(te?esc(te.name):'—'):`FR: ${tf?esc(tf.name):'—'} · EN: ${te?esc(te.name):'—'}`} · ${sc} élèves</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:${cc}15;color:${cc};border-radius:8px;padding:3px 8px">${c.cycle}</span>
+      </div>`;
     }).join('')}
   </div>`;
 }
 
 function dashboardDirection3() {
-  const recs = DB.daily_records.filter(r=>r.date===today()&&!r.validated);
-  const exps = DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
-  const totalIn = recs.reduce((s,r)=>s+Number(r.amount||0),0);
-  const totalOut = exps.reduce((s,e)=>s+Number(e.amount||0),0);
-  const now = new Date();
-  const hm = now.getHours()*60+now.getMinutes();
-  const minutesTo16 = 16*60 - hm;
-  const timeMsg = minutesTo16>0 ? `Rapport dans ${Math.floor(minutesTo16/60)}h${minutesTo16%60<10?'0':''}${minutesTo16%60}` : `Rapport envoyé à Direction 1`;
+  const recs=DB.daily_records.filter(r=>r.date===today()&&!r.validated);
+  const exps=DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
+  const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
+  const net=totalIn-totalOut;
+  const now=new Date();
+  const hm=now.getHours()*60+now.getMinutes();
+  const min16=16*60-hm;
+  const timeMsg=min16>0?`Rapport dans ${Math.floor(min16/60)}h${String(min16%60).padStart(2,'0')}min`:'Rapport envoyé à Direction 1';
+  const allRecs=DB.daily_records.filter(r=>r.date===today());
+  const allExps=DB.daily_expenses.filter(e=>e.date===today());
+  const allIn=allRecs.reduce((s,r)=>s+Number(r.amount||0),0);
+  const allOut=allExps.reduce((s,e)=>s+Number(e.amount||0),0);
+  const allNet=allIn-allOut;
+  const clr='#059669';const clr2='#10b981';
   return `
-  <div class="hero-premium" style="background:linear-gradient(160deg,#064e3b,#065f46,#10b981bb)">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">💵 Caisse du jour</div>
-    <div class="hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    <div class="hero-bar" style="background:linear-gradient(90deg,#10b981,#34d399)"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${recs.length}</div><div class="hero-stat-lbl">Paiements</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${exps.length}</div><div class="hero-stat-lbl">Dépenses</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${totalIn}</div><div class="hero-stat-lbl">$ Encaissé</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${totalOut}</div><div class="hero-stat-lbl">$ Dépensé</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(5,150,105,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">Caisse du jour</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[recs.length,'Paiements'],[exps.length,'Dépenses'],['$'+totalIn,'Encaissé'],['$'+totalOut,'Sorti']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:16px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
-  <div class="action-grid">
-    <button class="action-card" onclick="go('caisse_paiement')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">💵</span><span class="ac-label">Paiement</span></button>
-    <button class="action-card" onclick="go('caisse_depense')" style="background:linear-gradient(135deg,#dc2626,#b91c1c)"><span class="ac-icon">💸</span><span class="ac-label">Dépense</span></button>
-    <button class="action-card" onclick="go('caisse_rapport')" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)"><span class="ac-icon">📋</span><span class="ac-label">Rapport</span></button>
-  </div>
-  <div class="premium-section" style="border-left:4px solid #10b981">
-    <div class="premium-section-title">⏰ ${timeMsg}</div>
-    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">Le rapport est envoyé automatiquement à 16h00 à la Direction 1. Vous ne verrez plus les données de ce jour après validation.</div>
-  </div>
-  ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Derniers paiements</div>
-    ${recs.slice(-4).reverse().map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d1fae5">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label} — ${r.time}</div></div><span class="premium-badge" style="background:#d1fae5;color:#065f46">$${r.amount}</span></div>`).join('')}
-  </div>`:''}
-  ${(()=>{
-    const cRecs=DB.daily_records.filter(r=>r.date===today());
-    const cExps=DB.daily_expenses.filter(e=>e.date===today());
-    const cIn=cRecs.reduce((s,r)=>s+Number(r.amount||0),0);
-    const cOut=cExps.reduce((s,e)=>s+Number(e.amount||0),0);
-    const cNet=cIn-cOut;
-    if(!cRecs.length&&!cExps.length) return '';
-    return `<div class="premium-section" style="border-left:4px solid #10b981">
-      <div class="premium-section-title">💰 Rapport Caisse du jour</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-          <div style="font-size:16px;font-weight:800;color:#059669">+$${cIn}</div><div style="font-size:10px;color:var(--text-muted)">Encaissé</div>
-        </div>
-        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-          <div style="font-size:16px;font-weight:800;color:#dc2626">-$${cOut}</div><div style="font-size:10px;color:var(--text-muted)">Dépensé</div>
-        </div>
-        <div style="flex:1;min-width:70px;padding:10px;border-radius:10px;background:var(--bg);text-align:center">
-          <div style="font-size:16px;font-weight:800;color:${cNet>=0?'#059669':'#dc2626'}">${cNet>=0?'+':''}$${cNet}</div><div style="font-size:10px;color:var(--text-muted)">Solde net</div>
-        </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
+    ${[['caisse_paiement','linear-gradient(135deg,#059669,#047857)','Paiement'],
+       ['caisse_depense','linear-gradient(135deg,#dc2626,#b91c1c)','Dépense'],
+       ['caisse_rapport','linear-gradient(135deg,#2563eb,#1d4ed8)','Rapport']
+    ].map(([p,bg,lbl])=>`
+    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18)">
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
       </div>
-    </div>`;
-  })()}`;
+      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
+    </button>`).join('')}
+  </div>
+
+  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:16px 18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(5,150,105,.1);animation:fadeInUp .35s ease both;animation-delay:.15s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Minuterie rapport</div>
+    </div>
+    <div style="font-size:14px;font-weight:700;color:#0f172a">${timeMsg}</div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px">Rapport automatique à 16h00 — données verrouillées après validation.</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.2s">
+    ${[['$'+allIn,'Encaissé total','#059669','#d1fae5'],['$'+allOut,'Dépensé total','#dc2626','#fee2e2'],[(allNet>=0?'+$'+allNet:'-$'+Math.abs(allNet)),'Solde net',allNet>=0?'#059669':'#dc2626',allNet>=0?'#d1fae5':'#fee2e2']].map(([n,lbl,tc,bg])=>`
+    <div style="background:#fff;border-radius:18px;padding:14px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06);text-align:center">
+      <div style="font-size:18px;font-weight:900;color:${tc};line-height:1">${n}</div>
+      <div style="font-size:10px;font-weight:700;color:#475569;margin-top:4px">${lbl}</div>
+    </div>`).join('')}
+  </div>
+
+  ${recs.length?`
+  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.25s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Derniers paiements</div>
+    </div>
+    ${recs.slice(-4).reverse().map((r,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<3?'border-bottom:1px solid #f1f5f9':''}">
+      <div style="width:8px;height:8px;border-radius:50%;background:${clr};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.student_name||'—')}</div>
+        <div style="font-size:11px;color:#94a3b8">${esc(r.type_label||'')} · ${r.time||''}</div>
+      </div>
+      <span style="font-size:13px;font-weight:800;color:${clr};background:#d1fae5;border-radius:8px;padding:3px 10px;flex-shrink:0">$${r.amount}</span>
+    </div>`).join('')}
+  </div>`:''}`;
 }
 
 function dashboardGardien() {
-  const todayScans = DB.scan_log.filter(l=>l.date===today());
-  const entries = todayScans.filter(l=>l.type==='entry');
-  const exits = todayScans.filter(l=>l.type==='exit');
-  const ontime = entries.filter(l=>l.status==='ontime').length;
-  const lateG = entries.filter(l=>l.status==='late').length;
-  const refusedG = entries.filter(l=>l.status==='refused').length;
-
+  const todayScans=DB.scan_log.filter(l=>l.date===today());
+  const entries=todayScans.filter(l=>l.type==='entry');
+  const exits=todayScans.filter(l=>l.type==='exit');
+  const ontime=entries.filter(l=>l.status==='ontime').length;
+  const lateG=entries.filter(l=>l.status==='late').length;
+  const refusedG=entries.filter(l=>l.status==='refused').length;
+  const clr='#f97316';const clr2='#ea580c';
+  const fc=DB.settings.feesControl||{};
   return `
-  <div class="hero-premium" style="background:linear-gradient(160deg,#0f2557,#1a3a7a,#f97316bb)">
-    <div class="hero-school">The Wise School International</div>
-    <div class="hero-title">${S.lockdown?'🔴 LOCKDOWN':'🛡️ Portail SchoolSafe'}</div>
-    <div class="hero-sub">${S.lockdown?'AUCUNE SORTIE AUTORISÉE':'Gardien '+esc(S.user.name)+' — Sécurité active'}</div>
-    <div class="hero-bar" style="background:linear-gradient(90deg,#f97316,#fbbf24)"></div>
-    <div class="hero-stats">
-      <div class="hero-stat"><div class="hero-stat-num">${ontime}</div><div class="hero-stat-lbl">À l'heure</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${lateG}</div><div class="hero-stat-lbl">Retards</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${refusedG}</div><div class="hero-stat-lbl">Refusés</div></div>
-      <div class="hero-stat"><div class="hero-stat-num">${exits.length}</div><div class="hero-stat-lbl">Sorties</div></div>
+  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(249,115,22,.4)">
+    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
+    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
+    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
+    <div style="position:relative">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
+      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${S.lockdown?'LOCKDOWN':'Portail · Sécurité'}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${esc(S.user.name)} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
+      ${[[ontime,'À l\'heure'],[lateG,'Retards'],[refusedG,'Refusés'],[exits.length,'Sorties']].map(([n,lbl])=>`
+      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
+        <div style="font-size:20px;font-weight:900;color:#fff;line-height:1">${n}</div>
+        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
+      </div>`).join('')}
     </div>
   </div>
-  ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`
-  <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:2px;animation:glow 3s ease-in-out infinite">
-    <span style="font-size:28px;flex-shrink:0">🔴</span>
-    <div>
-      <div style="font-weight:800;font-size:15px;color:#991b1b">CONTRÔLE FRAIS SCOLAIRES — ${fc.trimestre}</div>
-      <div style="font-size:12px;color:#991b1b">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés</div>
+
+  ${fc.active?`
+  <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:20px;padding:16px 18px;margin-bottom:14px;animation:fadeInUp .3s ease both;box-shadow:0 4px 18px rgba(239,68,68,.2)">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:14px;height:14px;border-radius:50%;background:#dc2626;flex-shrink:0;animation:ringPulse 2s ease infinite"></div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:#991b1b">CONTRÔLE FRAIS — ${fc.trimestre}</div>
+        <div style="font-size:12px;color:#991b1b;margin-top:2px">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés</div>
+      </div>
     </div>
-  </div>`:''})()}
-  <div class="action-grid">
-    <button class="action-card" onclick="go('scanner')" style="background:linear-gradient(135deg,#059669,#047857)"><span class="ac-icon">📷</span><span class="ac-label">Entrée</span></button>
-    <button class="action-card" onclick="go('scanner_exit')" style="background:linear-gradient(135deg,#c9a030,#a68520)"><span class="ac-icon">🚪</span><span class="ac-label">Sortie</span></button>
-    <button class="action-card" onclick="go('alert_urgent')" style="background:linear-gradient(135deg,#dc2626,#b91c1c)"><span class="ac-icon">🚨</span><span class="ac-label">Alerte</span></button>
+  </div>`:''}
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
+    ${[['scanner','linear-gradient(135deg,#059669,#047857)','Entrée'],
+       ['scanner_exit','linear-gradient(135deg,#c9a030,#a68520)','Sortie'],
+       ['alert_urgent','linear-gradient(135deg,#dc2626,#b91c1c)','Alerte']
+    ].map(([p,bg,lbl])=>`
+    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18)">
+      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
+        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
+    </button>`).join('')}
   </div>
-  <div class="premium-section">
-    <div class="premium-section-title">📊 Scans du jour</div>
-    <div class="premium-item"><div class="pi-icon" style="background:#d1fae5">✅</div><div style="flex:1"><div class="pi-title">${ontime} à l'heure</div></div></div>
-    <div class="premium-item"><div class="pi-icon" style="background:#fef3c7">⚠️</div><div style="flex:1"><div class="pi-title">${lateG} retard${lateG>1?'s':''}</div></div></div>
-    <div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚫</div><div style="flex:1"><div class="pi-title">${refusedG} refusé${refusedG>1?'s':''}</div></div></div>
-    <div class="premium-item"><div class="pi-icon" style="background:#dbeafe">🚪</div><div style="flex:1"><div class="pi-title">${exits.length} sortie${exits.length>1?'s':''}</div></div></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.15s">
+    ${[[ontime,'À l\'heure','#059669','#d1fae5'],[lateG,'Retards','#d97706','#fef3c7'],[refusedG,'Refusés','#dc2626','#fee2e2'],[exits.length,'Sorties','#3b82f6','#dbeafe']].map(([n,lbl,tc,bg])=>`
+    <div style="background:#fff;border-radius:18px;padding:16px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06)">
+      <div style="font-size:30px;font-weight:900;color:${tc};line-height:1">${n}</div>
+      <div style="font-size:11px;font-weight:700;color:#475569;margin-top:4px">${lbl}</div>
+    </div>`).join('')}
   </div>
-  ${todayScans.length?`<div class="premium-section"><div class="premium-section-title">📜 Derniers scans</div>${todayScans.slice(0,5).map(l=>{
-    const cm={ontime:'#d1fae5',late:'#fef3c7',refused:'#fee2e2',authorized:'#d1fae5',unauthorized:'#fee2e2'};
-    return `<div class="premium-item"><div class="pi-icon" style="background:${cm[l.status]||'#f1f5f9'}">${{entry:'📥',exit:'🚪'}[l.type]||'📋'}</div><div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${l.time} — ${esc(l.label||'')}</div></div></div>`;
-  }).join('')}</div>`:''}`;
+
+  ${todayScans.length?`
+  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.2s">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
+      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Derniers scans</div>
+    </div>
+    ${todayScans.slice(-5).reverse().map((l,i)=>{
+      const statusClr={ontime:'#059669',late:'#d97706',refused:'#dc2626',authorized:'#059669',unauthorized:'#dc2626'}[l.status]||'#94a3b8';
+      const typeLabel=l.type==='entry'?'Entrée':'Sortie';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<4?'border-bottom:1px solid #f1f5f9':''}">
+        <div style="width:8px;height:8px;border-radius:50%;background:${statusClr};flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px;font-weight:600;color:#0f172a">${esc(l.name||'—')}</div>
+        <span style="font-size:11px;font-weight:700;color:${statusClr};background:${statusClr}15;border-radius:8px;padding:2px 8px">${typeLabel}</span>
+        <span style="font-size:11px;color:#94a3b8">${l.time||''}</span>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
 }
 
 function dashboardParent() {
