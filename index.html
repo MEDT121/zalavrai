@@ -2571,18 +2571,10 @@ function dashboardDirection2() {
         <div style="font-size:9px;font-weight:700;color:var(--text-secondary)">${lb}</div>
       </button>`).join('')}
     </div>
-    <div style="margin-top:12px;padding:14px;background:${(DB.settings.feesControl||{}).active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${(DB.settings.feesControl||{}).active?'#ef4444':'#e2e8f0'}">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="width:14px;height:14px;border-radius:50%;background:${(DB.settings.feesControl||{}).active?'#dc2626':'#94a3b8'};flex-shrink:0"></div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px;color:${(DB.settings.feesControl||{}).active?'#991b1b':'#374151'}">${(DB.settings.feesControl||{}).active?`Contrôle frais actif — ${(DB.settings.feesControl||{}).trimestre}`:'Contrôle de frais scolaires'}</div>
-          <div style="font-size:12px;color:#64748b">${(DB.settings.feesControl||{}).active?'Élèves non payés refusés à l\'entrée':'Désactivé — accès normal pour tous'}</div>
-        </div>
-        <select id="fcTrim2" style="padding:6px 10px;border-radius:8px;border:1px solid #e2e8f0;background:#fff;font-size:13px" onchange="DB.settings.feesControl.trimestre=this.value">
-          ${['T1','T2','T3'].map(t=>`<option value="${t}" ${(DB.settings.feesControl||{}).trimestre===t?'selected':''}>${t}</option>`).join('')}
-        </select>
-        <button class="btn ${(DB.settings.feesControl||{}).active?'btn-danger':'btn-primary'}" onclick="toggleFeesControl()" style="white-space:nowrap">${(DB.settings.feesControl||{}).active?'Désactiver':'Activer'}</button>
-      </div>
+    <div style="margin-top:12px;padding:10px 14px;background:${(DB.settings.feesControl||{}).active?'#fee2e2':'#f1f5f9'};border-radius:12px;border:1.5px solid ${(DB.settings.feesControl||{}).active?'#fca5a5':'#e2e8f0'};display:flex;align-items:center;gap:10px">
+      <div style="width:10px;height:10px;border-radius:50%;background:${(DB.settings.feesControl||{}).active?'#dc2626':'#94a3b8'};flex-shrink:0"></div>
+      <div style="flex:1;font-size:13px;font-weight:600;color:${(DB.settings.feesControl||{}).active?'#991b1b':'#475569'}">${(DB.settings.feesControl||{}).active?`Contrôle frais ${(DB.settings.feesControl||{}).trimestre} actif`:'Contrôle de frais inactif'}</div>
+      <span style="font-size:10px;color:var(--text-muted)">Géré par Direction 1</span>
     </div>
   </div>
 
@@ -3982,6 +3974,7 @@ R.students = () => {
               <div style="font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
               <div style="font-size:12px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):'—'}</div>
               <div style="font-size:11px;color:var(--text-muted)">${esc(s.mat)}${s.dob?' · '+new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}):''}</div>
+              ${s.created_by_name&&(S.user.role==='direction'||S.user.role==='direction2')?`<div style="font-size:10px;color:#2563eb;margin-top:2px;font-weight:500">Enregistré par ${esc(s.created_by_name)}</div>`:''}
             </div>
           </div>
           ${pays.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
@@ -4068,13 +4061,14 @@ window.saveStudent = () => {
     toast(`${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
-    const ns={id:'s'+Date.now(),...data};
+    const ns={id:'s'+Date.now(),...data,created_by:S.user.id,created_by_name:S.user.name};
     DB.students.push(ns);
     const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
     logAudit('student_add',`${name} — ${mat} — ${DB.classes.find(c=>c.id===cid)?.name||'?'}`,ns.id);
+    if(S.user.role==='direction2'){const _clN=DB.classes.find(cl=>cl.id===cid)?.name||'?';(DB.users||[]).filter(u=>u.role==='direction').forEach(u=>pushNotif(u.id,`📋 ${S.user.name} (Dir.2) a inscrit l'élève ${name} en ${_clN}`));}
     toast(`🎉 ${name} inscrit — ${mat}`,'success');
     launchConfetti(30);
   }
@@ -4252,6 +4246,7 @@ window.saveUser = () => {
     }
     pushSync('users','upsert',ns);
     logAudit('user_add', `${name} — ${role}`, ns.id);
+    if(S.user.role==='direction2'){const _rl=ROLE_META[role]?.label||role;(DB.users||[]).filter(u=>u.role==='direction').forEach(u=>pushNotif(u.id,`📋 ${S.user.name} (Dir.2) a ajouté ${_rl} : ${name}`));}
     toast(`🎉 ${name} ajouté`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -4490,6 +4485,7 @@ window.saveClass = () => {
     DB.classes.push(nc);
     pushSync('classes','upsert',nc);
     logAudit('class_add', name, nc.id);
+    if(S.user.role==='direction2'){(DB.users||[]).filter(u=>u.role==='direction').forEach(u=>pushNotif(u.id,`🏫 ${S.user.name} (Dir.2) a créé la classe ${name}`));}
     toast(`🎉 Classe ${name} créée`,'success');
   }
   closeModal(); saveToCrypt(); render();
@@ -6603,10 +6599,8 @@ R.cantine = () => {
       <div style="font-size:28px;font-weight:900">${presNb}</div>
       <div style="font-size:11px;opacity:.9">Présents aujourd'hui</div>
     </div>
-    <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:14px;color:#fff;text-align:center">
-      <div style="font-size:28px;font-weight:900">$${inscrits.reduce((s,c)=>s+Number(c.amount||0),0)}</div>
-      <div style="font-size:11px;opacity:.9">Recettes / mois</div>
-    </div>
+    ${S.user.role==='direction2'?`<div style="background:linear-gradient(135deg,#94a3b8,#64748b);border-radius:14px;padding:14px;color:#fff;text-align:center"><div style="font-size:28px;font-weight:900">${presAuj.filter(p=>!p.present).length}</div><div style="font-size:11px;opacity:.9">Absents auj.</div></div>`:
+    `<div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:14px;color:#fff;text-align:center"><div style="font-size:28px;font-weight:900">$${inscrits.reduce((s,c)=>s+Number(c.amount||0),0)}</div><div style="font-size:11px;opacity:.9">Recettes / mois</div></div>`}
   </div>
 
   <!-- Menu du jour -->
@@ -14672,7 +14666,7 @@ R.activites = () => {
         <button class="action-btn" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626" onclick="deleteActivite('${act.id}')">Suppr.</button>
       </div>
       ${act.description?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:8px">${esc(act.description)}</div>`:''}
-      ${act.frais?`<div style="font-size:13px;font-weight:600;color:#059669;margin-bottom:10px">💵 Frais : $${act.frais}/mois</div>`:''}
+      ${act.frais&&S.user.role!=='direction2'?`<div style="font-size:13px;font-weight:600;color:#059669;margin-bottom:10px">💵 Frais : $${act.frais}/mois</div>`:''}
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">ÉLÈVES INSCRITS</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         ${inscrits.map(i=>{
