@@ -97,8 +97,12 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .topbar-title{flex:1;font-size:17px;font-weight:700;color:var(--text)}
 .topbar-right{display:flex;align-items:center;gap:8px}
 .topbar-date{font-size:12px;color:var(--text-muted);display:none}
-.topbar-notif-btn{background:none;border:none;font-size:20px;cursor:pointer;position:relative}
-.dark-toggle{background:none;border:none;font-size:18px;cursor:pointer}
+.topbar-notif-btn{background:none;border:none;cursor:pointer;position:relative;color:var(--text);padding:6px;border-radius:8px;transition:background .2s;display:flex;align-items:center;justify-content:center}
+.topbar-notif-btn:hover{background:var(--bg)}
+.topbar-notif-btn svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dark-toggle{background:none;border:none;cursor:pointer;color:var(--text);padding:6px;border-radius:8px;transition:background .2s;display:flex;align-items:center;justify-content:center}
+.dark-toggle:hover{background:var(--bg)}
+.dark-toggle svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .notif-badge{position:absolute;top:0;right:0;width:8px;height:8px;background:#ef4444;border-radius:50%}
 @media(max-width:768px){.topbar-menu-btn{display:block}}
 @media(min-width:769px){.topbar-date{display:block}}
@@ -416,11 +420,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       <button class="topbar-menu-btn" id="TOPBTN" onclick="toggleSidebar()" title="Menu">☰</button>
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
-        <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
-        <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+        <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+        <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
         <span class="topbar-date" id="TD"></span>
         <span id="SYNC_IND" title="État synchronisation" style="font-size:11px;font-weight:700;padding:3px 7px;border-radius:20px;cursor:default;transition:all .3s"></span>
-        <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
+        <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
         <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
       </div>
     </header>
@@ -1883,7 +1887,7 @@ function dashboardDirection() {
   </div>
 
   ${noCahierToday.length?`
-  <div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.35s">
+  <div style="background:var(--bg-card);border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.35s">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
       <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
       <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">Cahier de texte manquant</div>
@@ -1897,18 +1901,18 @@ function dashboardDirection() {
     <div style="font-size:12px;color:#7c3aed;margin-top:10px;cursor:pointer;font-weight:600" onclick="go('cahier_texte')">Voir le suivi complet →</div>
   </div>`:''}
 
-  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.4s">
+  <div style="background:var(--bg-card);border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1px solid var(--border-light);animation:fadeInUp .35s ease both;animation-delay:.4s">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
       <div style="width:3px;height:14px;border-radius:2px;background:${clr2}"></div>
       <div style="font-size:10px;font-weight:800;color:${clr2};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
       ${[['students','#2563eb','Élèves'],['teachers','#059669','Profs'],['guardians','#f97316','Gardiens'],['parents','#ec4899','Parents'],['payments','#10b981','Frais'],['cards','#64748b','Cartes'],['palmares','#c9a030','Palmarès'],['primes','#7c3aed','Primes'],['lockdown','#dc2626','Urgence'],['settings','#475569','Système'],['year_mgmt','#3b82f6','Année'],['export','#6d28d9','Export']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
         <div style="width:28px;height:28px;border-radius:9px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">
           <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
         </div>
-        <div style="font-size:9px;font-weight:700;color:#475569">${lb}</div>
+        <div style="font-size:9px;font-weight:700;color:var(--text-secondary)">${lb}</div>
       </button>`).join('')}
     </div>
     <div style="margin-top:12px;display:flex;gap:8px">
@@ -2259,7 +2263,7 @@ function dashboardEnseignant() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
       ${[['cahier_texte','#1d4ed8','Cahier'],['matieres','#7c3aed','Matières'],['teacher_comm','#10b981','Co-prof'],['mes_primes','#c9a030','Primes'],['mes_absences','#f59e0b','Absences'],['profil_enseignant','#64748b','Profil']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
         <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
           <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
         </div>
@@ -2407,11 +2411,11 @@ function dashboardDirection2() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
       ${[['students','#2563eb','Élèves'],['teachers','#059669','Profs'],['guardians','#f97316','Gardiens'],['parents','#ec4899','Parents'],['classes','#7c3aed','Classes'],['cards','#64748b','Cartes'],['convocations','#c9a030','Convoc.'],['palmares','#c9a030','Palmarès'],['calendar','#3b82f6','Calendrier'],['lockdown','#dc2626','Urgence'],['year_mgmt','#475569','Année'],['export','#6d28d9','Export']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
         <div style="width:28px;height:28px;border-radius:9px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">
           <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
         </div>
-        <div style="font-size:9px;font-weight:700;color:#475569">${lb}</div>
+        <div style="font-size:9px;font-weight:700;color:var(--text-secondary)">${lb}</div>
       </button>`).join('')}
     </div>
     <div style="margin-top:12px;padding:14px;background:${(DB.settings.feesControl||{}).active?'#fee2e2':'#f1f5f9'};border-radius:14px;border:2px solid ${(DB.settings.feesControl||{}).active?'#ef4444':'#e2e8f0'}">
@@ -2760,7 +2764,7 @@ function dashboardParent() {
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
       ${[['attendance','#3b82f6','Présences'],['absences','#f59e0b','Justifier'],['authorized','#6d28d9','Autorisés'],['calendar','#ec4899','Calendrier'],['notifications','#64748b','Notifs']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
         <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
           <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
         </div>
@@ -13238,7 +13242,7 @@ R.profil_direction = () => {
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${[['students','#1d4ed8','Élèves'],['payments','#059669','Paiements'],['accounts','#64748b','Comptes'],['notifications','#ef4444','Notifs'+(pendingNotifs>0?' ('+pendingNotifs+')':'')],['calendar','#ec4899','Calendrier'],['export','#7c3aed','Export']]
-        .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
           <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
             <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
           </div>
@@ -13354,7 +13358,7 @@ R.profil_direction2 = () => {
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${[['palmares','#c9a030','Palmarès'],['attendance','#1d4ed8','Présences'],['teachers','#059669','Enseignants'],['students','#7c3aed','Élèves'],['approbations','#dc2626','Approuver'],['classes','#64748b','Classes']]
-        .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:#fff;border:none;border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+        .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
           <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
             <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
           </div>
@@ -15074,7 +15078,7 @@ window.printRapportSecope = () => {
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   // Dark mode
-  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.textContent='☀️';} } catch(e){}
+  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--text);stroke-width:2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';} } catch(e){}
   initParticles();
 
   // Login keyboard
