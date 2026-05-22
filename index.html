@@ -7298,6 +7298,7 @@ R.devoirs = () => {
           return `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
             ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
             ${corrCount>0?`<span style="font-size:11px;color:#059669;font-weight:700;padding:5px 10px;background:#d1fae5;border-radius:8px">${corrCount}/${classSize} corrigés</span>`:''}
+            ${(()=>{const sc=(d.sigs||[]).length;return sc>0?`<span style="font-size:11px;color:#2563eb;font-weight:700;padding:5px 10px;background:#dbeafe;border-radius:8px">${sc} parent${sc>1?'s':''} confirmé${sc>1?'s':''}</span>`:'';})()}
           </div>`;
         })()}
         `}
@@ -7378,6 +7379,7 @@ R.devoirs_parent = () => {
         ${d.type==='photo'&&d.content?`<img src="${d.content}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;margin-top:8px;border:1px solid var(--border)">`:''}
         ${d.type==='pdf'&&d.content?`<button onclick="openPdfDevoir('${d.id}')" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;background:#ede9fe;border:none;border-radius:10px;font-size:13px;font-weight:700;color:#5b21b6;cursor:pointer">Ouvrir le PDF</button>`:''}
         ${d.type==='pdf'&&!d.content?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-style:italic">PDF disponible uniquement sur l'appareil de l'enseignant</div>`:''}
+        ${(()=>{const alreadySigned=(d.sigs||[]).some(s=>s.kid_id===kidId&&s.uid===S.user.id);const sigInfo=alreadySigned?(d.sigs||[]).find(s=>s.kid_id===kidId&&s.uid===S.user.id):null;return alreadySigned?`<div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px 12px;background:#d1fae5;border-radius:10px;font-size:12px;font-weight:700;color:#065f46"><div style="width:8px;height:8px;border-radius:50%;background:#059669;flex-shrink:0"></div>Vu le ${sigInfo&&sigInfo.date||''} à ${sigInfo&&sigInfo.time||''}</div>`:`<button onclick="confirmDevoir('${d.id}','${kidId||''}')" style="width:100%;margin-top:10px;padding:11px;background:#0f2557;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit"><div style="width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0"></div>J'ai vu ce devoir</button>`;})()}
       </div>
     </div>`;
   };
@@ -7942,6 +7944,21 @@ window.saveCorrecteurDevoir = dvId => {
   }
 };
 
+window.confirmDevoir = (dvId, kidId) => {
+  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const kid=DB.students.find(s=>s.id===kidId);
+  if((d.sigs||[]).some(s=>s.kid_id===kidId&&s.uid===S.user.id)){toast('Vous avez déjà confirmé ce devoir','info');return;}
+  const sig={uid:S.user.id,kid_id:kidId,date:today(),time:nowTime(),parent_name:S.user.name};
+  if(!d.sigs) d.sigs=[];
+  d.sigs.push(sig);
+  pushSync('devoirs','patch',{sigs:d.sigs},'id=eq.'+dvId);
+  saveToCrypt();
+  const cl=gc(kid&&kid.cid);
+  if(cl){[cl.teacher_id,cl.teacher_id_en].filter(Boolean).forEach(tid=>pushNotif(tid,`✅ ${esc(S.user.name)} a confirmé avoir vu le devoir "${esc(d.title)}" pour ${esc(kid?kid.name:'?')}`));}
+  toast('Devoir confirmé — enseignant notifié','success');
+  render();
+};
+
 window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
   const myGrade=kidId?DB.grades.find(g=>g.devoir_id===dvId&&g.sid===kidId):null;
@@ -7994,134 +8011,101 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   };
   const parsed=d.type==='text'?parseQuestions(d.description):null;
   const qCount=parsed?parsed.questions.length:0;
-  const ansLines=(q)=>{const tl=q?q.text.length:0;const n=qCount<=3?(tl>120?5:8):qCount<=6?(tl>100?3:5):qCount<=10?(tl>80?2:3):2;return Array(n).fill('<div class="aline"></div>').join('');};
-  const contentBlock=parsed?`
-    ${parsed.preamble?`<div class="section-title">Instructions</div><div class="body-box" style="margin-bottom:16px">${parsed.preamble}</div>`:''}
-    <div class="section-title">Questions &amp; Réponses (${qCount})</div>
-    ${parsed.questions.map(q=>`<div class="q-item"><div class="q-item-left"><div class="q-num">${q.num}</div></div><div class="q-body"><div class="q-text">${q.text}</div><div class="q-ans">${ansLines(q)}</div></div></div>`).join('')}
-  `:`
-    <div class="section-title">Consignes / Énoncé</div>
-    ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
-    ${imgBlock}${pdfNote}
-    <div class="section-title">Travail de l'élève</div>
-    <div class="answer-zone"><div class="answer-title">✏️ Espace de réponse</div></div>
-  `;
+  // Split questions into page groups for multi-page A4
+  const qpp=qCount<=4?qCount:qCount<=8?Math.ceil(qCount/2):Math.ceil(qCount/3)||1;
+  const pageGroups=parsed?[]:null;
+  if(parsed&&qCount>0){for(let i=0;i<parsed.questions.length;i+=qpp)pageGroups.push(parsed.questions.slice(i,i+qpp));}
+  const totalPages=pageGroups?(pageGroups.length+(myGrade?1:0)):1;
 
-  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${catLabel} — ${d.title}</title>
-  <style>
-    @page{size:A4;margin:18mm 18mm 24mm}
-    @page{@bottom-right{content:"Page " counter(page);font-size:9pt;color:#94a3b8;font-family:'Segoe UI',Arial,sans-serif}}
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff}
-    .print-bar{background:#0f2557;color:#fff;padding:12px 20px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
-    .print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}
-    .page{max-width:700px;margin:0 auto;padding:24px}
-    .school-header{display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid ${catColor};margin-bottom:18px}
-    .q-item{display:flex;gap:0;margin-bottom:12px;align-items:stretch;break-inside:avoid;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
-    .q-item-left{width:40px;background:${catColor}18;display:flex;align-items:flex-start;justify-content:center;padding-top:13px;flex-shrink:0;border-right:2px solid ${catColor}30}
-    .q-num{width:26px;height:26px;border-radius:50%;background:${catColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
-    .q-body{flex:1;padding:12px 14px}
-    .q-text{font-size:13.5px;line-height:1.8;color:#1e293b;margin-bottom:10px;white-space:pre-wrap;font-weight:500}
-    .q-ans{border-top:1px dashed #cbd5e1;padding-top:6px}
-    .aline{border-bottom:1.5px dotted #94a3b8;height:28px;margin-bottom:2px}
-    .school-logo{width:64px;height:64px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #e2e8f0}
-    .school-info{flex:1}
-    .school-name{font-size:15px;font-weight:900;color:#0f2557;letter-spacing:.5px}
-    .school-sub{font-size:11px;color:#64748b;margin-top:2px}
-    .cat-badge{background:${catColor};color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:6px}
-    .student-bar{display:flex;gap:10px;flex-wrap:wrap;background:#f8fafc;border-radius:10px;padding:10px 14px;margin-bottom:16px;border:1px solid #e2e8f0}
-    .sbar-item{display:flex;flex-direction:column;gap:1px}
-    .sbar-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8}
-    .sbar-val{font-size:13px;font-weight:700;color:#0f172a}
-    h1{font-size:19px;font-weight:900;margin-bottom:6px;color:#0f172a;line-height:1.3}
-    .meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
-    .chip{background:#f1f5f9;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151}
-    .chip.urgent{background:#fee2e2;color:#991b1b}
-    .chip.ok{background:#d1fae5;color:#065f46}
-    .section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${catColor};margin-bottom:10px;margin-top:18px;display:flex;align-items:center;gap:7px}
-    .section-title::before{content:'';display:inline-block;width:3px;height:13px;background:${catColor};border-radius:2px;flex-shrink:0}
-    .body-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;min-height:80px;font-size:14px;line-height:1.85;white-space:pre-wrap;color:#1e293b}
-    .answer-zone{border:2px dashed #cbd5e1;border-radius:12px;padding:16px;min-height:160px;margin-top:8px}
-    .answer-title{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-    .signature{display:flex;gap:28px;margin-top:28px;break-inside:avoid}
-    .sig-box{flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center}
-    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
-    .correction-box{margin-top:20px;border:2px solid #22c55e;border-radius:12px;overflow:hidden;break-inside:avoid}
-    .corr-hdr{background:#22c55e;color:#fff;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;display:flex;justify-content:space-between;align-items:center}
-    .corr-body{padding:16px;display:flex;align-items:flex-start;gap:16px}
-    .corr-note{text-align:center;flex-shrink:0}
-    .corr-val{font-size:36px;font-weight:900;line-height:1}
-    .corr-sub{font-size:11px;color:#64748b;margin-top:3px}
-    .corr-info{flex:1}
-    .corr-mention{font-size:14px;font-weight:700;margin-bottom:6px}
-    .corr-comment{font-size:13px;color:#374151;font-style:italic;margin-bottom:4px}
-    .corr-meta{font-size:10px;color:#94a3b8}
-    .run-hdr{display:none}
-    @media print{
-      .print-bar{display:none}
-      body{padding:0}
-      .page{padding:4px 0;max-width:100%}
-      .run-hdr{display:flex;position:fixed;top:0;left:0;right:0;background:#fff;border-bottom:2px solid ${catColor};padding:5px 18mm;font-size:10px;font-weight:700;color:#0f2557;justify-content:space-between;align-items:center;z-index:10}
-    }
-  </style></head><body>
-  <div class="run-hdr"><span>${school} · <strong>${catLabel}</strong></span><span>${esc(d.title)}${d.matiere?' · '+d.matiere:''}</span></div>
-  <div class="print-bar">📄 ${qCount>0?qCount+' question'+(qCount>1?'s':'')+' · ':''}<button onclick="window.print()">🖨️ Imprimer / Exporter PDF</button></div>
-  <div class="page">
-    <div class="school-header">
-      <img class="school-logo" src="${window.SCHOOL_LOGO||''}" alt="Logo" style="width:100%;height:100%;object-fit:cover">
-      <div class="school-info">
-        <div class="school-name">${school}</div>
-        <div class="school-sub">${schoolAddr}</div>
-        <div class="school-sub" style="margin-top:3px">SchoolSafe — Plateforme scolaire numérique</div>
+  // Per-page header (logo always 72px)
+  const mkHdr=(pn)=>`
+    <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid ${catColor};margin-bottom:14px">
+      <img src="${window.SCHOOL_LOGO||''}" alt="Logo" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;background:#fff;flex-shrink:0">
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:900;color:#0f2557;letter-spacing:.5px">${school}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${schoolAddr}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">SchoolSafe — Plateforme scolaire numérique</div>
       </div>
-      <div class="cat-badge">${catIconP} ${catLabel}</div>
+      <div style="background:${catColor};color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:800;white-space:nowrap">${catIconP} ${catLabel}</div>
     </div>
-    ${kidName?`<div class="student-bar">
-      <div class="sbar-item"><div class="sbar-label">Élève</div><div class="sbar-val">${kidName}</div></div>
-      ${kidMat?`<div class="sbar-item"><div class="sbar-label">Matricule</div><div class="sbar-val" style="font-family:monospace">${kidMat}</div></div>`:''}
-      ${kidClass?`<div class="sbar-item"><div class="sbar-label">Classe</div><div class="sbar-val">${kidClass}</div></div>`:''}
-      ${teacherName?`<div class="sbar-item"><div class="sbar-label">Enseignant</div><div class="sbar-val">${teacherName}</div></div>`:''}
-    </div>`:''}
-    <h1>${d.title}</h1>
-    <div class="meta">
-      ${d.matiere?`<span class="chip">📐 ${d.matiere}</span>`:''}
-      <span class="chip">🗓️ Donné le ${d.date||new Date().toLocaleDateString('fr-FR')}</span>
-      ${dateLabel?`<span class="chip ${d.deadline&&new Date(d.deadline)<new Date()?'urgent':'ok'}">📅 À remettre : ${dateLabel}</span>`:''}
+    ${kidName?`<div style="display:flex;gap:10px;flex-wrap:wrap;background:#f8fafc;border-radius:10px;padding:10px 14px;margin-bottom:14px;border:1px solid #e2e8f0">
+      <div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8">Élève</div><div style="font-size:13px;font-weight:700">${kidName}</div></div>
+      ${kidMat?`<div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8">Matricule</div><div style="font-size:13px;font-weight:700;font-family:monospace">${kidMat}</div></div>`:''}
+      ${kidClass?`<div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8">Classe</div><div style="font-size:13px;font-weight:700">${kidClass}</div></div>`:''}
+      ${teacherName?`<div style="display:flex;flex-direction:column;gap:1px"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8">Enseignant</div><div style="font-size:13px;font-weight:700">${teacherName}</div></div>`:''}
+      ${totalPages>1?`<div style="display:flex;flex-direction:column;gap:1px;margin-left:auto"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94a3b8">Page</div><div style="font-size:13px;font-weight:800;color:${catColor}">${pn}/${totalPages}</div></div>`:''}
+    </div>`:''}`;
+
+  const sigFtr=`
+    <div style="display:flex;gap:28px;margin-top:24px;break-inside:avoid">
+      <div style="flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center">Signature de l'élève</div>
+      <div style="flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center">Signature du parent / tuteur</div>
+      <div style="flex:1;border-top:1.5px solid #0f172a;padding-top:8px;font-size:10px;color:#64748b;text-align:center">Visa de l'enseignant</div>
     </div>
-    ${contentBlock}
-    ${parsed?'':`${imgBlock}${pdfNote}`}
-    ${myGrade?(()=>{
-      const pct=Math.round(myGrade.note/myGrade.max*100);
-      const col=pct>=70?'#059669':pct>=50?'#d97706':'#dc2626';
-      const mention=pct>=90?'Excellent !':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Passable':'À améliorer';
-      const corrDate=myGrade.corrected_at?new Date(myGrade.corrected_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):myGrade.date||'';
-      return `<div class="correction-box">
-        <div class="corr-hdr"><span>RÉSULTATS DE CORRECTION</span><span style="font-size:10px;opacity:.85">Corrigé le ${corrDate}</span></div>
-        <div class="corr-body">
-          <div class="corr-note">
-            <div class="corr-val" style="color:${col}">${myGrade.note}<span style="font-size:16px;color:#94a3b8">/${myGrade.max}</span></div>
-            <div class="corr-sub">${pct}%</div>
-          </div>
-          <div class="corr-info">
-            <div class="corr-mention" style="color:${col}">${mention}</div>
-            ${myGrade.comment?`<div class="corr-comment">"${myGrade.comment}"</div>`:''}
-            <div class="corr-meta">Corrigé par ${teacherName||'l\'enseignant'}</div>
-          </div>
-        </div>
-      </div>`;
-    })():''}
-    ${!myGrade?`<div class="signature">
-      <div class="sig-box">Signature de l'élève</div>
-      <div class="sig-box">Signature du parent / tuteur</div>
-      <div class="sig-box">Visa de l'enseignant</div>
-    </div>`:''}
-    <div class="footer">
+    <div style="margin-top:16px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
       <span>${school} · ${schoolAddr}</span>
       <span>Généré le ${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})}</span>
-    </div>
-  </div>
-  </body></html>`;
+    </div>`;
+
+  const secTitle=(t2)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${catColor};margin-bottom:10px;margin-top:16px;display:flex;align-items:center;gap:7px"><span style="display:inline-block;width:3px;height:13px;background:${catColor};border-radius:2px;flex-shrink:0"></span>${t2}</div>`;
+  const metaC=`<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
+    ${d.matiere?`<span style="background:#f1f5f9;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151">📐 ${d.matiere}</span>`:''}
+    <span style="background:#f1f5f9;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151">🗓️ Donné le ${d.date||new Date().toLocaleDateString('fr-FR')}</span>
+    ${dateLabel?`<span style="background:${d.deadline&&new Date(d.deadline)<new Date()?'#fee2e2':'#d1fae5'};border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:${d.deadline&&new Date(d.deadline)<new Date()?'#991b1b':'#065f46'}">📅 À remettre : ${dateLabel}</span>`:''}
+  </div>`;
+  const alines=(n)=>Array(n).fill('<div style="border-bottom:1.5px dotted #94a3b8;height:28px;margin-bottom:2px"></div>').join('');
+
+  // Build page HTML
+  let pagesHTML='';
+  const CSS=`@page{size:A4;margin:18mm 18mm 20mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff}.print-bar{background:#0f2557;color:#fff;padding:12px 20px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}.print-bar button{background:#fff;color:#0f2557;border:none;padding:8px 20px;border-radius:8px;font-size:14px;font-weight:800;cursor:pointer}.a4{max-width:700px;margin:0 auto;padding:20px 24px 24px}.pb{page-break-before:always;padding-top:20px}.q-item{display:flex;margin-bottom:10px;break-inside:avoid;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}.ql{width:40px;background:${catColor}18;display:flex;align-items:flex-start;justify-content:center;padding-top:13px;flex-shrink:0;border-right:2px solid ${catColor}30}.qn{width:26px;height:26px;border-radius:50%;background:${catColor};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}.qb{flex:1;padding:12px 14px}.qt{font-size:13.5px;line-height:1.8;color:#1e293b;margin-bottom:10px;white-space:pre-wrap;font-weight:500}.qa{border-top:1px dashed #cbd5e1;padding-top:6px}.body-box{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;font-size:14px;line-height:1.85;white-space:pre-wrap;color:#1e293b;margin-bottom:12px}.corr-box{border:2px solid #22c55e;border-radius:12px;overflow:hidden;break-inside:avoid;margin-top:14px}.corr-hdr{background:#22c55e;color:#fff;padding:10px 16px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;display:flex;justify-content:space-between;align-items:center}.corr-body{padding:16px;display:flex;align-items:flex-start;gap:16px}@media print{.print-bar{display:none}.a4{padding:4px 0;max-width:100%}}`;
+
+  if(parsed&&pageGroups.length>0){
+    pageGroups.forEach((grp,gi)=>{
+      const an=grp.length<=3?8:grp.length<=5?5:3;
+      pagesHTML+=`<div class="a4${gi>0?' pb':''}">
+        ${mkHdr(gi+1)}
+        ${gi===0?`<h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${d.title}</h1>${metaC}${parsed.preamble?secTitle('Instructions')+'<div class="body-box">'+parsed.preamble+'</div>':''}`:''}
+        ${secTitle('Questions &amp; Réponses'+(gi===0?` (${qCount})`:'(suite)'))}
+        ${grp.map(q=>`<div class="q-item"><div class="ql"><div class="qn">${q.num}</div></div><div class="qb"><div class="qt">${q.text}</div><div class="qa">${alines(an)}</div></div></div>`).join('')}
+        ${sigFtr}
+      </div>`;
+    });
+  } else {
+    pagesHTML=`<div class="a4">
+      ${mkHdr(1)}
+      <h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${d.title}</h1>
+      ${metaC}
+      ${secTitle('Consignes / Énoncé')}
+      ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#94a3b8;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
+      ${imgBlock}${pdfNote}
+      ${secTitle("✏️ Travail de l'élève")}
+      <div style="border:2px dashed #cbd5e1;border-radius:12px;padding:14px 16px;margin-top:8px">${alines(12)}</div>
+      ${myGrade?'':sigFtr}
+    </div>`;
+  }
+
+  if(myGrade){
+    const pct=Math.round(myGrade.note/myGrade.max*100);
+    const col=pct>=70?'#059669':pct>=50?'#d97706':'#dc2626';
+    const mention=pct>=90?'Excellent !':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Passable':'À améliorer';
+    const corrDate=myGrade.corrected_at?new Date(myGrade.corrected_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):myGrade.date||'';
+    pagesHTML+=`<div class="a4 pb">
+      ${mkHdr(totalPages)}
+      <h1 style="font-size:19px;font-weight:900;margin:8px 0 14px;line-height:1.3">${d.title} — Résultats</h1>
+      <div class="corr-box">
+        <div class="corr-hdr"><span>RÉSULTATS DE CORRECTION</span><span style="font-size:10px;opacity:.85">Corrigé le ${corrDate}</span></div>
+        <div class="corr-body">
+          <div style="text-align:center;flex-shrink:0"><div style="font-size:36px;font-weight:900;line-height:1;color:${col}">${myGrade.note}<span style="font-size:16px;color:#94a3b8">/${myGrade.max}</span></div><div style="font-size:11px;color:#64748b;margin-top:3px">${pct}%</div></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:${col};margin-bottom:6px">${mention}</div>${myGrade.comment?`<div style="font-size:13px;color:#374151;font-style:italic;margin-bottom:4px">"${myGrade.comment}"</div>`:''}<div style="font-size:10px;color:#94a3b8">Corrigé par ${teacherName||"l'enseignant"}</div></div>
+        </div>
+      </div>
+      ${sigFtr}
+    </div>`;
+  }
+
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${catLabel} — ${d.title}</title><style>${CSS}</style></head><body>
+  <div class="print-bar">📄 ${qCount>0?qCount+' question'+(qCount>1?'s':''):'Devoir'}${totalPages>1?' · '+totalPages+' pages':''} <button onclick="window.print()">🖸️ Imprimer / Exporter PDF</button></div>
+  ${pagesHTML}</body></html>`;
 
   const fname=`Devoir-${(d.matiere||d.title).replace(/[^a-z0-9À-ɏ]/gi,'_').slice(0,30)}.html`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
