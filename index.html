@@ -1465,12 +1465,16 @@ window.render = () => {
     _pc.style.animation='pageSlide .22s ease both';
   } catch(e) {
     console.error('[render] crash on page', S.page, e);
+    if(typeof logAudit==='function') try{logAudit('app_error',(e.message||'Erreur inconnue').slice(0,200));}catch(_){}
+    toast('Erreur détectée — retour accueil dans 5s','warning');
     $('PC').innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted)">
       <div style="font-size:48px;margin-bottom:12px">⚠️</div>
       <div style="font-weight:700;margin-bottom:8px;color:#0f172a">Erreur d'affichage</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:20px">${e.message||'Erreur inconnue'}</div>
-      <button class="btn btn-primary" onclick="go('dashboard')">🏠 Retour à l'accueil</button>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px">${e.message||'Erreur inconnue'}</div>
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:20px">Retour automatique dans <strong id="_errCd">5</strong>s</div>
+      <button class="btn btn-primary" onclick="go('dashboard')">Retour à l'accueil</button>
     </div>`;
+    let _s=5;const _iv=setInterval(()=>{_s--;const _el=$('_errCd');if(_el)_el.textContent=_s;if(_s<=0){clearInterval(_iv);go('dashboard');}},1000);
   }
   if (typeof animateCounters === 'function') setTimeout(animateCounters, 100);
   updateBadges();
@@ -1482,6 +1486,14 @@ window.updateBadges = () => {
   document.querySelectorAll('.nav-badge').forEach(b => { b.textContent = cnt; b.style.display = cnt > 0 ? '' : 'none'; });
   document.querySelectorAll('.bnav-badge').forEach(b => { b.textContent = cnt; b.style.display = cnt > 0 ? '' : 'none'; });
 };
+
+// Heartbeat — auto-rerender si #PC devient vide (app freeze)
+setInterval(() => {
+  if (S.user && $('PC') && !$('PC').innerHTML.trim()) {
+    toast('App rechargée automatiquement', 'info');
+    try { render(); } catch(e) {}
+  }
+}, 90000);
 
 window.go = (p, noHistory) => {
   if(!noHistory && S.page && S.page !== p) S._history.push(S.page);
@@ -1563,7 +1575,16 @@ window.tryLogin = async () => {
     (u.initials && normName(u.initials)===name) ||
     normName(ini(u.name))===name
   );
-  if (!u) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
+  if (!u) {
+    const _lk=(($('LN')?.value||'').trim().toLowerCase().slice(0,20))||'unknown';
+    window._loginFails=window._loginFails||{};
+    window._loginFails[_lk]=(window._loginFails[_lk]||0)+1;
+    if(window._loginFails[_lk]===3){
+      try{logAudit('login_suspect',`3 tentatives échouées : "${_lk}"`);}catch(_){}
+      (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (3x) pour le nom "${_lk}"`));
+    }
+    $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
+  }
   if (_isDirRole(u.role)) {
     if (pin.length < 6) { $('PM').textContent='Mot de passe : minimum 6 caractères'; return; }
   } else {
@@ -1571,8 +1592,18 @@ window.tryLogin = async () => {
   }
   const hash = await _hashPin(pin);
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
-  if (!match) { $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return; }
+  if (!match) {
+    const _lk2=(u.name||'').toLowerCase().slice(0,20);
+    window._loginFails=window._loginFails||{};
+    window._loginFails[_lk2]=(window._loginFails[_lk2]||0)+1;
+    if(window._loginFails[_lk2]===3){
+      try{logAudit('login_suspect',`3 tentatives mot de passe incorrect : "${_lk2}"`);}catch(_){}
+      (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (3x) pour le compte "${esc(u.name)}"`));
+    }
+    $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
+  }
   if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); saveToCrypt(); }
+  const _lkOk=(u.name||'').toLowerCase().slice(0,20); if(window._loginFails) window._loginFails[_lkOk]=0;
   loginAs(u);
 };
 window.loginAs = user => {
@@ -8443,7 +8474,16 @@ window.processScanEntry = async code => {
   window._scanBusy = true;
   try {
   const student=DB.students.find(s=>s.mat===code);
-  if(!student){showScanResult('red','?','Inconnu','Code: '+code,'Élève non trouvé dans le système','');return;}
+  if(!student){
+    window._badScans=window._badScans||{};
+    window._badScans[code]=(window._badScans[code]||0)+1;
+    if(window._badScans[code]===3){
+      try{logAudit('scan_intrus',`QR inconnu scanné 3x : "${code}"`);}catch(_){}
+      (DB.users||[]).filter(u=>u.role==='direction'||u.role==='gardien').forEach(u=>pushNotif(u.id,`Alerte portail : QR inconnu "${code}" scanné 3 fois — possible intrusion`));
+      toast('Alerte sécurité envoyée à la direction','warning');
+    }
+    showScanResult('red','?','Inconnu','Code: '+code,'Élève non trouvé dans le système','');return;
+  }
 
   const cls=gc(student.cid);
   const cycle=cls?cls.cycle:'primaire';
