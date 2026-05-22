@@ -692,6 +692,10 @@ window.runAutoCleanup = async (force=false) => {
   const c_audit=cutoffFor(ret.audit_log||90);
   const c_notifs=cutoffFor(ret.notifs||30);
   const c_appro=cutoffFor(ret.approbations||60);
+  const c_msg=cutoffFor(ret.messages||30);
+  const c_msg_unread=cutoffFor(ret.messages_unread||60);
+  const c_conv=cutoffFor(ret.convocations||90);
+  const now_iso=new Date().toISOString().slice(0,10);
   const tables=[
     {t:'scan_log',col:'date',cutoff:c_scan},
     {t:'audit_log',col:'date',cutoff:c_audit},
@@ -701,12 +705,19 @@ window.runAutoCleanup = async (force=false) => {
     await fetch(`${SUPA_URL}/rest/v1/${t}?${col}=lt.${cutoff}`,{method:'DELETE',headers:_H});
   }
   await fetch(`${SUPA_URL}/rest/v1/approbations?status=eq.done&date=lt.${c_appro}`,{method:'DELETE',headers:_H});
-  const prev={s:(DB.scan_log||[]).length,a:(DB.audit_log||[]).length,n:(DB.notifs||[]).length};
+  await fetch(`${SUPA_URL}/rest/v1/messages?read=eq.true&date=lt.${c_msg}`,{method:'DELETE',headers:_H});
+  await fetch(`${SUPA_URL}/rest/v1/messages?read=eq.false&date=lt.${c_msg_unread}`,{method:'DELETE',headers:_H});
+  await fetch(`${SUPA_URL}/rest/v1/convocations?status=eq.done&date=lt.${c_conv}`,{method:'DELETE',headers:_H});
+  await fetch(`${SUPA_URL}/rest/v1/devoirs?expires_at=lt.${now_iso}`,{method:'DELETE',headers:_H});
+  const prev={s:(DB.scan_log||[]).length,a:(DB.audit_log||[]).length,n:(DB.notifs||[]).length,m:(DB.messages||[]).length,cv:(DB.convocations||[]).length,dv:(DB.devoirs||[]).length};
   DB.scan_log=(DB.scan_log||[]).filter(l=>l.date>=c_scan);
   DB.audit_log=(DB.audit_log||[]).filter(l=>l.date>=c_audit);
   DB.notifs=(DB.notifs||[]).filter(n=>n.date>=c_notifs);
   DB.approbations=(DB.approbations||[]).filter(a=>a.status!=='done'||a.date>=c_appro);
-  const removed=(prev.s-(DB.scan_log||[]).length)+(prev.a-(DB.audit_log||[]).length)+(prev.n-(DB.notifs||[]).length);
+  DB.messages=(DB.messages||[]).filter(m=>m.read?m.date>=c_msg:m.date>=c_msg_unread);
+  DB.convocations=(DB.convocations||[]).filter(cv=>cv.status!=='done'||cv.date>=c_conv);
+  DB.devoirs=(DB.devoirs||[]).filter(dv=>!dv.expires_at||dv.expires_at>=now_iso);
+  const removed=(prev.s-(DB.scan_log||[]).length)+(prev.a-(DB.audit_log||[]).length)+(prev.n-(DB.notifs||[]).length)+(prev.m-(DB.messages||[]).length)+(prev.cv-(DB.convocations||[]).length)+(prev.dv-(DB.devoirs||[]).length);
   saveToCrypt();
   if(force) toast('🧹 '+(removed||'Aucune')+' entrée'+(removed>1?'s':'')+' supprimée'+(removed>1?'s':''),'success');
   DB.settings._lastCleanup=today();
@@ -755,7 +766,7 @@ window.DB = {
     toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true, bulletin:false },
     year: '2025-2026',
     feesControl: { active:false, trimestre:'T1' },
-    retention: { notifs:30, scan_log:90, audit_log:90, approbations:60 }
+    retention: { notifs:30, scan_log:90, audit_log:90, approbations:60, messages:30, messages_unread:60, convocations:90 }
   }
 };
 
@@ -10828,21 +10839,7 @@ window.confirmNewYear = () => {
 };
 
 // ── ÉTAPE 8 — EXPORT DONNÉES ──
-window.autoCleanup = () => {
-  const now = Date.now();
-  const ago = days => { const d=new Date(now-days*864e5); return d.toISOString().slice(0,10); };
-  const d30=ago(30), d60=ago(60), d90=ago(90);
-  const prev=[DB.notifs.length,DB.messages.length,DB.scan_log.length,DB.devoirs.length,DB.teacher_notes.length];
-  DB.notifs = DB.notifs.filter(n=>!n.date||n.date>=d30);
-  DB.messages = DB.messages.filter(m=>!m.date||m.date>=d60);
-  DB.scan_log = DB.scan_log.filter(l=>!l.date||l.date>=d90);
-  DB.devoirs = DB.devoirs.filter(d=>!d.expires_at||d.expires_at>now);
-  DB.teacher_notes = DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>now);
-  const removed=prev[0]-DB.notifs.length+prev[1]-DB.messages.length+prev[2]-DB.scan_log.length+prev[3]-DB.devoirs.length+prev[4]-DB.teacher_notes.length;
-  saveToCrypt();
-  toast(`🧹 ${removed} entrée(s) supprimée(s)`,'success');
-  render('export');
-};
+window.autoCleanup = () => { runAutoCleanup(true).then(()=>render('export')); };
 window.getDbSizeMb = () => { try{return(new Blob([JSON.stringify(DB)]).size/(1024*1024)).toFixed(2);}catch(e){return'0.00';} };
 window.getDbBreakdown = () => {
   const kb=o=>{try{return Math.round(new Blob([JSON.stringify(o)]).size/1024);}catch(e){return 0;}};
@@ -11062,6 +11059,10 @@ R.export = () => {
       <div style="font-size:12px;font-weight:700;color:#5b21b6;margin-bottom:8px">🕐 Rétention automatique</div>
       <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Notifications</span><span class="pill" style="background:#fee2e2;color:#dc2626;font-size:10px">Supprimées après ${ret.notifs||30}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">💬 Messages lus</span><span class="pill" style="background:#fee2e2;color:#dc2626;font-size:10px">Supprimés après ${ret.messages||30}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">💬 Messages non lus</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.messages_unread||60}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📩 Convocations traitées</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimées après ${ret.convocations||90}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📝 Devoirs expirés</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimés à expiration</span></div>
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📷 Scans portail</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.scan_log||90}j</span></div>
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">🔍 Journal audit</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimé après ${ret.audit_log||90}j</span></div>
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Approbations</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimées après ${ret.approbations||60}j</span></div>
@@ -11159,6 +11160,15 @@ window.openRetentionSettings = () => {
   <div class="form-group"><label class="form-label">🔔 Notifications (jours)</label>
     <input class="form-input" id="ret_notifs" type="number" min="7" max="365" value="${ret.notifs||30}">
   </div>
+  <div class="form-group"><label class="form-label">💬 Messages lus (jours)</label>
+    <input class="form-input" id="ret_msg" type="number" min="7" max="365" value="${ret.messages||30}">
+  </div>
+  <div class="form-group"><label class="form-label">💬 Messages non lus (jours)</label>
+    <input class="form-input" id="ret_msg_unread" type="number" min="30" max="365" value="${ret.messages_unread||60}">
+  </div>
+  <div class="form-group"><label class="form-label">📩 Convocations traitées (jours)</label>
+    <input class="form-input" id="ret_conv" type="number" min="30" max="365" value="${ret.convocations||90}">
+  </div>
   <div class="form-group"><label class="form-label">📷 Scans portail (jours)</label>
     <input class="form-input" id="ret_scans" type="number" min="30" max="365" value="${ret.scan_log||90}">
   </div>
@@ -11174,11 +11184,14 @@ window.openRetentionSettings = () => {
 
 window.saveRetentionSettings = () => {
   const notifs=Math.max(7,parseInt($('ret_notifs')?.value)||30);
+  const messages=Math.max(7,parseInt($('ret_msg')?.value)||30);
+  const messages_unread=Math.max(30,parseInt($('ret_msg_unread')?.value)||60);
+  const convocations=Math.max(30,parseInt($('ret_conv')?.value)||90);
   const scan_log=Math.max(30,parseInt($('ret_scans')?.value)||90);
   const audit_log=Math.max(30,parseInt($('ret_audit')?.value)||90);
   const approbations=Math.max(30,parseInt($('ret_appro')?.value)||60);
   if(!DB.settings.retention) DB.settings.retention={};
-  Object.assign(DB.settings.retention,{notifs,scan_log,audit_log,approbations});
+  Object.assign(DB.settings.retention,{notifs,messages,messages_unread,convocations,scan_log,audit_log,approbations});
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); closeModal(); render();
   toast('Durées de rétention enregistrées','success');
