@@ -124,7 +124,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .bnav-label{font-size:10px;font-weight:600;color:#64748b;letter-spacing:.1px;line-height:1;transition:color .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56px;text-align:center}
 .dark .bnav-label{color:#8098b8}
 .bottom-nav-item.active .bnav-label{color:var(--primary);font-weight:700}
-.bnav-badge{position:absolute;top:-2px;right:-4px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;min-width:14px;text-align:center;z-index:2}
+.bnav-badge{position:absolute;top:-2px;right:-4px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;min-width:14px;text-align:center;z-index:2;animation:badgePulseRing 1.8s ease infinite}
 @media(max-width:768px){.bottom-nav{display:block}}
 
 /* ── HERO PREMIUM ── */
@@ -188,10 +188,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 /* ── STATS ── */
 .ww-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;margin-bottom:16px}
-.ww-stat{background:var(--bg-card);border-radius:14px;padding:16px 12px;text-align:center;border:1px solid var(--border);border-left:4px solid var(--primary);box-shadow:var(--shadow-sm);animation:cardPop .35s ease both}
+.ww-stat{background:rgba(255,255,255,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:14px;padding:16px 12px;text-align:center;border:1px solid rgba(255,255,255,.55);border-left:4px solid var(--primary);box-shadow:0 4px 20px rgba(0,0,0,.07);animation:cardPop .35s ease both}
 .ww-stat-icon{font-size:24px;margin-bottom:6px;display:flex;align-items:center;justify-content:center}
 .ww-stat-val{font-size:24px;font-weight:800;color:var(--text)}
 .ww-stat-label{font-size:11px;color:var(--text-secondary);margin-top:2px}
+.dark .ww-stat{background:rgba(15,23,42,.78);border-color:rgba(255,255,255,.09)}
 .ww-bar-wrap{width:100%;height:8px;background:var(--border);border-radius:99px;overflow:hidden}
 .ww-bar{height:100%;border-radius:99px;background:var(--primary);transition:width .6s cubic-bezier(.4,0,.2,1)}
 
@@ -320,6 +321,10 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes glowPulse{0%,100%{opacity:.7}50%{opacity:1}}
 @keyframes shimmerSlide{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}
 @keyframes scorePop{0%{transform:scale(0) rotate(-8deg)}70%{transform:scale(1.12) rotate(2deg)}100%{transform:scale(1) rotate(0deg)}}
+@keyframes pageSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes radarPing{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.6);opacity:0}}
+@keyframes badgePulseRing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}70%{box-shadow:0 0 0 7px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+@keyframes ringDraw{from{stroke-dasharray:0 252}to{stroke-dasharray:var(--d,252) 252}}
 .kid-tile{transition:transform .14s ease,box-shadow .14s ease}.kid-tile:active{transform:scale(.92)!important}
 .pp-btn:active{opacity:.82;transform:scale(.97)}
 .pp-card{transition:transform .18s ease,box-shadow .18s ease}.pp-card:active{transform:scale(.99)}
@@ -1348,14 +1353,7 @@ window.launchConfetti = (count=50) => {
     document.body.appendChild(c); setTimeout(()=>c.remove(),4500);
   }
 };
-window.animateCounters = () => {
-  document.querySelectorAll('.ww-stat-val').forEach(el => {
-    const num = parseInt(el.textContent); if (isNaN(num)||num===0) return;
-    const suffix = el.textContent.replace(/[\d]/g,''); let current=0;
-    const step = Math.max(1, Math.ceil(num/30));
-    const timer = setInterval(()=>{ current+=step; if(current>=num){current=num;clearInterval(timer);} el.textContent=current+suffix; },30);
-  });
-};
+
 window.initParticles = () => {
   const pc=$('particles'); if(!pc) return;
   const colors=['#ef4444','#f97316','#eab308','#10b981','#3b82f6','#8b5cf6','#ec4899'];
@@ -1429,11 +1427,42 @@ window.ph = p => `
 <button onclick="go('dashboard')" class="btn btn-primary" style="margin-top:20px">← Accueil</button>
 </div>`;
 
+window.animateCounters = () => {
+  document.querySelectorAll('.ww-stat-val').forEach(el => {
+    const raw = el.textContent.trim();
+    const prefix = raw.match(/^[^0-9]*/)[0];
+    const numStr = raw.replace(/[^0-9]/g, '');
+    const target = parseInt(numStr, 10);
+    if (!numStr || isNaN(target) || target === 0) return;
+    const dur = 650, start = Date.now();
+    const step = () => {
+      const t = Math.min((Date.now() - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      el.textContent = prefix + Math.round(ease * target);
+      if (t < 1) requestAnimationFrame(step);
+      else el.textContent = raw;
+    };
+    requestAnimationFrame(step);
+  });
+  // animate SVG payment rings
+  document.querySelectorAll('.pay-ring-circle').forEach(el => {
+    const d = parseFloat(el.dataset.dash || 0);
+    el.style.setProperty('--d', d);
+    el.style.animation = 'none';
+    void el.offsetHeight;
+    el.style.animation = 'ringDraw .9s cubic-bezier(.4,0,.2,1) both';
+  });
+};
+
 window.render = () => {
   $('TT').textContent = PT[S.page] || 'SchoolSafe';
   const fn = R[S.page];
   try {
-    $('PC').innerHTML = fn ? fn() : ph(S.page);
+    const _pc=$('PC');
+    _pc.innerHTML = fn ? fn() : ph(S.page);
+    _pc.style.animation='none';
+    void _pc.offsetHeight;
+    _pc.style.animation='pageSlide .22s ease both';
   } catch(e) {
     console.error('[render] crash on page', S.page, e);
     $('PC').innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted)">
@@ -4769,7 +4798,23 @@ R.payments = () => {
   if(pf==='unpaid') studs=studs.filter(s=>DB.payments.filter(p=>p.sid===s.id).every(p=>!p.paid));
   if(pf==='blocked') studs=studs.filter(s=>s.access_blocked);
   const blockedCount=DB.students.filter(s=>s.access_blocked).length;
+  const ringR = 38, ringC = 2*Math.PI*ringR, ringDash = Math.round(pct/100*ringC);
   return `
+  <div style="display:flex;justify-content:center;margin-bottom:20px">
+    <div style="position:relative;width:110px;height:110px">
+      <svg viewBox="0 0 100 100" width="110" height="110" style="transform:rotate(-90deg)">
+        <circle cx="50" cy="50" r="38" fill="none" stroke="var(--border)" stroke-width="9"/>
+        <circle cx="50" cy="50" r="38" fill="none" stroke="#059669" stroke-width="9"
+          stroke-dasharray="${ringDash} ${Math.round(ringC)}" stroke-linecap="round"
+          class="pay-ring-circle" data-dash="${ringDash}"
+          style="--d:${ringDash};animation:ringDraw .9s cubic-bezier(.4,0,.2,1) both"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">
+        <div class="ww-stat-val" style="font-size:22px;font-weight:800">${pct}%</div>
+        <div style="font-size:9px;color:var(--text-secondary);font-weight:600">payé</div>
+      </div>
+    </div>
+  </div>
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#059669"><div class="ww-stat-icon"><div style="width:28px;height:28px;border-radius:8px;background:#d1fae5;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#059669"></div></div></div><div class="ww-stat-val">${pd}</div><div class="ww-stat-label">Trimestres payés</div></div>
     <div class="ww-stat" style="border-left-color:#ef4444"><div class="ww-stat-icon"><div style="width:28px;height:28px;border-radius:8px;background:#fee2e2;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#ef4444"></div></div></div><div class="ww-stat-val">$${totalDette}</div><div class="ww-stat-label">Dette totale</div></div>
@@ -8362,9 +8407,14 @@ async function pushNotif(uid,msg) {
 
 // ── SCANNER ENTRÉE ──
 R.scanner = () => `
-<div class="scan-container">
-  <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">📷 Scanner Entrée</h2>
-  <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Scannez la carte QR de l'élève</p>
+<div class="scan-container" style="position:relative">
+  <div aria-hidden="true" style="position:absolute;top:60px;left:50%;transform:translateX(-50%);width:200px;height:200px;pointer-events:none;z-index:0">
+    <div style="position:absolute;inset:0;border-radius:50%;border:1.5px solid rgba(37,99,235,.3);animation:radarPing 2.4s ease-out infinite"></div>
+    <div style="position:absolute;inset:28px;border-radius:50%;border:1.5px solid rgba(37,99,235,.2);animation:radarPing 2.4s ease-out .8s infinite"></div>
+    <div style="position:absolute;inset:56px;border-radius:50%;border:1.5px solid rgba(37,99,235,.13);animation:radarPing 2.4s ease-out 1.6s infinite"></div>
+  </div>
+  <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;position:relative;z-index:1">Scanner Entrée</h2>
+  <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;position:relative;z-index:1">Scannez la carte QR de l'élève</p>
   ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`<div style="background:#fee2e2;border:2px solid #ef4444;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;width:100%;max-width:380px"><span style="font-size:22px">🔴</span><div><div style="font-weight:700;font-size:13px;color:#991b1b">Contrôle frais ${fc.trimestre}</div><div style="font-size:11px;color:#991b1b">Élèves non payés = refusés</div></div></div>`:''})()}
   <div class="scan-video-wrap">
     <video id="scanVideo" autoplay playsinline muted></video>
