@@ -108,14 +108,19 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .page-content{flex:1;overflow-y:auto;padding:20px 16px 90px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 
 /* ── BOTTOM NAV ── */
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,.98));backdrop-filter:blur(16px);border-top:1px solid rgba(0,0,0,.06);box-shadow:0 -4px 24px rgba(0,0,0,.1);display:none}
-.dark .bottom-nav{background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.98));border-top:1px solid rgba(255,255,255,.06)}
-.bottom-nav-inner{display:flex}
-.bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px 12px;background:none;border:none;font-size:10px;color:var(--text-muted);cursor:pointer;transition:all .2s;font-family:inherit;position:relative}
-.bottom-nav-item.active{color:var(--primary);font-weight:700}
-.bottom-nav-item.active::after{content:'';position:absolute;top:0;left:25%;right:25%;height:3px;background:linear-gradient(90deg,var(--primary),var(--gold));border-radius:0 0 3px 3px}
-.bnav-icon{font-size:20px;display:block}
-.bnav-badge{position:absolute;top:4px;right:20%;background:#ef4444;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;min-width:14px;text-align:center}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.07);box-shadow:0 -4px 24px rgba(0,0,0,.08);display:none}
+.dark .bottom-nav{background:rgba(15,23,42,.97);border-top:1px solid rgba(255,255,255,.08)}
+.bottom-nav-inner{display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bottom-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px 2px 10px;background:none;border:none;cursor:pointer;transition:all .2s;font-family:inherit;position:relative;min-width:0;-webkit-tap-highlight-color:transparent}
+.bnav-icon{width:48px;height:30px;border-radius:16px;display:flex;align-items:center;justify-content:center;transition:background .25s,transform .15s;margin-bottom:3px;position:relative}
+.bottom-nav-item .bnav-icon svg{width:20px;height:20px;stroke:#94a3b8;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:stroke .25s}
+.dark .bottom-nav-item .bnav-icon svg{stroke:#4b6280}
+.bottom-nav-item.active .bnav-icon{background:var(--primary)}
+.bottom-nav-item.active .bnav-icon svg{stroke:#fff}
+.bnav-label{font-size:10px;font-weight:600;color:#64748b;letter-spacing:.1px;line-height:1;transition:color .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56px;text-align:center}
+.dark .bnav-label{color:#8098b8}
+.bottom-nav-item.active .bnav-label{color:var(--primary);font-weight:700}
+.bnav-badge{position:absolute;top:-2px;right:-4px;background:#ef4444;color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:6px;min-width:14px;text-align:center;z-index:2}
 @media(max-width:768px){.bottom-nav{display:block}}
 
 /* ── HERO PREMIUM ── */
@@ -1553,6 +1558,34 @@ window.logout = () => {
   if(sp){ sp.style.display=''; sp.classList.remove('hidden'); }
   closeSB();
 };
+
+// ── SVG ICONS FOR BOTTOM NAV ──
+window.PAGE_ICONS = {
+  dashboard:        '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  approbations:     '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  students:         '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  payments:         '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+  attendance:       '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  palmares:         '<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>',
+  devoirs:          '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  messages:         '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  caisse_paiement:  '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  caisse_depense:   '<circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>',
+  caisse_rapport:   '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  scanner:          '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="16" width="5" height="5" rx="1"/><rect x="16" y="16" width="2" height="2"/><line x1="21" y1="16" x2="21" y2="21"/><line x1="16" y1="21" x2="21" y2="21"/>',
+  scanner_exit:     '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  scan_log:         '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+  alert_urgent:     '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  children:         '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  devoirs_parent:   '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  profil_direction: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  profil_direction2:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  profil_enseignant:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  profil_gardien:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  profil_caisse:    '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  profil_parent:    '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+};
+
 window.goToMyProfile = () => {
   const r=S.user?.role; if(!r) return;
   const page=r==='direction3'?'profil_caisse':'profil_'+r;
@@ -1639,9 +1672,12 @@ window.buildUI = () => {
   });
   // Bottom nav
   const bn = $('BN'); bn.innerHTML = '';
+  const _svgDef = PAGE_ICONS.dashboard;
   c.bn.forEach(x => {
     const badge = x.badge && pending > 0 ? `<span class="bnav-badge">${pending}</span>` : '';
-    bn.innerHTML += `<button class="bottom-nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="bnav-icon">${x.i}</span>${gl(x.l)}${badge}</button>`;
+    const paths = PAGE_ICONS[x.id] || _svgDef;
+    const svg = `<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+    bn.innerHTML += `<button class="bottom-nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><div class="bnav-icon">${svg}${badge}</div><span class="bnav-label">${gl(x.l)}</span></button>`;
   });
   // Date
   $('TD').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
