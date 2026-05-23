@@ -1,1335 +1,758 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Complexe Scolaire Le Sage | The Wise School International</title>
-  <meta name="description" content="Complexe Scolaire Le Sage – The Wise School International, Kinshasa DRC. Excellence académique bilingue français-anglais." />
-  <link rel="icon" href="icon-192.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
-  <style>
-    /* ===================== RESET & BASE ===================== */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --navy: #0f2557;
-      --navy-dark: #091840;
-      --navy-mid: #1a3370;
-      --gold: #c9a030;
-      --gold-light: #e8bb50;
-      --gold-dark: #a07820;
-      --white: #ffffff;
-      --off-white: #f8f9fc;
-      --gray: #6b7280;
-      --gray-light: #e5e7eb;
-      --shadow: 0 4px 24px rgba(15,37,87,0.12);
-      --shadow-gold: 0 4px 24px rgba(201,160,48,0.3);
-      --radius: 16px;
-      --radius-sm: 8px;
-    }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--white);
-      color: #1a1a2e;
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-    h1,h2,h3,h4 { font-family: 'Playfair Display', serif; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Complexe Scolaire Le Sage | The Wise School International</title>
+<meta name="description" content="Complexe Scolaire Le Sage – The Wise School International. Excellence académique bilingue à Kinshasa, RDC. Former · Réformer · Exceller."/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ─── TOKENS ─── */
+:root{
+  --ink:#0a0a0a;--gold:#C8A44A;--gold2:#E5C46A;
+  --cream:#FAF8F3;--warm:#F0EDE4;--grey:#9B9B9B;
+  --light-grey:#E8E5DF;--white:#FFFFFF;--navy:#0B1F42;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;line-height:1.7;-webkit-font-smoothing:antialiased}
 
-    /* ===================== ANIMATIONS ===================== */
-    @keyframes gradientShift {
-      0%   { background-position: 0% 50%; }
-      50%  { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-    @keyframes logoPulse {
-      0%,100% { transform: scale(1);   box-shadow: 0 0 0 0 rgba(201,160,48,0.5), 0 0 40px rgba(201,160,48,0.2); }
-      50%      { transform: scale(1.06); box-shadow: 0 0 0 16px rgba(201,160,48,0), 0 0 80px rgba(201,160,48,0.5); }
-    }
-    @keyframes float1 {
-      0%,100% { transform: translateY(0)   translateX(0);   opacity:.6; }
-      33%     { transform: translateY(-28px) translateX(12px);  opacity:1; }
-      66%     { transform: translateY(14px)  translateX(-8px); opacity:.4; }
-    }
-    @keyframes float2 {
-      0%,100% { transform: translateY(0)   translateX(0);   opacity:.4; }
-      40%     { transform: translateY(-40px) translateX(-18px); opacity:.9; }
-      70%     { transform: translateY(20px)  translateX(10px); opacity:.3; }
-    }
-    @keyframes float3 {
-      0%,100% { transform: translateY(0)  translateX(0);  opacity:.5; }
-      50%     { transform: translateY(-22px) translateX(22px); opacity:.8; }
-    }
-    @keyframes fadeDown {
-      from { opacity:0; transform:translateY(-20px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(40px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-    @keyframes scrollArrow {
-      0%,100% { transform:translateX(-50%) translateY(0); opacity:.8; }
-      50%     { transform:translateX(-50%) translateY(10px); opacity:.3; }
-    }
-    @keyframes shimmer {
-      0%   { background-position: -200% center; }
-      100% { background-position: 200% center; }
-    }
-    @keyframes underlineExpand {
-      from { width:0; }
-      to   { width:100%; }
-    }
-    @keyframes checkDraw {
-      from { stroke-dashoffset: 200; }
-      to   { stroke-dashoffset: 0; }
-    }
-    @keyframes ringPulse {
-      0%   { transform:scale(0.8); opacity:1; }
-      100% { transform:scale(2.4); opacity:0; }
-    }
-    @keyframes spin {
-      from { transform:rotate(0deg); }
-      to   { transform:rotate(360deg); }
-    }
-    @keyframes navbarSlide {
-      from { transform:translateY(-100%); }
-      to   { transform:translateY(0); }
-    }
-    @keyframes cardEntrance {
-      from { opacity:0; transform:translateY(30px) scale(0.96); }
-      to   { opacity:1; transform:translateY(0) scale(1); }
-    }
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:#0a0a0a}
+::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px}
 
-    /* ===================== SCROLL ANIMATE ===================== */
-    .animate {
-      opacity:0;
-      transform:translateY(36px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
-    }
-    .animate.visible {
-      opacity:1;
-      transform:translateY(0);
-    }
-    .animate-left {
-      opacity:0;
-      transform:translateX(-40px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
-    }
-    .animate-left.visible { opacity:1; transform:translateX(0); }
-    .animate-right {
-      opacity:0;
-      transform:translateX(40px);
-      transition: opacity 0.7s ease, transform 0.7s ease;
-    }
-    .animate-right.visible { opacity:1; transform:translateX(0); }
-    .delay-1 { transition-delay: 0.1s !important; }
-    .delay-2 { transition-delay: 0.2s !important; }
-    .delay-3 { transition-delay: 0.3s !important; }
-    .delay-4 { transition-delay: 0.4s !important; }
-    .delay-5 { transition-delay: 0.5s !important; }
+/* ─── REVEAL ANIMATIONS ─── */
+.rev{opacity:0;transform:translateY(28px);transition:opacity .7s,transform .7s}
+.rev.on{opacity:1;transform:none}
+.rev-l{opacity:0;transform:translateX(-28px);transition:opacity .7s,transform .7s}
+.rev-l.on{opacity:1;transform:none}
+.rev-r{opacity:0;transform:translateX(28px);transition:opacity .7s,transform .7s}
+.rev-r.on{opacity:1;transform:none}
+.d1{transition-delay:.1s}.d2{transition-delay:.2s}.d3{transition-delay:.3s}.d4{transition-delay:.4s}.d5{transition-delay:.5s}
 
-    /* ===================== NAVBAR ===================== */
-    #navbar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      z-index: 1000;
-      padding: 14px 40px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      transition: background 0.35s ease, box-shadow 0.35s ease, padding 0.35s ease;
-      animation: navbarSlide 0.6s ease both;
-    }
-    #navbar.scrolled {
-      background: rgba(255,255,255,0.96);
-      backdrop-filter: blur(16px);
-      box-shadow: 0 2px 24px rgba(15,37,87,0.1);
-      padding: 10px 40px;
-    }
-    .nav-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-    }
-    .nav-brand img {
-      width: 44px; height: 44px;
-      border-radius: 10px;
-      object-fit: cover;
-      box-shadow: 0 2px 10px rgba(201,160,48,0.3);
-    }
-    .nav-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-    .nav-brand-text span:first-child {
-      font-family: 'Playfair Display', serif;
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--white);
-      transition: color 0.35s;
-    }
-    .nav-brand-text span:last-child {
-      font-size: 0.7rem;
-      color: var(--gold-light);
-      transition: color 0.35s;
-    }
-    #navbar.scrolled .nav-brand-text span:first-child { color: var(--navy); }
-    #navbar.scrolled .nav-brand-text span:last-child  { color: var(--gold-dark); }
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      list-style: none;
-    }
-    .nav-links a {
-      text-decoration: none;
-      font-size: 0.88rem;
-      font-weight: 500;
-      color: rgba(255,255,255,0.9);
-      position: relative;
-      transition: color 0.25s;
-    }
-    .nav-links a::after {
-      content: '';
-      position: absolute;
-      bottom: -4px; left: 0;
-      width: 0; height: 2px;
-      background: var(--gold);
-      transition: width 0.3s ease;
-    }
-    .nav-links a:hover::after { width: 100%; }
-    .nav-links a:hover { color: var(--gold-light); }
-    #navbar.scrolled .nav-links a { color: var(--navy); }
-    #navbar.scrolled .nav-links a:hover { color: var(--gold-dark); }
-    .nav-cta {
-      background: var(--gold);
-      color: var(--navy) !important;
-      padding: 8px 20px;
-      border-radius: 50px;
-      font-weight: 600 !important;
-      transition: background 0.25s, transform 0.2s, box-shadow 0.2s !important;
-    }
-    .nav-cta::after { display: none !important; }
-    .nav-cta:hover {
-      background: var(--gold-light) !important;
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-gold);
-    }
-    .hamburger {
-      display: none;
-      flex-direction: column;
-      gap: 5px;
-      cursor: pointer;
-      padding: 4px;
-      background: none;
-      border: none;
-    }
-    .hamburger span {
-      display: block;
-      width: 26px; height: 2px;
-      background: var(--white);
-      border-radius: 2px;
-      transition: all 0.3s ease;
-    }
-    #navbar.scrolled .hamburger span { background: var(--navy); }
-    .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
-    .mobile-menu {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(9,24,64,0.98);
-      backdrop-filter: blur(20px);
-      z-index: 999;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 36px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    .mobile-menu.open { display: flex; opacity: 1; }
-    .mobile-menu a {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.8rem;
-      color: var(--white);
-      text-decoration: none;
-      font-weight: 600;
-      transition: color 0.2s, transform 0.2s;
-    }
-    .mobile-menu a:hover { color: var(--gold); transform: scale(1.05); }
+/* ─── FLOATING ORBS ─── */
+.orb-layer{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.08;animation:drift 18s ease-in-out infinite alternate}
+.orb-1{width:500px;height:500px;background:#3B82F6;top:-100px;left:-100px;animation-delay:0s}
+.orb-2{width:400px;height:400px;background:#8B5CF6;bottom:-80px;right:-80px;animation-delay:-6s}
+.orb-3{width:300px;height:300px;background:var(--gold);top:40%;left:30%;animation-delay:-12s}
+@keyframes drift{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,30px) scale(1.12)}}
 
-    /* ===================== HERO ===================== */
-    #hero {
-      min-height: 100vh;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      overflow: hidden;
-      background: linear-gradient(135deg, #060f2e 0%, #0f2557 35%, #1a3a7a 55%, #0a1f50 80%, #060f2e 100%);
-      background-size: 400% 400%;
-      animation: gradientShift 12s ease infinite;
-    }
-    /* Decorative overlay mesh */
-    #hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a030' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-      pointer-events: none;
-    }
-    /* Particles container */
-    .particles {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      overflow: hidden;
-    }
-    .particle {
-      position: absolute;
-      border-radius: 50%;
-      background: var(--gold);
-      opacity: 0.35;
-    }
-    /* 18 particles via nth-child */
-    .particle:nth-child(1)  { width:6px;  height:6px;  top:12%; left:8%;   animation: float1 7s ease-in-out infinite; }
-    .particle:nth-child(2)  { width:10px; height:10px; top:22%; left:18%;  animation: float2 9s ease-in-out infinite 1s; }
-    .particle:nth-child(3)  { width:4px;  height:4px;  top:35%; left:5%;   animation: float3 6s ease-in-out infinite 2s; }
-    .particle:nth-child(4)  { width:8px;  height:8px;  top:58%; left:12%;  animation: float1 8s ease-in-out infinite 0.5s; }
-    .particle:nth-child(5)  { width:5px;  height:5px;  top:75%; left:22%;  animation: float2 10s ease-in-out infinite 3s; }
-    .particle:nth-child(6)  { width:12px; height:12px; top:88%; left:9%;   animation: float3 7.5s ease-in-out infinite 1.5s; }
-    .particle:nth-child(7)  { width:7px;  height:7px;  top:10%; left:85%;  animation: float1 9s ease-in-out infinite 2s; }
-    .particle:nth-child(8)  { width:4px;  height:4px;  top:28%; left:78%;  animation: float2 6.5s ease-in-out infinite 0.8s; }
-    .particle:nth-child(9)  { width:9px;  height:9px;  top:44%; left:92%;  animation: float3 8.5s ease-in-out infinite 3.5s; }
-    .particle:nth-child(10) { width:6px;  height:6px;  top:62%; left:82%;  animation: float1 7s ease-in-out infinite 1.2s; }
-    .particle:nth-child(11) { width:11px; height:11px; top:79%; left:88%;  animation: float2 9.5s ease-in-out infinite 2.8s; }
-    .particle:nth-child(12) { width:5px;  height:5px;  top:92%; left:75%;  animation: float3 6s ease-in-out infinite 0.3s; }
-    .particle:nth-child(13) { width:8px;  height:8px;  top:18%; left:48%;  animation: float1 11s ease-in-out infinite 4s; }
-    .particle:nth-child(14) { width:3px;  height:3px;  top:50%; left:55%;  animation: float2 7.5s ease-in-out infinite 1.8s; }
-    .particle:nth-child(15) { width:14px; height:14px; top:68%; left:42%;  animation: float3 10s ease-in-out infinite 2.5s; opacity:0.2; }
-    .particle:nth-child(16) { width:6px;  height:6px;  top:82%; left:58%;  animation: float1 8s ease-in-out infinite 3.2s; }
-    .particle:nth-child(17) { width:4px;  height:4px;  top:5%;  left:62%;  animation: float2 6.5s ease-in-out infinite 0.6s; }
-    .particle:nth-child(18) { width:9px;  height:9px;  top:40%; left:30%;  animation: float3 9s ease-in-out infinite 4.5s; }
+/* ─── NAV ─── */
+#nav{position:fixed;top:0;left:0;right:0;z-index:1000;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 3rem;background:var(--ink);box-shadow:0 1px 0 rgba(200,164,74,.2);transition:background .4s}
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none}
+.nav-brand img{width:36px;height:36px;border-radius:50%;object-fit:cover;border:1.5px solid var(--gold);box-shadow:0 0 0 3px rgba(200,164,74,.15)}
+.nav-brand-txt .n1{display:block;font-family:'Cormorant Garamond',serif;font-size:.9rem;font-weight:700;color:var(--gold);letter-spacing:.05em}
+.nav-brand-txt .n2{display:block;font-size:.52rem;color:rgba(255,255,255,.4);letter-spacing:.15em;text-transform:uppercase}
+.nav-links{display:flex;gap:.2rem;list-style:none}
+.nav-links a{color:rgba(255,255,255,.7);text-decoration:none;font-size:.72rem;font-weight:400;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;transition:color .2s}
+.nav-links a:hover,.nav-links a:focus{color:var(--gold)}
+.nav-cta{background:linear-gradient(135deg,var(--gold),var(--gold2))!important;color:var(--ink)!important;font-weight:600!important;padding:7px 18px!important;border-radius:2px!important;box-shadow:0 4px 20px rgba(200,164,74,.35)!important}
+.nav-cta:hover{box-shadow:0 6px 30px rgba(200,164,74,.55)!important;transform:translateY(-2px)!important}
+.burger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px}
+.burger span{display:block;width:22px;height:1.5px;background:#fff;transition:.3s}
 
-    .hero-content {
-      position: relative;
-      z-index: 2;
-      max-width: 800px;
-      padding: 120px 24px 80px;
-      animation: fadeUp 1s ease 0.3s both;
-    }
-    .hero-logo-wrap {
-      margin: 0 auto 32px;
-      width: 120px; height: 120px;
-      border-radius: 28px;
-      overflow: hidden;
-      animation: logoPulse 4s ease-in-out infinite;
-      box-shadow: 0 0 60px rgba(201,160,48,0.4);
-    }
-    .hero-logo-wrap img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
-    .hero-eyebrow {
-      display: inline-block;
-      background: rgba(201,160,48,0.2);
-      border: 1px solid rgba(201,160,48,0.5);
-      color: var(--gold-light);
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 6px 18px;
-      border-radius: 50px;
-      margin-bottom: 24px;
-    }
-    .hero-title-main {
-      font-size: clamp(2.2rem, 5vw, 3.8rem);
-      color: var(--white);
-      font-weight: 700;
-      line-height: 1.1;
-      margin-bottom: 8px;
-      text-shadow: 0 2px 24px rgba(0,0,0,0.3);
-    }
-    .hero-title-sub {
-      font-size: clamp(1.1rem, 2.5vw, 1.7rem);
-      color: var(--gold-light);
-      font-weight: 400;
-      font-style: italic;
-      margin-bottom: 20px;
-    }
-    .hero-subtitle {
-      font-size: 1.05rem;
-      color: rgba(255,255,255,0.75);
-      margin-bottom: 44px;
-      letter-spacing: 0.04em;
-    }
-    .hero-subtitle span { color: var(--gold); font-weight: 600; }
-    .hero-btns {
-      display: flex;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-    .btn-gold {
-      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
-      color: var(--navy-dark);
-      font-weight: 700;
-      font-size: 0.95rem;
-      padding: 14px 36px;
-      border-radius: 50px;
-      text-decoration: none;
-      border: none;
-      cursor: pointer;
-      transition: transform 0.25s, box-shadow 0.25s;
-      background-size: 200% auto;
-      position: relative;
-      overflow: hidden;
-    }
-    .btn-gold::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      transition: left 0.5s ease;
-    }
-    .btn-gold:hover::before { left: 100%; }
-    .btn-gold:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(201,160,48,0.5); }
-    .btn-outline {
-      background: transparent;
-      color: var(--white);
-      font-weight: 600;
-      font-size: 0.95rem;
-      padding: 13px 36px;
-      border-radius: 50px;
-      border: 2px solid rgba(255,255,255,0.6);
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.25s;
-    }
-    .btn-outline:hover {
-      background: rgba(255,255,255,0.1);
-      border-color: var(--white);
-      transform: translateY(-3px);
-    }
-    .scroll-arrow {
-      position: absolute;
-      bottom: 32px; left: 50%;
-      transform: translateX(-50%);
-      animation: scrollArrow 2s ease-in-out infinite;
-      color: rgba(255,255,255,0.6);
-      font-size: 1.5rem;
-      z-index: 2;
-    }
+/* ─── MOBILE MENU ─── */
+.mob-menu{display:none;position:fixed;inset:0;background:rgba(10,10,10,.97);backdrop-filter:blur(20px);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:2rem;opacity:0;transition:opacity .3s}
+.mob-menu.open{display:flex;opacity:1}
+.mob-menu a{font-family:'Cormorant Garamond',serif;font-size:2rem;color:#fff;text-decoration:none;font-weight:700;transition:color .2s,transform .2s;letter-spacing:.04em}
+.mob-menu a:hover{color:var(--gold);transform:scale(1.05)}
 
-    /* ===================== STATS BAR ===================== */
-    #stats {
-      background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 100%);
-      padding: 60px 40px;
-    }
-    .stats-grid {
-      max-width: 900px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 32px;
-      text-align: center;
-    }
-    .stat-item { padding: 20px; }
-    .stat-num {
-      font-family: 'Playfair Display', serif;
-      font-size: 3rem;
-      font-weight: 700;
-      color: var(--gold);
-      display: block;
-      line-height: 1;
-      margin-bottom: 8px;
-      text-shadow: 0 0 30px rgba(201,160,48,0.4);
-    }
-    .stat-label {
-      font-size: 0.85rem;
-      color: rgba(255,255,255,0.7);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      font-weight: 500;
-    }
-    .stat-divider {
-      width: 1px;
-      background: rgba(255,255,255,0.1);
-      display: block;
-    }
+/* ─── HERO SPLIT ─── */
+.hero{position:relative;height:100vh;min-height:600px;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;margin-top:64px}
+.hero-left{position:relative;overflow:hidden}
+.hbg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 1.6s ease}
+.hbg.active{opacity:1}
+.hbg-1{background:linear-gradient(135deg,#0B1F42 0%,#1a3a7a 40%,#0d2a5e 100%)}
+.hbg-2{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)}
+.hbg-3{background:linear-gradient(135deg,#0a0a0a 0%,#1a0a2e 50%,#2d1b69 100%)}
+.hbg-4{background:linear-gradient(135deg,#0B1F42 0%,#C8A44A 60%,#E5C46A 100%);opacity:.6!important}
+.hbg-inner-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.hbg-inner-icon img{width:180px;height:180px;border-radius:50%;object-fit:cover;border:3px solid rgba(200,164,74,.4);box-shadow:0 0 80px rgba(200,164,74,.3);animation:hero-logo-float 6s ease-in-out infinite}
+@keyframes hero-logo-float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-12px) scale(1.04)}}
+.hero-left-overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(10,10,10,.35),transparent)}
+.hero-year{position:absolute;bottom:2rem;left:2rem;z-index:2}
+.hero-year-num{font-family:'Bebas Neue',sans-serif;font-size:4rem;color:rgba(255,255,255,.12);line-height:1}
+.hero-year-txt{font-size:.62rem;color:rgba(255,255,255,.45);letter-spacing:.2em;text-transform:uppercase}
+.hero-scroll-line{position:absolute;right:0;top:50%;transform:translateY(-50%);width:1px;height:80px;background:linear-gradient(to bottom,transparent,var(--gold),transparent);z-index:3}
+.hsn-dots{position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}
+.hsn-dot{width:6px;height:6px;border-radius:50%;background:rgba(200,164,74,.3);cursor:pointer;transition:background .2s,width .3s;border:none}
+.hsn-dot.active{background:var(--gold);width:18px;border-radius:3px}
+.hero-right{background:var(--ink);display:flex;flex-direction:column;justify-content:center;padding:5rem 4rem 4rem;position:relative;overflow:hidden}
+.hero-pattern{position:absolute;inset:0;background-image:repeating-linear-gradient(45deg,rgba(200,164,74,.04) 0px,rgba(200,164,74,.04) 1px,transparent 1px,transparent 30px);pointer-events:none}
+.float-shapes{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.fshape{position:absolute;animation:float-icon 8s ease-in-out infinite;opacity:.5;font-size:1.3rem}
+.fshape:nth-child(1){left:8%;top:20%;animation-delay:0s;animation-duration:7s}
+.fshape:nth-child(2){left:85%;top:35%;animation-delay:-2s;animation-duration:9s}
+.fshape:nth-child(3){left:20%;top:75%;animation-delay:-4s;animation-duration:6s}
+.fshape:nth-child(4){left:72%;top:15%;animation-delay:-1s;animation-duration:10s}
+@keyframes float-icon{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-16px) rotate(10deg)}}
+.hero-logo-wrap{display:flex;align-items:center;gap:12px;margin-bottom:2.5rem;position:relative;z-index:1}
+.hero-logo-img{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);box-shadow:0 0 0 3px rgba(200,164,74,.2)}
+.hero-logo-txt .l1{display:block;font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:700;color:var(--gold);letter-spacing:.05em}
+.hero-logo-txt .l2{display:block;font-size:.58rem;color:rgba(255,255,255,.4);letter-spacing:.15em;text-transform:uppercase}
+.hero-content-right{position:relative;z-index:1}
+.hero-pill{display:inline-block;border:1px solid rgba(200,164,74,.35);color:rgba(200,164,74,.85);font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;padding:5px 14px;margin-bottom:1.5rem}
+.hero-h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,4.5vw,5.5rem);color:#fff;line-height:.93;letter-spacing:.03em;margin-bottom:1rem;text-shadow:0 0 60px rgba(200,164,74,.2),0 2px 4px rgba(0,0,0,.5)}
+.hero-h1 .gold{background:linear-gradient(135deg,#E5C46A 0%,#C8A44A 40%,#F0D080 70%,#C8A44A 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 20px rgba(200,164,74,.4))}
+.hero-accent{width:40px;height:2px;background:linear-gradient(90deg,var(--gold),#06B6D4,var(--gold));background-size:200%;animation:shimmer-line 3s linear infinite;margin-bottom:1.5rem}
+@keyframes shimmer-line{0%{background-position:0%}100%{background-position:200%}}
+.hero-slogan{margin-bottom:2rem}
+.hero-slogan-word{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.12em;text-transform:uppercase}
+.hero-slogan-word+.hero-slogan-word::before{content:' · ';color:var(--gold)}
+.hero-addr{font-size:.72rem;color:rgba(255,255,255,.35);letter-spacing:.06em;margin-bottom:2.5rem;line-height:1.9}
+.hero-btns{display:flex;gap:1rem;flex-wrap:wrap}
+.btn-primary{background:var(--gold);color:var(--ink);font-weight:600;padding:13px 28px;text-decoration:none;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;transition:background .2s,transform .2s;display:inline-block}
+.btn-primary:hover{background:var(--gold2);transform:translateY(-2px)}
+.btn-outline{border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.75);padding:13px 28px;text-decoration:none;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;transition:border-color .2s,color .2s;display:inline-block}
+.btn-outline:hover{border-color:var(--gold);color:var(--gold)}
+.hero-stats{display:flex;gap:2rem;margin-top:3rem;padding-top:2rem;border-top:1px solid rgba(255,255,255,.08);position:relative;z-index:1}
+.hs-item{}
+.hs-n{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);line-height:1}
+.hs-l{font-size:.58rem;color:rgba(255,255,255,.35);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
 
-    /* ===================== SECTIONS BASE ===================== */
-    section { padding: 100px 40px; }
-    .section-tag {
-      display: inline-block;
-      background: rgba(201,160,48,0.12);
-      color: var(--gold-dark);
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      padding: 5px 16px;
-      border-radius: 50px;
-      margin-bottom: 16px;
-      border: 1px solid rgba(201,160,48,0.3);
-    }
-    .section-title {
-      font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-      color: var(--navy);
-      margin-bottom: 16px;
-      position: relative;
-      display: inline-block;
-    }
-    .section-title::after {
-      content: '';
-      position: absolute;
-      bottom: -6px; left: 0;
-      width: 60px; height: 3px;
-      background: var(--gold);
-      border-radius: 2px;
-      transition: width 0.4s ease;
-    }
-    .section-title:hover::after { width: 100%; }
-    .section-lead {
-      font-size: 1.05rem;
-      color: var(--gray);
-      max-width: 560px;
-      line-height: 1.8;
-    }
-    .container { max-width: 1160px; margin: 0 auto; }
+/* ─── COUNTERS ─── */
+.counter-section{background:linear-gradient(135deg,#060608 0%,#0d0d14 50%,#060608 100%);padding:64px 3rem;position:relative;overflow:hidden}
+.counter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;max-width:1200px;margin:0 auto;background:rgba(200,164,74,.12)}
+.counter-item{background:rgba(255,255,255,.03);border-top:2px solid var(--gold);padding:2.5rem 2rem;text-align:center;position:relative;overflow:hidden;transition:transform .3s,background .3s}
+.counter-item:hover{background:rgba(200,164,74,.06);transform:translateY(-4px)}
+.counter-item::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:shimmer-top 2s infinite}
+@keyframes shimmer-top{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.counter-icon{font-size:1.6rem;margin-bottom:.6rem;display:block}
+.counter-num{font-family:'Bebas Neue',sans-serif;font-size:4rem;background:linear-gradient(135deg,#E5C46A,#C8A44A,#F0D080);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;display:block}
+.counter-lbl{font-size:.66rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.14em;margin-top:.4rem}
 
-    /* ===================== ABOUT ===================== */
-    #about { background: var(--off-white); }
-    .about-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      align-items: center;
-      margin-top: 56px;
-    }
-    .about-features {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      margin-top: 36px;
-    }
-    .feature-card {
-      display: flex;
-      align-items: flex-start;
-      gap: 18px;
-      background: var(--white);
-      padding: 20px 24px;
-      border-radius: var(--radius-sm);
-      box-shadow: 0 2px 12px rgba(15,37,87,0.07);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      border-left: 3px solid transparent;
-    }
-    .feature-card:hover {
-      transform: translateX(6px);
-      box-shadow: 0 6px 24px rgba(15,37,87,0.12);
-      border-left-color: var(--gold);
-    }
-    .feature-icon {
-      font-size: 1.8rem;
-      flex-shrink: 0;
-      width: 52px; height: 52px;
-      background: linear-gradient(135deg, rgba(201,160,48,0.15), rgba(201,160,48,0.05));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .feature-text h4 {
-      font-family: 'Inter', sans-serif;
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--navy);
-      margin-bottom: 4px;
-    }
-    .feature-text p { font-size: 0.85rem; color: var(--gray); }
-    .about-card {
-      background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
-      border-radius: 24px;
-      padding: 48px;
-      color: var(--white);
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 24px 64px rgba(15,37,87,0.25);
-    }
-    .about-card::before {
-      content: '';
-      position: absolute;
-      top: -60px; right: -60px;
-      width: 200px; height: 200px;
-      border-radius: 50%;
-      background: rgba(201,160,48,0.12);
-    }
-    .about-card::after {
-      content: '';
-      position: absolute;
-      bottom: -40px; left: -40px;
-      width: 160px; height: 160px;
-      border-radius: 50%;
-      background: rgba(201,160,48,0.07);
-    }
-    .about-card-logo {
-      width: 80px; height: 80px;
-      border-radius: 18px;
-      object-fit: cover;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-    }
-    .about-card h3 {
-      font-size: 1.5rem;
-      color: var(--gold-light);
-      margin-bottom: 16px;
-    }
-    .about-card p {
-      font-size: 0.9rem;
-      color: rgba(255,255,255,0.8);
-      line-height: 1.8;
-      margin-bottom: 20px;
-    }
-    .about-card-stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      position: relative;
-      z-index: 1;
-    }
-    .ac-stat {
-      background: rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 16px;
-      text-align: center;
-    }
-    .ac-stat-num {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.8rem;
-      color: var(--gold);
-      font-weight: 700;
-    }
-    .ac-stat-label {
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.6);
-      margin-top: 4px;
-    }
+/* ─── SECTIONS ─── */
+section:not(.hero){padding:96px 3rem}
+.container{max-width:1200px;margin:0 auto}
+.s-tag{display:flex;align-items:center;gap:12px;font-size:.65rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;font-family:'DM Sans',sans-serif}
+.s-tag::before{content:'';width:24px;height:1px;background:var(--gold)}
+h2{font-family:'Playfair Display',serif;font-size:clamp(2rem,3.5vw,3rem);font-weight:700;line-height:1.1;margin-bottom:1.2rem;letter-spacing:-.01em}
+h2 em{font-style:italic;color:var(--gold)}
+.s-divider{display:flex;align-items:center;gap:12px;margin-bottom:2.5rem}
+.s-divider-line{width:40px;height:1px;background:var(--gold)}
+.s-divider-dot{width:4px;height:4px;border-radius:50%;background:var(--gold)}
 
-    /* ===================== TEACHERS ===================== */
-    #teachers { background: var(--white); }
-    .teachers-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 28px;
-      margin-top: 56px;
-    }
-    .teacher-card {
-      background: var(--white);
-      border-radius: var(--radius);
-      padding: 32px 20px;
-      text-align: center;
-      box-shadow: 0 4px 20px rgba(15,37,87,0.08);
-      border: 2px solid transparent;
-      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-      cursor: default;
-    }
-    .teacher-card:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 16px 48px rgba(201,160,48,0.2);
-      border-color: var(--gold);
-    }
-    .teacher-avatar {
-      width: 88px; height: 88px;
-      border-radius: 50%;
-      margin: 0 auto 16px;
-      object-fit: cover;
-      border: 3px solid var(--gray-light);
-      transition: border-color 0.3s;
-    }
-    .teacher-card:hover .teacher-avatar { border-color: var(--gold); }
-    .teacher-initials {
-      width: 88px; height: 88px;
-      border-radius: 50%;
-      margin: 0 auto 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--white);
-      border: 3px solid rgba(255,255,255,0.3);
-      transition: border-color 0.3s;
-    }
-    .teacher-card:hover .teacher-initials { border-color: var(--gold-light); }
-    .teacher-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.05rem;
-      color: var(--navy);
-      font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .teacher-role {
-      font-size: 0.8rem;
-      color: var(--gray);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .teacher-badge {
-      display: inline-block;
-      background: rgba(201,160,48,0.12);
-      color: var(--gold-dark);
-      font-size: 0.72rem;
-      padding: 3px 10px;
-      border-radius: 50px;
-      margin-top: 10px;
-      font-weight: 600;
-    }
+/* ─── PROMOTEUR (ABOUT DARK) ─── */
+#promoteur{background:var(--ink);padding:0}
+.promo-grid{display:grid;grid-template-columns:380px 1fr;min-height:540px}
+.promo-img-col{position:relative;overflow:hidden;background:linear-gradient(135deg,#0B1F42 0%,#1a3a7a 40%,#C8A44A 100%);display:flex;align-items:center;justify-content:center}
+.promo-img-col img{width:200px;height:200px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);box-shadow:0 0 80px rgba(200,164,74,.4);animation:hero-logo-float 6s ease-in-out infinite}
+.promo-img-overlay{position:absolute;inset:0;background:linear-gradient(to right,transparent 60%,var(--ink))}
+.promo-year-badge{position:absolute;top:2rem;left:2rem;background:var(--gold);color:var(--ink);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;padding:6px 16px;letter-spacing:.05em}
+.promo-body{padding:4.5rem 4rem;display:flex;flex-direction:column;justify-content:center}
+.promo-badge{display:inline-block;border:1px solid rgba(200,164,74,.4);color:var(--gold);font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;padding:5px 14px;margin-bottom:1.5rem;align-self:flex-start}
+.promo-body h3{font-family:'Playfair Display',serif;font-size:2rem;color:#fff;margin-bottom:1.2rem;line-height:1.2;font-weight:700}
+.promo-body p{color:rgba(255,255,255,.65);font-size:.92rem;line-height:1.9;margin-bottom:1.2rem}
+.promo-quote{border-left:2px solid var(--gold);padding-left:1.2rem;font-family:'Cormorant Garamond',serif;font-size:1.05rem;color:rgba(200,164,74,.8);font-style:italic;font-weight:600;letter-spacing:.02em}
 
-    /* ===================== EVENTS ===================== */
-    #events { background: var(--off-white); }
-    .timeline {
-      position: relative;
-      margin-top: 60px;
-      max-width: 800px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .timeline::before {
-      content: '';
-      position: absolute;
-      top: 0; bottom: 0;
-      left: 50%;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--gold), rgba(201,160,48,0.1));
-      transform: translateX(-50%);
-    }
-    .timeline-item {
-      display: flex;
-      justify-content: flex-end;
-      padding-right: calc(50% + 40px);
-      margin-bottom: 48px;
-      position: relative;
-    }
-    .timeline-item:nth-child(even) {
-      justify-content: flex-start;
-      padding-right: 0;
-      padding-left: calc(50% + 40px);
-    }
-    .timeline-dot {
-      position: absolute;
-      left: 50%;
-      top: 20px;
-      width: 14px; height: 14px;
-      background: var(--gold);
-      border-radius: 50%;
-      transform: translateX(-50%);
-      border: 3px solid var(--white);
-      box-shadow: 0 0 0 3px var(--gold);
-      transition: transform 0.3s;
-    }
-    .timeline-item:hover .timeline-dot { transform: translateX(-50%) scale(1.4); }
-    .event-card {
-      background: var(--white);
-      border-radius: var(--radius-sm);
-      padding: 22px 24px;
-      box-shadow: var(--shadow);
-      max-width: 320px;
-      transition: transform 0.3s, box-shadow 0.3s;
-      border-top: 3px solid var(--gold);
-    }
-    .event-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(15,37,87,0.15);
-    }
-    .event-date-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(201,160,48,0.12);
-      color: var(--gold-dark);
-      font-size: 0.78rem;
-      font-weight: 700;
-      padding: 4px 12px;
-      border-radius: 50px;
-      margin-bottom: 10px;
-    }
-    .event-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 1rem;
-      color: var(--navy);
-      margin-bottom: 8px;
-    }
-    .event-type {
-      font-size: 0.75rem;
-      color: var(--gray);
-      background: var(--off-white);
-      padding: 3px 10px;
-      border-radius: 50px;
-      display: inline-block;
-    }
-    .no-events {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--gray);
-    }
-    .no-events .big-emoji { font-size: 4rem; margin-bottom: 16px; display: block; }
+/* ─── ABOUT ─── */
+#apropos{background:var(--cream)}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:6rem;align-items:center}
+.about-img-wrap{position:relative}
+.about-img{overflow:hidden;background:linear-gradient(135deg,#0B1F42,#1a3a7a);min-height:400px;display:flex;align-items:center;justify-content:center}
+.about-img img{width:140px;height:140px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);box-shadow:0 0 60px rgba(200,164,74,.4)}
+.about-year-badge{position:absolute;bottom:-1rem;right:-1rem;background:var(--ink);color:#fff;padding:1.2rem 1.8rem;border:1px solid var(--gold)}
+.about-year-badge .ay-n{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--gold);line-height:1}
+.about-year-badge .ay-l{font-size:.6rem;color:rgba(255,255,255,.5);letter-spacing:.12em;text-transform:uppercase}
+.about-text p{color:#555;margin-bottom:1.4rem;font-size:.93rem;line-height:1.85}
+.mission-block{background:var(--ink);padding:1.8rem 2rem;margin-top:2rem;border-left:3px solid var(--gold)}
+.mission-block .ml{font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:.5rem;font-weight:500}
+.mission-block p{color:rgba(255,255,255,.78);font-size:.9rem;line-height:1.8;margin:0}
 
-    /* ===================== INSCRIPTION ===================== */
-    #inscription { background: var(--white); }
-    .form-card {
-      background: var(--white);
-      border-radius: 24px;
-      box-shadow: 0 8px 48px rgba(15,37,87,0.12);
-      padding: 56px 56px;
-      max-width: 720px;
-      margin: 56px auto 0;
-      border-top: 4px solid var(--gold);
-      position: relative;
-      overflow: hidden;
-    }
-    .form-card::before {
-      content: '';
-      position: absolute;
-      top: 0; right: 0;
-      width: 200px; height: 200px;
-      background: radial-gradient(circle, rgba(201,160,48,0.08) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-    .form-group {
-      margin-bottom: 22px;
-    }
-    .form-group label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--navy);
-      margin-bottom: 7px;
-      letter-spacing: 0.02em;
-    }
-    .form-group label span { color: var(--gold-dark); }
-    .form-input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1.5px solid var(--gray-light);
-      border-radius: var(--radius-sm);
-      font-size: 0.92rem;
-      font-family: 'Inter', sans-serif;
-      color: #1a1a2e;
-      background: var(--off-white);
-      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
-      outline: none;
-    }
-    .form-input:focus {
-      border-color: var(--gold);
-      background: var(--white);
-      box-shadow: 0 0 0 3px rgba(201,160,48,0.15);
-    }
-    .form-input::placeholder { color: #aab; }
-    textarea.form-input { resize: vertical; min-height: 100px; }
-    .submit-btn {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, var(--gold), var(--gold-light));
-      color: var(--navy-dark);
-      border: none;
-      border-radius: 50px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.25s, box-shadow 0.25s;
-      position: relative;
-      overflow: hidden;
-      margin-top: 8px;
-      letter-spacing: 0.03em;
-    }
-    .submit-btn::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -100%;
-      width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-      animation: shimmer 2.5s ease-in-out infinite;
-    }
-    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(201,160,48,0.4); }
-    .submit-btn:active { transform: translateY(0); }
-    .submit-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-    .form-success {
-      display: none;
-      text-align: center;
-      padding: 48px 24px;
-    }
-    .form-success.show { display: block; animation: fadeUp 0.5s ease both; }
-    .success-ring {
-      width: 90px; height: 90px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--gold), var(--gold-light));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-      position: relative;
-    }
-    .success-ring::before {
-      content: '';
-      position: absolute;
-      inset: -6px;
-      border-radius: 50%;
-      border: 3px solid var(--gold);
-      animation: ringPulse 1.5s ease-out infinite;
-    }
-    .success-ring svg {
-      width: 44px; height: 44px;
-      stroke: var(--navy-dark);
-      stroke-width: 3;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    .success-ring svg path {
-      stroke-dasharray: 200;
-      stroke-dashoffset: 200;
-      animation: checkDraw 0.8s ease 0.3s both;
-    }
-    .success-title {
-      font-size: 1.4rem;
-      color: var(--navy);
-      margin-bottom: 12px;
-    }
-    .success-msg { font-size: 0.95rem; color: var(--gray); max-width: 380px; margin: 0 auto; }
-    .form-error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #dc2626;
-      padding: 12px 16px;
-      border-radius: var(--radius-sm);
-      font-size: 0.88rem;
-      margin-bottom: 20px;
-      display: none;
-    }
-    .form-error.show { display: block; animation: fadeDown 0.3s ease both; }
+/* ─── PROGRAMMES ─── */
+#programmes{background:var(--ink)}
+#programmes h2{color:#fff}
+#programmes .s-tag{color:var(--gold2)}
+.prog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1px;margin-top:2.5rem;background:rgba(200,164,74,.12)}
+.prog-card{background:rgba(15,15,20,.7)!important;backdrop-filter:blur(12px);border:1px solid rgba(200,164,74,.18)!important;border-top:2px solid var(--gold)!important;padding:2.5rem;position:relative;transition:transform .3s,box-shadow .3s;cursor:default;overflow:hidden}
+.prog-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(200,164,74,.05) 0%,transparent 60%);pointer-events:none}
+.prog-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--gold);transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.prog-card:hover{transform:translateY(-8px)!important;box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 30px rgba(200,164,74,.1)!important}
+.prog-card:hover::after{transform:scaleX(1)}
+.prog-num{font-family:'Bebas Neue',sans-serif;font-size:4rem;background:linear-gradient(135deg,rgba(200,164,74,.15),transparent);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin-bottom:.5rem}
+.prog-icon{font-size:2rem;margin-bottom:1rem;display:inline-block;animation:bounce-icon 3s ease-in-out infinite;transition:transform .3s}
+.prog-card:nth-child(1) .prog-icon{animation-delay:0s}
+.prog-card:nth-child(2) .prog-icon{animation-delay:.5s}
+.prog-card:nth-child(3) .prog-icon{animation-delay:1s}
+.prog-card:nth-child(4) .prog-icon{animation-delay:1.5s}
+@keyframes bounce-icon{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.prog-card h3{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff;margin-bottom:.6rem;font-weight:700}
+.prog-card p{color:rgba(255,255,255,.45);font-size:.84rem;line-height:1.75}
+.class-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:2.5rem}
+.class-badge{padding:7px 14px;border-radius:30px;font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;cursor:default;transition:transform .2s;border:1.5px solid transparent}
+.class-badge:hover{transform:translateY(-3px)}
+.cb-m{background:rgba(236,72,153,.12);color:#EC4899;border-color:rgba(236,72,153,.3)}
+.cb-p{background:rgba(59,130,246,.12);color:#60A5FA;border-color:rgba(59,130,246,.3)}
+.cb-c{background:rgba(139,92,246,.12);color:#8B5CF6;border-color:rgba(139,92,246,.3)}
+.cb-s{background:rgba(16,185,129,.12);color:#10B981;border-color:rgba(16,185,129,.3)}
 
-    /* ===================== GALLERY ===================== */
-    #gallery { background: var(--off-white); }
-    .gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: auto auto;
-      gap: 20px;
-      margin-top: 56px;
-    }
-    .gallery-card {
-      border-radius: var(--radius);
-      overflow: hidden;
-      position: relative;
-      min-height: 200px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.35s ease, box-shadow 0.35s ease;
-      cursor: default;
-    }
-    .gallery-card:nth-child(1) { grid-row: span 2; min-height: 420px; }
-    .gallery-card:nth-child(4) { grid-row: span 2; min-height: 420px; }
-    .gallery-card:hover { transform: scale(1.03); box-shadow: 0 20px 60px rgba(15,37,87,0.2); }
-    .gallery-bg-1 { background: linear-gradient(135deg, #0f2557, #1a3a7a); }
-    .gallery-bg-2 { background: linear-gradient(135deg, #c9a030, #e8bb50); }
-    .gallery-bg-3 { background: linear-gradient(135deg, #1a3a7a, #0f2557); }
-    .gallery-bg-4 { background: linear-gradient(135deg, #091840, #0f2557); }
-    .gallery-bg-5 { background: linear-gradient(135deg, #c9a030, #a07820); }
-    .gallery-bg-6 { background: linear-gradient(135deg, #1a3370, #091840); }
-    .gallery-emoji { font-size: 3.5rem; z-index: 1; position: relative; }
-    .gallery-card:nth-child(1) .gallery-emoji,
-    .gallery-card:nth-child(4) .gallery-emoji { font-size: 5rem; }
-    .gallery-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(9,24,64,0.5);
-      display: flex;
-      align-items: flex-end;
-      padding: 20px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-    .gallery-card:hover .gallery-overlay { opacity: 1; }
-    .gallery-overlay-text {
-      color: var(--white);
-      font-size: 0.82rem;
-      font-weight: 600;
-      background: rgba(201,160,48,0.85);
-      color: var(--navy-dark);
-      padding: 6px 14px;
-      border-radius: 50px;
-    }
+/* ─── EQUIPE ─── */
+#equipe{background:var(--cream)}
+.eq-sub{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--gold);margin:2.5rem 0 1.2rem;font-style:italic;padding-bottom:.6rem;border-bottom:1px solid rgba(200,164,74,.2);display:flex;align-items:center;gap:10px}
+.eq-sub::before{content:'';width:16px;height:1px;background:var(--gold)}
+.eq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--light-grey)}
+.tm-card{background:var(--white);overflow:hidden;transition:transform .35s cubic-bezier(.23,1,.32,1),box-shadow .35s;position:relative;border-top:2px solid var(--gold)!important}
+.tm-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--gold);transform:scaleX(0);transition:transform .3s;transform-origin:left}
+.tm-card:hover{transform:translateY(-8px) scale(1.02)!important;box-shadow:0 20px 60px rgba(0,0,0,.15),0 0 20px rgba(200,164,74,.1)!important}
+.tm-card:hover::after{transform:scaleX(1)}
+.tm-ph{width:100%;overflow:hidden;position:relative}
+.tm-ph img{width:100%;height:auto;max-height:300px;object-fit:cover;object-position:top center;display:block;transition:transform .5s}
+.tm-card:hover .tm-ph img{transform:scale(1.06)}
+.tm-fb{height:160px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--gold);letter-spacing:.1em}
+.tm-body{padding:1.1rem 1.3rem 1.4rem}
+.tm-name{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:700;color:var(--ink);margin-bottom:.2rem;line-height:1.3;letter-spacing:.02em}
+.tm-role{color:var(--gold);font-size:.65rem;display:block;font-weight:600;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.1em}
+.tm-badge{display:inline-block;background:var(--ink);color:var(--gold);font-size:.58rem;font-weight:500;padding:2px 10px;letter-spacing:.1em;text-transform:uppercase;margin-top:4px}
 
-    /* ===================== CONTACT ===================== */
-    #contact { background: var(--white); }
-    .contact-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      align-items: center;
-      margin-top: 56px;
-    }
-    .contact-items { display: flex; flex-direction: column; gap: 20px; }
-    .contact-item {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      padding: 20px;
-      background: var(--off-white);
-      border-radius: var(--radius-sm);
-      border: 1.5px solid transparent;
-      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
-    }
-    .contact-item:hover {
-      border-color: var(--gold);
-      transform: translateX(6px);
-      box-shadow: 0 4px 20px rgba(201,160,48,0.12);
-    }
-    .contact-icon {
-      width: 50px; height: 50px;
-      background: linear-gradient(135deg, var(--navy), var(--navy-mid));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
-      flex-shrink: 0;
-    }
-    .contact-info label {
-      font-size: 0.75rem;
-      color: var(--gray);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 600;
-      display: block;
-      margin-bottom: 3px;
-    }
-    .contact-info p {
-      font-size: 0.92rem;
-      color: var(--navy);
-      font-weight: 500;
-    }
-    .contact-deco {
-      background: linear-gradient(145deg, var(--navy) 0%, var(--navy-mid) 100%);
-      border-radius: 24px;
-      padding: 56px 40px;
-      text-align: center;
-      color: var(--white);
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 24px 64px rgba(15,37,87,0.25);
-    }
-    .contact-deco::before {
-      content: '🏫';
-      font-size: 8rem;
-      position: absolute;
-      top: -20px; right: -20px;
-      opacity: 0.07;
-    }
-    .contact-deco h3 {
-      font-size: 1.6rem;
-      color: var(--gold-light);
-      margin-bottom: 16px;
-    }
-    .contact-deco p {
-      font-size: 0.9rem;
-      color: rgba(255,255,255,0.75);
-      line-height: 1.8;
-      margin-bottom: 28px;
-    }
-    .contact-hours {
-      background: rgba(255,255,255,0.08);
-      border-radius: 12px;
-      padding: 20px;
-      text-align: left;
-    }
-    .contact-hours h4 {
-      font-family: 'Inter', sans-serif;
-      font-size: 0.8rem;
-      color: var(--gold);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 12px;
-    }
-    .hours-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-      color: rgba(255,255,255,0.8);
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .hours-row:last-child { border-bottom: none; }
-    .hours-open { color: #4ade80; font-weight: 600; }
+/* ─── TESTIMONIALS ─── */
+#temoignages{background:var(--warm);padding:90px 3rem}
+.testi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;margin-top:2.5rem}
+.testi-card{background:rgba(255,255,255,.98);border-top:3px solid var(--gold);border-left:1px solid rgba(200,164,74,.2);border-right:1px solid rgba(200,164,74,.2);border-bottom:1px solid rgba(200,164,74,.2);padding:2rem;position:relative;transition:transform .3s,box-shadow .3s;border-radius:0 0 12px 12px}
+.testi-card:hover{transform:translateY(-6px)!important;box-shadow:0 20px 50px rgba(0,0,0,.1)!important}
+.testi-quote{font-size:3rem;color:var(--gold);line-height:1;font-family:'Cormorant Garamond',serif;position:absolute;top:1rem;right:1.5rem;opacity:.25}
+.testi-text{font-family:'Cormorant Garamond',serif;font-size:1.08rem;font-style:italic;color:#555;line-height:1.8;margin-bottom:1.2rem;letter-spacing:.01em}
+.testi-stars{background:linear-gradient(90deg,#F59E0B,#EF4444,#F59E0B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-size:1rem;margin-bottom:.8rem;letter-spacing:4px}
+.testi-author{display:flex;align-items:center;gap:.8rem}
+.testi-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--ink);flex-shrink:0}
+.testi-name{font-family:'Playfair Display',serif;font-size:.88rem;font-weight:700;color:var(--ink)}
+.testi-role{font-size:.7rem;color:var(--grey)}
 
-    /* ===================== FOOTER ===================== */
-    #footer {
-      background: var(--navy-dark);
-      padding: 56px 40px 32px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-    #footer::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-dark));
-    }
-    .footer-logo {
-      width: 64px; height: 64px;
-      border-radius: 16px;
-      object-fit: cover;
-      margin: 0 auto 16px;
-      display: block;
-      box-shadow: 0 4px 20px rgba(201,160,48,0.3);
-    }
-    .footer-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.3rem;
-      color: var(--white);
-      margin-bottom: 4px;
-    }
-    .footer-sub {
-      font-size: 0.82rem;
-      color: var(--gold-light);
-      margin-bottom: 28px;
-    }
-    .footer-links {
-      display: flex;
-      gap: 28px;
-      justify-content: center;
-      list-style: none;
-      margin-bottom: 28px;
-    }
-    .footer-links a {
-      font-size: 0.82rem;
-      color: rgba(255,255,255,0.5);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
-    .footer-links a:hover { color: var(--gold); }
-    .footer-divider {
-      width: 60px; height: 1px;
-      background: rgba(255,255,255,0.1);
-      margin: 0 auto 20px;
-    }
-    .footer-copy {
-      font-size: 0.78rem;
-      color: rgba(255,255,255,0.35);
-      line-height: 1.8;
-    }
-    .footer-powered {
-      font-size: 0.72rem;
-      color: rgba(201,160,48,0.4);
-      margin-top: 6px;
-    }
+/* ─── EVENTS ─── */
+#evenements{background:var(--ink);padding:90px 3rem}
+#evenements h2{color:#fff}
+#evenements .s-tag{color:var(--gold2)}
+.events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1px;margin-top:2.5rem;background:rgba(200,164,74,.12)}
+.event-card{background:var(--ink);padding:1.8rem;position:relative;transition:background .2s,border-color .2s,transform .2s;border-left:2px solid transparent}
+.event-card:hover{background:rgba(200,164,74,.06)!important;border-left-color:var(--gold)!important;transform:translateX(6px)!important}
+.event-date{display:flex;align-items:center;gap:1rem;margin-bottom:1rem}
+.event-day{font-family:'Bebas Neue',sans-serif;font-size:3rem;background:linear-gradient(135deg,#E5C46A,#C8A44A);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.event-month{font-size:.65rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.12em}
+.event-sep{width:1px;height:40px;background:rgba(200,164,74,.3)}
+.event-title{font-family:'Playfair Display',serif;font-size:1rem;color:#fff;margin-bottom:.4rem;font-weight:700}
+.event-desc{font-size:.78rem;color:rgba(255,255,255,.45);line-height:1.6}
+.event-badge{display:inline-block;font-size:.6rem;padding:2px 10px;border-radius:2px;text-transform:uppercase;letter-spacing:.1em;margin-top:.8rem;font-weight:500}
+.badge-acad{background:rgba(59,130,246,.12);color:#60a5fa}
+.badge-culture{background:rgba(200,164,74,.15);color:var(--gold)}
+.badge-sport{background:rgba(16,185,129,.12);color:#10B981}
+.badge-inscr{background:rgba(200,164,74,.25);color:var(--gold);border:1px solid var(--gold)}
+.events-empty{text-align:center;padding:3rem;color:rgba(255,255,255,.4)}
+.events-empty span{display:block;font-size:2.5rem;margin-bottom:.8rem}
 
-    /* ===================== LOADING SPINNER ===================== */
-    .loading-spinner {
-      width: 40px; height: 40px;
-      border: 3px solid var(--gray-light);
-      border-top-color: var(--gold);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 40px auto;
-    }
+/* ─── INSCRIPTION SECTION ─── */
+#inscription{background:var(--cream)}
+.inscr-form-wrap{max-width:680px;margin:2.5rem auto 0}
+.inscr-form-card{background:var(--white);border-top:3px solid var(--gold);border-left:1px solid rgba(200,164,74,.3);border-right:1px solid rgba(200,164,74,.3);border-bottom:1px solid rgba(200,164,74,.3);padding:2.5rem 3rem;position:relative;overflow:hidden}
+.inscr-form-card::before{content:'';position:absolute;top:0;right:0;width:200px;height:200px;background:radial-gradient(circle,rgba(200,164,74,.06) 0%,transparent 70%);pointer-events:none}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
+.f-group{margin-bottom:1.2rem}
+.f-group label{display:block;font-size:.72rem;font-weight:600;color:var(--ink);margin-bottom:5px;letter-spacing:.05em;text-transform:uppercase}
+.f-group label span{color:var(--gold)}
+.f-input{width:100%;padding:11px 14px;border:1.5px solid var(--light-grey);font-size:.9rem;font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--cream);transition:border-color .25s,box-shadow .25s,background .25s;outline:none;border-radius:0}
+.f-input:focus{border-color:var(--gold);background:var(--white);box-shadow:0 0 0 3px rgba(200,164,74,.12)}
+.f-input::placeholder{color:#bbb}
+textarea.f-input{resize:vertical;min-height:90px}
+.f-submit{width:100%;padding:14px;background:var(--gold);color:var(--ink);border:none;font-size:.85rem;font-weight:700;cursor:pointer;transition:background .2s,transform .2s;margin-top:.5rem;letter-spacing:.1em;text-transform:uppercase;position:relative;overflow:hidden}
+.f-submit::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmer-btn 2.5s ease-in-out infinite}
+@keyframes shimmer-btn{0%{left:-100%}100%{left:100%}}
+.f-submit:hover{background:var(--gold2);transform:translateY(-2px)}
+.f-submit:disabled{opacity:.7;cursor:not-allowed}
+.f-error{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;font-size:.84rem;margin-bottom:1rem;display:none}
+.f-error.show{display:block}
+.f-success{display:none;text-align:center;padding:3rem 2rem}
+.f-success.show{display:block}
+.f-success-icon{font-size:3rem;display:block;margin-bottom:1rem}
+.f-success h3{font-family:'Cormorant Garamond',serif;font-size:1.5rem;color:var(--ink);margin-bottom:.8rem}
+.f-success p{color:#666;font-size:.9rem;line-height:1.7}
 
-    /* ===================== RESPONSIVE ===================== */
-    @media (max-width: 900px) {
-      section { padding: 72px 24px; }
-      #navbar { padding: 14px 24px; }
-      #navbar.scrolled { padding: 10px 24px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .about-grid { grid-template-columns: 1fr; gap: 40px; }
-      .contact-grid { grid-template-columns: 1fr; gap: 40px; }
-      .gallery-grid { grid-template-columns: repeat(2, 1fr); }
-      .gallery-card:nth-child(1),
-      .gallery-card:nth-child(4) { grid-row: span 1; min-height: 200px; }
-      .form-card { padding: 36px 28px; }
-      .form-row { grid-template-columns: 1fr; }
-      .timeline::before { left: 20px; }
-      .timeline-item,
-      .timeline-item:nth-child(even) { justify-content: flex-start; padding-left: 56px; padding-right: 0; }
-      .timeline-dot { left: 20px; }
-    }
-    @media (max-width: 600px) {
-      .nav-links { display: none; }
-      .hamburger { display: flex; }
-      .hero-btns { flex-direction: column; align-items: center; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-      .stat-num { font-size: 2.2rem; }
-      .teachers-grid { grid-template-columns: repeat(2, 1fr); }
-      .gallery-grid { grid-template-columns: 1fr 1fr; }
-      .gallery-card:nth-child(1),
-      .gallery-card:nth-child(4) { min-height: 160px; }
-      .about-card { padding: 32px 24px; }
-      .form-card { padding: 28px 20px; }
-      #stats { padding: 48px 24px; }
-    }
-  </style>
+/* ─── GALERIE ─── */
+#galerie{background:var(--ink);padding:90px 3rem}
+#galerie h2{color:#fff}
+#galerie .s-tag{color:var(--gold2)}
+.gal-masonry{columns:4;gap:6px;margin-top:2rem}
+.gi{break-inside:avoid;margin-bottom:6px;position:relative;cursor:pointer;overflow:hidden;min-height:160px;display:flex;align-items:center;justify-content:center}
+.gi-bg{position:absolute;inset:0}
+.gi-icon{position:relative;z-index:1;font-size:2.5rem;transition:transform .3s}
+.gi:hover .gi-icon{transform:scale(1.2)}
+.go{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,10,.9) 0%,transparent 50%);opacity:0;transition:opacity .3s;display:flex;flex-direction:column;justify-content:flex-end;padding:1rem}
+.gi:hover .go{opacity:1}
+.gt1{color:#fff;font-family:'Cormorant Garamond',serif;font-size:.9rem;font-style:italic}
+.gt2{color:var(--gold);font-size:.63rem;text-transform:uppercase;letter-spacing:.1em;margin-top:2px}
+
+/* ─── INFRA ─── */
+#infra{background:var(--warm)}
+.infra-wrap{display:grid;grid-template-columns:1fr 1fr;gap:5rem;margin-top:2rem}
+.infra-col h3{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--ink);margin-bottom:1.4rem;font-weight:600}
+.infra-item{display:flex;align-items:center;gap:1rem;padding:.85rem 0;border-bottom:1px solid rgba(200,164,74,.15);border-left:2px solid transparent;padding-left:.5rem;transition:border-color .3s}
+.infra-item:last-child{border-bottom:none}
+.infra-item:hover{border-left-color:var(--gold)}
+.infra-dot{width:8px;height:8px;background:var(--gold);flex-shrink:0}
+.infra-item span{color:#666;font-size:.88rem}
+
+/* ─── CONTACT ─── */
+#contact{background:var(--cream)}
+.ct-wrap{display:grid;grid-template-columns:1fr 1fr;gap:5rem;margin-top:2.5rem}
+.ct-card{background:var(--white);padding:2.5rem;border-top:2px solid var(--gold);border-left:1px solid rgba(200,164,74,.3);border-right:1px solid rgba(200,164,74,.3);border-bottom:1px solid rgba(200,164,74,.3)}
+.ci{display:flex;gap:1.1rem;margin-bottom:1.8rem;align-items:flex-start}
+.ci-icon{width:44px;height:44px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.ci strong{display:block;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:.25rem;font-weight:500}
+.ci a,.ci span{color:#666;font-size:.88rem;text-decoration:none}
+.ci a:hover{color:var(--ink)}
+.ct-btns{display:flex;flex-direction:column;gap:1rem}
+.btn-wa{display:flex;align-items:center;justify-content:center;gap:10px;background:#25D366;color:#fff;font-weight:600;padding:14px 24px;text-decoration:none;font-size:.8rem;letter-spacing:.07em;text-transform:uppercase;transition:background .2s,transform .2s}
+.btn-wa:hover{background:#1DAA54;transform:translateY(-2px)}
+.btn-tel{display:flex;align-items:center;justify-content:center;gap:10px;background:var(--ink);color:#fff;font-weight:600;padding:14px 24px;text-decoration:none;font-size:.8rem;letter-spacing:.07em;text-transform:uppercase;transition:background .2s,transform .2s}
+.btn-tel:hover{background:#222;transform:translateY(-2px)}
+.ct-note{color:#aaa;font-size:.74rem;margin-top:.8rem;line-height:1.6;font-style:italic}
+
+/* ─── SHARE SECTION ─── */
+.share-section{background:var(--ink);padding:40px 3rem;border-top:1px solid rgba(200,164,74,.12)}
+.share-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.share-txt{font-family:'Cormorant Garamond',serif;font-size:1rem;color:rgba(255,255,255,.6);font-style:italic}
+.share-btns{display:flex;gap:.8rem}
+.share-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;text-decoration:none;font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;font-weight:600;transition:opacity .2s;border:1px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif}
+.share-btn:hover{opacity:.85}
+.sb-wa{background:#25D366;color:#fff;border:none}
+.sb-fb{background:#1877F2;color:#fff;border:none}
+.sb-copy{background:transparent;border-color:rgba(200,164,74,.4);color:var(--gold)}
+
+/* ─── FOOTER ─── */
+footer{background:#000;padding:3rem;border-top:1px solid rgba(200,164,74,.12)}
+.ft-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:2rem}
+.ft-brand{display:flex;align-items:center;gap:12px}
+.ft-brand img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid var(--gold)}
+.ft-name{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--gold)}
+.ft-sub{font-size:.58rem;color:rgba(255,255,255,.3);letter-spacing:.12em;text-transform:uppercase}
+.ft-links{display:flex;gap:1.5rem;flex-wrap:wrap}
+.ft-links a{color:rgba(255,255,255,.3);text-decoration:none;font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;transition:color .2s}
+.ft-links a:hover{color:var(--gold)}
+.ft-copy{font-size:.68rem;color:rgba(255,255,255,.18);margin-top:1.5rem;text-align:center}
+
+/* ─── FLOAT WA ─── */
+.float-wa{position:fixed;bottom:24px;right:24px;z-index:900;width:54px;height:54px;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 6px 24px rgba(37,211,102,.4);transition:transform .2s;animation:wap-pulse 2.5s infinite}
+.float-wa:hover{transform:scale(1.12)}
+@keyframes wap-pulse{0%,100%{box-shadow:0 6px 24px rgba(37,211,102,.4)}50%{box-shadow:0 6px 36px rgba(37,211,102,.7)}}
+.float-wa svg{width:24px;height:24px}
+
+/* ─── INSCRIPTION BADGE ─── */
+#inscr-badge{position:fixed;bottom:90px;right:24px;z-index:901;cursor:pointer;animation:badge-float 3s ease-in-out infinite}
+@keyframes badge-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.inscr-btn{background:linear-gradient(135deg,#0a0a0a,#1a1a1a);border:2px solid var(--gold);border-radius:50px;padding:10px 18px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(200,164,74,.35),0 0 0 0 rgba(200,164,74,.4);animation:pulse-ring 2.5s ease-out infinite;text-decoration:none}
+@keyframes pulse-ring{0%{box-shadow:0 4px 24px rgba(200,164,74,.35),0 0 0 0 rgba(200,164,74,.4)}70%{box-shadow:0 4px 24px rgba(200,164,74,.35),0 0 0 14px rgba(200,164,74,0)}100%{box-shadow:0 4px 24px rgba(200,164,74,.35),0 0 0 0 rgba(200,164,74,0)}}
+.inscr-dot{width:8px;height:8px;background:var(--gold);border-radius:50%;flex-shrink:0;animation:blink-dot 1.2s ease-in-out infinite}
+@keyframes blink-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.inscr-btn-txt strong{font-size:.68rem;font-weight:600;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;line-height:1.2;display:block}
+.inscr-btn-txt span{font-size:.58rem;color:rgba(255,255,255,.5);letter-spacing:.06em;display:block}
+
+/* ─── INSCRIPTION MODAL ─── */
+#inscr-modal{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.88);backdrop-filter:blur(4px);align-items:center;justify-content:center}
+#inscr-modal.open{display:flex}
+.inscr-modal-box{background:#0a0a0a;border:1px solid rgba(200,164,74,.4);max-width:500px;width:90vw;position:relative;overflow:hidden}
+.inscr-modal-top{background:linear-gradient(135deg,var(--gold),var(--gold2));padding:2rem 2.5rem}
+.inscr-modal-year{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:900;color:var(--ink);line-height:1}
+.inscr-modal-sub{font-size:.7rem;font-weight:600;color:rgba(10,10,10,.7);letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
+.inscr-modal-badge{position:absolute;top:1.2rem;right:1.5rem;background:var(--ink);color:var(--gold);font-size:.58rem;font-weight:600;padding:4px 12px;letter-spacing:.12em;text-transform:uppercase}
+.inscr-modal-body{padding:2rem 2.5rem}
+.inscr-modal-body p{color:rgba(255,255,255,.7);font-size:.88rem;line-height:1.85;margin-bottom:1.2rem}
+.inscr-modal-body p strong{color:var(--gold)}
+.inscr-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(200,164,74,.1);margin-bottom:1.5rem}
+.inscr-info-item{background:#0a0a0a;padding:.9rem 1rem}
+.inscr-info-item .lbl{font-size:.56rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px}
+.inscr-info-item .val{font-family:'Playfair Display',serif;font-size:.92rem;color:#fff;font-weight:600}
+.inscr-modal-btns{display:flex;gap:1rem}
+.btn-inscr-wa{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;font-weight:600;padding:13px;text-decoration:none;font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;transition:background .2s}
+.btn-inscr-wa:hover{background:#1DAA54}
+.btn-inscr-tel{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;border:1px solid rgba(200,164,74,.4);color:var(--gold);font-weight:600;padding:13px;text-decoration:none;font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;transition:border-color .2s,color .2s}
+.btn-inscr-tel:hover{border-color:var(--gold);color:var(--gold2)}
+#inscr-close{position:absolute;top:.8rem;right:1rem;background:none;border:none;color:rgba(255,255,255,.4);font-size:1.4rem;cursor:pointer;transition:color .2s;line-height:1}
+#inscr-close:hover{color:#fff}
+
+/* ─── DARK MODE ─── */
+.theme-toggle{position:fixed;top:50%;right:0;transform:translateY(-50%);background:var(--gold);color:var(--ink);border:none;width:34px;height:76px;cursor:pointer;z-index:998;font-size:.95rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-radius:8px 0 0 8px;box-shadow:-2px 0 12px rgba(200,164,74,.3);transition:background .2s}
+.theme-toggle:hover{background:var(--gold2)}
+[data-theme="dark"]{--cream:#0F0F12;--warm:#1A1A20;--white:#1E1E26;--light-grey:#2a2a35}
+[data-theme="dark"] body{background:#0F0F12;color:#FAFAF5}
+[data-theme="dark"] .about-text p{color:rgba(255,255,255,.65)}
+[data-theme="dark"] .testi-text{color:rgba(255,255,255,.8)}
+[data-theme="dark"] .testi-name{color:#FAFAF5}
+[data-theme="dark"] .testi-card{background:#1E1E26!important;border-color:rgba(200,164,74,.25)!important}
+[data-theme="dark"] .inscr-form-card{background:#1E1E26;border-color:rgba(200,164,74,.3)}
+[data-theme="dark"] .f-input{background:#0F0F12;color:#FAFAF5;border-color:#2a2a35}
+[data-theme="dark"] .f-input:focus{background:#1a1a24}
+[data-theme="dark"] .ct-card{background:#1E1E26;border-color:rgba(200,164,74,.25)}
+[data-theme="dark"] .ci a,.ci span{color:rgba(255,255,255,.6)}
+[data-theme="dark"] .infra-item span{color:rgba(255,255,255,.6)}
+[data-theme="dark"] #infra{background:#1A1A20}
+[data-theme="dark"] #contact{background:#0F0F12}
+[data-theme="dark"] #inscription{background:#0F0F12}
+[data-theme="dark"] #apropos{background:#0F0F12}
+[data-theme="dark"] #temoignages{background:#1A1A20}
+
+/* ─── CURSOR SPARKLE ─── */
+.sparkle{position:fixed;pointer-events:none;z-index:9999;width:8px;height:8px;border-radius:50%;animation:sparkle-fade .8s ease-out forwards}
+@keyframes sparkle-fade{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0) translateY(-20px)}}
+
+/* ─── LIGHTBOX ─── */
+#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:9999;align-items:center;justify-content:center;cursor:pointer}
+#lb.open{display:flex}
+#lb-close{position:absolute;top:1.5rem;right:2rem;color:#fff;font-size:2rem;cursor:pointer;background:none;border:none;opacity:.6;transition:opacity .2s;font-family:'DM Sans',sans-serif}
+#lb-close:hover{opacity:1}
+#lb-content{font-size:5rem;pointer-events:none}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:1024px){
+  .hero{grid-template-columns:1fr;height:auto;margin-top:64px}
+  .hero-left{height:55vw;min-height:260px}
+  .hero-right{padding:3rem 2rem 3.5rem}
+  .promo-grid{grid-template-columns:1fr}
+  .promo-img-col{min-height:300px}
+  .about-grid{grid-template-columns:1fr}
+  .infra-wrap,.ct-wrap{grid-template-columns:1fr}
+  .gal-masonry{columns:2}
+}
+@media(max-width:768px){
+  section:not(.hero){padding:70px 1.5rem}
+  #nav{padding:0 1.5rem}
+  .nav-links{display:none}
+  .burger{display:flex}
+  .counter-grid{grid-template-columns:1fr 1fr}
+  .hero-right{padding:2.5rem 1.5rem}
+  .promo-body{padding:2.5rem 1.5rem}
+  .gal-masonry{columns:2;gap:4px}
+  .gi{margin-bottom:4px}
+  .testi-grid,.events-grid{grid-template-columns:1fr}
+  .f-row{grid-template-columns:1fr}
+  .share-inner{flex-direction:column;align-items:flex-start}
+  .theme-toggle{display:none}
+}
+@media(max-width:480px){
+  .inscr-modal-btns{flex-direction:column}
+  .inscr-info-grid{grid-template-columns:1fr}
+}
+</style>
 </head>
 <body>
 
-<!-- ==================== NAVBAR ==================== -->
-<nav id="navbar">
+<!-- ─── FLOATING ORBS ─── -->
+<div class="orb-layer" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- ─── NAV ─── -->
+<nav id="nav">
   <a href="#hero" class="nav-brand">
-    <img src="icon-512.png" alt="Le Sage Logo" />
-    <div class="nav-brand-text">
-      <span>Le Sage</span>
-      <span>The Wise School International</span>
+    <img src="icon-512.png" alt="Le Sage"/>
+    <div class="nav-brand-txt">
+      <span class="n1">Complexe Scolaire Le Sage</span>
+      <span class="n2">The Wise School International</span>
     </div>
   </a>
   <ul class="nav-links">
-    <li><a href="#hero">Accueil</a></li>
-    <li><a href="#about">À propos</a></li>
-    <li><a href="#teachers">Équipe</a></li>
-    <li><a href="#events">Événements</a></li>
-    <li><a href="#inscription" class="nav-cta">Inscription</a></li>
+    <li><a href="#apropos">À propos</a></li>
+    <li><a href="#programmes">Programmes</a></li>
+    <li><a href="#equipe">Équipe</a></li>
+    <li><a href="#evenements">Événements</a></li>
+    <li><a href="#inscription" class="nav-cta">S'inscrire</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
-  <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+  <button class="burger" id="burgerBtn" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
 </nav>
 
-<!-- Mobile menu -->
-<div class="mobile-menu" id="mobileMenu">
-  <a href="#hero"        onclick="closeMobile()">Accueil</a>
-  <a href="#about"       onclick="closeMobile()">À propos</a>
-  <a href="#teachers"    onclick="closeMobile()">Équipe</a>
-  <a href="#events"      onclick="closeMobile()">Événements</a>
-  <a href="#inscription" onclick="closeMobile()">Inscription</a>
-  <a href="#contact"     onclick="closeMobile()">Contact</a>
+<!-- ─── MOBILE MENU ─── -->
+<div class="mob-menu" id="mobMenu">
+  <a href="#apropos"     onclick="closeMob()">À propos</a>
+  <a href="#programmes"  onclick="closeMob()">Programmes</a>
+  <a href="#equipe"      onclick="closeMob()">Équipe</a>
+  <a href="#evenements"  onclick="closeMob()">Événements</a>
+  <a href="#inscription" onclick="closeMob()">S'inscrire</a>
+  <a href="#contact"     onclick="closeMob()">Contact</a>
 </div>
 
-<!-- ==================== HERO ==================== -->
-<section id="hero">
-  <div class="particles" aria-hidden="true">
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
+<!-- ─── HERO SPLIT SCREEN ─── -->
+<section class="hero" id="hero">
+  <!-- Left: slideshow -->
+  <div class="hero-left">
+    <div class="hbg hbg-1 active" id="hbg0">
+      <div class="hbg-inner-icon"><img src="icon-512.png" alt="Le Sage"/></div>
+    </div>
+    <div class="hbg hbg-2" id="hbg1">
+      <div class="hbg-inner-icon" style="flex-direction:column;gap:1rem">
+        <div style="font-size:4rem">📚</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:rgba(255,255,255,.6);letter-spacing:.2em">EXCELLENCE</div>
+      </div>
+    </div>
+    <div class="hbg hbg-3" id="hbg2">
+      <div class="hbg-inner-icon" style="flex-direction:column;gap:1rem">
+        <div style="font-size:4rem">🌍</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:rgba(255,255,255,.6);letter-spacing:.2em">BILINGUE</div>
+      </div>
+    </div>
+    <div class="hero-left-overlay"></div>
+    <div class="hero-year">
+      <div class="hero-year-num">2017</div>
+      <div class="hero-year-txt">Fondé en</div>
+    </div>
+    <div class="hero-scroll-line"></div>
+    <div class="hsn-dots" id="hsnDots">
+      <button class="hsn-dot active" onclick="goSlide(0)"></button>
+      <button class="hsn-dot" onclick="goSlide(1)"></button>
+      <button class="hsn-dot" onclick="goSlide(2)"></button>
+    </div>
   </div>
-  <div class="hero-content">
+  <!-- Right: text -->
+  <div class="hero-right">
+    <div class="hero-pattern" aria-hidden="true"></div>
+    <div class="float-shapes" aria-hidden="true">
+      <span class="fshape">📚</span>
+      <span class="fshape">🏆</span>
+      <span class="fshape">✏️</span>
+      <span class="fshape">🎓</span>
+    </div>
     <div class="hero-logo-wrap">
-      <img src="icon-512.png" alt="Logo Complexe Scolaire Le Sage" />
+      <img src="icon-512.png" alt="Le Sage" class="hero-logo-img"/>
+      <div class="hero-logo-txt">
+        <span class="l1">Complexe Scolaire Le Sage</span>
+        <span class="l2">The Wise School International</span>
+      </div>
     </div>
-    <div class="hero-eyebrow">Kinshasa, République Démocratique du Congo</div>
-    <h1 class="hero-title-main">Complexe Scolaire Le Sage</h1>
-    <p class="hero-title-sub">The Wise School International</p>
-    <p class="hero-subtitle">
-      <span>Excellence académique</span> · Éducation bilingue · Kinshasa, DRC
-    </p>
-    <div class="hero-btns">
-      <a href="#inscription" class="btn-gold">S'inscrire maintenant</a>
-      <a href="#about" class="btn-outline">En savoir plus</a>
+    <div class="hero-content-right">
+      <div class="hero-pill">Kinshasa, RDC · École Bilingue</div>
+      <h1 class="hero-h1">FORMER<br>RÉFORMER<br><span class="gold">EXCELLER</span></h1>
+      <div class="hero-accent"></div>
+      <div class="hero-slogan">
+        <span class="hero-slogan-word">Excellence</span>
+        <span class="hero-slogan-word">Intégrité</span>
+        <span class="hero-slogan-word">Innovation</span>
+      </div>
+      <div class="hero-addr">
+        Kinshasa, République Démocratique du Congo<br>
+        Français · English · Bilingue
+      </div>
+      <div class="hero-btns">
+        <a href="#inscription" class="btn-primary">S'inscrire maintenant</a>
+        <a href="#apropos" class="btn-outline">Découvrir l'école</a>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hs-item">
+        <div class="hs-n" id="hs-students">—</div>
+        <div class="hs-l">Élèves</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-n" id="hs-teachers">—</div>
+        <div class="hs-l">Enseignants</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-n" id="hs-classes">—</div>
+        <div class="hs-l">Classes</div>
+      </div>
+      <div class="hs-item">
+        <div class="hs-n">10+</div>
+        <div class="hs-l">Années</div>
+      </div>
     </div>
   </div>
-  <div class="scroll-arrow" aria-hidden="true">↓</div>
 </section>
 
-<!-- ==================== STATS BAR ==================== -->
-<section id="stats">
-  <div class="stats-grid">
-    <div class="stat-item animate delay-1">
-      <span class="stat-num" id="statStudents" data-target="0">0</span>
-      <span class="stat-label">Élèves inscrits</span>
+<!-- ─── COUNTERS ─── -->
+<div class="counter-section">
+  <div class="counter-grid">
+    <div class="counter-item rev">
+      <span class="counter-icon">🎓</span>
+      <span class="counter-num" id="cnt-students">0</span>
+      <div class="counter-lbl">Élèves inscrits</div>
     </div>
-    <div class="stat-item animate delay-2">
-      <span class="stat-num" id="statTeachers" data-target="0">0</span>
-      <span class="stat-label">Enseignants</span>
+    <div class="counter-item rev d1">
+      <span class="counter-icon">👨‍🏫</span>
+      <span class="counter-num" id="cnt-teachers">0</span>
+      <div class="counter-lbl">Enseignants</div>
     </div>
-    <div class="stat-item animate delay-3">
-      <span class="stat-num" id="statClasses" data-target="0">0</span>
-      <span class="stat-label">Classes</span>
+    <div class="counter-item rev d2">
+      <span class="counter-icon">🏫</span>
+      <span class="counter-num" id="cnt-classes">0</span>
+      <div class="counter-lbl">Classes</div>
     </div>
-    <div class="stat-item animate delay-4">
-      <span class="stat-num" id="statYears" data-target="10">0</span>
-      <span class="stat-label">Années d'excellence</span>
+    <div class="counter-item rev d3">
+      <span class="counter-icon">⭐</span>
+      <span class="counter-num" id="cnt-years">0</span>
+      <div class="counter-lbl">Années d'excellence</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PROMOTEUR / VISION ─── -->
+<section id="promoteur">
+  <div class="promo-grid">
+    <div class="promo-img-col rev-l">
+      <img src="icon-512.png" alt="Le Sage"/>
+      <div class="promo-img-overlay"></div>
+      <div class="promo-year-badge">2017</div>
+    </div>
+    <div class="promo-body">
+      <div class="promo-badge">Notre Vision</div>
+      <h3>L'École du Futur,<br><em style="font-style:italic;color:var(--gold)">Aujourd'hui à Kinshasa</em></h3>
+      <p>
+        Fondé avec la vision de bâtir une génération d'excellence en République Démocratique du Congo, le Complexe Scolaire Le Sage combine une tradition éducative rigoureuse et une innovation pédagogique moderne.
+      </p>
+      <p>
+        Chaque élève bénéficie d'un encadrement personnalisé, d'un programme bilingue structuré et d'un environnement sécurisé propice à l'épanouissement académique et personnel.
+      </p>
+      <div class="promo-quote">
+        « Former l'intelligence, réformer les habitudes, exceller dans la vie. »
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ==================== ABOUT ==================== -->
-<section id="about">
+<!-- ─── À PROPOS ─── -->
+<section id="apropos">
   <div class="container">
-    <div class="animate">
-      <div class="section-tag">Notre École</div>
-      <h2 class="section-title">Notre Mission</h2>
-    </div>
     <div class="about-grid">
-      <div>
-        <p class="section-lead animate delay-1">
-          Le Complexe Scolaire Le Sage s'engage à offrir une éducation de qualité supérieure dans un environnement bilingue français-anglais. Nous formons les leaders de demain avec excellence, intégrité et innovation.
-        </p>
-        <p class="section-lead animate delay-2" style="margin-top:16px;">
-          De la maternelle à la terminale, chaque élève bénéficie d'un encadrement personnalisé, d'un programme rigoureux et d'un environnement sécurisé propice à l'épanouissement.
-        </p>
-        <div class="about-features">
-          <div class="feature-card animate delay-2">
-            <div class="feature-icon">📚</div>
-            <div class="feature-text">
-              <h4>Pédagogie d'Excellence</h4>
-              <p>Programme structuré, enseignants qualifiés, suivi individualisé de chaque élève.</p>
-            </div>
+      <div class="rev-l">
+        <div class="about-img-wrap">
+          <div class="about-img">
+            <img src="icon-512.png" alt="Le Sage"/>
           </div>
-          <div class="feature-card animate delay-3">
-            <div class="feature-icon">🔒</div>
-            <div class="feature-text">
-              <h4>Sécurité Renforcée</h4>
-              <p>Système SchoolSafe intégré : contrôle des entrées/sorties, alertes en temps réel.</p>
-            </div>
-          </div>
-          <div class="feature-card animate delay-4">
-            <div class="feature-icon">🌍</div>
-            <div class="feature-text">
-              <h4>Éducation Bilingue</h4>
-              <p>Enseignement en français et anglais pour préparer nos élèves au monde global.</p>
-            </div>
+          <div class="about-year-badge">
+            <div class="ay-n">10+</div>
+            <div class="ay-l">Ans d'excellence</div>
           </div>
         </div>
       </div>
-      <div class="animate-right">
-        <div class="about-card">
-          <img src="icon-512.png" alt="Le Sage" class="about-card-logo" />
-          <h3>L'École du Futur, Aujourd'hui</h3>
+      <div class="rev-r">
+        <div class="s-tag">Notre École</div>
+        <h2>Une Éducation<br><em>d'Excellence Bilingue</em></h2>
+        <div class="s-divider">
+          <div class="s-divider-line"></div>
+          <div class="s-divider-dot"></div>
+        </div>
+        <div class="about-text">
           <p>
-            Fondé avec la vision de bâtir une génération d'excellence à Kinshasa, Le Sage combine tradition éducative et innovation pédagogique pour un avenir brillant.
+            Le Complexe Scolaire Le Sage – The Wise School International offre une éducation de premier plan à Kinshasa, alliant rigueur académique et épanouissement humain. Notre approche bilingue français-anglais prépare nos élèves à exceller dans un monde globalisé.
           </p>
-          <div class="about-card-stats">
-            <div class="ac-stat">
-              <div class="ac-stat-num">10+</div>
-              <div class="ac-stat-label">Ans d'expérience</div>
-            </div>
-            <div class="ac-stat">
-              <div class="ac-stat-num">FR/EN</div>
-              <div class="ac-stat-label">Bilingue</div>
-            </div>
-            <div class="ac-stat">
-              <div class="ac-stat-num">100%</div>
-              <div class="ac-stat-label">Engagement</div>
-            </div>
-            <div class="ac-stat">
-              <div class="ac-stat-num">🏆</div>
-              <div class="ac-stat-label">Excellence</div>
-            </div>
+          <p>
+            De la maternelle au secondaire, chaque niveau bénéficie de méthodes pédagogiques adaptées, d'enseignants qualifiés et d'un suivi individualisé pour garantir la réussite de tous.
+          </p>
+        </div>
+        <div class="mission-block">
+          <div class="ml">Notre Mission</div>
+          <p>Former des leaders intègres, cultivés et compétents, capables de contribuer positivement au développement de la RDC et du monde.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PROGRAMMES ─── -->
+<section id="programmes">
+  <div class="container">
+    <div class="rev" style="text-align:center;margin-bottom:.5rem">
+      <div class="s-tag" style="justify-content:center">Niveaux d'enseignement</div>
+      <h2>Nos <em>Programmes</em></h2>
+    </div>
+    <div class="class-badges rev">
+      <span class="class-badge cb-m">Maternelle 1·2·3</span>
+      <span class="class-badge cb-p">CP · CE1 · CE2</span>
+      <span class="class-badge cb-c">CM1 · CM2</span>
+      <span class="class-badge cb-s">6e · 5e · 4e · 3e</span>
+      <span class="class-badge cb-s" style="background:rgba(200,164,74,.15);color:var(--gold);border-color:rgba(200,164,74,.4)">2nde · 1ère · Terminale</span>
+    </div>
+    <div class="prog-grid">
+      <div class="prog-card rev">
+        <div class="prog-num">01</div>
+        <div class="prog-icon">🌱</div>
+        <h3>Maternelle</h3>
+        <p>Un environnement bienveillant et stimulant pour les premiers apprentissages. Éveil, motricité, socialisation et bases du français et de l'anglais.</p>
+      </div>
+      <div class="prog-card rev d1">
+        <div class="prog-num">02</div>
+        <div class="prog-icon">📖</div>
+        <h3>Primaire</h3>
+        <p>Programme structuré en français et en anglais, couvrant les fondamentaux : lecture, mathématiques, sciences, histoire et éducation civique.</p>
+      </div>
+      <div class="prog-card rev d2">
+        <div class="prog-num">03</div>
+        <div class="prog-icon">🔬</div>
+        <h3>Collège</h3>
+        <p>Approfondissement des disciplines académiques avec introduction aux sciences expérimentales, aux humanités et aux langues étrangères.</p>
+      </div>
+      <div class="prog-card rev d3">
+        <div class="prog-num">04</div>
+        <div class="prog-icon">🎓</div>
+        <h3>Lycée</h3>
+        <p>Préparation aux examens nationaux et aux études supérieures. Orientation académique et professionnelle, activités parascolaires et clubs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ÉQUIPE ─── -->
+<section id="equipe">
+  <div class="container">
+    <div class="rev" style="text-align:center">
+      <div class="s-tag" style="justify-content:center">Notre Équipe</div>
+      <h2>Corps Enseignant</h2>
+    </div>
+    <div class="eq-sub">Nos professeurs — dédiés à votre réussite</div>
+    <div class="eq-grid" id="teachersGrid">
+      <!-- Loaded dynamically -->
+      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--grey)">
+        <div style="width:36px;height:36px;border:2px solid rgba(200,164,74,.3);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div>
+        Chargement…
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── TÉMOIGNAGES ─── -->
+<section id="temoignages">
+  <div class="container">
+    <div class="rev" style="text-align:center">
+      <div class="s-tag" style="justify-content:center">Ce qu'ils disent</div>
+      <h2>Témoignages</h2>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card rev">
+        <div class="testi-quote">"</div>
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">Mon enfant a fait des progrès extraordinaires depuis son inscription au Complexe Le Sage. Les enseignants sont dévoués et l'environnement est vraiment stimulant.</div>
+        <div class="testi-author">
+          <div class="testi-avatar">MK</div>
+          <div>
+            <div class="testi-name">Marie Kabongo</div>
+            <div class="testi-role">Parent d'élève · CM2</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card rev d1">
+        <div class="testi-quote">"</div>
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">L'approche bilingue est exceptionnelle. Mes enfants parlent couramment français et anglais. Le Sage prépare vraiment nos enfants pour le monde de demain.</div>
+        <div class="testi-author">
+          <div class="testi-avatar">JN</div>
+          <div>
+            <div class="testi-name">Jean Nkosi</div>
+            <div class="testi-role">Parent d'élève · 4ème</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card rev d2">
+        <div class="testi-quote">"</div>
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">La sécurité et le suivi de ma fille via l'application me donnent une tranquillité d'esprit totale. Une école moderne qui pense à tout, y compris à la sécurité des élèves.</div>
+        <div class="testi-author">
+          <div class="testi-avatar">SB</div>
+          <div>
+            <div class="testi-name">Sophie Bakala</div>
+            <div class="testi-role">Parent d'élève · Maternelle</div>
           </div>
         </div>
       </div>
@@ -1337,206 +760,210 @@
   </div>
 </section>
 
-<!-- ==================== TEACHERS ==================== -->
-<section id="teachers">
+<!-- ─── ÉVÉNEMENTS ─── -->
+<section id="evenements">
   <div class="container">
-    <div style="text-align:center;" class="animate">
-      <div class="section-tag">Notre Équipe</div>
-      <h2 class="section-title">Notre Équipe Pédagogique</h2>
-      <p class="section-lead" style="margin: 16px auto 0; text-align:center;">
-        Des professionnels passionnés dédiés à l'excellence et à la réussite de chaque élève.
-      </p>
+    <div class="rev">
+      <div class="s-tag">Calendrier scolaire</div>
+      <h2>Événements à venir</h2>
     </div>
-    <div class="teachers-grid" id="teachersGrid">
-      <div class="loading-spinner"></div>
+    <div class="events-grid" id="eventsGrid">
+      <!-- Loaded dynamically -->
+      <div style="grid-column:1/-1;text-align:center;padding:3rem;color:rgba(255,255,255,.4)">
+        <div style="width:36px;height:36px;border:2px solid rgba(200,164,74,.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem"></div>
+        Chargement…
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ==================== EVENTS ==================== -->
-<section id="events">
-  <div class="container">
-    <div class="animate">
-      <div class="section-tag">Calendrier</div>
-      <h2 class="section-title">Événements &amp; Calendrier</h2>
-      <p class="section-lead" style="margin-top:12px;">
-        Restez informés de toutes les activités et événements à venir dans notre école.
-      </p>
-    </div>
-    <div class="timeline" id="eventsTimeline">
-      <div class="loading-spinner"></div>
-    </div>
-  </div>
-</section>
-
-<!-- ==================== INSCRIPTION ==================== -->
+<!-- ─── INSCRIPTION ─── -->
 <section id="inscription">
   <div class="container">
-    <div style="text-align:center;" class="animate">
-      <div class="section-tag">Rejoindre l'École</div>
-      <h2 class="section-title">Fiche d'Inscription</h2>
-      <p class="section-lead" style="margin:12px auto 0; text-align:center;">
-        Remplissez ce formulaire et notre équipe vous contactera dans les 48 heures.
-      </p>
+    <div class="rev" style="text-align:center">
+      <div class="s-tag" style="justify-content:center">Rejoindre l'École</div>
+      <h2>Fiche d'Inscription</h2>
+      <p style="color:var(--grey);font-size:.92rem;max-width:480px;margin:.8rem auto 0;line-height:1.7">Remplissez ce formulaire et notre équipe vous contactera dans les 48 heures.</p>
     </div>
-    <div class="form-card animate delay-2">
-      <div class="form-error" id="formError"></div>
-      <form id="inscriptionForm" autocomplete="off">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Prénom <span>*</span></label>
-            <input type="text" class="form-input" id="inPrenom" placeholder="Prénom de l'élève" required />
+    <div class="inscr-form-wrap">
+      <div class="inscr-form-card rev">
+        <div class="f-error" id="formError"></div>
+        <form id="inscriptionForm" autocomplete="off">
+          <div class="f-row">
+            <div class="f-group">
+              <label>Prénom <span>*</span></label>
+              <input type="text" class="f-input" id="inPrenom" placeholder="Prénom de l'élève" required/>
+            </div>
+            <div class="f-group">
+              <label>Nom <span>*</span></label>
+              <input type="text" class="f-input" id="inNom" placeholder="Nom de famille" required/>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Nom <span>*</span></label>
-            <input type="text" class="form-input" id="inNom" placeholder="Nom de famille" required />
+          <div class="f-row">
+            <div class="f-group">
+              <label>Date de naissance <span>*</span></label>
+              <input type="date" class="f-input" id="inDob" required/>
+            </div>
+            <div class="f-group">
+              <label>Classe souhaitée <span>*</span></label>
+              <select class="f-input" id="inClasse" required>
+                <option value="">— Sélectionner —</option>
+                <optgroup label="Maternelle">
+                  <option>Maternelle 1</option><option>Maternelle 2</option><option>Maternelle 3</option>
+                </optgroup>
+                <optgroup label="Primaire">
+                  <option>CP</option><option>CE1</option><option>CE2</option>
+                  <option>CM1</option><option>CM2</option>
+                </optgroup>
+                <optgroup label="Secondaire">
+                  <option>6ème</option><option>5ème</option><option>4ème</option><option>3ème</option>
+                  <option>2nde</option><option>1ère</option><option>Terminale</option>
+                </optgroup>
+              </select>
+            </div>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Date de naissance <span>*</span></label>
-            <input type="date" class="form-input" id="inDob" required />
+          <div class="f-group">
+            <label>Nom du parent / tuteur <span>*</span></label>
+            <input type="text" class="f-input" id="inParent" placeholder="Nom complet du responsable légal" required/>
           </div>
-          <div class="form-group">
-            <label>Classe souhaitée <span>*</span></label>
-            <select class="form-input" id="inClasse" required>
-              <option value="">— Sélectionner —</option>
-              <option>Maternelle 1</option><option>Maternelle 2</option><option>Maternelle 3</option>
-              <option>CP</option><option>CE1</option><option>CE2</option>
-              <option>CM1</option><option>CM2</option>
-              <option>6ème</option><option>5ème</option><option>4ème</option><option>3ème</option>
-              <option>2nde</option><option>1ère</option><option>Terminale</option>
-            </select>
+          <div class="f-row">
+            <div class="f-group">
+              <label>Téléphone <span>*</span></label>
+              <input type="tel" class="f-input" id="inTel" placeholder="+243 …" required/>
+            </div>
+            <div class="f-group">
+              <label>Email <span style="color:var(--grey);font-weight:400">(optionnel)</span></label>
+              <input type="email" class="f-input" id="inEmail" placeholder="adresse@email.com"/>
+            </div>
           </div>
-        </div>
-        <div class="form-group">
-          <label>Nom du parent / tuteur <span>*</span></label>
-          <input type="text" class="form-input" id="inParent" placeholder="Nom complet du parent ou tuteur" required />
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Téléphone <span>*</span></label>
-            <input type="tel" class="form-input" id="inTel" placeholder="+243 XXX XXX XXX" required />
+          <div class="f-group">
+            <label>Message <span style="color:var(--grey);font-weight:400">(optionnel)</span></label>
+            <textarea class="f-input" id="inMessage" placeholder="Questions, précisions, besoins spécifiques…"></textarea>
           </div>
-          <div class="form-group">
-            <label>Email <span style="color:var(--gray); font-weight:400">(optionnel)</span></label>
-            <input type="email" class="form-input" id="inEmail" placeholder="votre@email.com" />
-          </div>
+          <button type="submit" class="f-submit" id="submitBtn">Envoyer ma demande d'inscription</button>
+        </form>
+        <div class="f-success" id="formSuccess">
+          <span class="f-success-icon">✅</span>
+          <h3>Demande envoyée !</h3>
+          <p>Votre demande d'inscription a bien été reçue. Notre équipe vous contactera sous 48 heures.</p>
         </div>
-        <div class="form-group">
-          <label>Message <span style="color:var(--gray); font-weight:400">(optionnel)</span></label>
-          <textarea class="form-input" id="inMessage" placeholder="Questions, informations complémentaires..."></textarea>
-        </div>
-        <button type="submit" class="submit-btn" id="submitBtn">
-          Envoyer ma demande d'inscription
-        </button>
-      </form>
-      <div class="form-success" id="formSuccess">
-        <div class="success-ring">
-          <svg viewBox="0 0 50 50"><path d="M12 25 L21 34 L38 17" /></svg>
-        </div>
-        <h3 class="success-title">Demande envoyée !</h3>
-        <p class="success-msg">Votre demande d'inscription a bien été reçue. Notre équipe vous contactera sous 48 heures. Merci de votre confiance en Le Sage.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ==================== GALLERY ==================== -->
-<section id="gallery">
+<!-- ─── GALERIE ─── -->
+<section id="galerie">
   <div class="container">
-    <div style="text-align:center;" class="animate">
-      <div class="section-tag">Photos</div>
-      <h2 class="section-title">Notre École en Images</h2>
-      <p class="section-lead" style="margin:12px auto 0; text-align:center;">
-        Découvrez la vie quotidienne et les moments forts de notre établissement.
-      </p>
+    <div class="rev">
+      <div class="s-tag">Vie scolaire</div>
+      <h2>Galerie</h2>
     </div>
-    <div class="gallery-grid" style="margin-top:56px;">
-      <div class="gallery-card gallery-bg-1 animate delay-1">
-        <span class="gallery-emoji">🏫</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+    <div class="gal-masonry">
+      <div class="gi rev" onclick="openLb('📚','Bibliothèque et études')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#0B1F42,#1a3a7a);min-height:220px"></div>
+        <span class="gi-icon">📚</span>
+        <div class="go"><div class="gt1">Bibliothèque et études</div><div class="gt2">Académique</div></div>
       </div>
-      <div class="gallery-card gallery-bg-2 animate delay-2">
-        <span class="gallery-emoji">📚</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+      <div class="gi rev d1" onclick="openLb('🏆','Palmarès et récompenses')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#C8A44A,#E5C46A);min-height:160px"></div>
+        <span class="gi-icon">🏆</span>
+        <div class="go"><div class="gt1">Palmarès et récompenses</div><div class="gt2">Excellence</div></div>
       </div>
-      <div class="gallery-card gallery-bg-3 animate delay-3">
-        <span class="gallery-emoji">🎓</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+      <div class="gi rev d2" onclick="openLb('🎨','Arts et créativité')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);min-height:180px"></div>
+        <span class="gi-icon">🎨</span>
+        <div class="go"><div class="gt1">Arts et créativité</div><div class="gt2">Culture</div></div>
       </div>
-      <div class="gallery-card gallery-bg-4 animate delay-2">
-        <span class="gallery-emoji">🌟</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+      <div class="gi rev d3" onclick="openLb('⚽','Sports et activités')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#059669,#34d399);min-height:260px"></div>
+        <span class="gi-icon">⚽</span>
+        <div class="go"><div class="gt1">Sports et activités</div><div class="gt2">Parascolaire</div></div>
       </div>
-      <div class="gallery-card gallery-bg-5 animate delay-3">
-        <span class="gallery-emoji">✏️</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+      <div class="gi rev d1" onclick="openLb('🔬','Laboratoire des sciences')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#0891b2,#38bdf8);min-height:160px"></div>
+        <span class="gi-icon">🔬</span>
+        <div class="go"><div class="gt1">Laboratoire sciences</div><div class="gt2">Innovation</div></div>
       </div>
-      <div class="gallery-card gallery-bg-6 animate delay-4">
-        <span class="gallery-emoji">🏆</span>
-        <div class="gallery-overlay"><span class="gallery-overlay-text">Photos à venir</span></div>
+      <div class="gi rev d2" onclick="openLb('🎓','Cérémonie de remise de diplômes')">
+        <div class="gi-bg" style="background:linear-gradient(135deg,#991b1b,#ef4444);min-height:200px"></div>
+        <span class="gi-icon">🎓</span>
+        <div class="go"><div class="gt1">Remise de diplômes</div><div class="gt2">Célébration</div></div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ==================== CONTACT ==================== -->
+<!-- ─── INFRASTRUCTURE ─── -->
+<section id="infra">
+  <div class="container">
+    <div class="rev">
+      <div class="s-tag">Nos installations</div>
+      <h2>Infrastructure <em>&amp; Équipements</em></h2>
+    </div>
+    <div class="infra-wrap">
+      <div class="rev-l">
+        <h3>Installations académiques</h3>
+        <div class="infra-item"><div class="infra-dot"></div><span>Salles de classe équipées et climatisées</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Bibliothèque avec ressources bilingues</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Laboratoire de sciences moderne</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Salle informatique connectée</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Système de gestion SchoolSafe intégré</span></div>
+      </div>
+      <div class="rev-r">
+        <h3>Vie scolaire &amp; Sécurité</h3>
+        <div class="infra-item"><div class="infra-dot"></div><span>Cantine scolaire avec repas équilibrés</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Terrain de sport multidisciplinaire</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Sécurité renforcée – contrôle d'accès biométrique</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Suivi en temps réel des élèves pour les parents</span></div>
+        <div class="infra-item"><div class="infra-dot"></div><span>Activités parascolaires variées</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CONTACT ─── -->
 <section id="contact">
   <div class="container">
-    <div class="animate">
-      <div class="section-tag">Nous Joindre</div>
-      <h2 class="section-title">Contact</h2>
+    <div class="rev">
+      <div class="s-tag">Nous contacter</div>
+      <h2>Prenez <em>Contact</em></h2>
     </div>
-    <div class="contact-grid">
-      <div class="contact-items">
-        <div class="contact-item animate delay-1">
-          <div class="contact-icon">📍</div>
-          <div class="contact-info">
-            <label>Adresse</label>
-            <p>Kinshasa, République Démocratique du Congo</p>
+    <div class="ct-wrap">
+      <div class="rev-l">
+        <div class="ct-card">
+          <div class="ci">
+            <div class="ci-icon">📍</div>
+            <div>
+              <strong>Adresse</strong>
+              <span>Kinshasa, République Démocratique du Congo</span>
+            </div>
           </div>
-        </div>
-        <div class="contact-item animate delay-2">
-          <div class="contact-icon">📞</div>
-          <div class="contact-info">
-            <label>Téléphone</label>
-            <p>+243 XXX XXX XXX</p>
+          <div class="ci">
+            <div class="ci-icon">📞</div>
+            <div>
+              <strong>Téléphone</strong>
+              <a href="tel:+243000000000">+243 … (à confirmer)</a>
+            </div>
           </div>
-        </div>
-        <div class="contact-item animate delay-3">
-          <div class="contact-icon">✉️</div>
-          <div class="contact-info">
-            <label>Email</label>
-            <p>contact@lesage-school.cd</p>
-          </div>
-        </div>
-        <div class="contact-item animate delay-4">
-          <div class="contact-icon">🕐</div>
-          <div class="contact-info">
-            <label>Heures d'ouverture</label>
-            <p>Lun – Ven : 7h00 – 17h00</p>
+          <div class="ci">
+            <div class="ci-icon">⏰</div>
+            <div>
+              <strong>Horaires</strong>
+              <span>Lun – Ven : 7h00 – 17h00<br>Sam : Sur rendez-vous</span>
+            </div>
           </div>
         </div>
       </div>
-      <div class="contact-deco animate-right">
-        <h3>Venez Nous Rendre Visite</h3>
-        <p>
-          Notre équipe administrative est disponible pour répondre à toutes vos questions concernant les inscriptions, les programmes et la vie scolaire.
-        </p>
-        <div class="contact-hours">
-          <h4>⏰ Horaires</h4>
-          <div class="hours-row">
-            <span>Lundi – Vendredi</span>
-            <span class="hours-open">7h00 – 17h00</span>
-          </div>
-          <div class="hours-row">
-            <span>Samedi</span>
-            <span style="color:rgba(255,255,255,0.5)">Sur rendez-vous</span>
-          </div>
-          <div class="hours-row">
-            <span>Dimanche</span>
-            <span style="color:#f87171">Fermé</span>
+      <div class="rev-r">
+        <div class="ct-card">
+          <div class="ct-btns">
+            <a href="https://wa.me/243000000000" class="btn-wa" target="_blank" rel="noopener">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.557 4.112 1.528 5.835L0 24l6.335-1.524A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.656-.51-5.178-1.4l-.371-.22-3.762.905.938-3.668-.242-.381A9.934 9.934 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+              WhatsApp
+            </a>
+            <a href="tel:+243000000000" class="btn-tel">📞 Appeler l'école</a>
+            <p class="ct-note">Notre équipe répond du lundi au vendredi de 7h à 17h. Laissez un message WhatsApp pour être rappelé.</p>
           </div>
         </div>
       </div>
@@ -1544,284 +971,442 @@
   </div>
 </section>
 
-<!-- ==================== FOOTER ==================== -->
-<footer id="footer">
-  <img src="icon-512.png" alt="Le Sage" class="footer-logo" />
-  <div class="footer-name">Complexe Scolaire Le Sage</div>
-  <div class="footer-sub">The Wise School International · Kinshasa, DRC</div>
-  <ul class="footer-links">
-    <li><a href="#hero">Accueil</a></li>
-    <li><a href="#about">À propos</a></li>
-    <li><a href="#inscription">Inscription</a></li>
-    <li><a href="#contact">Contact</a></li>
-  </ul>
-  <div class="footer-divider"></div>
-  <div class="footer-copy">
-    © 2025 Complexe Scolaire Le Sage / The Wise School International. Tous droits réservés.
+<!-- ─── SHARE ─── -->
+<div class="share-section">
+  <div class="share-inner">
+    <div class="share-txt">Partagez l'école avec votre entourage</div>
+    <div class="share-btns">
+      <a href="https://wa.me/?text=Découvrez%20le%20Complexe%20Scolaire%20Le%20Sage%20%E2%80%93%20The%20Wise%20School%20International%20à%20Kinshasa%20%3A%20https%3A%2F%2Fschoolsaf.netlify.app%2Fsite.html" class="share-btn sb-wa" target="_blank" rel="noopener">
+        WhatsApp
+      </a>
+      <button class="share-btn sb-copy" onclick="copyLink()">📋 Copier le lien</button>
+    </div>
   </div>
-  <div class="footer-powered">Propulsé par SchoolSafe v3.0</div>
+</div>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div class="ft-inner">
+    <div class="ft-brand">
+      <img src="icon-512.png" alt="Le Sage"/>
+      <div>
+        <div class="ft-name">Complexe Scolaire Le Sage</div>
+        <div class="ft-sub">The Wise School International · Kinshasa, RDC</div>
+      </div>
+    </div>
+    <div class="ft-links">
+      <a href="#hero">Accueil</a>
+      <a href="#apropos">À propos</a>
+      <a href="#equipe">Équipe</a>
+      <a href="#evenements">Événements</a>
+      <a href="#inscription">Inscription</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+  <div class="ft-copy">© 2025 Complexe Scolaire Le Sage / The Wise School International. Tous droits réservés. · Propulsé par SchoolSafe v3.0</div>
 </footer>
 
-<!-- ==================== JAVASCRIPT ==================== -->
-<script>
-  'use strict';
+<!-- ─── FLOAT WA ─── -->
+<a href="https://wa.me/243000000000" class="float-wa" target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.557 4.112 1.528 5.835L0 24l6.335-1.524A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.656-.51-5.178-1.4l-.371-.22-3.762.905.938-3.668-.242-.381A9.934 9.934 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+</a>
 
-  /* ——— CONFIG ——— */
-  const SUPA_URL = 'https://zqgksxgozpnhqzvzxloa.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+<!-- ─── INSCRIPTION FLOATING BADGE ─── -->
+<div id="inscr-badge" onclick="openModal()" aria-label="S'inscrire">
+  <div class="inscr-btn">
+    <div class="inscr-dot"></div>
+    <div class="inscr-btn-txt">
+      <strong>S'inscrire</strong>
+      <span>Inscriptions ouvertes</span>
+    </div>
+  </div>
+</div>
 
-  const supaHeaders = {
-    'apikey': SUPA_KEY,
-    'Authorization': 'Bearer ' + SUPA_KEY,
-    'Content-Type': 'application/json'
-  };
-
-  async function supaFetch(path) {
-    try {
-      const r = await fetch(SUPA_URL + path, { headers: supaHeaders });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return await r.json();
-    } catch(e) {
-      console.warn('Supabase fetch failed:', e.message);
-      return null;
-    }
-  }
-
-  /* ——— NAVBAR SCROLL ——— */
-  const navbar = document.getElementById('navbar');
-  window.addEventListener('scroll', () => {
-    navbar.classList.toggle('scrolled', window.scrollY > 40);
-  }, { passive: true });
-
-  /* ——— HAMBURGER ——— */
-  const hamburgerBtn = document.getElementById('hamburgerBtn');
-  const mobileMenu   = document.getElementById('mobileMenu');
-  hamburgerBtn.addEventListener('click', () => {
-    hamburgerBtn.classList.toggle('open');
-    mobileMenu.classList.toggle('open');
-    document.body.style.overflow = mobileMenu.classList.contains('open') ? 'hidden' : '';
-  });
-  function closeMobile() {
-    hamburgerBtn.classList.remove('open');
-    mobileMenu.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-  window.closeMobile = closeMobile;
-
-  /* ——— INTERSECTION OBSERVER ——— */
-  const ioOptions = { threshold: 0.12 };
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        e.target.classList.add('visible');
-        io.unobserve(e.target);
-      }
-    });
-  }, ioOptions);
-  document.querySelectorAll('.animate, .animate-left, .animate-right').forEach(el => io.observe(el));
-
-  /* ——— COUNTER ANIMATION ——— */
-  const counters = {};
-  let statsObserved = false;
-
-  function animateCount(el, target, suffix) {
-    const dur = 2000;
-    const start = performance.now();
-    function step(now) {
-      const p = Math.min((now - start) / dur, 1);
-      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-      el.textContent = Math.round(eased * target) + (suffix || '');
-      if (p < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
-  const statsSection = document.getElementById('stats');
-  const statsIO = new IntersectionObserver(([e]) => {
-    if (e.isIntersecting && !statsObserved) {
-      statsObserved = true;
-      const s = document.getElementById('statStudents');
-      const t = document.getElementById('statTeachers');
-      const c = document.getElementById('statClasses');
-      const y = document.getElementById('statYears');
-      animateCount(s, parseInt(s.dataset.target) || 0, '');
-      animateCount(t, parseInt(t.dataset.target) || 0, '');
-      animateCount(c, parseInt(c.dataset.target) || 0, '');
-      animateCount(y, 10, '+');
-    }
-  }, { threshold: 0.3 });
-  statsIO.observe(statsSection);
-
-  /* ——— LOAD DATA ——— */
-  async function loadStats() {
-    const [students, teachers, classes] = await Promise.all([
-      supaFetch('/rest/v1/students?select=id&blocked=eq.false'),
-      supaFetch('/rest/v1/users?role=eq.enseignant&select=id'),
-      supaFetch('/rest/v1/classes?select=id')
-    ]);
-
-    if (students) document.getElementById('statStudents').dataset.target = students.length;
-    if (teachers) document.getElementById('statTeachers').dataset.target = teachers.length;
-    if (classes)  document.getElementById('statClasses').dataset.target  = classes.length;
-  }
-
-  /* ——— TEACHER COLORS ——— */
-  const PALETTE = [
-    'linear-gradient(135deg,#0f2557,#1a3a7a)',
-    'linear-gradient(135deg,#1a3a7a,#0f2557)',
-    'linear-gradient(135deg,#091840,#1a3370)',
-    'linear-gradient(135deg,#c9a030,#a07820)',
-    'linear-gradient(135deg,#a07820,#c9a030)',
-    'linear-gradient(135deg,#1a3370,#091840)',
-  ];
-
-  function getInitials(name) {
-    if (!name) return '?';
-    return name.split(' ').filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase();
-  }
-
-  function renderTeachers(list) {
-    const grid = document.getElementById('teachersGrid');
-    if (!list || list.length === 0) {
-      // Placeholder cards
-      list = Array.from({length:6}, (_,i) => ({ id:'p'+i, name:'Professeur '+(i+1), initials:null, photo_url:null }));
-    }
-    grid.innerHTML = list.map((t, i) => {
-      const ini = t.initials || getInitials(t.name);
-      const delay = (i % 4) * 0.1;
-      const avatarHTML = t.photo_url
-        ? `<img src="${t.photo_url}" alt="${ini}" class="teacher-avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="teacher-initials" style="display:none;background:${PALETTE[i%PALETTE.length]}">${ini}</div>`
-        : `<div class="teacher-initials" style="background:${PALETTE[i%PALETTE.length]}">${ini}</div>`;
-      return `<div class="teacher-card animate" style="transition-delay:${delay}s">
-        ${avatarHTML}
-        <div class="teacher-name">${escHtml(t.name || 'Professeur')}</div>
-        <div class="teacher-role">Professeur</div>
-        <span class="teacher-badge">Le Sage School</span>
-      </div>`;
-    }).join('');
-    // Re-observe new elements
-    grid.querySelectorAll('.animate').forEach(el => io.observe(el));
-  }
-
-  async function loadTeachers() {
-    const data = await supaFetch('/rest/v1/users?role=eq.enseignant&select=id,name,initials,photo_url');
-    renderTeachers(data);
-  }
-
-  /* ——— EVENTS ——— */
-  function formatDate(d) {
-    if (!d) return '';
-    try {
-      const dt = new Date(d);
-      return dt.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
-    } catch(e) { return d; }
-  }
-
-  function renderEvents(list) {
-    const container = document.getElementById('eventsTimeline');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<div class="no-events animate">
-        <span class="big-emoji">📅</span>
-        <h3 style="color:var(--navy);margin-bottom:8px;">Aucun événement à venir</h3>
-        <p style="color:var(--gray);">Revenez bientôt pour découvrir nos prochaines activités.</p>
-      </div>`;
-      container.querySelectorAll('.animate').forEach(el => io.observe(el));
-      return;
-    }
-    container.innerHTML = list.map((ev, i) => `
-      <div class="timeline-item animate" style="transition-delay:${i*0.12}s">
-        <div class="timeline-dot"></div>
-        <div class="event-card">
-          <div class="event-date-badge">📅 ${formatDate(ev.date)}</div>
-          <div class="event-title">${escHtml(ev.title || ev.name || 'Événement')}</div>
-          ${ev.type ? `<span class="event-type">${escHtml(ev.type)}</span>` : ''}
+<!-- ─── INSCRIPTION MODAL ─── -->
+<div id="inscr-modal" onclick="if(event.target===this)closeModal()">
+  <div class="inscr-modal-box">
+    <button id="inscr-close" onclick="closeModal()" aria-label="Fermer">✕</button>
+    <div class="inscr-modal-top">
+      <div class="inscr-modal-year">2025 – 2026</div>
+      <div class="inscr-modal-sub">Année scolaire en cours</div>
+      <div class="inscr-modal-badge">Inscriptions ouvertes</div>
+    </div>
+    <div class="inscr-modal-body">
+      <p>
+        Rejoignez la famille <strong>Le Sage – The Wise School International</strong>. Nous accueillons les élèves de la maternelle au lycée.
+      </p>
+      <div class="inscr-info-grid">
+        <div class="inscr-info-item">
+          <div class="lbl">Niveaux</div>
+          <div class="val">Maternelle → Lycée</div>
         </div>
-      </div>`).join('');
-    container.querySelectorAll('.animate').forEach(el => io.observe(el));
-  }
+        <div class="inscr-info-item">
+          <div class="lbl">Langue</div>
+          <div class="val">Français / Anglais</div>
+        </div>
+        <div class="inscr-info-item">
+          <div class="lbl">Réponse</div>
+          <div class="val">Sous 48 heures</div>
+        </div>
+        <div class="inscr-info-item">
+          <div class="lbl">Ville</div>
+          <div class="val">Kinshasa, RDC</div>
+        </div>
+      </div>
+      <div class="inscr-modal-btns">
+        <a href="https://wa.me/243000000000?text=Bonjour%2C%20je%20souhaite%20inscrire%20mon%20enfant%20au%20Complexe%20Scolaire%20Le%20Sage." class="btn-inscr-wa" target="_blank" rel="noopener">
+          WhatsApp
+        </a>
+        <a href="#inscription" class="btn-inscr-tel" onclick="closeModal()">
+          📝 Formulaire
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
-  async function loadEvents() {
-    const today = new Date().toISOString().slice(0,10);
-    const data = await supaFetch(`/rest/v1/events?select=*&order=date.asc&date=gte.${today}`);
-    renderEvents(data);
-  }
+<!-- ─── DARK MODE TOGGLE ─── -->
+<button class="theme-toggle" id="themeToggle" aria-label="Changer le thème" title="Mode sombre / clair">
+  <span id="themeIcon">🌙</span>
+</button>
 
-  /* ——— XSS ESCAPE ——— */
-  function escHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+<!-- ─── LIGHTBOX ─── -->
+<div id="lb" onclick="closeLb()">
+  <button id="lb-close" onclick="closeLb()" aria-label="Fermer">✕</button>
+  <div id="lb-content"></div>
+</div>
 
-  /* ——— INSCRIPTION FORM ——— */
-  document.getElementById('inscriptionForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const errEl  = document.getElementById('formError');
-    const sucEl  = document.getElementById('formSuccess');
-    const btn    = document.getElementById('submitBtn');
-    errEl.classList.remove('show');
+<!-- ─── SPIN KEYFRAME ─── -->
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
-    const prenom     = document.getElementById('inPrenom').value.trim();
-    const nom        = document.getElementById('inNom').value.trim();
-    const dob        = document.getElementById('inDob').value;
-    const classe     = document.getElementById('inClasse').value;
-    const nom_parent = document.getElementById('inParent').value.trim();
-    const telephone  = document.getElementById('inTel').value.trim();
-    const email      = document.getElementById('inEmail').value.trim() || null;
-    const message    = document.getElementById('inMessage').value.trim() || null;
+<!-- ─── JAVASCRIPT ─── -->
+<script>
+'use strict';
 
-    if (!prenom || !nom || !dob || !classe || !nom_parent || !telephone) {
-      errEl.textContent = 'Veuillez remplir tous les champs obligatoires (*).';
-      errEl.classList.add('show');
-      return;
-    }
+/* ══ CONFIG ══ */
+const SUPA_URL = 'https://zqgksxgozpnhqzvzxloa.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+const SH = { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' };
 
-    btn.disabled = true;
-    btn.textContent = 'Envoi en cours…';
+async function sf(path) {
+  try {
+    const r = await fetch(SUPA_URL + path, { headers: SH });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch(e) { console.warn('Supabase:', e.message); return null; }
+}
 
-    try {
-      const res = await fetch(`${SUPA_URL}/rest/v1/inscriptions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPA_KEY,
-          'Authorization': 'Bearer ' + SUPA_KEY,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          id: 'ins' + Date.now(),
-          nom, prenom, dob, classe, nom_parent, telephone, email, message,
-          date: new Date().toISOString().slice(0,10),
-          status: 'pending'
-        })
-      });
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-      if (!res.ok && res.status !== 201) {
-        const body = await res.text();
-        throw new Error(body || 'Erreur serveur');
-      }
+/* ══ HERO SLIDESHOW ══ */
+let slide = 0, slideTimer;
+const slides = document.querySelectorAll('.hbg');
+const dots   = document.querySelectorAll('.hsn-dot');
 
-      // Success
-      this.style.display = 'none';
-      sucEl.classList.add('show');
-    } catch(err) {
-      console.error(err);
-      errEl.textContent = 'Une erreur est survenue. Veuillez réessayer ou nous contacter directement.';
-      errEl.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = 'Envoyer ma demande d\'inscription';
-    }
+function goSlide(i) {
+  slides[slide].classList.remove('active');
+  dots[slide].classList.remove('active');
+  slide = i;
+  slides[slide].classList.add('active');
+  dots[slide].classList.add('active');
+  clearInterval(slideTimer);
+  slideTimer = setInterval(nextSlide, 5000);
+}
+function nextSlide() { goSlide((slide + 1) % slides.length); }
+slideTimer = setInterval(nextSlide, 5000);
+window.goSlide = goSlide;
+
+/* ══ NAV ══ */
+const navEl = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  navEl.style.boxShadow = window.scrollY > 20
+    ? '0 4px 24px rgba(0,0,0,.4)'
+    : '0 1px 0 rgba(200,164,74,.2)';
+}, { passive: true });
+
+/* ══ BURGER ══ */
+const burgerBtn = document.getElementById('burgerBtn');
+const mobMenu   = document.getElementById('mobMenu');
+burgerBtn.addEventListener('click', () => {
+  burgerBtn.classList.toggle('open');
+  mobMenu.classList.toggle('open');
+  document.body.style.overflow = mobMenu.classList.contains('open') ? 'hidden' : '';
+});
+window.closeMob = function() {
+  burgerBtn.classList.remove('open');
+  mobMenu.classList.remove('open');
+  document.body.style.overflow = '';
+};
+
+/* ══ SCROLL REVEAL ══ */
+const revIO = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('on'); revIO.unobserve(e.target); }
   });
+}, { threshold: 0.1 });
+document.querySelectorAll('.rev,.rev-l,.rev-r').forEach(el => revIO.observe(el));
 
-  /* ——— INIT ——— */
-  async function init() {
-    await Promise.all([
-      loadStats(),
-      loadTeachers(),
-      loadEvents()
-    ]);
+/* ══ COUNTER ══ */
+function animCount(el, target, suffix) {
+  const dur = 2200, start = performance.now();
+  function step(now) {
+    const p = Math.min((now - start) / dur, 1);
+    const v = Math.round((1 - Math.pow(1 - p, 3)) * target);
+    el.textContent = v + (suffix || '');
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+let cntDone = false;
+const cntSection = document.querySelector('.counter-section');
+new IntersectionObserver(([e]) => {
+  if (e.isIntersecting && !cntDone) {
+    cntDone = true;
+    const s = parseInt(document.getElementById('cnt-students').dataset.val || '0');
+    const t = parseInt(document.getElementById('cnt-teachers').dataset.val || '0');
+    const c = parseInt(document.getElementById('cnt-classes').dataset.val || '0');
+    animCount(document.getElementById('cnt-students'), s, '');
+    animCount(document.getElementById('cnt-teachers'), t, '');
+    animCount(document.getElementById('cnt-classes'), c, '');
+    animCount(document.getElementById('cnt-years'), 10, '+');
+  }
+}, { threshold: 0.3 }).observe(cntSection);
+
+/* ══ LOAD STATS ══ */
+async function loadStats() {
+  const [students, teachers, classes] = await Promise.all([
+    sf('/rest/v1/students?select=id&blocked=eq.false'),
+    sf('/rest/v1/users?role=eq.enseignant&select=id'),
+    sf('/rest/v1/classes?select=id')
+  ]);
+  const sc = students ? students.length : 0;
+  const tc = teachers ? teachers.length : 0;
+  const cc = classes  ? classes.length  : 0;
+
+  // Hero mini stats
+  document.getElementById('hs-students').textContent = sc || '—';
+  document.getElementById('hs-teachers').textContent = tc || '—';
+  document.getElementById('hs-classes').textContent  = cc || '—';
+
+  // Counter data attrs (triggers anim when visible)
+  document.getElementById('cnt-students').dataset.val = sc;
+  document.getElementById('cnt-teachers').dataset.val = tc;
+  document.getElementById('cnt-classes').dataset.val  = cc;
+  if (cntDone) {
+    animCount(document.getElementById('cnt-students'), sc, '');
+    animCount(document.getElementById('cnt-teachers'), tc, '');
+    animCount(document.getElementById('cnt-classes'), cc, '');
+  }
+}
+
+/* ══ LOAD TEACHERS ══ */
+const COLORS = [
+  ['#0B1F42','#1a3a7a'],['#1a3a7a','#0B1F42'],['#091840','#1a3370'],
+  ['#C8A44A','#a07820'],['#a07820','#C8A44A'],['#1a3370','#091840'],
+  ['#7c3aed','#a78bfa'],['#059669','#34d399'],['#0891b2','#38bdf8'],
+];
+
+function ini(name) {
+  if (!name) return '??';
+  return name.split(' ').filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase();
+}
+
+function renderTeachers(list) {
+  const grid = document.getElementById('teachersGrid');
+  if (!list || list.length === 0) {
+    list = Array.from({length:6}, (_,i) => ({ id:'p'+i, name:'Professeur '+(i+1), initials:null, photo_url:null }));
+  }
+  grid.innerHTML = list.map((t, i) => {
+    const initials = t.initials || ini(t.name);
+    const [c1, c2] = COLORS[i % COLORS.length];
+    const avatar = t.photo_url
+      ? `<div class="tm-ph"><img src="${esc(t.photo_url)}" alt="${esc(initials)}" loading="lazy" onerror="this.parentNode.innerHTML='<div class=tm-fb style=background:linear-gradient(135deg,${c1},${c2})>${esc(initials)}</div>'"/></div>`
+      : `<div class="tm-fb" style="background:linear-gradient(135deg,${c1},${c2})">${esc(initials)}</div>`;
+    const delay = (i % 4) * 0.08;
+    return `<div class="tm-card rev" style="transition-delay:${delay}s">
+      ${avatar}
+      <div class="tm-body">
+        <div class="tm-name">${esc(t.name || 'Professeur')}</div>
+        <span class="tm-role">Enseignant(e)</span>
+        <span class="tm-badge">Le Sage School</span>
+      </div>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('.rev').forEach(el => revIO.observe(el));
+}
+
+async function loadTeachers() {
+  const data = await sf('/rest/v1/users?role=eq.enseignant&select=id,name,initials,photo_url');
+  renderTeachers(data);
+}
+
+/* ══ LOAD EVENTS ══ */
+function fmtDate(d) {
+  if (!d) return {day:'—',month:'—'};
+  try {
+    const dt = new Date(d);
+    return {
+      day:   dt.getDate(),
+      month: dt.toLocaleDateString('fr-FR', { month:'short' }).toUpperCase(),
+      full:  dt.toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' })
+    };
+  } catch(e) { return {day:'—',month:'—',full:d}; }
+}
+
+function renderEvents(list) {
+  const grid = document.getElementById('eventsGrid');
+  if (!list || list.length === 0) {
+    grid.innerHTML = `<div class="events-empty" style="grid-column:1/-1"><span>📅</span>Aucun événement à venir.<br><span style="font-size:.78rem">Revenez bientôt !</span></div>`;
+    return;
+  }
+  const badges = { academic:'badge-acad', culturel:'badge-culture', sport:'badge-sport', inscription:'badge-inscr' };
+  grid.innerHTML = list.slice(0,6).map((ev, i) => {
+    const d = fmtDate(ev.date);
+    const bk = badges[ev.type] || 'badge-acad';
+    const delay = (i % 3) * 0.08;
+    return `<div class="event-card rev" style="transition-delay:${delay}s">
+      <div class="event-date">
+        <div>
+          <div class="event-day">${d.day}</div>
+          <div class="event-month">${d.month}</div>
+        </div>
+        <div class="event-sep"></div>
+      </div>
+      <div class="event-title">${esc(ev.title || ev.name || 'Événement')}</div>
+      ${ev.description ? `<div class="event-desc">${esc(ev.description.substring(0,80))}…</div>` : ''}
+      ${ev.type ? `<span class="event-badge ${bk}">${esc(ev.type)}</span>` : ''}
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('.rev').forEach(el => revIO.observe(el));
+}
+
+async function loadEvents() {
+  const today = new Date().toISOString().slice(0,10);
+  const data = await sf(`/rest/v1/events?select=*&order=date.asc&date=gte.${today}&limit=6`);
+  renderEvents(data);
+}
+
+/* ══ INSCRIPTION FORM ══ */
+document.getElementById('inscriptionForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('formError');
+  const sucEl = document.getElementById('formSuccess');
+  const btn   = document.getElementById('submitBtn');
+  errEl.classList.remove('show');
+
+  const prenom     = document.getElementById('inPrenom').value.trim();
+  const nom        = document.getElementById('inNom').value.trim();
+  const dob        = document.getElementById('inDob').value;
+  const classe     = document.getElementById('inClasse').value;
+  const nom_parent = document.getElementById('inParent').value.trim();
+  const telephone  = document.getElementById('inTel').value.trim();
+  const email      = document.getElementById('inEmail').value.trim() || null;
+  const message    = document.getElementById('inMessage').value.trim() || null;
+
+  if (!prenom || !nom || !dob || !classe || !nom_parent || !telephone) {
+    errEl.textContent = 'Veuillez remplir tous les champs obligatoires (*).';
+    errEl.classList.add('show');
+    return;
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/inscriptions`, {
+      method: 'POST',
+      headers: { ...SH, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        id: 'ins' + Date.now(),
+        nom, prenom, dob, classe, nom_parent, telephone, email, message,
+        date: new Date().toISOString().slice(0,10),
+        status: 'pending'
+      })
+    });
+    if (!res.ok && res.status !== 201) throw new Error(await res.text());
+    this.style.display = 'none';
+    sucEl.classList.add('show');
+  } catch(err) {
+    console.error(err);
+    errEl.textContent = 'Une erreur est survenue. Contactez-nous directement par WhatsApp.';
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Envoyer ma demande d\'inscription';
+  }
+});
+
+/* ══ INSCRIPTION MODAL ══ */
+window.openModal = function() { document.getElementById('inscr-modal').classList.add('open'); };
+window.closeModal = function() { document.getElementById('inscr-modal').classList.remove('open'); };
+
+/* ══ DARK MODE ══ */
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon   = document.getElementById('themeIcon');
+const stored = localStorage.getItem('theme');
+if (stored) {
+  document.documentElement.setAttribute('data-theme', stored);
+  themeIcon.textContent = stored === 'dark' ? '☀️' : '🌙';
+}
+themeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  themeIcon.textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+/* ══ LIGHTBOX ══ */
+window.openLb = function(icon, title) {
+  const lb = document.getElementById('lb');
+  document.getElementById('lb-content').innerHTML = `<div style="text-align:center"><div style="font-size:6rem">${icon}</div><div style="color:rgba(255,255,255,.6);font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-top:1rem;font-style:italic">${title}</div></div>`;
+  lb.classList.add('open');
+};
+window.closeLb = function() { document.getElementById('lb').classList.remove('open'); };
+
+/* ══ COPY LINK ══ */
+window.copyLink = function() {
+  const url = window.location.href;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => alert('Lien copié !'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    alert('Lien copié !');
+  }
+};
+
+/* ══ CURSOR SPARKLE ══ */
+const SPARKLE_COLORS = ['#C8A44A','#E5C46A','#fff','#F0D080','#3B82F6'];
+let lastSparkle = 0;
+document.addEventListener('mousemove', (e) => {
+  const now = Date.now();
+  if (now - lastSparkle < 80) return;
+  lastSparkle = now;
+  const s = document.createElement('div');
+  s.className = 'sparkle';
+  s.style.cssText = `left:${e.clientX - 4}px;top:${e.clientY - 4}px;background:${SPARKLE_COLORS[Math.floor(Math.random()*SPARKLE_COLORS.length)]}`;
+  document.body.appendChild(s);
+  s.addEventListener('animationend', () => s.remove());
+}, { passive: true });
+
+/* ══ KEYBOARD CLOSE ══ */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeLb();
+  }
+});
+
+/* ══ INIT ══ */
+async function init() {
+  await Promise.all([loadStats(), loadTeachers(), loadEvents()]);
+}
+document.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
