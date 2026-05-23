@@ -703,16 +703,23 @@ BEGIN
   END LOOP;
 END $$;
 
--- ── Policies RLS : accès complet anon (auth gérée par l'app) ─
+-- ============================================================
+-- POLICIES RLS DURCIES — 3 niveaux d'accès anon
+-- Protection contre accès non autorisé via clé anon volée
+-- La vraie protection #1 reste le domaine allowlist Supabase
+-- ============================================================
+
+-- ── Niveau A : CRUD complet (tables opérationnelles) ─────────
+-- L'app a besoin de créer, modifier ET supprimer sur ces tables
 DO $$
 DECLARE tbl TEXT;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
     'users','classes','students','payments','attendance','scan_log',
     'conduct','grades','absences','notifs','events','messages','aps',
-    'daily_records','daily_expenses','daily_reports','devoirs','cahier_texte',
-    'matieres','rattrapages','convocations','timetables','settings',
-    'approbations','teacher_notes','audit_log','teacher_absences',
+    'daily_records','daily_expenses','devoirs','cahier_texte',
+    'matieres','rattrapages','convocations','timetables',
+    'approbations','teacher_notes','teacher_absences',
     'medical','tenafep','evaluations','salaries','advances','sanctions',
     'cantine','cantine_menus','cantine_presence','activites',
     'activites_inscriptions','appreciations','medical_visits'
@@ -727,6 +734,37 @@ BEGIN
     EXECUTE format('CREATE POLICY "anon_delete" ON %I FOR DELETE TO anon USING (true)', tbl);
   END LOOP;
 END $$;
+
+-- ── Niveau B : SELECT + INSERT + UPDATE (pas de DELETE) ──────
+-- daily_reports : rapports financiers — jamais effaçables
+DROP POLICY IF EXISTS "anon_select" ON daily_reports;
+DROP POLICY IF EXISTS "anon_insert" ON daily_reports;
+DROP POLICY IF EXISTS "anon_update" ON daily_reports;
+DROP POLICY IF EXISTS "anon_delete" ON daily_reports;
+CREATE POLICY "anon_select" ON daily_reports FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_insert" ON daily_reports FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_update" ON daily_reports FOR UPDATE TO anon USING (true) WITH CHECK (true);
+-- Pas de DELETE sur daily_reports
+
+-- ── Niveau C : SELECT + INSERT seulement (immuable) ──────────
+-- audit_log : journal d'audit — on ne peut ni modifier ni effacer
+DROP POLICY IF EXISTS "anon_select" ON audit_log;
+DROP POLICY IF EXISTS "anon_insert" ON audit_log;
+DROP POLICY IF EXISTS "anon_update" ON audit_log;
+DROP POLICY IF EXISTS "anon_delete" ON audit_log;
+CREATE POLICY "anon_select" ON audit_log FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_insert" ON audit_log FOR INSERT TO anon WITH CHECK (true);
+-- Pas d'UPDATE ni DELETE sur audit_log
+
+-- ── Niveau D : SELECT + UPDATE seulement ─────────────────────
+-- settings : une seule ligne 'main' — jamais créée ni supprimée
+DROP POLICY IF EXISTS "anon_select" ON settings;
+DROP POLICY IF EXISTS "anon_insert" ON settings;
+DROP POLICY IF EXISTS "anon_update" ON settings;
+DROP POLICY IF EXISTS "anon_delete" ON settings;
+CREATE POLICY "anon_select" ON settings FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_update" ON settings FOR UPDATE TO anon USING (true) WITH CHECK (true);
+-- Pas d'INSERT ni DELETE sur settings (la ligne 'main' existe déjà)
 
 -- ============================================================
 -- INDEX DE PERFORMANCE
