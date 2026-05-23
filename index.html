@@ -1067,7 +1067,7 @@ window.NAV = {
 
 // ── SUPABASE ──
 const SUPA_URL='https://zqgksxgozpnhqzvzxloa.supabase.co';
-const SUPA_KEY='sb_publishable_6MTPcnYqRpdtq43oIMGneQ_rlvgM2I3';
+const SUPA_KEY='sb_publishable_gglpq8mOGF7a0S54kOM0iQ_F6x9i6kx';
 window.DB_ONLINE = false;
 const _H = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'};
 
@@ -1113,7 +1113,9 @@ window.loadFromSupabase = async () => {
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
            approbations,teacher_notes,audit_log,teacher_absences,
-           medical,tenafep,evaluations,salaries,advances] = await Promise.all([
+           medical,tenafep,evaluations,salaries,advances,
+           sanctions,cantine,cantine_menus,cantine_presence,
+           activites,activites_inscriptions,appreciations,medical_visits] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -1146,6 +1148,14 @@ window.loadFromSupabase = async () => {
       _get('evaluations','select=*&order=date.desc&limit=500'),
       _get('salaries','select=*&order=month.desc&limit=500'),
       _get('advances','select=*&order=date.desc&limit=500'),
+      _get('sanctions','select=*&order=date.desc&limit=200'),
+      _get('cantine','select=*'),
+      _get('cantine_menus','select=*&order=date.desc&limit=100'),
+      _get('cantine_presence','select=*&order=date.desc&limit=500'),
+      _get('activites','select=*'),
+      _get('activites_inscriptions','select=*'),
+      _get('appreciations','select=*'),
+      _get('medical_visits','select=*&order=date.desc&limit=200'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -1163,6 +1173,13 @@ window.loadFromSupabase = async () => {
     if(safe(rattrapages).length) DB.rattrapages=fd(rattrapages);
     if(safe(convocations).length) DB.convocations=fd(convocations);
     if(safe(sanctions).length) DB.sanctions=fd(sanctions);
+    if(safe(cantine).length) DB.cantine=safe(cantine);
+    if(safe(cantine_menus).length) DB.cantine_menus=fd(cantine_menus);
+    if(safe(cantine_presence).length) DB.cantine_presence=fd(cantine_presence);
+    if(safe(activites).length) DB.activites=safe(activites);
+    if(safe(activites_inscriptions).length) DB.activites_inscriptions=safe(activites_inscriptions);
+    if(safe(appreciations).length) DB.appreciations=safe(appreciations);
+    if(safe(medical_visits).length) DB.medical_visits=fd(medical_visits);
     if(safe(timetables).length) DB.timetables=safe(timetables);
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
