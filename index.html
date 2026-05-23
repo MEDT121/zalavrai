@@ -24,7 +24,7 @@
   --text:#1e293b;--text-secondary:#64748b;--text-muted:#94a3b8;
   --shadow-sm:0 2px 8px rgba(0,0,0,.06);--shadow-md:0 4px 20px rgba(0,0,0,.10);--shadow-lg:0 12px 40px rgba(0,0,0,.15);
   --rainbow:linear-gradient(90deg,#ef4444,#f97316,#eab308,#10b981,#3b82f6,#8b5cf6,#ec4899);
-  --sidebar-width:260px;--radius-xs:8px;--radius-sm:12px;--radius:18px;--radius-lg:24px;
+  --sidebar-width:260px;--radius-xs:8px;--radius-sm:12px;--radius:16px;--radius-lg:24px;
   --gold:#c9a030;--gold-light:#f5e6b8;--navy:#0f1b3d;--navy-light:#1a2f6b;
   /* Type Scale */
   --text-xs:10px;--text-sm:12px;--text-base:14px;--text-md:15px;
@@ -73,6 +73,8 @@
 .dark .toast{background:var(--bg-card);border-color:var(--border);color:var(--text)}
 .dark .premium-section{background:var(--bg-card);border-color:var(--border)}
 .dark .ww-section{background:var(--bg-card);border-color:var(--border)}
+.dark .ww-card-body{background:var(--bg-card)}
+.dark .ww-stat-val{color:var(--text)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;overflow:hidden}
 
@@ -122,7 +124,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .sidebar-avatar{width:40px;height:40px;border-radius:12px;background:var(--primary);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
 .sidebar-user-name{font-size:13px;font-weight:700;color:#fff}
 .sidebar-user-role{font-size:11px;color:rgba(255,255,255,.4)}
-.logout-btn{width:100%;padding:9px;background:none;border:1px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;margin-top:6px;transition:all .2s;font-family:inherit}
+.logout-btn{width:100%;padding:9px;background:none;border:1px solid rgba(255,255,255,.15);border-radius:var(--radius-xs);color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;margin-top:6px;transition:all .2s;font-family:inherit}
 .logout-btn:hover{background:rgba(239,68,68,.15);color:#f87171;border-color:rgba(239,68,68,.3)}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:98}
 .sidebar-overlay.show{display:block}
@@ -189,7 +191,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .ac-label{color:#fff;font-size:11px;font-weight:700;letter-spacing:.5px}
 
 /* ── PREMIUM SECTIONS ── */
-.premium-section{background:var(--bg-card);border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 2px 16px rgba(0,0,0,.06);border:1px solid var(--border-light)}
+.premium-section{background:var(--bg-card);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 2px 16px rgba(0,0,0,.06);border:1px solid var(--border-light)}
 .premium-section-title{font-size:17px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px}
 .premium-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 .premium-item{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;margin-top:10px;background:var(--bg-card-2);transition:all .2s;cursor:default}
@@ -197,7 +199,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .pi-icon{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .pi-title{font-weight:700;font-size:14px;color:var(--text)}
 .pi-sub{font-size:12px;color:var(--text-secondary);margin-top:2px}
-.premium-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:10px;white-space:nowrap}
+.premium-badge{font-size:11px;font-weight:700;padding:4px 12px;border-radius:var(--radius-xs);white-space:nowrap}
 
 /* ── QUICK GRID ── */
 .quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
@@ -206,6 +208,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .quick-btn:active{transform:scale(.96)!important;box-shadow:none!important;transition:transform .08s}
 .ww-item{cursor:default}
 .ww-item.clickable:active,.ww-item[onclick]:active{background:var(--primary-light)!important;transform:scale(.995);transition:transform .08s,background .08s}
+.btn:active{opacity:.88}
 .qb-icon{font-size:26px}
 .qb-label{font-size:11px;font-weight:600;color:var(--text-secondary)}
 
@@ -224,7 +227,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .ww-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--border-light);animation:cardPop .3s ease both;transition:background .15s}
 .ww-item:first-child{border-top:none}
 .ww-item:hover{background:var(--bg-card-2)}
-.ww-item-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ww-item-icon{width:40px;height:40px;border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .ww-item-content{flex:1;min-width:0}
 .ww-item-title{font-size:var(--text-base);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ww-item-sub{font-size:var(--text-sm);color:var(--text-secondary)}
@@ -268,11 +271,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .btn-gold:hover{box-shadow:0 4px 16px rgba(201,160,48,.4)}
 .action-btn{background:var(--bg-card-2);border:1px solid var(--border);width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;transition:all .2s;display:inline-flex;align-items:center;justify-content:center}
 .action-btn:hover{background:var(--primary-light);border-color:var(--primary)}
-.btn-ghost{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--primary);padding:8px 14px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background var(--dur-normal);font-family:inherit}
+.btn-ghost{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--primary);padding:8px 14px;border-radius:var(--radius-xs);font-size:14px;font-weight:600;cursor:pointer;transition:background var(--dur-normal);font-family:inherit}
 .btn-ghost:hover{background:var(--primary-light)}
-.btn-subtle{display:inline-flex;align-items:center;gap:6px;background:var(--primary-light);color:var(--primary);border:none;border-radius:10px;padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;transition:background var(--dur-normal);font-family:inherit}
+.btn-subtle{display:inline-flex;align-items:center;gap:6px;background:var(--primary-light);color:var(--primary);border:none;border-radius:var(--radius-xs);padding:8px 14px;font-size:14px;font-weight:600;cursor:pointer;transition:background var(--dur-normal);font-family:inherit}
 .btn-subtle:hover{background:#dbeafe}
-.btn-icon{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:var(--bg-card-2);border:1px solid var(--border);cursor:pointer;transition:background var(--dur-normal),border-color var(--dur-normal);color:var(--text-secondary)}
+.btn-icon{width:36px;height:36px;border-radius:var(--radius-xs);display:inline-flex;align-items:center;justify-content:center;background:var(--bg-card-2);border:1px solid var(--border);cursor:pointer;transition:background var(--dur-normal),border-color var(--dur-normal);color:var(--text-secondary)}
 .btn-icon:hover{background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
 .btn:focus-visible,.btn-ghost:focus-visible,.btn-subtle:focus-visible,.btn-icon:focus-visible,.action-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .btn:disabled,.btn-ghost:disabled,.btn-subtle:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
@@ -310,7 +313,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 /* ── CONFIRM ── */
 .confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:center;justify-content:center}
 .confirm-overlay.show{display:flex}
-.confirm-box{background:var(--bg-card);border-radius:20px;padding:28px 24px;width:90%;max-width:340px;text-align:center;animation:popIn .2s ease}
+.confirm-box{background:var(--bg-card);border-radius:var(--radius);padding:28px 24px;width:90%;max-width:340px;text-align:center;animation:popIn .2s ease}
 .ci{font-size:48px;margin-bottom:12px}
 .confirm-btns{display:flex;gap:12px;justify-content:center;margin-top:20px}
 
@@ -331,7 +334,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 /* ── SCAN ── */
 .scan-container{display:flex;flex-direction:column;align-items:center;gap:14px}
-.scan-video-wrap{position:relative;width:100%;max-width:380px;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:4/3;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.scan-video-wrap{position:relative;width:100%;max-width:380px;border-radius:var(--radius);overflow:hidden;background:#000;aspect-ratio:4/3;box-shadow:0 8px 32px rgba(0,0,0,.3)}
 .scan-video-wrap video{width:100%;height:100%;object-fit:cover}
 .scan-line{position:absolute;top:0;left:0;right:0;height:3px;background:#22c55e;box-shadow:0 0 16px #22c55e;animation:scanAnim 1.8s ease-in-out infinite}
 .scan-corners{position:absolute;inset:8px;border:2.5px solid rgba(255,255,255,.3);border-radius:12px}
@@ -356,7 +359,6 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes popIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes logoBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
-@keyframes pulse2{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 @keyframes scanAnim{0%{top:0}100%{top:calc(100% - 3px)}}
 @keyframes rainbowShimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
@@ -399,6 +401,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 /* ── CASCADE ANIMATION DELAY ── */
 .ww-card{animation-delay:calc(var(--i,0) * 50ms)}
 .ww-item{animation-delay:calc(var(--i,0) * 35ms)}
+/* ── NOTIFICATION UNREAD ── */
+.ww-item[data-unread="true"]{border-left:3px solid var(--primary);background:var(--primary-light,rgba(99,102,241,.06))}
+/* ── PAY PROGRESSIVE DISCLOSURE ── */
+.pay-actions-extra{display:none}
+.pay-card.expanded .pay-actions-extra{display:flex}
 </style>
 </head>
 <body>
@@ -3909,7 +3916,7 @@ R.notifications = () => {
     </div>
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
-  <div class="ww-item" style="animation-delay:${i*.03}s;${!n.read?'background:var(--primary-light);border-left:3px solid var(--primary);':''}${typeBorder[n.type]?';border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
+  <div class="ww-item" ${!n.read?'data-unread="true"':''} style="animation-delay:${i*.03}s;${typeBorder[n.type]?'border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f1f5f9'}">${typeIcon[n.type]||'●'}</div>
     <div class="ww-item-content">
       ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
@@ -8568,18 +8575,18 @@ R.scanner = () => `
   <div class="scan-video-wrap">
     <video id="scanVideo" autoplay playsinline muted></video>
     <div class="scan-line"></div>
-    <div class="scan-corners"></div>
-    <div aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-      <div style="width:160px;height:160px;position:relative">
-        <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid rgba(255,255,255,.9);border-left:3px solid rgba(255,255,255,.9);border-radius:4px 0 0 0"></div>
-        <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid rgba(255,255,255,.9);border-right:3px solid rgba(255,255,255,.9);border-radius:0 4px 0 0"></div>
-        <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid rgba(255,255,255,.9);border-left:3px solid rgba(255,255,255,.9);border-radius:0 0 0 4px"></div>
-        <div style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:3px solid rgba(255,255,255,.9);border-right:3px solid rgba(255,255,255,.9);border-radius:0 0 4px 0"></div>
+    <div aria-hidden="true" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:12px">
+      <div style="width:200px;height:200px;border:2px solid rgba(255,255,255,.7);border-radius:16px;position:relative;box-shadow:0 0 0 2000px rgba(0,0,0,.45)">
+        <div style="position:absolute;top:-2px;left:-2px;width:24px;height:24px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:4px 0 0 0"></div>
+        <div style="position:absolute;top:-2px;right:-2px;width:24px;height:24px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 4px 0 0"></div>
+        <div style="position:absolute;bottom:-2px;left:-2px;width:24px;height:24px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>
       </div>
+      <div style="color:rgba(255,255,255,.85);font-size:13px;letter-spacing:.04em;text-align:center">Centrez le QR Code dans le cadre</div>
     </div>
   </div>
   <div id="scanStatus" style="width:100%;max-width:380px;margin-top:8px;min-height:32px;font-size:12px;color:var(--text-secondary);text-align:center"></div>
-  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
+  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:var(--radius-xs);font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
   <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:10px">
     <input class="form-input" id="scanInput" placeholder="Matricule STU-0001" autocomplete="off" style="flex:1">
     <button class="btn btn-primary" onclick="manualScanEntry()">📋 Valider</button>
@@ -8725,17 +8732,18 @@ R.scanner_exit = () => `
     <video id="scanVideo" autoplay playsinline muted></video>
     <div class="scan-line"></div>
     <div class="scan-corners"></div>
-    <div aria-hidden="true" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-      <div style="width:160px;height:160px;position:relative">
-        <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid rgba(255,255,255,.9);border-left:3px solid rgba(255,255,255,.9);border-radius:4px 0 0 0"></div>
-        <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid rgba(255,255,255,.9);border-right:3px solid rgba(255,255,255,.9);border-radius:0 4px 0 0"></div>
-        <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid rgba(255,255,255,.9);border-left:3px solid rgba(255,255,255,.9);border-radius:0 0 0 4px"></div>
-        <div style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:3px solid rgba(255,255,255,.9);border-right:3px solid rgba(255,255,255,.9);border-radius:0 0 4px 0"></div>
+    <div aria-hidden="true" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:12px">
+      <div style="width:200px;height:200px;border:2px solid rgba(255,255,255,.7);border-radius:16px;position:relative;box-shadow:0 0 0 2000px rgba(0,0,0,.45)">
+        <div style="position:absolute;top:-2px;left:-2px;width:24px;height:24px;border-top:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:4px 0 0 0"></div>
+        <div style="position:absolute;top:-2px;right:-2px;width:24px;height:24px;border-top:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 4px 0 0"></div>
+        <div style="position:absolute;bottom:-2px;left:-2px;width:24px;height:24px;border-bottom:3px solid var(--primary);border-left:3px solid var(--primary);border-radius:0 0 0 4px"></div>
+        <div style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-bottom:3px solid var(--primary);border-right:3px solid var(--primary);border-radius:0 0 4px 0"></div>
       </div>
+      <div style="color:rgba(255,255,255,.85);font-size:13px;letter-spacing:.04em;text-align:center">Centrez le QR Code dans le cadre</div>
     </div>
   </div>
   <div id="scanStatus" style="width:100%;max-width:380px;margin-top:8px;min-height:32px;font-size:12px;color:var(--text-secondary);text-align:center"></div>
-  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
+  <button id="scanRetryBtn" onclick="startScan()" style="display:none;margin:4px auto 0;padding:8px 18px;background:#3b82f6;color:#fff;border:none;border-radius:var(--radius-xs);font-size:13px;cursor:pointer">🔄 Relancer la caméra</button>
   <div style="display:flex;gap:10px;width:100%;max-width:380px;margin-top:10px">
     <input class="form-input" id="exitCode" placeholder="Matricule élève" autocomplete="off" style="flex:1">
     <button class="btn btn-primary" onclick="scanExit()">🚪 Vérifier</button>
