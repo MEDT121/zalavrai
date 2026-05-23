@@ -498,7 +498,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
         <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
         <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
         <span class="topbar-date" id="TD"></span>
-        <span id="SYNC_IND" title="État synchronisation" style="font-size:11px;font-weight:700;padding:3px 7px;border-radius:20px;cursor:default;transition:all .3s"></span>
+        <button id="SYNC_IND" onclick="forceSyncDB()" title="Cliquer pour forcer la synchronisation" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .3s;border:none;line-height:1.4"></button>
         <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
         <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
       </div>
@@ -1398,19 +1398,44 @@ function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'
   };
 })();
 
+window._lastSyncTime = null;
+window._syncInProgress = false;
 window.updateSyncIndicator = () => {
   const el = $('SYNC_IND'); if(!el) return;
   const q = syncQueue.count();
-  if (!window.DB_ONLINE) {
-    el.textContent='Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c';
+  const t = window._lastSyncTime ? ' · '+window._lastSyncTime : '';
+  if (window._syncInProgress) {
+    el.textContent='🔄 Sync...'; el.style.background='#e0f2fe'; el.style.color='#0284c7'; el.title='Synchronisation en cours...';
+  } else if (!window.DB_ONLINE) {
+    el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c'; el.title='Hors ligne — cliquer pour réessayer';
   } else if (q > 0) {
-    el.textContent=`🟡 ${q} en attente`; el.style.background='#fef9c3'; el.style.color='#92400e';
+    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — cliquer pour sync`;
   } else {
-    el.textContent='🟢'; el.style.background='#dcfce7'; el.style.color='#166534';
+    el.textContent=`🟢${t}`; el.style.background='#dcfce7'; el.style.color='#166534'; el.title=`Connecté${window._lastSyncTime?' · Sync '+window._lastSyncTime:''}`;
   }
 };
 // Mise à jour auto toutes les 10 secondes
 setInterval(window.updateSyncIndicator, 10000);
+
+window.forceSyncDB = async () => {
+  if (window._syncInProgress) { toast('Sync déjà en cours...','info'); return; }
+  window._syncInProgress = true;
+  updateSyncIndicator();
+  document.querySelectorAll('[onclick="forceSyncDB()"]').forEach(b=>{ b.disabled=true; if(b.tagName==='BUTTON'&&b.textContent.includes('sync')) b.textContent='🔄 Sync...'; b.style.opacity='.7'; });
+  try {
+    const ok = await loadFromSupabase();
+    window._lastSyncTime = nowTime();
+    if (ok) {
+      toast(`✅ Sync complète — ${DB.students.length} élèves · ${DB.users.length} comptes`,'success');
+    } else {
+      toast('🔴 Hors ligne — données locales conservées','warning');
+    }
+  } catch(e) { toast('❌ Erreur lors de la sync','error'); }
+  window._syncInProgress = false;
+  updateSyncIndicator();
+  document.querySelectorAll('[onclick="forceSyncDB()"]').forEach(b=>{ b.disabled=false; b.style.opacity='1'; if(b.tagName==='BUTTON'&&b.textContent.includes('Sync')) b.textContent='Forcer la sync'; });
+  render();
+};
 
 window.confirmCb = null;
 window.showC = (title, msg, cb) => { $('CT').textContent=title; $('CM').textContent=msg; window.confirmCb=cb; $('CO').classList.add('show'); };
@@ -12397,6 +12422,23 @@ R.profil_enseignant = () => {
       </div>`:''}`:`<div style="font-size:13px;color:#94a3b8;padding:24px;text-align:center;background:#f8fafc;border-radius:16px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
     </div>
 
+      <div style="margin-top:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:18px;padding:16px;border:1.5px solid #bae6fd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0369a1">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:#64748b;margin-top:3px">\${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+          </div>
+          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          \${[[(DB.students||[]).length,'Élèves','#0284c7'],[(DB.users||[]).length,'Comptes','#7c3aed'],[(DB.classes||[]).length,'Classes','#059669']].map(([n,lb,clv])=>
+          \`<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #e0f2fe">
+            <div style="font-size:17px;font-weight:900;color:\${clv}">\${n}</div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:2px">\${lb.toUpperCase()}</div>
+          </div>\`).join('')}
+        </div>
+      </div>
+
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.06)">
         <div class="form-row">
@@ -13176,6 +13218,23 @@ R.profil_gardien = () => {
       </div>`:''}
     </div>
 
+      <div style="margin-top:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:18px;padding:16px;border:1.5px solid #bae6fd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0369a1">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:#64748b;margin-top:3px">\${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+          </div>
+          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          \${[[(DB.students||[]).length,'Élèves','#0284c7'],[(DB.users||[]).length,'Comptes','#7c3aed'],[(DB.classes||[]).length,'Classes','#059669']].map(([n,lb,clv])=>
+          \`<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #e0f2fe">
+            <div style="font-size:17px;font-weight:900;color:\${clv}">\${n}</div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:2px">\${lb.toUpperCase()}</div>
+          </div>\`).join('')}
+        </div>
+      </div>
+
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.06)">
         <div class="form-row">
@@ -13295,6 +13354,23 @@ R.profil_caisse = () => {
         </div>
       </div>
     </div>
+
+      <div style="margin-top:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:18px;padding:16px;border:1.5px solid #bae6fd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0369a1">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:#64748b;margin-top:3px">\${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+          </div>
+          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          \${[[(DB.students||[]).length,'Élèves','#0284c7'],[(DB.users||[]).length,'Comptes','#7c3aed'],[(DB.classes||[]).length,'Classes','#059669']].map(([n,lb,clv])=>
+          \`<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #e0f2fe">
+            <div style="font-size:17px;font-weight:900;color:\${clv}">\${n}</div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:2px">\${lb.toUpperCase()}</div>
+          </div>\`).join('')}
+        </div>
+      </div>
 
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.06)">
@@ -13445,6 +13521,22 @@ R.profil_direction = () => {
           <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
         </button>`).join('')}
       </div>
+      <div style="margin-top:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:18px;padding:16px;border:1.5px solid #bae6fd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0369a1">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:#64748b;margin-top:3px">\${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+          </div>
+          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          \${[[(DB.students||[]).length,'Élèves','#0284c7'],[(DB.users||[]).length,'Comptes','#7c3aed'],[(DB.classes||[]).length,'Classes','#059669']].map(([n,lb,clv])=>
+          \`<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #e0f2fe">
+            <div style="font-size:17px;font-weight:900;color:\${clv}">\${n}</div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:2px">\${lb.toUpperCase()}</div>
+          </div>\`).join('')}
+        </div>
+      </div>
     </div>
 
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
@@ -13560,6 +13652,22 @@ R.profil_direction2 = () => {
           </div>
           <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
         </button>`).join('')}
+      </div>
+      <div style="margin-top:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-radius:18px;padding:16px;border:1.5px solid #bae6fd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#0369a1">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:#64748b;margin-top:3px">\${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+          </div>
+          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          \${[[(DB.students||[]).length,'Élèves','#0284c7'],[(DB.users||[]).length,'Comptes','#7c3aed'],[(DB.classes||[]).length,'Classes','#059669']].map(([n,lb,clv])=>
+          \`<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #e0f2fe">
+            <div style="font-size:17px;font-weight:900;color:\${clv}">\${n}</div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:2px">\${lb.toUpperCase()}</div>
+          </div>\`).join('')}
+        </div>
       </div>
     </div>
 
