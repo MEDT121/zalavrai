@@ -766,6 +766,7 @@ window.DB = {
   salaries: [], advances: [],
   cantine: [], cantine_menus: [], cantine_presence: [],
   activites: [], activites_inscriptions: [], appreciations: [], medical_visits: [],
+  inscriptions: [],
   _sid: 1, _uid: 1, _apid: 1,
   settings: {
     id: 'main',
@@ -884,6 +885,7 @@ window.NAV = {
       {id:'absences',i:'●',l:'Justifications'},
       {id:'calendar',i:'●',l:'Calendrier'},
       {id:'notifications',i:'●',l:'Notifications'},
+      {id:'inscriptions',i:'📋',l:'Inscriptions',badge:true},
       {s:'Sécurité Portail'},
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'●',l:'Alerte Urgence'},
@@ -1127,7 +1129,8 @@ window.loadFromSupabase = async () => {
            approbations,teacher_notes,audit_log,teacher_absences,
            medical,tenafep,evaluations,salaries,advances,
            sanctions,cantine,cantine_menus,cantine_presence,
-           activites,activites_inscriptions,appreciations,medical_visits] = await Promise.all([
+           activites,activites_inscriptions,appreciations,medical_visits,
+           inscriptions] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -1168,6 +1171,7 @@ window.loadFromSupabase = async () => {
       _get('activites_inscriptions','select=*'),
       _get('appreciations','select=*'),
       _get('medical_visits','select=*&order=date.desc&limit=200'),
+      _get('inscriptions','select=*&order=created_at.desc'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -1193,6 +1197,7 @@ window.loadFromSupabase = async () => {
     if(safe(appreciations).length) DB.appreciations=safe(appreciations);
     if(safe(medical_visits).length) DB.medical_visits=fd(medical_visits);
     if(safe(timetables).length) DB.timetables=safe(timetables);
+    DB.inscriptions=safe(inscriptions);
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
     if(safe(approbations).length) DB.approbations=fd(approbations);
@@ -1339,6 +1344,7 @@ function _cryptSnap() {
     activites_inscriptions:DB.activites_inscriptions||[],
     appreciations:DB.appreciations||[],
     medical_visits:DB.medical_visits||[],
+    inscriptions:DB.inscriptions||[],
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -1507,12 +1513,14 @@ window.getPendingCount = () => {
     return unreadNotifs+unreadMsgs+pendingRat;
   }
   const isD2 = S.user&&S.user.role==='direction2';
+  const isDir1 = S.user&&S.user.role==='direction';
   return DB.approbations.filter(a=>a.status==='pending').length
     + DB.absences.filter(a=>a.status==='pending').length
     + (isD2?0:DB.daily_reports.filter(r=>r.status==='pending').length)
     + DB.messages.filter(m=>m.status==='pending').length
     + DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by).length
-    + DB.convocations.filter(c=>c.status==='pending').length;
+    + DB.convocations.filter(c=>c.status==='pending').length
+    + (isDir1?(DB.inscriptions||[]).filter(i=>!i.statut||i.statut==='pending').length:0);
 };
 
 // ── STATE ──
@@ -1545,6 +1553,7 @@ window.PT = {
   evaluations_ens:'Évaluations des enseignants',
   salaires:'Salaires & Fiches de paie',
   rapport_secope:'Rapport SECOPE/MEPSP',
+  inscriptions:'Demandes d\'inscription',
   cantine:'Cantine Scolaire',
   cantine_parent:'Cantine',
   activites:'Activités Extrascolaires',
@@ -3974,6 +3983,108 @@ window.sendBroadcast = () => {
   saveToCrypt();
   toast(`✅ Annonce envoyée à ${recipients.length} destinataire${recipients.length>1?'s':''}`, 'success');
   closeModal(); render();
+};
+
+// ═══════════════════════════════════════════
+//  DIRECTION — INSCRIPTIONS
+// ═══════════════════════════════════════════
+window._inscTab = 'pending';
+window._inscQ = '';
+
+R.inscriptions = () => {
+  const list = (DB.inscriptions||[]);
+  const pending = list.filter(i => !i.statut || i.statut === 'pending');
+  const done = list.filter(i => i.statut === 'validated' || i.statut === 'refused');
+  const tab = window._inscTab || 'pending';
+  const shown = tab === 'pending' ? pending : done;
+  const q = (window._inscQ||'').toLowerCase();
+  const filtered = shown.filter(i => !q || (i.nom+' '+i.prenom+' '+(i.nom_parent||'')+' '+(i.telephone||'')).toLowerCase().includes(q));
+  return `
+    <div class="ww-toolbar">
+      <div style="display:flex;gap:8px">
+        <button class="btn ${tab==='pending'?'btn-primary':'btn-outline'} btn-sm" onclick="window._inscTab='pending';render()">
+          En attente${pending.length>0?' <span style="background:rgba(255,255,255,.25);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;margin-left:4px">'+pending.length+'</span>':''}
+        </button>
+        <button class="btn ${tab==='done'?'btn-primary':'btn-outline'} btn-sm" onclick="window._inscTab='done';render()">Traitées</button>
+      </div>
+      <div class="ww-search"><input placeholder="Rechercher..." oninput="window._inscQ=this.value;render()" value="${esc(window._inscQ||'')}"></div>
+    </div>
+    ${filtered.length === 0 ? `
+      <div style="text-align:center;padding:3rem;color:var(--text-muted)">
+        <div style="font-size:2.5rem;margin-bottom:.5rem">📋</div>
+        <div>${tab==='pending' ? 'Aucune demande en attente' : 'Aucune demande traitée'}</div>
+      </div>
+    ` : `<div class="ww-section">${filtered.map(i => `
+      <div class="ww-item" style="align-items:flex-start;gap:12px">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--primary-light,#dbeafe);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;color:var(--primary,#2563eb);font-size:.85rem">${esc(ini((i.prenom||'')+' '+(i.nom||'')))}</div>
+        <div style="flex:1;min-width:0">
+          <div class="ww-item-title">${esc(i.prenom||'')} ${esc(i.nom||'')}</div>
+          <div class="ww-item-sub">Classe demandée : <strong>${esc(i.classe||'')}</strong> · Parent : ${esc(i.nom_parent||'')}</div>
+          <div class="ww-item-sub">📞 ${esc(i.telephone||'')}${i.email?' · ✉️ '+esc(i.email):''}</div>
+          <div class="ww-item-sub" style="color:var(--text-muted);font-size:10px">${i.created_at ? new Date(i.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}) : ''}</div>
+          ${i.message ? `<div class="ww-item-sub" style="font-style:italic;margin-top:4px">"${esc(i.message)}"</div>` : ''}
+          ${i.statut==='validated' ? `<span class="pill pill-green" style="margin-top:6px;display:inline-block">✓ Validée</span>` : ''}
+          ${i.statut==='refused' ? `<span class="pill pill-red" style="margin-top:6px;display:inline-block">✗ Refusée${i.motif_refus?' · '+esc(i.motif_refus):''}</span>` : ''}
+        </div>
+        ${(!i.statut || i.statut==='pending') ? `
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button class="btn btn-primary btn-sm" onclick="validerInscription('${esc(i.id)}')">Valider</button>
+          <button class="btn btn-danger btn-sm" onclick="refuserInscription('${esc(i.id)}')">Refuser</button>
+        </div>` : ''}
+      </div>
+    `).join('')}</div>`}
+  `;
+};
+
+window.validerInscription = async (id) => {
+  const insc = (DB.inscriptions||[]).find(i => i.id === id);
+  if (!insc) return;
+  showC('Valider cette inscription ?',
+    `Confirmer la demande de <strong>${esc(insc.prenom||'')} ${esc(insc.nom||'')}</strong> pour la classe <strong>${esc(insc.classe||'')}</strong> ?`,
+    async () => {
+      await pushSync('inscriptions', 'patch', { statut: 'validated' }, `id=eq.${id}`);
+      const idx = (DB.inscriptions||[]).findIndex(i => i.id === id);
+      if (idx >= 0) DB.inscriptions[idx].statut = 'validated';
+      saveToCrypt();
+      toast('Inscription validée', 'success');
+      render();
+    }
+  );
+};
+
+window.refuserInscription = (id) => {
+  const insc = (DB.inscriptions||[]).find(i => i.id === id);
+  if (!insc) return;
+  const motifs = ['Classe complète', 'Documents manquants', 'Âge non conforme', 'Niveau insuffisant', 'Autre'];
+  openM('Refuser la demande', `
+    <p style="margin-bottom:1rem">Demande de <strong>${esc(insc.prenom||'')} ${esc(insc.nom||'')}</strong> — Classe : <strong>${esc(insc.classe||'')}</strong></p>
+    <div class="form-group">
+      <label class="form-label">Motif du refus</label>
+      <select class="form-input" id="motifRefus">
+        ${motifs.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Précisions (optionnel)</label>
+      <input class="form-input" id="motifDetail" placeholder="Ajouter des précisions...">
+    </div>
+  `, `
+    <button class="btn btn-danger" onclick="confirmerRefus('${esc(id)}')">Confirmer le refus</button>
+    <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+  `);
+};
+
+window.confirmerRefus = async (id) => {
+  const motif = ($('motifRefus')?.value || '');
+  const detail = ($('motifDetail')?.value || '').trim();
+  const motifFinal = detail ? motif + ' — ' + detail : motif;
+  await pushSync('inscriptions', 'patch', { statut: 'refused', motif_refus: motifFinal }, `id=eq.${id}`);
+  const idx = (DB.inscriptions||[]).findIndex(i => i.id === id);
+  if (idx >= 0) { DB.inscriptions[idx].statut = 'refused'; DB.inscriptions[idx].motif_refus = motifFinal; }
+  saveToCrypt();
+  closeModal();
+  toast('Demande refusée', 'info');
+  render();
 };
 
 // ═══════════════════════════════════════════
