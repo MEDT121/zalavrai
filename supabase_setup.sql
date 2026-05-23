@@ -683,6 +683,27 @@ CREATE TABLE IF NOT EXISTS medical_visits (
   time       TEXT
 );
 
+-- ── 41. INSCRIPTIONS (site web public) ──────────────────────
+CREATE TABLE IF NOT EXISTS inscriptions (
+  id           TEXT PRIMARY KEY,
+  nom          TEXT,
+  prenom       TEXT,
+  dob          TEXT,
+  classe       TEXT,
+  nom_parent   TEXT,
+  telephone    TEXT,
+  email        TEXT,
+  message      TEXT,
+  date         TEXT,
+  status       TEXT DEFAULT 'pending'
+);
+ALTER TABLE inscriptions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "anon_select" ON inscriptions;
+DROP POLICY IF EXISTS "anon_insert" ON inscriptions;
+CREATE POLICY "anon_select" ON inscriptions FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_insert" ON inscriptions FOR INSERT TO anon WITH CHECK (true);
+-- Pas d'UPDATE ni DELETE depuis le site public
+
 -- ============================================================
 -- ROW LEVEL SECURITY — activer sur les 40 tables
 -- ============================================================
