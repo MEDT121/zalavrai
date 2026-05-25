@@ -1778,6 +1778,7 @@ window.logout = () => {
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
   $('APP').classList.remove('active');
   closeSB();
+  window._splashGone = false;
   showLogin();
 };
 
@@ -15552,8 +15553,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Splash — tap immédiat ou auto après 1.5s
   const splash=$('SPLASH');
-  let gone=false;
-  const goLogin=()=>{ if(gone) return; gone=true; showLogin(); };
+  window._splashGone = false;
+  const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; showLogin(); };
   if(splash){
     splash.addEventListener('touchstart', goLogin, {passive:true});
     splash.addEventListener('click', goLogin);
