@@ -915,6 +915,62 @@ footer {
 /* ─── DARK MODE TOGGLE (hidden — permanent dark) ─── */
 .theme-toggle{display:none}
 
+/* ─── SCROLL PROGRESS BAR ─── */
+#sprog{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--gold),var(--cyan));background-size:200%;z-index:1001;width:0%;pointer-events:none;animation:shimmer-line 2s linear infinite}
+
+/* ─── CUSTOM CURSOR ─── */
+@media(hover:hover) and (pointer:fine){
+  *{cursor:none!important}
+  #cur-dot{position:fixed;left:0;top:0;width:9px;height:9px;background:var(--cyan);border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);box-shadow:0 0 12px var(--cyan),0 0 24px rgba(77,231,255,.35);transition:width .2s,height .2s,background .15s,box-shadow .15s}
+  #cur-ring{position:fixed;left:0;top:0;width:38px;height:38px;border:1.5px solid rgba(77,231,255,.4);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);transition:width .28s var(--ease-out),height .28s var(--ease-out),border-color .2s}
+  body.c-hover #cur-dot{width:13px;height:13px;background:var(--gold);box-shadow:0 0 18px var(--gold),0 0 40px rgba(255,210,78,.3)}
+  body.c-hover #cur-ring{width:60px;height:60px;border-color:rgba(255,210,78,.45)}
+  body.c-click #cur-ring{width:30px;height:30px}
+}
+
+/* ─── FILM GRAIN TEXTURE ─── */
+#grain{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.028;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");background-size:220px 220px;background-repeat:repeat}
+
+/* ─── HERO WORD REVEAL ─── */
+.word-reveal{display:inline-block;opacity:0;transform:translateY(52px) skewY(3deg);animation:wordIn .75s var(--ease-out) both}
+@keyframes wordIn{to{opacity:1;transform:none}}
+
+/* ─── SKELETON ─── */
+.skel{display:block;background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.06) 75%);background-size:400% 100%;animation:skelSlide 1.6s ease-in-out infinite;border-radius:10px}
+@keyframes skelSlide{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.skel-num{height:3.2rem;width:72px;margin:0 auto .5rem}
+.skel-lbl{height:.65rem;width:80px;margin:0 auto;border-radius:4px}
+.skel-row{height:44px;margin-bottom:8px;border-radius:8px}
+.skel-card{height:160px;border-radius:var(--radius)}
+
+/* ─── LIGHTBOX PREV/NEXT ─── */
+#lb-prev,#lb-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff;width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;transition:all .22s;backdrop-filter:blur(10px);z-index:2;line-height:1;font-family:'Space Grotesk',sans-serif}
+#lb-prev{left:1.5rem}#lb-next{right:1.5rem}
+#lb-prev:hover,#lb-next:hover{background:rgba(77,231,255,.15);border-color:var(--cyan);box-shadow:0 0 20px rgba(77,231,255,.2)}
+
+/* ─── PREMIUM FOOTER SOCIAL ─── */
+.ft-social{display:flex;gap:.6rem;margin-top:1.2rem;flex-wrap:wrap}
+.ft-soc-btn{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);transition:all .25s var(--ease-out);color:rgba(255,255,255,.6);flex-shrink:0}
+.ft-soc-btn:hover{transform:translateY(-3px);color:#fff}
+.ft-soc-btn.wa:hover{border-color:#25D366;background:rgba(37,211,102,.12);box-shadow:0 6px 20px rgba(37,211,102,.2)}
+.ft-soc-btn.fb:hover{border-color:#4a9aff;background:rgba(74,154,255,.12);box-shadow:0 6px 20px rgba(74,154,255,.2)}
+.ft-soc-btn.em:hover{border-color:var(--gold);background:rgba(255,210,78,.12);box-shadow:0 6px 20px rgba(255,210,78,.2)}
+.ft-soc-btn.gm:hover{border-color:#4de7ff;background:rgba(77,231,255,.12);box-shadow:0 6px 20px rgba(77,231,255,.2)}
+.ft-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);margin:2rem 0 1.5rem}
+.ft-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.8rem}
+.ft-tagline{font-size:.63rem;color:rgba(255,255,255,.22);letter-spacing:.1em;text-transform:uppercase;font-family:'Inter',sans-serif}
+
+/* ─── MOBILE EXTRAS ─── */
+@media(max-width:640px){
+  .eleves-hero-grid{grid-template-columns:1fr}
+  .eleves-side{grid-template-rows:auto;grid-template-columns:1fr 1fr;gap:8px}
+  .eleves-main img{min-height:260px}
+}
+@media(max-width:400px){
+  .gal-masonry{columns:1!important}
+  .live-grid{grid-template-columns:1fr 1fr!important}
+}
+
 /* ─── CURSOR SPARKLE ─── */
 .sparkle{position:fixed;pointer-events:none;z-index:9999;width:8px;height:8px;border-radius:50%;animation:sparkle-fade .8s ease-out forwards}
 @keyframes sparkle-fade{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(0) translateY(-20px)}}
@@ -974,6 +1030,12 @@ footer {
 </style>
 </head>
 <body>
+
+<!-- ─── PERF OVERLAYS ─── -->
+<div id="sprog" aria-hidden="true"></div>
+<div id="grain" aria-hidden="true"></div>
+<div id="cur-dot" aria-hidden="true"></div>
+<div id="cur-ring" aria-hidden="true"></div>
 
 <!-- ─── FLOATING ORBS ─── -->
 <div class="orb-layer" aria-hidden="true">
@@ -1064,7 +1126,7 @@ footer {
     </div>
     <div class="hero-content-right">
       <div class="hero-pill">Kinshasa, RDC · École Bilingue</div>
-      <h1 class="hero-h1">FORMER<br>RÉFORMER<br><span class="gold">EXCELLER</span></h1>
+      <h1 class="hero-h1"><span class="word-reveal" style="animation-delay:.15s">FORMER</span><br><span class="word-reveal" style="animation-delay:.35s">RÉFORMER</span><br><span class="word-reveal gold" style="animation-delay:.55s">EXCELLER</span></h1>
       <div class="hero-accent"></div>
       <div class="hero-slogan">
         <span class="hero-slogan-word">Excellence</span>
@@ -1928,18 +1990,37 @@ footer {
       <div>
         <div class="ft-name">Complexe Scolaire Le Sage</div>
         <div class="ft-sub">The Wise School International · Kabambare A4, Ndolo — Barumbu, Kinshasa, RDC</div>
+        <div class="ft-social">
+          <a href="https://wa.me/243816722901" class="ft-soc-btn wa" target="_blank" rel="noopener" aria-label="WhatsApp">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.122.557 4.112 1.528 5.835L0 24l6.335-1.524A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.885 0-3.656-.51-5.178-1.4l-.371-.22-3.762.905.938-3.668-.242-.381A9.934 9.934 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+          </a>
+          <a href="https://www.facebook.com/search/top?q=The%20Wise%20School%20International" class="ft-soc-btn fb" target="_blank" rel="noopener" aria-label="Facebook">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.874v2.25h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+          </a>
+          <a href="mailto:thewiseschoolinternational@gmail.com" class="ft-soc-btn em" aria-label="Email">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </a>
+          <a href="https://maps.google.com/?q=Kabambare+A4+Ndolo+Barumbu+Kinshasa+DRC" class="ft-soc-btn gm" target="_blank" rel="noopener" aria-label="Google Maps">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </a>
+        </div>
       </div>
     </div>
     <div class="ft-links">
       <a href="#hero">Accueil</a>
       <a href="#apropos">À propos</a>
       <a href="#equipe">Équipe</a>
+      <a href="#palmares">Palmarès</a>
       <a href="#evenements">Événements</a>
       <a href="#inscription">Inscription</a>
       <a href="#contact">Contact</a>
     </div>
   </div>
-  <div class="ft-copy">© 2025 Complexe Scolaire Le Sage / The Wise School International. Tous droits réservés. · Propulsé par SchoolSafe v3.0</div>
+  <div class="ft-divider"></div>
+  <div class="ft-bottom">
+    <div class="ft-copy">© 2025 Complexe Scolaire Le Sage / The Wise School International. Tous droits réservés.</div>
+    <div class="ft-tagline">Former · Réformer · Exceller · Kinshasa, RDC</div>
+  </div>
 </footer>
 
 <!-- ─── FLOAT WA ─── -->
@@ -2007,9 +2088,11 @@ footer {
 </button>
 
 <!-- ─── LIGHTBOX ─── -->
-<div id="lb" onclick="closeLb()">
+<div id="lb" onclick="if(event.target===this)closeLb()">
   <button id="lb-close" onclick="closeLb()" aria-label="Fermer">✕</button>
+  <button id="lb-prev" onclick="lbNav(-1)" aria-label="Précédente" style="display:none">&#8249;</button>
   <div id="lb-content"></div>
+  <button id="lb-next" onclick="lbNav(1)" aria-label="Suivante" style="display:none">&#8250;</button>
 </div>
 
 <!-- ─── SPIN KEYFRAME ─── -->
@@ -2088,14 +2171,22 @@ const revIO = new IntersectionObserver((entries) => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.rev,.rev-l,.rev-r').forEach(el => revIO.observe(el));
 
-/* ══ COUNTER ══ */
+/* ══ COUNTER — ODOMETER SPRING ══ */
 function animCount(el, target, suffix) {
-  const dur = 2200, start = performance.now();
+  suffix = suffix || '';
+  if (!target) { el.textContent = '0' + suffix; return; }
+  const dur = 2600, start = performance.now();
+  function springEase(t) {
+    if (t <= 0) return 0; if (t >= 1) return 1;
+    const c4 = (2 * Math.PI) / 3;
+    return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+  }
   function step(now) {
     const p = Math.min((now - start) / dur, 1);
-    const v = Math.round((1 - Math.pow(1 - p, 3)) * target);
-    el.textContent = v + (suffix || '');
+    const v = Math.max(0, Math.round(springEase(p) * target));
+    el.textContent = v + suffix;
     if (p < 1) requestAnimationFrame(step);
+    else el.textContent = target + suffix;
   }
   requestAnimationFrame(step);
 }
@@ -2299,16 +2390,49 @@ themeToggle.addEventListener('click', () => {
 });
 
 /* ══ LIGHTBOX ══ */
+let _lbImages = [], _lbIdx = 0;
+
+(function() {
+  const items = document.querySelectorAll('.gi');
+  items.forEach((el, i) => {
+    const img = el.querySelector('img');
+    const t1  = el.querySelector('.gt1');
+    if (img) _lbImages.push({ src: img.src, title: t1 ? t1.textContent : '' });
+    el.onclick = () => _openLbIdx(i);
+    el.style.cursor = 'pointer';
+  });
+})();
+
+function _renderLb(src, title) {
+  document.getElementById('lb-content').innerHTML =
+    `<div style="text-align:center;pointer-events:none">
+      <img src="${src}" style="max-width:88vw;max-height:80vh;object-fit:contain;display:block;margin:0 auto;border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.6)" alt="${title||''}"/>
+      ${title ? `<div style="color:rgba(255,255,255,.5);font-family:'Cormorant Garamond',serif;font-size:1rem;margin-top:.8rem;font-style:italic">${title}</div>` : ''}
+    </div>`;
+}
+
+function _openLbIdx(i) {
+  _lbIdx = ((i % _lbImages.length) + _lbImages.length) % _lbImages.length;
+  const { src, title } = _lbImages[_lbIdx] || {};
+  if (!src) return;
+  _renderLb(src, title);
+  document.getElementById('lb').classList.add('open');
+  const show = _lbImages.length > 1 ? 'flex' : 'none';
+  const prev = document.getElementById('lb-prev');
+  const next = document.getElementById('lb-next');
+  if (prev) prev.style.display = show;
+  if (next) next.style.display = show;
+}
+
+window.lbNav = function(dir) { _openLbIdx(_lbIdx + dir); };
+
 window.openLb = function(src, title) {
-  const lb = document.getElementById('lb');
-  const isImg = src.endsWith('.jpg') || src.endsWith('.png') || src.endsWith('.jpeg');
-  if (isImg) {
-    document.getElementById('lb-content').innerHTML = `<div style="text-align:center;pointer-events:none"><img src="${src}" style="max-width:90vw;max-height:82vh;object-fit:contain;display:block;margin:0 auto;border:1px solid rgba(200,164,74,.2)" alt="${title}"/><div style="color:rgba(255,255,255,.55);font-family:'Cormorant Garamond',serif;font-size:1rem;margin-top:.8rem;font-style:italic">${title}</div></div>`;
-  } else {
-    document.getElementById('lb-content').innerHTML = `<div style="text-align:center"><div style="font-size:6rem">${src}</div><div style="color:rgba(255,255,255,.6);font-family:'Cormorant Garamond',serif;font-size:1.2rem;margin-top:1rem;font-style:italic">${title}</div></div>`;
-  }
-  lb.classList.add('open');
+  const idx = _lbImages.findIndex(i => i.src.endsWith(src) || i.src === src);
+  if (idx >= 0) { _openLbIdx(idx); return; }
+  _renderLb(src, title || '');
+  document.getElementById('lb').classList.add('open');
 };
+
 window.closeLb = function() { document.getElementById('lb').classList.remove('open'); };
 
 /* ══ COPY LINK ══ */
@@ -2339,11 +2463,15 @@ document.addEventListener('mousemove', (e) => {
   s.addEventListener('animationend', () => s.remove());
 }, { passive: true });
 
-/* ══ KEYBOARD CLOSE ══ */
+/* ══ KEYBOARD NAV ══ */
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  const lb = document.getElementById('lb');
+  if (lb && lb.classList.contains('open')) {
+    if (e.key === 'ArrowRight') lbNav(1);
+    else if (e.key === 'ArrowLeft') lbNav(-1);
+    else if (e.key === 'Escape') closeLb();
+  } else if (e.key === 'Escape') {
     closeModal();
-    closeLb();
   }
 });
 
@@ -2351,15 +2479,7 @@ document.addEventListener('keydown', (e) => {
 
 // Animate counter for stats-live section
 function animLiveStat(el, target, suffix) {
-  suffix = suffix || '';
-  const dur = 1500, start = performance.now();
-  function step(now) {
-    const p = Math.min((now - start) / dur, 1);
-    const v = Math.round((1 - Math.pow(1 - p, 3)) * target);
-    el.textContent = v + suffix;
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
+  animCount(el, target, suffix || '');
 }
 
 let liveStatsDone = false;
@@ -2674,6 +2794,89 @@ async function loadClassesDropdowns() {
     dvSel.innerHTML   = '<option value="">Toutes les classes</option>' + opts;
   } catch(e) { console.warn('loadClassesDropdowns:', e); }
 }
+
+/* ══ SCROLL PROGRESS BAR ══ */
+(function() {
+  const bar = document.getElementById('sprog');
+  if (!bar) return;
+  function update() {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (max > 0 ? Math.min(window.scrollY / max * 100, 100) : 0) + '%';
+  }
+  window.addEventListener('scroll', update, { passive: true });
+})();
+
+/* ══ CUSTOM MAGNETIC CURSOR ══ */
+(function() {
+  const dot = document.getElementById('cur-dot');
+  const ring = document.getElementById('cur-ring');
+  if (!dot || !ring) return;
+  const mq = window.matchMedia('(hover:hover) and (pointer:fine)');
+  if (!mq.matches) return;
+  let mx = 0, my = 0, rx = window.innerWidth/2, ry = window.innerHeight/2;
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    dot.style.left = mx + 'px'; dot.style.top = my + 'px';
+  }, { passive: true });
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  (function tick() {
+    rx = lerp(rx, mx, .11); ry = lerp(ry, my, .11);
+    ring.style.left = rx + 'px'; ring.style.top = ry + 'px';
+    requestAnimationFrame(tick);
+  })();
+  const hov = 'a,button,[onclick],[role="button"],.gi,.tm-card,.prog-card,.testi-card,.event-card,.counter-item,.hon-card,.ft-soc-btn,.share-btn,.btn-wa,.btn-tel';
+  document.addEventListener('mouseover', e => { if (e.target.closest(hov)) document.body.classList.add('c-hover'); }, { passive: true });
+  document.addEventListener('mouseout',  e => { if (e.target.closest(hov)) document.body.classList.remove('c-hover'); }, { passive: true });
+  document.addEventListener('mousedown', () => document.body.classList.add('c-click'));
+  document.addEventListener('mouseup',   () => document.body.classList.remove('c-click'));
+})();
+
+/* ══ PARALLAX ON STAFF IMAGES ══ */
+(function() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const targets = document.querySelectorAll('.promo-img-col > img, .coord-img-col > img');
+  if (!targets.length) return;
+  function onScroll() {
+    targets.forEach(img => {
+      const wrap = img.parentElement;
+      const rect = wrap.getBoundingClientRect();
+      const vis  = rect.bottom > 0 && rect.top < window.innerHeight;
+      if (!vis) return;
+      const center = rect.top + rect.height / 2;
+      const off = ((center - window.innerHeight / 2) / window.innerHeight) * 20;
+      img.style.transform = `translateY(${off.toFixed(1)}px) scale(1.07)`;
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
+/* ══ SKELETON LOADERS FOR LIVE DATA ══ */
+(function() {
+  // Stats-live: show skeleton while 0
+  function skelLiveStat(id) {
+    const el = document.getElementById(id);
+    if (el && el.textContent === '0') {
+      el.innerHTML = '<span class="skel skel-num"></span>';
+    }
+  }
+  // Palmares skeleton
+  const palmTable = document.getElementById('palmTable');
+  if (palmTable && palmTable.children.length <= 1) {
+    palmTable.innerHTML = Array(4).fill(0).map(() => `<div class="skel skel-row"></div>`).join('');
+  }
+  // Honneur skeleton
+  const honGrid = document.getElementById('honneurGrid');
+  if (honGrid && !honGrid.children.length) {
+    honGrid.innerHTML = Array(3).fill(0).map(() => `<div class="skel skel-card"></div>`).join('');
+  }
+  // Devoirs skeleton
+  const dvList = document.getElementById('devoirList');
+  if (dvList) dvList.innerHTML = Array(3).fill(0).map(() => `<div class="skel skel-row" style="margin-bottom:8px"></div>`).join('');
+  // Annonces skeleton
+  const annList = document.getElementById('annList');
+  if (annList) annList.innerHTML = Array(3).fill(0).map(() => `<div class="skel skel-row" style="margin-bottom:8px"></div>`).join('');
+})();
 
 /* ══ INIT ══ */
 async function init() {
