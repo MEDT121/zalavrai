@@ -310,6 +310,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   background:var(--accent-color,var(--primary));border-radius:2px 2px 0 0;
 }
 .dp-stat-card:hover { transform:translateY(-2px);border-color:var(--accent-color,var(--primary)) }
+.dp-stat-card:active { transform:scale(.98);transition:transform .08s }
 .dp-stat-num {
   font-family:'Outfit','Space Grotesk',sans-serif;
   font-size:clamp(22px,4vw,30px);font-weight:800;
@@ -355,11 +356,12 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   display:flex;align-items:center;gap:var(--sp-3);
   padding:var(--sp-3) var(--sp-4);
   border-bottom:1px solid var(--border-light);
-  cursor:pointer;transition:background var(--dur-fast);
+  cursor:pointer;transition:background var(--dur-fast),transform var(--dur-fast);
   min-height:52px;
 }
 .dp-list-item:last-child { border-bottom:none }
-.dp-list-item:hover { background:rgba(255,255,255,.04) }
+.dp-list-item:hover { background:var(--bg-card-2) }
+.dp-list-item:active { background:var(--primary-light);transform:scale(.99);transition:transform .08s,background .08s }
 .dp-list-avatar {
   width:38px;height:38px;border-radius:10px;
   display:flex;align-items:center;justify-content:center;
@@ -5312,21 +5314,23 @@ R.payments = () => {
             <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):''}</div></div>
             ${s.access_blocked?`<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:#ede9fe;color:#5b21b6;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:700;font-size:13px;color:${debt>0?'#ef4444':'#059669'}">${debt>0?'-$'+debt:'OK'}</div>`:'')}
           </div>
+          <!-- T1/T2/T3 — dot + montant -->
           <div style="display:flex;gap:5px;margin-bottom:8px">
-            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" class="pill ${p.paid?'pill-green':'pill-red'}" style="border:none;cursor:pointer;flex:1">${p.t}</button>`).join('')}
+            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid ${p.paid?'rgba(16,185,129,.3)':'rgba(239,68,68,.25)'};background:${p.paid?'rgba(16,185,129,.1)':'rgba(239,68,68,.08)'}"><span style="width:7px;height:7px;border-radius:50%;background:${p.paid?'#10b981':'#ef4444'};flex-shrink:0"></span><span style="font-size:11px;font-weight:700;color:${p.paid?'#065f46':'#991b1b'}">${p.t} $${fees[p.t]||'?'}</span></button>`).join('')}
           </div>
           <div class="ww-bar-wrap"><div class="ww-bar" style="width:${paidC/3*100}%;background:${barColor}"></div></div>
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            ${debt>0?`<button class="btn btn-outline btn-sm" style="flex:1" onclick="openAssignCaissePayment('${s.id}')">Affecter</button>`:''}
-            <button class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="downloadRecuPaiement('${s.id}')">Reçu PDF</button>
-            ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;background:#25D366;color:#fff;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;text-decoration:none;flex-shrink:0">💬</a>`:'';})()}
+          <!-- Actions: 2 principales + "+" révèle les autres -->
+          <div style="display:flex;gap:6px;margin-top:8px">
+            ${debt>0?`<button class="btn btn-outline btn-sm" style="flex:1;min-height:36px" onclick="openAssignCaissePayment('${s.id}')">Affecter</button>`:''}
+            <button onclick="toggleStudentAccess('${s.id}')" style="flex:1;min-height:36px;padding:6px 10px;border-radius:9px;border:1px solid ${s.access_blocked?'#7c3aed':'var(--border)'};background:${s.access_blocked?'#ede9fe':'transparent'};cursor:pointer;font-size:12px;font-weight:700;color:${s.access_blocked?'#5b21b6':'var(--text-2)'}">
+              ${s.access_blocked?'Débloquer':'Bloquer'}
+            </button>
+            <button onclick="var el=document.getElementById('ps${i}');el.style.display='flex';this.style.display='none'" style="width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:9px;background:var(--bg-card-2);cursor:pointer;font-size:18px;line-height:1;color:var(--text-2);display:flex;align-items:center;justify-content:center">+</button>
           </div>
-          <button onclick="toggleStudentAccess('${s.id}')"
-            style="width:100%;margin-top:8px;padding:7px;border-radius:9px;border:1px solid ${s.access_blocked?'#7c3aed':'#e2e8f0'};
-            background:${s.access_blocked?'#ede9fe':'transparent'};cursor:pointer;font-size:12px;font-weight:700;
-            color:${s.access_blocked?'#5b21b6':'var(--text-secondary)'}">
-            ${s.access_blocked?'Bloqué — Débloquer':'Autorisé — Bloquer'}
-          </button>
+          <div id="ps${i}" style="display:none;gap:6px;margin-top:6px;animation:slideUp .2s ease both">
+            <button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px" onclick="downloadRecuPaiement('${s.id}')">Reçu PDF</button>
+            ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;background:#25D366;color:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">💬 SMS</a>`:'';})()}
+          </div>
         </div>
       </div>`;
     }).join('')}
