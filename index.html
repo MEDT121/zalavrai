@@ -337,8 +337,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   min-height:72px;
 }
 .dp-quick-btn:hover,.dp-quick-btn:active {
-  background:rgba(255,255,255,.1);
-  border-color:rgba(255,255,255,.25);
+  background:var(--bg-card-2);
+  border-color:var(--border);
   transform:translateY(-2px);
 }
 .dp-quick-icon {
@@ -2200,17 +2200,18 @@ function dashboardDirection() {
   const teachers = DB.users?.filter(u => u.role === 'enseignant') || [];
   const classes  = DB.classes || [];
   const d        = today();
-  const fees     = getFees();
 
-  // Attendance today
-  const att = DB.attendance?.filter(a => a.date === d) || [];
-  const present = att.filter(a => a.status === 'present').length;
+  // Attendance — correct statuses: 'ontime' | 'late' = présent
+  const att     = DB.attendance?.filter(a => a.date === d) || [];
+  const present = att.filter(a => a.status==='ontime' || a.status==='late').length;
   const total   = students.length;
   const pctPres = total > 0 ? Math.round(present / total * 100) : 0;
 
-  // Payments
-  const paid    = DB.payments?.filter(p => p.paid).length || 0;
-  const unpaid  = students.length - paid;
+  // Payments — distinct students paid for current trimestre
+  const trim     = DB.settings?.currentTrimestre || 'T1';
+  const paidSids = new Set((DB.payments||[]).filter(p=>p.t===trim&&p.paid).map(p=>p.sid));
+  const paid     = paidSids.size;
+  const unpaid   = students.length - paid;
 
   // Alerts
   const pendingRats  = (DB.rattrapages||[]).filter(r => !r.validated_by && !r.d2_validated);
@@ -2218,108 +2219,141 @@ function dashboardDirection() {
   const unreadNotifs = (DB.notifs||[]).filter(n => n.uid===u.id && !n.read);
 
   // Scans today
-  const scansToday   = (DB.scan_log||[]).filter(s => s.date === d);
-  const entries      = scansToday.filter(s => s.type==='entry').length;
+  const scansToday = (DB.scan_log||[]).filter(s => s.date === d);
+  const entries    = scansToday.filter(s => s.type==='entry').length;
+  const exits      = scansToday.filter(s => s.type==='exit').length;
 
   // Caisse today
-  const recs  = (DB.daily_records||[]).filter(r => r.date===d);
-  const exps  = (DB.daily_expenses||[]).filter(e => e.date===d);
-  const recT  = recs.reduce((s,r)=>s+(+r.amount||0),0);
-  const expT  = exps.reduce((s,e)=>s+(+e.amount||0),0);
-  const net   = recT - expT;
+  const recs = (DB.daily_records||[]).filter(r => r.date===d);
+  const exps = (DB.daily_expenses||[]).filter(e => e.date===d);
+  const recT = recs.reduce((s,r)=>s+(+r.amount||0),0);
+  const expT = exps.reduce((s,e)=>s+(+e.amount||0),0);
+  const net  = recT - expT;
 
-  // Lockdown
+  // Time-aware greeting
+  const hr     = new Date().getHours();
+  const greet  = hr < 5 ? 'Bonne nuit' : hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const fName  = esc(u.name?.split(' ')[0] || 'Directeur');
+
+  // Lockdown banner
   const ldBanner = S.lockdown ? `
-    <div class="dp-alert urgent" style="margin-bottom:var(--sp-4)">
+    <div class="dp-alert urgent" style="margin-bottom:var(--sp-4)" role="alert">
       <div class="dp-alert-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </div>
-      <div>
-        <div class="dp-alert-title">🔴 CONFINEMENT ACTIF</div>
+      <div style="flex:1;min-width:0">
+        <div class="dp-alert-title">CONFINEMENT ACTIF</div>
         <div class="dp-alert-sub">Toutes les sorties sont bloquées. Accès portail suspendu.</div>
       </div>
-      <div class="dp-section-action" onclick="go('lockdown')" style="margin-left:auto;flex-shrink:0">Gérer →</div>
+      <div class="dp-section-action" onclick="go('lockdown')" style="flex-shrink:0;background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.35);color:#f87171">Gérer</div>
     </div>` : '';
 
-  // Pending alerts
-  const alertsHtml = (() => {
-    const items = [];
-    if (pendingAppr.length > 0) items.push(`
-      <div class="dp-alert warn" onclick="go('approbations')" style="cursor:pointer">
-        <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
-        <div><div class="dp-alert-title">${pendingAppr.length} approbation${pendingAppr.length>1?'s':''} en attente</div><div class="dp-alert-sub">Demandes nécessitant votre validation</div></div>
-        <div class="dp-cta-arrow">›</div>
-      </div>`);
-    if (pendingRats.length > 0) items.push(`
-      <div class="dp-alert info" onclick="go('approbations')" style="cursor:pointer">
-        <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <div><div class="dp-alert-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="dp-alert-sub">Rattrapages soumis par les enseignants</div></div>
-        <div class="dp-cta-arrow">›</div>
-      </div>`);
-    if (unreadNotifs.length > 0) items.push(`
-      <div class="dp-alert info" onclick="go('notifications')" style="cursor:pointer">
-        <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg></div>
-        <div><div class="dp-alert-title">${unreadNotifs.length} notification${unreadNotifs.length>1?'s':''} non lue${unreadNotifs.length>1?'s':''}</div><div class="dp-alert-sub">Appuyez pour consulter</div></div>
-        <div class="dp-cta-arrow">›</div>
-      </div>`);
-    return items.length ? `<div class="dp-section" style="margin-bottom:var(--sp-4)">${items.join('')}</div>` : '';
-  })();
+  // Pending alerts — unified section
+  const alertItems = [];
+  if (pendingAppr.length > 0) alertItems.push({
+    cls:'warn', page:'approbations',
+    paths:`<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>`,
+    title:`${pendingAppr.length} approbation${pendingAppr.length>1?'s':''} en attente`,
+    sub:'Demandes nécessitant votre validation'
+  });
+  if (pendingRats.length > 0) alertItems.push({
+    cls:'info', page:'approbations',
+    paths:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>`,
+    title:`${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider`,
+    sub:'Rattrapages soumis par les enseignants'
+  });
+  if (unreadNotifs.length > 0) alertItems.push({
+    cls:'info', page:'notifications',
+    paths:`<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>`,
+    title:`${unreadNotifs.length} notification${unreadNotifs.length>1?'s':''} non lue${unreadNotifs.length>1?'s':''}`,
+    sub:'Appuyez pour consulter'
+  });
+  const alertsHtml = alertItems.length ? `
+    <div class="dp-section" style="margin-bottom:var(--sp-4)" role="region" aria-label="Alertes">
+      ${alertItems.map(a=>`
+      <div class="dp-alert ${a.cls}" onclick="go('${a.page}')" style="cursor:pointer;border-radius:0;border-left:none;border-right:none;border-top:none;margin-bottom:0" role="button" tabindex="0">
+        <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">${a.paths}</svg></div>
+        <div style="flex:1;min-width:0">
+          <div class="dp-alert-title">${a.title}</div>
+          <div class="dp-alert-sub">${a.sub}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity:.4;flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`).join('')}
+    </div>` : '';
 
-  // Quick actions
-  const quickActions = [
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,label:'Élèves',color:'rgba(77,231,255,.12)',stroke:'var(--primary)',page:'students'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,label:'Enseignants',color:'rgba(255,210,78,.12)',stroke:'var(--gold)',page:'teachers'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,label:'Classes',color:'rgba(92,146,255,.12)',stroke:'var(--blue)',page:'classes'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`,label:'Paiements',color:'rgba(56,230,165,.12)',stroke:'var(--green)',page:'payments'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,label:'Présences',color:'rgba(77,231,255,.08)',stroke:'var(--primary)',page:'attendance'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,label:'Palmarès',color:'rgba(255,210,78,.1)',stroke:'var(--gold)',page:'palmares'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,label:'Comptes',color:'rgba(92,146,255,.1)',stroke:'var(--blue)',page:'accounts'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>`,label:'Confinement',color:'rgba(239,68,68,.12)',stroke:'#f87171',page:'lockdown'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,label:'Scan log',color:'rgba(56,230,165,.08)',stroke:'var(--green)',page:'scan_log'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,label:'Export',color:'rgba(255,210,78,.08)',stroke:'var(--gold)',page:'export'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M4.93 4.93a10 10 0 000 14.14"/></svg>`,label:'Paramètres',color:'rgba(174,188,211,.08)',stroke:'var(--text-2)',page:'settings'},
-    {icon:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,label:'Audit',color:'rgba(77,231,255,.07)',stroke:'var(--primary)',page:'audit_log'},
-  ].map(a => `
-    <div class="dp-quick-btn" onclick="go('${a.page}')">
-      <div class="dp-quick-icon" style="background:${a.color}">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${a.stroke}" stroke-width="2">${a.icon.match(/<svg[^>]*>([\s\S]*?)<\/svg>/)?.[1]||''}</svg>
+  // Quick actions — circular icon design (reference: animated button pattern)
+  const QA = [
+    {bg:'rgba(37,99,235,.13)',  stroke:'#5c92ff', label:'Élèves',       page:'students',
+     p:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>`},
+    {bg:'rgba(201,160,48,.13)', stroke:'#c9a030', label:'Enseignants',  page:'teachers',
+     p:`<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>`},
+    {bg:'rgba(92,146,255,.13)', stroke:'#7ba8ff', label:'Classes',      page:'classes',
+     p:`<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>`},
+    {bg:'rgba(56,230,165,.13)', stroke:'#38e6a5', label:'Paiements',    page:'payments',
+     p:`<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>`},
+    {bg:'rgba(59,130,246,.12)', stroke:'#60a5fa', label:'Présences',    page:'attendance',
+     p:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`},
+    {bg:'rgba(201,160,48,.12)', stroke:'#d4a843', label:'Palmarès',     page:'palmares',
+     p:`<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`},
+    {bg:'rgba(139,92,246,.12)', stroke:'#a78bfa', label:'Comptes',      page:'accounts',
+     p:`<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>`},
+    {bg:'rgba(220,38,38,.12)',  stroke:'#f87171', label:'Confinement',  page:'lockdown',
+     p:`<path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>`},
+    {bg:'rgba(16,185,129,.11)', stroke:'#34d399', label:'Scan log',     page:'scan_log',
+     p:`<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`},
+    {bg:'rgba(217,119,6,.11)',  stroke:'#fbbf24', label:'Export',       page:'export',
+     p:`<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>`},
+    {bg:'rgba(100,116,139,.1)', stroke:'#94a3b8', label:'Paramètres',   page:'settings',
+     p:`<circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>`},
+    {bg:'rgba(77,231,255,.1)',  stroke:'#4de7ff', label:'Audit',        page:'audit_log',
+     p:`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`},
+  ];
+  const quickActions = QA.map((a,i) => `
+    <div class="dp-quick-btn" onclick="go('${a.page}')" role="button" tabindex="0" aria-label="${a.label}" style="animation:fadeInUp .25s ${i*25}ms ease both">
+      <div class="dp-quick-icon" style="width:48px;height:48px;border-radius:50%;background:${a.bg}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${a.stroke}" stroke-width="2" aria-hidden="true">${a.p}</svg>
       </div>
       <div class="dp-quick-label">${a.label}</div>
     </div>`).join('');
 
-  // Recent students
+  // Recent students — fixed presence status
   const recentStudents = students.slice(0, 5).map(s => {
-    const cl = gc(s.cid);
+    const cl   = gc(s.cid);
     const attS = att.find(a => a.sid === s.id);
-    const statusColor = attS?.status === 'present' ? 'var(--green)' : attS?.status === 'late' ? 'var(--gold)' : 'var(--text-3)';
-    const statusLabel = attS?.status === 'present' ? 'Présent' : attS?.status === 'late' ? 'En retard' : '—';
+    const ok   = attS?.status==='ontime' || attS?.status==='late';
+    const late = attS?.status==='late';
+    const stColor = ok ? (late ? 'var(--gold)' : 'var(--green)') : 'var(--text-3)';
+    const stLabel = ok ? (late ? 'En retard' : 'À l\'heure') : '—';
     return `
-      <div class="dp-list-item" onclick="go('students')">
-        <div class="dp-list-avatar" style="background:rgba(77,231,255,.1);color:var(--primary)">${ini(s.name)}</div>
+      <div class="dp-list-item" onclick="go('students')" role="button" tabindex="0" aria-label="${esc(s.name)}">
+        <div class="dp-list-avatar" style="background:rgba(37,99,235,.12);color:#5c92ff;border-radius:50%">${ini(s.name)}</div>
         <div style="flex:1;min-width:0">
           <div class="dp-list-title">${esc(s.name)}</div>
           <div class="dp-list-sub">${esc(cl?.name||'—')}</div>
         </div>
         <div class="dp-list-end">
-          <span class="dp-badge" style="background:rgba(255,255,255,.06);color:${statusColor}">${statusLabel}</span>
+          <span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${ok?'rgba(56,230,165,.1)':'rgba(148,163,184,.07)'};color:${stColor}">${stLabel}</span>
         </div>
       </div>`;
   }).join('');
 
-  // Classes
+  // Classes — fixed presence check
   const classesHtml = classes.slice(0,4).map(cl => {
     const clStudents = students.filter(s => s.cid === cl.id).length;
-    const clPresent  = att.filter(a => students.find(s=>s.id===a.sid&&s.cid===cl.id) && a.status==='present').length;
-    const pct = clStudents > 0 ? Math.round(clPresent/clStudents*100) : 0;
+    const clPresent  = att.filter(a => {
+      const s = students.find(st => st.id===a.sid && st.cid===cl.id);
+      return s && (a.status==='ontime' || a.status==='late');
+    }).length;
+    const pct      = clStudents > 0 ? Math.round(clPresent/clStudents*100) : 0;
     const barColor = pct >= 80 ? 'var(--green)' : pct >= 60 ? 'var(--gold)' : 'var(--pink)';
     return `
-      <div class="dp-list-item" onclick="go('attendance')">
-        <div class="dp-list-avatar" style="background:rgba(92,146,255,.1);color:var(--blue);font-size:11px">${esc(cl.name||'?')}</div>
+      <div class="dp-list-item" onclick="go('attendance')" role="button" tabindex="0" aria-label="${esc(cl.name)}: ${pct}% présence">
+        <div class="dp-list-avatar" style="background:rgba(92,146,255,.12);color:#7ba8ff;font-size:11px;font-weight:800;letter-spacing:-.02em">${esc((cl.name||'?').slice(0,4))}</div>
         <div style="flex:1;min-width:0">
           <div class="dp-list-title">${esc(cl.name)}</div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <div class="dp-progress" style="flex:1"><div class="dp-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
-            <span style="font-size:var(--text-xs);color:var(--text-2);min-width:32px;text-align:right">${pct}%</span>
+            <div class="dp-progress" style="flex:1;margin-top:0"><div class="dp-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
+            <span style="font-size:var(--text-xs);color:var(--text-2);min-width:32px;text-align:right;font-weight:700">${pct}%</span>
           </div>
         </div>
         <div class="dp-list-end"><span style="font-size:var(--text-xs);color:var(--text-2)">${clStudents} él.</span></div>
@@ -2327,27 +2361,36 @@ function dashboardDirection() {
   }).join('');
 
   return `
-<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
-  <!-- Hero -->
-  <div class="dp-hero" style="background:linear-gradient(135deg,#0d2d5e,#1a4b8c);animation:fadeInUp .35s ease both">
-    <div class="dp-hero-eyebrow">Direction Générale · SchoolSafe</div>
-    <div class="dp-hero-name">Bj, ${esc(u.name?.split(' ')[0]||'Directeur')} 👋</div>
-    <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs">
+  <!-- Hero — floating avatar + time-aware greeting -->
+  <div class="dp-hero" style="background:linear-gradient(135deg,#0d2d5e 0%,#1a4b8c 60%,#1e40af 100%);animation:fadeInUp .3s ease both;overflow:visible" role="banner" aria-label="Tableau de bord Direction">
+    <div style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none">
+      <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;border-radius:50%;background:rgba(77,231,255,.06)"></div>
+      <div style="position:absolute;bottom:-10px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(92,146,255,.05)"></div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:var(--sp-3);margin-bottom:var(--sp-4);position:relative">
+      <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,rgba(77,231,255,.25),rgba(92,146,255,.2));border:2px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-family:'Outfit','Space Grotesk',sans-serif;font-size:18px;font-weight:800;color:#fff;flex-shrink:0;box-shadow:0 4px 16px rgba(0,0,0,.3)" aria-hidden="true">${ini(u.name||'D')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="dp-hero-eyebrow">Direction Générale · SchoolSafe</div>
+        <div class="dp-hero-name">${greet}, ${fName}</div>
+        <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      </div>
+    </div>
+    <div class="dp-hero-stats" role="group" aria-label="Vue d'ensemble">
+      <div class="dp-hs" onclick="go('students')" style="cursor:pointer" role="button" tabindex="0">
         <div class="dp-hs-n">${students.length}</div>
         <div class="dp-hs-l">Élèves</div>
       </div>
-      <div class="dp-hs">
+      <div class="dp-hs" onclick="go('teachers')" style="cursor:pointer" role="button" tabindex="0">
         <div class="dp-hs-n">${teachers.length}</div>
         <div class="dp-hs-l">Enseignants</div>
       </div>
-      <div class="dp-hs">
+      <div class="dp-hs" onclick="go('attendance')" style="cursor:pointer" role="button" tabindex="0">
         <div class="dp-hs-n">${present}</div>
         <div class="dp-hs-l">Présents</div>
       </div>
-      <div class="dp-hs">
+      <div class="dp-hs" onclick="go('scan_log')" style="cursor:pointer" role="button" tabindex="0">
         <div class="dp-hs-n">${entries}</div>
         <div class="dp-hs-l">Entrées</div>
       </div>
@@ -2357,44 +2400,44 @@ function dashboardDirection() {
   ${ldBanner}
   ${alertsHtml}
 
-  <!-- Stats grid -->
-  <div class="dp-stats-grid" style="animation:fadeInUp .35s .08s ease both">
-    <div class="dp-stat-card" style="--accent-color:var(--primary)" onclick="go('attendance')">
-      <div class="dp-stat-icon">📋</div>
+  <!-- KPI stats grid — SVG icons, fixed data -->
+  <div class="dp-stats-grid" style="animation:fadeInUp .3s .07s ease both" role="region" aria-label="Indicateurs clés">
+    <div class="dp-stat-card" style="--accent-color:#5c92ff" onclick="go('attendance')" role="button" tabindex="0" aria-label="Présence ${pctPres}%">
+      <div class="dp-stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
       <div class="dp-stat-num">${pctPres}%</div>
-      <div class="dp-stat-label">Présence aujourd'hui</div>
-      <div class="dp-progress" style="margin-top:8px"><div class="dp-progress-fill" style="width:${pctPres}%;background:${pctPres>=80?'var(--green)':pctPres>=60?'var(--gold)':'var(--pink)'}"></div></div>
+      <div class="dp-stat-label">Présence auj.</div>
+      <div class="dp-progress"><div class="dp-progress-fill" style="width:${pctPres}%;background:${pctPres>=80?'var(--green)':pctPres>=60?'var(--gold)':'var(--pink)'}"></div></div>
     </div>
-    <div class="dp-stat-card" style="--accent-color:var(--gold)" onclick="go('payments')">
-      <div class="dp-stat-icon">💰</div>
+    <div class="dp-stat-card" style="--accent-color:#c9a030" onclick="go('payments')" role="button" tabindex="0" aria-label="${paid} élèves ayant payé">
+      <div class="dp-stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
       <div class="dp-stat-num">${paid}</div>
-      <div class="dp-stat-label">Paiements reçus</div>
-      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${unpaid > 0 ? `${unpaid} en attente` : 'Tous à jour ✓'}</div>
+      <div class="dp-stat-label">Payés · ${trim}</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${unpaid>0?`<span style="color:var(--pink)">${unpaid} restants</span>`:'<span style="color:var(--green)">Tous à jour</span>'}</div>
     </div>
-    <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('caisse_paiement')">
-      <div class="dp-stat-icon">🏦</div>
-      <div class="dp-stat-num">${net >= 0 ? '+' : ''}$${Math.abs(net)}</div>
+    <div class="dp-stat-card" style="--accent-color:${net>=0?'var(--green)':'var(--pink)'}" onclick="go('caisse_paiement')" role="button" tabindex="0" aria-label="Solde caisse du jour">
+      <div class="dp-stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+      <div class="dp-stat-num" style="color:${net>=0?'var(--green)':'var(--pink)'}">${net>=0?'+':'−'}$${Math.abs(net).toLocaleString()}</div>
       <div class="dp-stat-label">Solde du jour</div>
-      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">Recettes: $${recT} · Dép: $${expT}</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">+$${recT} · −$${expT}</div>
     </div>
-    <div class="dp-stat-card" style="--accent-color:var(--pink)" onclick="go('scan_log')">
-      <div class="dp-stat-icon">🔒</div>
+    <div class="dp-stat-card" style="--accent-color:#4de7ff" onclick="go('scan_log')" role="button" tabindex="0" aria-label="${scansToday.length} scans portail">
+      <div class="dp-stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
       <div class="dp-stat-num">${scansToday.length}</div>
       <div class="dp-stat-label">Scans portail</div>
-      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">Entrées: ${entries} · Sorties: ${scansToday.length - entries}</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">↑${entries} · ↓${exits}</div>
     </div>
   </div>
 
-  <!-- Quick actions -->
-  <div class="dp-section" style="animation:fadeInUp .35s .14s ease both">
+  <!-- Quick actions — circular buttons -->
+  <div class="dp-section" style="animation:fadeInUp .3s .14s ease both" role="navigation" aria-label="Accès rapides">
     <div class="dp-section-header">
       <div class="dp-section-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         Accès rapides
       </div>
     </div>
     <div style="padding:var(--sp-3)">
-      <div class="dp-quick-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="dp-quick-grid">
         ${quickActions}
       </div>
     </div>
@@ -2402,39 +2445,39 @@ function dashboardDirection() {
 
   <!-- Classes présence -->
   ${classes.length > 0 ? `
-  <div class="dp-section" style="animation:fadeInUp .35s .2s ease both">
+  <div class="dp-section" style="animation:fadeInUp .3s .21s ease both" role="region" aria-label="Présence par classe">
     <div class="dp-section-header">
       <div class="dp-section-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Présence par classe
       </div>
-      <div class="dp-section-action" onclick="go('attendance')">Voir tout</div>
+      <div class="dp-section-action" onclick="go('attendance')" role="button" tabindex="0">Voir tout</div>
     </div>
     ${classesHtml}
-    ${classes.length > 4 ? `<div class="dp-list-item" onclick="go('attendance')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir les ${classes.length - 4} autres classes →</div>` : ''}
+    ${classes.length > 4 ? `<div class="dp-list-item" onclick="go('attendance')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600" role="button" tabindex="0">+${classes.length-4} classes →</div>` : ''}
   </div>` : ''}
 
   <!-- Élèves récents -->
   ${students.length > 0 ? `
-  <div class="dp-section" style="animation:fadeInUp .35s .26s ease both">
+  <div class="dp-section" style="animation:fadeInUp .3s .28s ease both" role="region" aria-label="Élèves">
     <div class="dp-section-header">
       <div class="dp-section-title">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Élèves — ${today()}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Élèves
       </div>
-      <div class="dp-section-action" onclick="go('students')">Gérer</div>
+      <div class="dp-section-action" onclick="go('students')" role="button" tabindex="0">Gérer</div>
     </div>
     ${recentStudents}
-    ${students.length > 5 ? `<div class="dp-list-item" onclick="go('students')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir les ${students.length - 5} autres →</div>` : ''}
+    ${students.length > 5 ? `<div class="dp-list-item" onclick="go('students')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600" role="button" tabindex="0">+${students.length-5} autres →</div>` : ''}
   </div>` : ''}
 
-  <!-- Inscription CTA -->
-  <div class="dp-cta" style="background:linear-gradient(135deg,rgba(77,231,255,.15),rgba(92,146,255,.1));border:1px solid rgba(77,231,255,.2);animation:fadeInUp .35s .32s ease both" onclick="go('accounts')">
+  <!-- CTA comptes -->
+  <div class="dp-cta" style="background:linear-gradient(135deg,rgba(37,99,235,.8),rgba(92,146,255,.7));border:1px solid rgba(92,146,255,.3);animation:fadeInUp .3s .35s ease both" onclick="go('accounts')" role="button" tabindex="0" aria-label="Gestion des comptes">
     <div>
       <div class="dp-cta-label">Gestion des comptes</div>
       <div class="dp-cta-sub">Créer, modifier ou désactiver des accès</div>
     </div>
-    <div class="dp-cta-arrow">›</div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.8)" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
   </div>
 
 </div>`;
