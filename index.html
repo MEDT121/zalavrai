@@ -26,6 +26,9 @@
   --rainbow:linear-gradient(90deg,#ef4444,#f97316,#eab308,#10b981,#3b82f6,#8b5cf6,#ec4899);
   --sidebar-width:260px;--radius-xs:8px;--radius-sm:12px;--radius:16px;--radius-lg:24px;
   --gold:#c9a030;--gold-light:#f5e6b8;--navy:#0f1b3d;--navy-light:#1a2f6b;
+  /* dp-* system palette */
+  --green:#38e6a5;--pink:#ff74c6;--blue:#5c92ff;
+  --text-1:var(--text);--text-2:var(--text-secondary);--text-3:var(--text-muted);
   /* Type Scale */
   --text-xs:10px;--text-sm:12px;--text-base:14px;--text-md:15px;
   --text-lg:17px;--text-xl:20px;--text-2xl:24px;--text-3xl:32px;
@@ -2500,701 +2503,617 @@ window.showStudentInfo = (sid) => {
 
 function dashboardEnseignant() {
   const u = S.user;
-  const cl = DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+  const cl = DB.classes?.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
   const lang = cl ? (cl.teacher_id===u.id ? 'FR' : 'EN') : '';
-  const isTitulaire = cl && cl.titulaire_id===u.id;
-  const students = cl ? DB.students.filter(s=>s.cid===cl.id) : [];
-  const todayAtt = DB.attendance.filter(a=>a.date===today()&&students.some(s=>s.id===a.sid));
-  const scannedToday = cl ? DB.scan_log.filter(l=>l.date===today()&&l.type==='entry'&&students.some(s=>s.id===l.sid)) : [];
+  const isTit = cl && cl.titulaire_id===u.id;
+  const students = cl ? (DB.students?.filter(s=>s.cid===cl.id)||[]) : [];
+  const d = today();
+  const todayAtt = DB.attendance?.filter(a=>a.date===d&&students.some(s=>s.id===a.sid))||[];
+  const scannedToday = cl ? (DB.scan_log?.filter(l=>l.date===d&&l.type==='entry'&&students.some(s=>s.id===l.sid))||[]) : [];
   const validatedToday = todayAtt.some(a=>a.teacher_validated);
-  const clColor = cl ? clsColor(cl.name)[0] : '#1d4ed8';
-  const presentToday = todayAtt.filter(a=>a.status==='ontime').length;
-  const lateToday = todayAtt.filter(a=>a.status==='late').length;
-  const absentToday = Math.max(0, students.length - presentToday - lateToday);
-
-  // Devoirs upcoming (next 7 days)
-  const in7 = new Date(); in7.setDate(in7.getDate()+7);
-  const upcomingDevoirs = cl ? DB.devoirs.filter(d=>d.cid===cl.id&&d.status==='published'&&d.deadline&&new Date(d.deadline)>=new Date()&&new Date(d.deadline)<=in7).sort((a,b)=>a.deadline.localeCompare(b.deadline)) : [];
-
-  // Unread messages
-  const unreadMsgs = DB.messages.filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
-
-  // Co-titulaire
+  const present = todayAtt.filter(a=>a.status==='ontime').length;
+  const late = todayAtt.filter(a=>a.status==='late').length;
+  const absent = Math.max(0, students.length - present - late);
+  const unreadMsgs = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
   const coId = lang==='FR' ? cl?.teacher_id_en : cl?.teacher_id;
   const coTeacher = coId ? gu(coId) : null;
+  const in7 = new Date(); in7.setDate(in7.getDate()+7);
+  const upDevoirs = cl ? (DB.devoirs||[]).filter(dv=>dv.cid===cl.id&&dv.status==='published'&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=in7).sort((a,b)=>a.deadline.localeCompare(b.deadline)) : [];
+  const myRats = (DB.rattrapages||[]).filter(r=>r.teacher_id===u.id).slice(0,5);
+  const myAbsToday = (DB.teacher_absences||[]).filter(a=>a.uid===u.id&&a.date===d);
 
-  const clr='#1d4ed8'; const clr2='#2563eb';
+  const validCTA = cl && !validatedToday && scannedToday.length>0 ? `
+    <div class="dp-alert warn" onclick="go('attendance')" style="cursor:pointer;margin-bottom:var(--sp-4)">
+      <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div><div class="dp-alert-title">${scannedToday.length} élève${scannedToday.length>1?'s':''} scanné${scannedToday.length>1?'s':''} — présences en attente</div><div class="dp-alert-sub">Validez la liste avant 9h</div></div>
+      <div class="dp-cta-arrow">›</div>
+    </div>` : cl && validatedToday ? `
+    <div class="dp-alert info" style="margin-bottom:var(--sp-4)">
+      <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div><div class="dp-alert-title">Présences validées</div><div class="dp-alert-sub">${todayAtt.length} présent${todayAtt.length>1?'s':''} · ${students.length-scannedToday.length} absent${students.length-scannedToday.length>1?'s':''}</div></div>
+    </div>` : '';
 
-  return `${_weekendBanner(false)}
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(29,78,216,.4)">
-    <div style="position:absolute;top:-20px;right:-15px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-    <div style="position:absolute;bottom:-25px;left:-10px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
-      <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${cl?esc(cl.name):'Ma Classe'}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${esc(u.name)}${lang?' — Prof '+lang:''}${isTitulaire?' · Titulaire':''} · ${students.length} élève${students.length!==1?'s':''}</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
-      ${[[students.length,'Total'],[scannedToday.length,'Scannés'],[unreadMsgs,'Messages']].map(([n,lbl])=>`
-      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
-        <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">${n}</div>
-        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
-      </div>`).join('')}
-    </div>
-  </div>
+  const studentsList = students.slice(0,6).map(s => {
+    const hasAtt = todayAtt.find(a=>a.sid===s.id);
+    const statusColor = hasAtt?.status==='ontime'?'var(--green)':hasAtt?.status==='late'?'var(--gold)':hasAtt?.status==='sick'?'var(--pink)':'var(--text-3)';
+    const statusTxt = hasAtt?.status==='ontime'?'À l\'heure'+(hasAtt.arr_time?' — '+hasAtt.arr_time:''):hasAtt?.status==='late'?'Retard':hasAtt?.status==='sick'?'Maladie':hasAtt?.status==='excused'?'Justifié':'—';
+    return `<div class="dp-list-item" onclick="showStudentInfo('${s.id}')">
+      <div class="dp-list-avatar" style="background:rgba(77,231,255,.1);color:var(--primary)">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`:ini(s.name)}</div>
+      <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div><div class="dp-list-sub" style="color:${statusColor}">${statusTxt}</div></div>
+    </div>`;
+  }).join('');
 
-  ${cl && !validatedToday && scannedToday.length>0 ? `
-  <div style="background:#fff;border-left:4px solid #3b82f6;border-radius:20px;padding:16px;margin-bottom:14px;cursor:pointer;box-shadow:0 4px 14px rgba(59,130,246,.15);animation:fadeInUp .3s ease both" onclick="go('attendance')">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:40px;height:40px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <div style="width:14px;height:14px;border-radius:50%;background:#3b82f6;animation:ringPulse 2s ease infinite"></div>
+  const devoirsSection = upDevoirs.length ? `
+    <div class="dp-section" style="animation:fadeInUp .35s .22s ease both">
+      <div class="dp-section-header">
+        <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Devoirs (7j)</div>
+        <div class="dp-section-action" onclick="go('devoirs')">Voir tout</div>
       </div>
-      <div style="flex:1">
-        <div style="font-weight:700;color:#0f172a">${scannedToday.length} élève${scannedToday.length>1?'s':''} scanné${scannedToday.length>1?'s':''} au portail</div>
-        <div style="font-size:13px;color:#64748b">Présences en attente de votre validation</div>
-      </div>
-      <span style="background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;padding:6px 12px;border-radius:10px">Valider →</span>
-    </div>
-  </div>` : cl && validatedToday ? `
-  <div style="background:#fff;border-left:4px solid #10b981;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 4px 14px rgba(16,185,129,.1);animation:fadeInUp .3s ease both">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <div style="width:14px;height:14px;border-radius:4px;background:#10b981"></div>
-      </div>
-      <div>
-        <div style="font-weight:700;color:#0f172a">Présences validées</div>
-        <div style="font-size:13px;color:#64748b">${todayAtt.length} présent${todayAtt.length>1?'s':''} · ${students.length-scannedToday.length} absent${students.length-scannedToday.length>1?'s':''}</div>
-      </div>
-    </div>
-  </div>` : ''}
-
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;animation:fadeInUp .3s ease both;animation-delay:.1s">
-    ${[[students.length,'Total élèves','#1d4ed8','#dbeafe'],[presentToday,"Présents auj.",'#059669','#d1fae5'],[absentToday,"Absents auj.",'#dc2626','#fee2e2'],[lateToday,"Retards auj.",'#d97706','#fef3c7']].map(([n,lbl,tc,bg])=>`
-    <div style="background:#fff;border-radius:18px;padding:16px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06)">
-      <div style="font-size:30px;font-weight:900;color:${tc};line-height:1">${n}</div>
-      <div style="font-size:11px;font-weight:700;color:#475569;margin-top:4px;letter-spacing:.3px">${lbl.toUpperCase()}</div>
-    </div>`).join('')}
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.15s">
-    ${[['attendance','linear-gradient(135deg,#1d4ed8,#2563eb)','Présences',!validatedToday&&scannedToday.length>0],
-       ['palmares','linear-gradient(135deg,#7c3aed,#6d28d9)','Palmarès',false],
-       ['devoirs','linear-gradient(135deg,#c9a030,#a68520)','Devoirs',false],
-       ['messages','linear-gradient(135deg,#059669,#047857)','Messages',unreadMsgs>0]
-    ].map(([page,bg,label,badge])=>`
-    <button class="pp-btn" onclick="go('${page}')"
-      style="background:${bg};border:none;border-radius:18px;padding:16px 6px 14px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
-      ${badge?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${label==='Messages'&&unreadMsgs>0?unreadMsgs:'!'}</span>`:''}
-      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
-      </div>
-      <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:-.2px">${label}</div>
-    </button>`).join('')}
-  </div>
-
-  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(29,78,216,.1);animation:fadeInUp .35s ease both;animation-delay:.2s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Mes élèves aujourd'hui</div>
-    </div>
-    ${cl ? students.slice(0,8).map((s,si)=>{
-      const [cc,cbg]=clsColor(cl?cl.name:'');
-      const hasAtt=todayAtt.find(a=>a.sid===s.id);
-      const attClr=hasAtt?(hasAtt.status==='ontime'?'#059669':hasAtt.status==='late'?'#d97706':hasAtt.status==='sick'?'#ec4899':hasAtt.status==='excused'?'#3b82f6':'#94a3b8'):'#94a3b8';
-      const attTxt=hasAtt?(hasAtt.status==='ontime'?'À l\'heure'+(hasAtt.arr_time?' — '+hasAtt.arr_time:''):hasAtt.status==='late'?'Retard'+(hasAtt.arr_time?' — '+hasAtt.arr_time:''):hasAtt.status==='sick'?'Maladie':hasAtt.status==='excused'?'Justifié':'Autre'):'Pas encore arrivé';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${si<Math.min(7,students.slice(0,8).length-1)?'border-bottom:1px solid #f1f5f9':''}">
-        <div style="width:8px;height:8px;border-radius:50%;background:${attClr};flex-shrink:0"></div>
-        <div style="width:32px;height:32px;border-radius:10px;background:${cbg};overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${cc}">
-          ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(s.name)}</div>
-          <div style="font-size:11px;color:${attClr};font-weight:600">${attTxt}</div>
-        </div>
-      </div>`;
-    }).join('') : `<div style="font-size:13px;color:#94a3b8;padding:16px;text-align:center">Aucune classe assignée</div>`}
-    ${students.length>8?`<div style="text-align:center;padding:8px 0 2px;font-size:13px;color:${clr};cursor:pointer;font-weight:600" onclick="go('attendance')">Voir les ${students.length-8} autres élèves →</div>`:''}
-  </div>
-
-  ${upcomingDevoirs.length?`
-  <div style="background:#fff;border-left:4px solid #c9a030;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(201,160,48,.1);animation:fadeInUp .35s ease both;animation-delay:.25s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:#c9a030"></div>
-      <div style="font-size:10px;font-weight:800;color:#c9a030;letter-spacing:1.5px;text-transform:uppercase">Devoirs à venir (7 jours)</div>
-    </div>
-    ${upcomingDevoirs.map((d,di)=>{
-      const dl=new Date(d.deadline);
-      const daysLeft=Math.ceil((dl-new Date())/86400000);
-      const urgClr=daysLeft<=2?'#dc2626':'#c9a030';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${di<upcomingDevoirs.length-1?'border-bottom:1px solid #f1f5f9':''}">
-        <div style="width:8px;height:8px;border-radius:50%;background:${urgClr};flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(d.title)}</div>
-          <div style="font-size:11px;color:#64748b">${d.matiere?esc(d.matiere)+' · ':''}À rendre dans ${daysLeft} jour${daysLeft>1?'s':''}</div>
-        </div>
-        <span style="font-size:11px;font-weight:700;background:${daysLeft<=2?'#fee2e2':'#fef3c7'};color:${urgClr};border-radius:8px;padding:3px 8px">${daysLeft}j</span>
-      </div>`;
-    }).join('')}
-  </div>`:''}
-
-  ${coTeacher?`
-  <div style="background:#fff;border-left:4px solid #10b981;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(16,185,129,.1);animation:fadeInUp .35s ease both;animation-delay:.3s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:#10b981"></div>
-      <div style="font-size:10px;font-weight:800;color:#10b981;letter-spacing:1.5px;text-transform:uppercase">Co-titulaire</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="go('teacher_comm')">
-      <div style="width:40px;height:40px;border-radius:12px;background:${lang==='FR'?'#d1fae5':'#dbeafe'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${lang==='FR'?'#065f46':'#1e40af'};flex-shrink:0">${ini(coTeacher.name)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:700;color:#0f172a">${esc(coTeacher.name)}</div>
-        <div style="font-size:12px;color:#64748b">${lang==='FR'?'Professeur Anglais':'Professeur Français'}${cl&&cl.titulaire_id===coTeacher.id?' · Titulaire':''}</div>
-      </div>
-      <span style="font-size:12px;font-weight:700;color:#10b981;background:#d1fae5;border-radius:10px;padding:6px 12px">Communiquer →</span>
-    </div>
-  </div>`:''}
-
-  ${(()=>{
-    const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).slice(0,5);
-    if(!myRats.length) return '';
-    const statusLabel={pending:'En attente',validated:'Validé',refused:'Refusé'};
-    const statusColor={pending:'#f59e0b',validated:'#059669',refused:'#dc2626'};
-    const pendingN=myRats.filter(r=>!r.validated_by&&r.status!=='refused').length;
-    return `<div style="background:#fff;border-left:4px solid #f59e0b;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(245,158,11,.1);animation:fadeInUp .35s ease both;animation-delay:.35s">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:6px">
-          <div style="width:3px;height:14px;border-radius:2px;background:#f59e0b"></div>
-          <div style="font-size:10px;font-weight:800;color:#f59e0b;letter-spacing:1.5px;text-transform:uppercase">Rattrapages signalés</div>
-        </div>
-        ${pendingN>0?`<span style="font-size:11px;font-weight:700;background:#fef3c7;color:#92400e;border-radius:8px;padding:3px 8px">${pendingN} en attente</span>`:''}
-      </div>
-      ${myRats.map((r,ri)=>{
-        const s=DB.students.find(x=>x.id===r.sid);
-        const status=r.validated_by?'validated':r.status==='refused'?'refused':'pending';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${ri<myRats.length-1?'border-bottom:1px solid #f1f5f9':''}">
-          <div style="width:8px;height:8px;border-radius:50%;background:${statusColor[status]};flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:#0f172a">${s?esc(s.name):'?'} — ${esc(r.matiere)}</div>
-            <div style="font-size:11px;color:#64748b">${r.date}${r.amount>0?' · Prime: $'+r.amount:''}${r.paid?' · Versée':r.validated_by&&r.amount>0?' · À percevoir':''}</div>
-          </div>
-          <span style="font-size:10px;font-weight:700;color:${statusColor[status]}">${statusLabel[status]}</span>
+      ${upDevoirs.slice(0,4).map(dv=>{
+        const dl=new Date(dv.deadline);const dLeft=Math.ceil((dl-new Date())/86400000);
+        return `<div class="dp-list-item">
+          <div class="dp-list-avatar" style="background:rgba(255,210,78,.1);color:var(--gold);font-size:11px;font-weight:800">${dLeft}j</div>
+          <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(dv.title)}</div><div class="dp-list-sub">${dv.matiere?esc(dv.matiere)+' · ':''} ${dLeft} jour${dLeft>1?'s':''}</div></div>
+          <span class="dp-badge" style="background:${dLeft<=2?'rgba(239,68,68,.12)':'rgba(245,158,11,.1)'};color:${dLeft<=2?'#f87171':'var(--gold)'}">${dLeft}j</span>
         </div>`;
       }).join('')}
-    </div>`;
-  })()}
+    </div>` : '';
 
-  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:8px;animation:fadeInUp .35s ease both;animation-delay:.4s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-      ${[['cahier_texte','#1d4ed8','Cahier'],['matieres','#7c3aed','Matières'],['teacher_comm','#10b981','Co-prof'],['mes_primes','#c9a030','Primes'],['mes_absences','#f59e0b','Absences'],['profil_enseignant','#64748b','Profil']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
-        <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
-          <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
-        </div>
-        <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
-      </button>`).join('')}
+  const ratsSection = myRats.length ? `
+    <div class="dp-section" style="animation:fadeInUp .35s .28s ease both">
+      <div class="dp-section-header">
+        <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Rattrapages</div>
+      </div>
+      ${myRats.map(r=>{
+        const s=DB.students?.find(x=>x.id===r.sid);
+        const status=r.validated_by?'Validé':r.status==='refused'?'Refusé':'En attente';
+        const sColor=r.validated_by?'var(--green)':r.status==='refused'?'var(--pink)':'var(--gold)';
+        return `<div class="dp-list-item">
+          <div class="dp-list-avatar" style="background:rgba(255,255,255,.06);color:var(--text-2);font-size:11px">${ini(s?.name||'?')}</div>
+          <div style="flex:1;min-width:0"><div class="dp-list-title">${s?esc(s.name):'?'} — ${esc(r.matiere||'')}</div><div class="dp-list-sub">${r.date||''}</div></div>
+          <span class="dp-badge" style="color:${sColor};background:${sColor}14">${status}</span>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  return `${_weekendBanner(false)}
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+
+  <div class="dp-hero" style="background:linear-gradient(135deg,#1a3a8c,#2563eb);animation:fadeInUp .35s ease both">
+    <div class="dp-hero-eyebrow">Enseignant · SchoolSafe</div>
+    <div class="dp-hero-name">${cl?esc(cl.name):'Ma Classe'}</div>
+    <div class="dp-hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTit?' · Titulaire':''} · ${students.length} élève${students.length!==1?'s':''}</div>
+    <div class="dp-hero-stats">
+      <div class="dp-hs"><div class="dp-hs-n">${students.length}</div><div class="dp-hs-l">Total</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${scannedToday.length}</div><div class="dp-hs-l">Scannés</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${unreadMsgs}</div><div class="dp-hs-l">Messages</div></div>
     </div>
   </div>
 
-  ${(()=>{
-    const myAbsToday=DB.teacher_absences.filter(a=>a.uid===S.user.id&&a.date===today());
-    return `<div style="background:#fff;border-left:4px solid ${myAbsToday.length?'#059669':'#f59e0b'};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 14px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.45s">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:40px;height:40px;border-radius:12px;background:${myAbsToday.length?'#d1fae5':'#fef3c7'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <div style="width:14px;height:14px;border-radius:50%;background:${myAbsToday.length?'#059669':'#f59e0b'}"></div>
+  ${validCTA}
+
+  <div class="dp-stats-grid" style="animation:fadeInUp .35s .08s ease both">
+    <div class="dp-stat-card" style="--accent-color:var(--primary)" onclick="go('attendance')">
+      <div class="dp-stat-icon">👥</div>
+      <div class="dp-stat-num">${students.length}</div>
+      <div class="dp-stat-label">Total élèves</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('attendance')">
+      <div class="dp-stat-icon">✅</div>
+      <div class="dp-stat-num">${present}</div>
+      <div class="dp-stat-label">Présents auj.</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--pink)" onclick="go('attendance')">
+      <div class="dp-stat-icon">❌</div>
+      <div class="dp-stat-num">${absent}</div>
+      <div class="dp-stat-label">Absents auj.</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--gold)" onclick="go('attendance')">
+      <div class="dp-stat-icon">⏰</div>
+      <div class="dp-stat-num">${late}</div>
+      <div class="dp-stat-label">Retards auj.</div>
+    </div>
+  </div>
+
+  <div class="dp-section" style="animation:fadeInUp .35s .14s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Accès rapides</div>
+    </div>
+    <div style="padding:var(--sp-3)">
+      <div class="dp-quick-grid">
+        <div class="dp-quick-btn" onclick="go('attendance')" style="position:relative">${!validatedToday&&scannedToday.length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f87171"></span>`:''}
+          <div class="dp-quick-icon" style="background:rgba(77,231,255,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+          <div class="dp-quick-label">Présences</div>
         </div>
-        <div style="flex:1">
-          <div style="font-weight:700;color:#0f172a">${myAbsToday.length?'Absence signalée':'Signaler mon absence'}</div>
-          ${myAbsToday.length?`<div style="font-size:12px;color:#64748b">${myAbsToday[0].motif||'—'} · Signalé à ${myAbsToday[0].time}</div>`:'<div style="font-size:12px;color:#64748b">Si vous êtes absent(e), prévenez la Direction</div>'}
+        <div class="dp-quick-btn" onclick="go('palmares')">
+          <div class="dp-quick-icon" style="background:rgba(255,210,78,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <div class="dp-quick-label">Palmarès</div>
         </div>
-        ${!myAbsToday.length?`<button class="btn btn-primary btn-sm" onclick="declareTeacherAbsence()">Signaler</button>`:''}
+        <div class="dp-quick-btn" onclick="go('devoirs')" style="position:relative">${upDevoirs.length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--gold)"></span>`:''}
+          <div class="dp-quick-icon" style="background:rgba(56,230,165,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div class="dp-quick-label">Devoirs</div>
+        </div>
+        <div class="dp-quick-btn" onclick="go('messages')" style="position:relative">${unreadMsgs>0?`<span style="position:absolute;top:6px;right:6px;background:#f87171;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px">${unreadMsgs}</span>`:''}
+          <div class="dp-quick-icon" style="background:rgba(255,116,198,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--pink)" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div class="dp-quick-label">Messages</div>
+        </div>
       </div>
-    </div>`;
-  })()}`;
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-2);margin-top:var(--sp-2)">
+        ${[['cahier_texte','rgba(77,231,255,.08)','var(--primary)','Cahier'],['matieres','rgba(92,146,255,.08)','#5c92ff','Matières'],['profil_enseignant','rgba(174,188,211,.08)','var(--text-2)','Profil']].map(([p,bg,c,lb])=>`
+        <div class="dp-quick-btn" onclick="go('${p}')">
+          <div class="dp-quick-icon" style="background:${bg}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2"/></svg></div>
+          <div class="dp-quick-label">${lb}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  ${students.length>0?`
+  <div class="dp-section" style="animation:fadeInUp .35s .18s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Mes élèves</div>
+      <div class="dp-section-action" onclick="go('attendance')">Tous voir</div>
+    </div>
+    ${studentsList}
+    ${students.length>6?`<div class="dp-list-item" onclick="go('attendance')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir les ${students.length-6} autres →</div>`:''}
+  </div>`:''}
+
+  ${devoirsSection}
+  ${ratsSection}
+
+  ${coTeacher?`
+  <div class="dp-cta" style="background:linear-gradient(135deg,rgba(56,230,165,.12),rgba(56,230,165,.06));border:1px solid rgba(56,230,165,.2);animation:fadeInUp .35s .32s ease both" onclick="go('teacher_comm')">
+    <div class="dp-list-avatar" style="background:rgba(56,230,165,.15);color:var(--green)">${ini(coTeacher.name)}</div>
+    <div style="flex:1;min-width:0"><div class="dp-cta-label">${esc(coTeacher.name)}</div><div class="dp-cta-sub">${lang==='FR'?'Co-titulaire Anglais':'Co-titulaire Français'}</div></div>
+    <div class="dp-cta-arrow">›</div>
+  </div>`:''}
+
+  <div class="dp-cta" style="background:${myAbsToday.length?'linear-gradient(135deg,rgba(56,230,165,.12),rgba(56,230,165,.06))':'linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.06))'};border:1px solid ${myAbsToday.length?'rgba(56,230,165,.2)':'rgba(245,158,11,.2)'};animation:fadeInUp .35s .38s ease both" ${myAbsToday.length?'':'onclick="declareTeacherAbsence()"'}>
+    <div>
+      <div class="dp-cta-label">${myAbsToday.length?'Absence signalée aujourd\'hui':'Signaler mon absence'}</div>
+      <div class="dp-cta-sub">${myAbsToday.length?(myAbsToday[0].motif||'—')+' · '+myAbsToday[0].time:'Si vous êtes absent(e), prévenez la Direction'}</div>
+    </div>
+    ${myAbsToday.length?'':'<div class="dp-cta-arrow">›</div>'}
+  </div>
+
+</div>`;
 }
 
 function dashboardDirection2() {
-  const ts=DB.students.length;
-  const te=DB.users.filter(u=>u.role==='enseignant').length;
-  const tp=DB.users.filter(u=>u.role==='parent').length;
-  const todayAtt=DB.attendance.filter(a=>a.date===today());
-  const present=todayAtt.filter(a=>a.status==='ontime').length;
-  const late=todayAtt.filter(a=>a.status==='late').length;
-  const refused=todayAtt.filter(a=>a.status==='refused').length;
-  const pending=getPendingCount();
-  const presencePct=ts?Math.round((present+late)/ts*100):0;
-  const pendingRats=DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated);
-  const blockedStudents=DB.students.filter(s=>s.access_blocked);
-  const allTeachers=DB.users.filter(u=>u.role==='enseignant');
-  const noCahierToday=allTeachers.filter(u=>{
-    const hasCl=DB.classes.some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-    return hasCl&&!DB.cahier_texte.some(e=>e.by===u.id&&e.date===today());
+  const u = S.user;
+  const students = DB.students?.filter(s=>!s.archived)||[];
+  const teachers = DB.users?.filter(u=>u.role==='enseignant')||[];
+  const d = today();
+  const att = DB.attendance?.filter(a=>a.date===d)||[];
+  const present = att.filter(a=>a.status==='ontime').length;
+  const late = att.filter(a=>a.status==='late').length;
+  const presencePct = students.length?Math.round((present+late)/students.length*100):0;
+  const pendingRats = (DB.rattrapages||[]).filter(r=>!r.validated_by&&!r.d2_validated);
+  const pendingAppr = (DB.approbations||[]).filter(a=>a.status==='pending');
+  const pendingConvs = (DB.convocations||[]).filter(c=>c.status==='pending');
+  const allTeachers = DB.users?.filter(u=>u.role==='enseignant')||[];
+  const noCahier = allTeachers.filter(u=>{
+    const hasCl = (DB.classes||[]).some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+    return hasCl&&!(DB.cahier_texte||[]).some(e=>e.by===u.id&&e.date===d);
   });
-  const pendingConvs=DB.convocations.filter(c=>c.status==='pending');
-  const clr='#2563eb';const clr2='#4f46e5';
+
+  const alertsHtml = (()=>{
+    const items=[];
+    if(pendingAppr.length) items.push(`<div class="dp-alert warn" onclick="go('approbations')" style="cursor:pointer"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="dp-alert-title">${pendingAppr.length} approbation${pendingAppr.length>1?'s':''} en attente</div><div class="dp-alert-sub">Demandes à valider</div></div><div class="dp-cta-arrow">›</div></div>`);
+    if(pendingRats.length) items.push(`<div class="dp-alert warn" onclick="go('approbations')" style="cursor:pointer"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div><div class="dp-alert-title">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div><div class="dp-alert-sub">${pendingRats.slice(0,3).map(r=>{const s=DB.students?.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).join(', ')}</div></div><div class="dp-cta-arrow">›</div></div>`);
+    if(pendingConvs.length) items.push(`<div class="dp-alert info" onclick="go('convocations')" style="cursor:pointer"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div><div class="dp-alert-title">${pendingConvs.length} convocation${pendingConvs.length>1?'s':''} à planifier</div><div class="dp-alert-sub">Convocations en attente</div></div><div class="dp-cta-arrow">›</div></div>`);
+    return items.length?`<div class="dp-section" style="margin-bottom:var(--sp-4)">${items.join('')}</div>`:'';
+  })();
+
+  const classesHtml = (DB.classes||[]).slice(0,4).map(cl=>{
+    const sc = students.filter(s=>s.cid===cl.id).length;
+    const cp = att.filter(a=>students.find(s=>s.id===a.sid&&s.cid===cl.id)&&(a.status==='ontime'||a.status==='late')).length;
+    const pct = sc>0?Math.round(cp/sc*100):0;
+    const barColor = pct>=80?'var(--green)':pct>=60?'var(--gold)':'var(--pink)';
+    return `<div class="dp-list-item" onclick="go('attendance')">
+      <div class="dp-list-avatar" style="background:rgba(92,146,255,.1);color:#5c92ff;font-size:11px;font-weight:800">${esc(cl.name?.charAt(0)||'?')}</div>
+      <div style="flex:1;min-width:0">
+        <div class="dp-list-title">${esc(cl.name)}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div class="dp-progress" style="flex:1"><div class="dp-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          <span style="font-size:var(--text-xs);color:var(--text-2)">${pct}%</span>
+        </div>
+      </div>
+      <div class="dp-list-end"><span style="font-size:var(--text-xs);color:var(--text-2)">${sc} él.</span></div>
+    </div>`;
+  }).join('');
+
   return `
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(37,99,235,.4)">
-    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
-      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${S.lockdown?'LOCKDOWN':'SchoolSafe'}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">Direction 2 · Pédagogie · ${DB.settings.currentTrimestre||''}</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
-      ${[[ts,'Élèves'],[te,'Profs'],[tp,'Parents'],[presencePct+'%','Présences']].map(([n,lbl])=>`
-      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
-        <div style="font-size:18px;font-weight:900;color:#fff;line-height:1">${n}</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
-      </div>`).join('')}
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+
+  <div class="dp-hero" style="background:linear-gradient(135deg,#2e1065,#4f46e5);animation:fadeInUp .35s ease both">
+    <div class="dp-hero-eyebrow">Direction Pédagogique · SchoolSafe</div>
+    <div class="dp-hero-name">Bj, ${esc(u.name?.split(' ')[0]||'Dir. 2')} 👋</div>
+    <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div class="dp-hero-stats">
+      <div class="dp-hs"><div class="dp-hs-n">${students.length}</div><div class="dp-hs-l">Élèves</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${teachers.length}</div><div class="dp-hs-l">Profs</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${presencePct}%</div><div class="dp-hs-l">Présence</div></div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
-    ${[['students','linear-gradient(135deg,#2563eb,#4f46e5)','Élèves',false],
-       ['approbations','linear-gradient(135deg,#c9a030,#a68520)','Approuver',pending>0],
-       ['attendance','linear-gradient(135deg,#059669,#047857)','Présences',false]
-    ].map(([p,bg,lbl,badge])=>`
-    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
-      ${badge?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${pending}</span>`:''}
-      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
-      </div>
-      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
-    </button>`).join('')}
+  ${S.lockdown?`<div class="dp-alert urgent" style="margin-bottom:var(--sp-4)"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div><div class="dp-alert-title">🔴 CONFINEMENT ACTIF</div><div class="dp-alert-sub">Accès portail suspendu.</div></div></div>`:''}
+  ${alertsHtml}
+
+  <div class="dp-stats-grid" style="animation:fadeInUp .35s .08s ease both">
+    <div class="dp-stat-card" style="--accent-color:var(--primary)" onclick="go('attendance')">
+      <div class="dp-stat-icon">📋</div>
+      <div class="dp-stat-num">${presencePct}%</div>
+      <div class="dp-stat-label">Présence aujourd'hui</div>
+      <div class="dp-progress"><div class="dp-progress-fill" style="width:${presencePct}%;background:${presencePct>=80?'var(--green)':presencePct>=60?'var(--gold)':'var(--pink)'}"></div></div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--gold)" onclick="go('approbations')">
+      <div class="dp-stat-icon">⏳</div>
+      <div class="dp-stat-num">${pendingAppr.length+pendingRats.length}</div>
+      <div class="dp-stat-label">En attente</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${pendingRats.length} rattrapages · ${pendingAppr.length} approbations</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('cahier_texte')">
+      <div class="dp-stat-icon">📖</div>
+      <div class="dp-stat-num">${teachers.length - noCahier.length}</div>
+      <div class="dp-stat-label">Cahiers à jour</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${noCahier.length>0?noCahier.length+' manquant'+(noCahier.length>1?'s':''):'Tous à jour ✓'}</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--pink)" onclick="go('convocations')">
+      <div class="dp-stat-icon">📅</div>
+      <div class="dp-stat-num">${pendingConvs.length}</div>
+      <div class="dp-stat-label">Convocations</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">À planifier</div>
+    </div>
   </div>
 
-  ${pending>0||pendingRats.length||blockedStudents.length||pendingConvs.length?`
-  <div style="background:#fff;border-left:4px solid #ef4444;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(239,68,68,.1);animation:fadeInUp .35s ease both;animation-delay:.15s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;animation:ringPulse 2s ease infinite"></div>
-      <div style="font-size:10px;font-weight:800;color:#dc2626;letter-spacing:1.5px;text-transform:uppercase">Alertes immédiates</div>
+  <div class="dp-section" style="animation:fadeInUp .35s .14s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Accès rapides</div>
     </div>
-    ${pending>0?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
-      <div style="width:32px;height:32px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div></div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pending} élément${pending>1?'s':''} en attente d'approbation</div></div>
-      <span style="font-size:12px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:10px;padding:4px 10px">Voir</span>
-    </div>`:''}
-    ${pendingRats.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('approbations')">
-      <div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#dc2626"></div></div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider</div>
-        <div style="font-size:11px;color:#94a3b8">${pendingRats.slice(0,3).map(r=>{const s=DB.students.find(x=>x.id===r.sid);return s?esc(s.name):'?';}).join(', ')}</div>
+    <div style="padding:var(--sp-3)">
+      <div class="dp-quick-grid">
+        ${[
+          ['students','rgba(77,231,255,.12)','var(--primary)','<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>','Élèves'],
+          ['teachers','rgba(255,210,78,.12)','var(--gold)','<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>','Profs'],
+          ['attendance','rgba(56,230,165,.1)','var(--green)','<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>','Présences'],
+          ['palmares','rgba(255,210,78,.1)','var(--gold)','<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>','Palmarès'],
+          ['approbations','rgba(239,68,68,.1)','#f87171','<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>','Approuver'],
+          ['convocations','rgba(92,146,255,.1)','#5c92ff','<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>','Convoc.'],
+          ['cahier_texte','rgba(56,230,165,.08)','var(--green)','<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>','Cahier'],
+          ['calendar','rgba(77,231,255,.08)','var(--primary)','<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>','Calendrier'],
+          ['classes','rgba(92,146,255,.1)','#5c92ff','<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>','Classes'],
+          ['export','rgba(255,210,78,.08)','var(--gold)','<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>','Export'],
+          ['lockdown','rgba(239,68,68,.1)','#f87171','<path d="M18.36 6.64a9 9 0 11-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>','Urgence'],
+          ['year_mgmt','rgba(174,188,211,.08)','var(--text-2)','<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>','Année'],
+        ].map(([p,bg,c,path,lb])=>`<div class="dp-quick-btn" onclick="go('${p}')">
+          <div class="dp-quick-icon" style="background:${bg}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2">${path}</svg></div>
+          <div class="dp-quick-label">${lb}</div>
+        </div>`).join('')}
       </div>
-      <span style="font-size:12px;font-weight:700;color:#991b1b;background:#fee2e2;border-radius:10px;padding:4px 10px">Valider</span>
-    </div>`:''}
-    ${blockedStudents.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;cursor:pointer" onclick="go('students')">
-      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#7c3aed"></div></div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}</div></div>
-      <span style="font-size:12px;font-weight:700;color:#6d28d9;background:#ede9fe;border-radius:10px;padding:4px 10px">Gérer</span>
-    </div>`:''}
-    ${pendingConvs.length?`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;cursor:pointer" onclick="go('convocations')">
-      <div style="width:32px;height:32px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:10px;height:10px;border-radius:50%;background:#3b82f6"></div></div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${pendingConvs.length} convocation${pendingConvs.length>1?'s':''} à planifier</div></div>
-      <span style="font-size:12px;font-weight:700;color:#1e40af;background:#dbeafe;border-radius:10px;padding:4px 10px">Voir</span>
-    </div>`:''}
+    </div>
+  </div>
+
+  ${(DB.classes||[]).length>0?`
+  <div class="dp-section" style="animation:fadeInUp .35s .2s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Présence par classe</div>
+      <div class="dp-section-action" onclick="go('attendance')">Voir tout</div>
+    </div>
+    ${classesHtml}
+    ${(DB.classes||[]).length>4?`<div class="dp-list-item" onclick="go('attendance')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir les ${(DB.classes||[]).length-4} autres →</div>`:''}
   </div>`:''}
 
-  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(37,99,235,.08);animation:fadeInUp .35s ease both;animation-delay:.2s">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-        <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Présences du jour</div>
-      </div>
-      <span style="font-size:13px;font-weight:800;color:${presencePct>=80?'#059669':presencePct>=60?'#d97706':'#dc2626'}">${presencePct}%</span>
+  ${noCahier.length?`
+  <div class="dp-section" style="animation:fadeInUp .35s .26s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg> Cahiers manquants</div>
+      <div class="dp-section-action" onclick="go('cahier_texte')">Suivi</div>
     </div>
-    <div style="height:8px;border-radius:8px;background:#e2e8f0;overflow:hidden;margin-bottom:12px">
-      <div style="height:100%;width:${presencePct}%;background:${presencePct>=80?'#059669':presencePct>=60?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .5s"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-      <div style="padding:10px;border-radius:12px;background:#d1fae5;text-align:center"><div style="font-size:20px;font-weight:800;color:#065f46">${present}</div><div style="font-size:10px;color:#065f46;font-weight:600">À l'heure</div></div>
-      <div style="padding:10px;border-radius:12px;background:#fef3c7;text-align:center"><div style="font-size:20px;font-weight:800;color:#92400e">${late}</div><div style="font-size:10px;color:#92400e;font-weight:600">Retards</div></div>
-      <div style="padding:10px;border-radius:12px;background:#fee2e2;text-align:center"><div style="font-size:20px;font-weight:800;color:#991b1b">${ts-(present+late+refused)}</div><div style="font-size:10px;color:#991b1b;font-weight:600">Absents</div></div>
-    </div>
-  </div>
-
-  ${noCahierToday.length?`
-  <div style="background:#fff;border-left:4px solid #7c3aed;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(124,58,237,.08);animation:fadeInUp .35s ease both;animation-delay:.25s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
-      <div style="width:3px;height:14px;border-radius:2px;background:#7c3aed"></div>
-      <div style="font-size:10px;font-weight:800;color:#7c3aed;letter-spacing:1.5px;text-transform:uppercase">Cahier de texte manquant</div>
-    </div>
-    ${noCahierToday.map((u,i)=>{const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;${i<noCahierToday.length-1?'border-bottom:1px solid #f1f5f9':''}">
-      <div style="width:32px;height:32px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#7c3aed;flex-shrink:0">${ini(u.name)}</div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(u.name)}</div><div style="font-size:11px;color:#94a3b8">${cl?esc(cl.name):'?'}</div></div>
-      <span style="font-size:10px;font-weight:700;background:#ede9fe;color:#6d28d9;border-radius:8px;padding:3px 8px">Manquant</span>
+    ${noCahier.slice(0,4).map(u=>{const cl=(DB.classes||[]).find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<div class="dp-list-item">
+      <div class="dp-list-avatar" style="background:rgba(139,92,246,.12);color:#a78bfa">${ini(u.name)}</div>
+      <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(u.name)}</div><div class="dp-list-sub">${cl?esc(cl.name):'?'}</div></div>
+      <span class="dp-badge" style="background:rgba(139,92,246,.12);color:#a78bfa">Manquant</span>
     </div>`;}).join('')}
-    <div style="font-size:12px;color:#7c3aed;margin-top:10px;cursor:pointer;font-weight:600" onclick="go('cahier_texte')">Voir le suivi complet →</div>
   </div>`:''}
 
-  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.3s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-      ${[['students','#2563eb','Élèves'],['teachers','#059669','Profs'],['guardians','#f97316','Gardiens'],['parents','#ec4899','Parents'],['classes','#7c3aed','Classes'],['cards','#64748b','Cartes'],['convocations','#c9a030','Convoc.'],['palmares','#c9a030','Palmarès'],['calendar','#3b82f6','Calendrier'],['lockdown','#dc2626','Urgence'],['year_mgmt','#475569','Année'],['export','#6d28d9','Export']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
-        <div style="width:28px;height:28px;border-radius:9px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 5px">
-          <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
-        </div>
-        <div style="font-size:9px;font-weight:700;color:var(--text-secondary)">${lb}</div>
-      </button>`).join('')}
-    </div>
-    <div style="margin-top:12px;padding:10px 14px;background:${(DB.settings.feesControl||{}).active?'#fee2e2':'#f1f5f9'};border-radius:12px;border:1.5px solid ${(DB.settings.feesControl||{}).active?'#fca5a5':'#e2e8f0'};display:flex;align-items:center;gap:10px">
-      <div style="width:10px;height:10px;border-radius:50%;background:${(DB.settings.feesControl||{}).active?'#dc2626':'#94a3b8'};flex-shrink:0"></div>
-      <div style="flex:1;font-size:13px;font-weight:600;color:${(DB.settings.feesControl||{}).active?'#991b1b':'#475569'}">${(DB.settings.feesControl||{}).active?`Contrôle frais ${(DB.settings.feesControl||{}).trimestre} actif`:'Contrôle de frais inactif'}</div>
-      <span style="font-size:10px;color:var(--text-muted)">Géré par Direction 1</span>
-    </div>
-  </div>
-
-  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.35s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:#64748b"></div>
-      <div style="font-size:10px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase">Classes</div>
-    </div>
-    ${DB.classes.map((c,i)=>{
-      const sc=DB.students.filter(s=>s.cid===c.id).length;
-      const tf=DB.users.find(u=>u.id===c.teacher_id);
-      const te=DB.users.find(u=>u.id===c.teacher_id_en);
-      const tit=c.titulaire_id?DB.users.find(u=>u.id===c.titulaire_id):null;
-      const [cc]=clsColor(c.name);
-      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<DB.classes.length-1?'border-bottom:1px solid #f1f5f9':''}">
-        <div style="width:34px;height:34px;border-radius:10px;background:${cc}22;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${cc};flex-shrink:0">${c.name.charAt(0)}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700;color:#0f172a">${esc(c.name)}${tit?` <span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:5px;padding:1px 5px">Tit. ${esc(tit.name)}</span>`:''}</div>
-          <div style="font-size:11px;color:#94a3b8">${c.cycle==='maternelle'?(te?esc(te.name):'—'):`FR: ${tf?esc(tf.name):'—'} · EN: ${te?esc(te.name):'—'}`} · ${sc} élèves</div>
-        </div>
-        <span style="font-size:10px;font-weight:700;background:${cc}15;color:${cc};border-radius:8px;padding:3px 8px">${c.cycle}</span>
-      </div>`;
-    }).join('')}
-  </div>`;
+</div>`;
 }
 
 function dashboardDirection3() {
-  const recs=DB.daily_records.filter(r=>r.date===today()&&!r.validated);
-  const exps=DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
-  const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
-  const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
-  const net=totalIn-totalOut;
-  const now=new Date();
-  const hm=now.getHours()*60+now.getMinutes();
-  const min16=16*60-hm;
-  const timeMsg=min16>0?`Rapport dans ${Math.floor(min16/60)}h${String(min16%60).padStart(2,'0')}min`:'Rapport envoyé à Direction 1';
-  const allRecs=DB.daily_records.filter(r=>r.date===today());
-  const allExps=DB.daily_expenses.filter(e=>e.date===today());
-  const allIn=allRecs.reduce((s,r)=>s+Number(r.amount||0),0);
-  const allOut=allExps.reduce((s,e)=>s+Number(e.amount||0),0);
-  const allNet=allIn-allOut;
-  const clr='#059669';const clr2='#10b981';
+  const d = today();
+  const recs = (DB.daily_records||[]).filter(r=>r.date===d);
+  const exps = (DB.daily_expenses||[]).filter(e=>e.date===d);
+  const allRecs = DB.daily_records||[];
+  const allExps = DB.daily_expenses||[];
+  const totalIn = recs.reduce((s,r)=>s+(+r.amount||0),0);
+  const totalOut = exps.reduce((s,e)=>s+(+e.amount||0),0);
+  const net = totalIn - totalOut;
+  const allIn = allRecs.reduce((s,r)=>s+(+r.amount||0),0);
+  const allOut = allExps.reduce((s,e)=>s+(+e.amount||0),0);
+  const allNet = allIn - allOut;
+  const now = new Date();
+  const rapport16h = new Date(); rapport16h.setHours(16,0,0,0);
+  const minsLeft = Math.max(0,Math.round((rapport16h-now)/60000));
+  const timeMsg = now < rapport16h ? `Rapport dans ${minsLeft} min` : 'Rapport soumis aujourd\'hui';
+  const pendingReport = (DB.daily_reports||[]).some(r=>r.date===d&&r.status==='pending');
+
   return `
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(5,150,105,.4)">
-    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
-      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">Caisse du jour</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
-      ${[[recs.length,'Paiements'],[exps.length,'Dépenses'],['$'+totalIn,'Encaissé'],['$'+totalOut,'Sorti']].map(([n,lbl])=>`
-      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
-        <div style="font-size:16px;font-weight:900;color:#fff;line-height:1">${n}</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
-      </div>`).join('')}
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+
+  <div class="dp-hero" style="background:linear-gradient(135deg,#064e3b,#059669);animation:fadeInUp .35s ease both">
+    <div class="dp-hero-eyebrow">Direction Financière · Caisse</div>
+    <div class="dp-hero-name">Caisse du jour</div>
+    <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div class="dp-hero-stats">
+      <div class="dp-hs"><div class="dp-hs-n">$${totalIn}</div><div class="dp-hs-l">Encaissé</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">$${totalOut}</div><div class="dp-hs-l">Dépensé</div></div>
+      <div class="dp-hs"><div class="dp-hs-n" style="color:${net>=0?'#6ee7b7':'#fca5a5'}">${net>=0?'+':''}$${net}</div><div class="dp-hs-l">Solde</div></div>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
-    ${[['caisse_paiement','linear-gradient(135deg,#059669,#047857)','Paiement'],
-       ['caisse_depense','linear-gradient(135deg,#dc2626,#b91c1c)','Dépense'],
-       ['caisse_rapport','linear-gradient(135deg,#2563eb,#1d4ed8)','Rapport']
-    ].map(([p,bg,lbl])=>`
-    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18)">
-      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+  ${pendingReport?`<div class="dp-alert warn" style="margin-bottom:var(--sp-4)"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="dp-alert-title">Rapport journalier en attente</div><div class="dp-alert-sub">À valider avant 16h00</div></div><div class="dp-cta-arrow">›</div></div>`:''}
+
+  <div class="dp-stats-grid" style="animation:fadeInUp .35s .08s ease both">
+    <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('caisse_paiement')">
+      <div class="dp-stat-icon">💵</div>
+      <div class="dp-stat-num">$${allIn}</div>
+      <div class="dp-stat-label">Total encaissé</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--pink)" onclick="go('caisse_depense')">
+      <div class="dp-stat-icon">📤</div>
+      <div class="dp-stat-num">$${allOut}</div>
+      <div class="dp-stat-label">Total dépensé</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:${allNet>=0?'var(--green)':'var(--pink)'}">
+      <div class="dp-stat-icon">🏦</div>
+      <div class="dp-stat-num">${allNet>=0?'+':''}$${Math.abs(allNet)}</div>
+      <div class="dp-stat-label">Solde net</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--gold)" onclick="go('caisse_rapport')">
+      <div class="dp-stat-icon">⏱</div>
+      <div class="dp-stat-num">${recs.length}</div>
+      <div class="dp-stat-label">Opérations auj.</div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${timeMsg}</div>
+    </div>
+  </div>
+
+  <div class="dp-section" style="animation:fadeInUp .35s .14s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Opérations</div>
+    </div>
+    <div style="padding:var(--sp-3);display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3)">
+      <div class="dp-cta" style="background:linear-gradient(135deg,rgba(56,230,165,.15),rgba(56,230,165,.08));border:1px solid rgba(56,230,165,.25);flex-direction:column;gap:8px;text-align:center;padding:var(--sp-4)" onclick="go('caisse_paiement')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <div class="dp-cta-label">Paiement</div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
-    </button>`).join('')}
-  </div>
-
-  <div style="background:#fff;border-left:4px solid ${clr};border-radius:20px;padding:16px 18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(5,150,105,.1);animation:fadeInUp .35s ease both;animation-delay:.15s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Minuterie rapport</div>
+      <div class="dp-cta" style="background:linear-gradient(135deg,rgba(239,68,68,.12),rgba(239,68,68,.06));border:1px solid rgba(239,68,68,.2);flex-direction:column;gap:8px;text-align:center;padding:var(--sp-4)" onclick="go('caisse_depense')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <div class="dp-cta-label">Dépense</div>
+      </div>
+      <div class="dp-cta" style="background:linear-gradient(135deg,rgba(77,231,255,.12),rgba(77,231,255,.06));border:1px solid rgba(77,231,255,.2);flex-direction:column;gap:8px;text-align:center;padding:var(--sp-4)" onclick="go('caisse_rapport')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <div class="dp-cta-label">Rapport</div>
+      </div>
     </div>
-    <div style="font-size:14px;font-weight:700;color:#0f172a">${timeMsg}</div>
-    <div style="font-size:12px;color:#64748b;margin-top:4px">Rapport automatique à 16h00 — données verrouillées après validation.</div>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.2s">
-    ${[['$'+allIn,'Encaissé total','#059669','#d1fae5'],['$'+allOut,'Dépensé total','#dc2626','#fee2e2'],[(allNet>=0?'+$'+allNet:'-$'+Math.abs(allNet)),'Solde net',allNet>=0?'#059669':'#dc2626',allNet>=0?'#d1fae5':'#fee2e2']].map(([n,lbl,tc,bg])=>`
-    <div style="background:#fff;border-radius:18px;padding:14px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06);text-align:center">
-      <div style="font-size:18px;font-weight:900;color:${tc};line-height:1">${n}</div>
-      <div style="font-size:10px;font-weight:700;color:#475569;margin-top:4px">${lbl}</div>
-    </div>`).join('')}
   </div>
 
   ${recs.length?`
-  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.25s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Derniers paiements</div>
+  <div class="dp-section" style="animation:fadeInUp .35s .2s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Derniers paiements</div>
+      <div class="dp-section-action" onclick="go('caisse_paiement')">Voir tout</div>
     </div>
-    ${recs.slice(-4).reverse().map((r,i)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<3?'border-bottom:1px solid #f1f5f9':''}">
-      <div style="width:8px;height:8px;border-radius:50%;background:${clr};flex-shrink:0"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.student_name||'—')}</div>
-        <div style="font-size:11px;color:#94a3b8">${esc(r.type_label||'')} · ${r.time||''}</div>
-      </div>
-      <span style="font-size:13px;font-weight:800;color:${clr};background:#d1fae5;border-radius:8px;padding:3px 10px;flex-shrink:0">$${r.amount}</span>
+    ${recs.slice(-4).reverse().map(r=>`<div class="dp-list-item">
+      <div class="dp-list-avatar" style="background:rgba(56,230,165,.12);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+      <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(r.student_name||'—')}</div><div class="dp-list-sub">${esc(r.type_label||'')}${r.time?' · '+r.time:''}</div></div>
+      <span class="dp-badge" style="background:rgba(56,230,165,.12);color:var(--green)">$${r.amount}</span>
     </div>`).join('')}
-  </div>`:''}`;
+  </div>`:''}
+
+</div>`;
 }
 
 function dashboardGardien() {
-  const todayScans=DB.scan_log.filter(l=>l.date===today());
-  const entries=todayScans.filter(l=>l.type==='entry');
-  const exits=todayScans.filter(l=>l.type==='exit');
-  const ontime=entries.filter(l=>l.status==='ontime').length;
-  const lateG=entries.filter(l=>l.status==='late').length;
-  const refusedG=entries.filter(l=>l.status==='refused').length;
-  const clr='#f97316';const clr2='#ea580c';
-  const fc=DB.settings.feesControl||{};
+  const d = today();
+  const todayScans = (DB.scan_log||[]).filter(l=>l.date===d);
+  const entries = todayScans.filter(l=>l.type==='entry');
+  const exits = todayScans.filter(l=>l.type==='exit');
+  const ontime = entries.filter(l=>l.status==='ontime').length;
+  const lateG = entries.filter(l=>l.status==='late').length;
+  const refusedG = entries.filter(l=>l.status==='refused').length;
+  const fc = DB.settings?.feesControl||{};
+
   return `${_weekendBanner(false)}
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(249,115,22,.4)">
-    <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
-      <div style="font-size:22px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">${S.lockdown?'LOCKDOWN':'Portail · Sécurité'}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${esc(S.user.name)} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
-      ${[[ontime,'À l\'heure'],[lateG,'Retards'],[refusedG,'Refusés'],[exits.length,'Sorties']].map(([n,lbl])=>`
-      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 6px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
-        <div style="font-size:20px;font-weight:900;color:#fff;line-height:1">${n}</div>
-        <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
-      </div>`).join('')}
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+
+  <div class="dp-hero" style="background:linear-gradient(135deg,#7c2d12,#f97316);animation:fadeInUp .35s ease both">
+    <div class="dp-hero-eyebrow">Portail · Sécurité</div>
+    <div class="dp-hero-name">${S.lockdown?'🔴 CONFINEMENT':'Portail · Sécurité'}</div>
+    <div class="dp-hero-sub">${esc(S.user.name)} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div class="dp-hero-stats">
+      <div class="dp-hs"><div class="dp-hs-n">${ontime}</div><div class="dp-hs-l">À l'heure</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${lateG}</div><div class="dp-hs-l">Retards</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${refusedG}</div><div class="dp-hs-l">Refusés</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${exits.length}</div><div class="dp-hs-l">Sorties</div></div>
     </div>
   </div>
 
-  ${fc.active?`
-  <div style="background:#fee2e2;border:2px solid #ef4444;border-radius:20px;padding:16px 18px;margin-bottom:14px;animation:fadeInUp .3s ease both;box-shadow:0 4px 18px rgba(239,68,68,.2)">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div style="width:14px;height:14px;border-radius:50%;background:#dc2626;flex-shrink:0;animation:ringPulse 2s ease infinite"></div>
-      <div>
-        <div style="font-weight:800;font-size:14px;color:#991b1b">CONTRÔLE FRAIS — ${fc.trimestre}</div>
-        <div style="font-size:12px;color:#991b1b;margin-top:2px">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés</div>
-      </div>
-    </div>
-  </div>`:''}
+  ${fc.active?`<div class="dp-alert urgent" style="margin-bottom:var(--sp-4)"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="dp-alert-title">CONTRÔLE FRAIS — ${fc.trimestre}</div><div class="dp-alert-sub">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés.</div></div></div>`:''}
 
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.1s">
-    ${[['scanner','linear-gradient(135deg,#059669,#047857)','Entrée'],
-       ['scanner_exit','linear-gradient(135deg,#c9a030,#a68520)','Sortie'],
-       ['alert_urgent','linear-gradient(135deg,#dc2626,#b91c1c)','Alerte']
-    ].map(([p,bg,lbl])=>`
-    <button class="pp-btn" onclick="go('${p}')" style="background:${bg};border:none;border-radius:18px;padding:18px 6px 16px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18)">
-      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
-      </div>
-      <div style="font-size:12px;font-weight:700;color:#fff">${lbl}</div>
-    </button>`).join('')}
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-4);animation:fadeInUp .35s .08s ease both">
+    <div class="dp-cta" style="background:linear-gradient(135deg,rgba(56,230,165,.18),rgba(56,230,165,.1));border:1px solid rgba(56,230,165,.3);flex-direction:column;gap:10px;text-align:center;padding:var(--sp-5) var(--sp-3);min-height:90px" onclick="go('scanner')">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M3 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M21 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <div class="dp-cta-label">Scanner Entrée</div>
+    </div>
+    <div class="dp-cta" style="background:linear-gradient(135deg,rgba(255,210,78,.15),rgba(255,210,78,.08));border:1px solid rgba(255,210,78,.3);flex-direction:column;gap:10px;text-align:center;padding:var(--sp-5) var(--sp-3);min-height:90px" onclick="go('scanner_exit')">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M3 9V6a2 2 0 012-2h3M15 4h3a2 2 0 012 2v3M21 15v3a2 2 0 01-2 2h-3M9 20H6a2 2 0 01-2-2v-3"/><polyline points="12 8 12 12 14 14"/></svg>
+      <div class="dp-cta-label">Scanner Sortie</div>
+    </div>
+    <div class="dp-cta" style="background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(239,68,68,.08));border:1px solid rgba(239,68,68,.3);flex-direction:column;gap:10px;text-align:center;padding:var(--sp-5) var(--sp-3);min-height:90px" onclick="go('alert_urgent')">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="dp-cta-label">Alerte</div>
+    </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:.15s">
-    ${[[ontime,'À l\'heure','#059669','#d1fae5'],[lateG,'Retards','#d97706','#fef3c7'],[refusedG,'Refusés','#dc2626','#fee2e2'],[exits.length,'Sorties','#3b82f6','#dbeafe']].map(([n,lbl,tc,bg])=>`
-    <div style="background:#fff;border-radius:18px;padding:16px;border-left:4px solid ${tc};box-shadow:0 3px 14px rgba(0,0,0,.06)">
-      <div style="font-size:30px;font-weight:900;color:${tc};line-height:1">${n}</div>
-      <div style="font-size:11px;font-weight:700;color:#475569;margin-top:4px">${lbl}</div>
-    </div>`).join('')}
+  <div class="dp-stats-grid" style="animation:fadeInUp .35s .14s ease both">
+    <div class="dp-stat-card" style="--accent-color:var(--green)">
+      <div class="dp-stat-num">${ontime}</div>
+      <div class="dp-stat-label">À l'heure</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--gold)">
+      <div class="dp-stat-num">${lateG}</div>
+      <div class="dp-stat-label">Retards</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--pink)">
+      <div class="dp-stat-num">${refusedG}</div>
+      <div class="dp-stat-label">Refusés</div>
+    </div>
+    <div class="dp-stat-card" style="--accent-color:var(--primary)">
+      <div class="dp-stat-num">${exits.length}</div>
+      <div class="dp-stat-label">Sorties</div>
+    </div>
   </div>
 
   ${todayScans.length?`
-  <div style="background:#fff;border-radius:20px;padding:18px;margin-bottom:8px;box-shadow:0 4px 18px rgba(0,0,0,.06);animation:fadeInUp .35s ease both;animation-delay:.2s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Derniers scans</div>
+  <div class="dp-section" style="animation:fadeInUp .35s .2s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Derniers scans</div>
+      <div class="dp-section-action" onclick="go('scan_log')">Tout voir</div>
     </div>
-    ${todayScans.slice(-5).reverse().map((l,i)=>{
-      const statusClr={ontime:'#059669',late:'#d97706',refused:'#dc2626',authorized:'#059669',unauthorized:'#dc2626'}[l.status]||'#94a3b8';
-      const typeLabel=l.type==='entry'?'Entrée':'Sortie';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<4?'border-bottom:1px solid #f1f5f9':''}">
-        <div style="width:8px;height:8px;border-radius:50%;background:${statusClr};flex-shrink:0"></div>
-        <div style="flex:1;font-size:13px;font-weight:600;color:#0f172a">${esc(l.name||'—')}</div>
-        <span style="font-size:11px;font-weight:700;color:${statusClr};background:${statusClr}15;border-radius:8px;padding:2px 8px">${typeLabel}</span>
-        <span style="font-size:11px;color:#94a3b8">${l.time||''}</span>
+    ${todayScans.slice(-6).reverse().map(l=>{
+      const statusColor={ontime:'var(--green)',late:'var(--gold)',refused:'var(--pink)',authorized:'var(--green)',unauthorized:'var(--pink)'}[l.status]||'var(--text-3)';
+      return `<div class="dp-list-item">
+        <div class="dp-list-avatar" style="background:${statusColor}14;color:${statusColor};font-size:10px;font-weight:700">${l.type==='entry'?'IN':'OUT'}</div>
+        <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(l.name||'—')}</div><div class="dp-list-sub">${l.time||''}</div></div>
+        <span class="dp-badge" style="background:${statusColor}14;color:${statusColor}">${l.type==='entry'?'Entrée':'Sortie'}</span>
       </div>`;
     }).join('')}
-  </div>`:''}`;
+  </div>`:'<div class="dp-section" style="animation:fadeInUp .35s .2s ease both"><div style="padding:var(--sp-5);text-align:center;color:var(--text-2);font-size:var(--text-sm)">Aucun scan pour aujourd\'hui</div></div>'}
+
+</div>`;
 }
 
 function dashboardParent() {
-  const u=S.user;
-  const kids=DB.students.filter(s=>s.pid===u.id);
-  const myNotifs=DB.notifs.filter(n=>n.uid===u.id&&!n.read);
-  const unreadMsgs=DB.messages.filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
-  const clr='#6d28d9';const clr2='#4f46e5';
-  const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
+  const u = S.user;
+  const kids = (DB.students||[]).filter(s=>s.pid===u.id);
+  const myNotifs = (DB.notifs||[]).filter(n=>n.uid===u.id&&!n.read);
+  const unreadMsgs = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
+  const d = today();
 
-  const _wkB=_weekendBanner(false);
-  const kidStatus=kids.map(k=>{
-    const att=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
-    const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+  const kidStatus = kids.map(k=>{
+    const att = (DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
+    const exitScan = (DB.scan_log||[]).find(l=>l.sid===k.id&&l.date===d&&l.type==='exit');
     let statText,statClr,pulse=false;
-    if(exitScan){statText='Sorti(e) à '+exitScan.time;statClr='#3b82f6';}
-    else if(att&&att.status==='ontime'){statText="À l'école depuis "+(att.arr_time||'');statClr='#059669';pulse=true;}
-    else if(att&&att.status==='late'){statText='Retard — '+(att.arr_time||'');statClr='#d97706';}
-    else if(att&&att.status==='sick'){statText='Absent(e) — maladie';statClr='#ec4899';}
-    else if(att&&att.status==='excused'){statText='Absent(e) — justifié';statClr='#3b82f6';}
-    else{statText='Pas encore arrivé(e)';statClr='#94a3b8';}
+    if(exitScan){statText='Sorti(e) à '+exitScan.time;statClr='var(--primary)';}
+    else if(att?.status==='ontime'){statText="À l'école depuis "+(att.arr_time||'');statClr='var(--green)';pulse=true;}
+    else if(att?.status==='late'){statText='Retard — '+(att.arr_time||'');statClr='var(--gold)';}
+    else if(att?.status==='sick'){statText='Absent(e) — maladie';statClr='var(--pink)';}
+    else if(att?.status==='excused'){statText='Absent(e) — justifié';statClr='var(--primary)';}
+    else{statText='Pas encore arrivé(e)';statClr='var(--text-3)';}
     return{...k,statText,statClr,pulse};
   });
 
-  return `${_wkB}
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
-    <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-    <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
-    <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
-    <div style="position:relative">
-      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">The Wise School International</div>
-      <div style="font-size:24px;font-weight:900;color:#fff;line-height:1.2;text-shadow:0 2px 10px rgba(0,0,0,.2)">Bonjour, ${esc(u.name.split(' ')[0])}</div>
-      <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px">${kids.length} enfant${kids.length>1?'s':''} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:18px;position:relative">
-      ${[[kids.length,'Enfants'],[myNotifs.length,'Notifs'],[unreadMsgs,'Messages']].map(([n,lbl])=>`
-      <div style="flex:1;background:rgba(255,255,255,.13);border-radius:14px;padding:10px 8px;text-align:center;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)">
-        <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">${n}</div>
-        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);margin-top:3px;letter-spacing:.5px">${lbl.toUpperCase()}</div>
-      </div>`).join('')}
-    </div>
-  </div>
-
-  ${kidStatus.map((k,ki)=>{
-    const cl=gc(k.cid);const [cc,cbg]=clsColor(cl?.name||'');
-    const photo=k.photo||k.photo_url;
-    const rank=getRankInClass(k.id);
-    return `
-  <div style="background:#fff;border-radius:22px;overflow:hidden;margin-bottom:14px;animation:fadeInUp .35s ease both;animation-delay:${ki*.1}s;box-shadow:0 4px 24px ${k.statClr}18,0 2px 8px rgba(0,0,0,.05);border-left:4px solid ${k.statClr}">
-    <div style="padding:16px">
-      <div style="display:flex;align-items:center;gap:14px">
-        <div style="position:relative;flex-shrink:0">
-          <div style="width:62px;height:62px;border-radius:18px;background:${cbg};overflow:hidden">
-            ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:${cc}">${ini(k.name)}</div>`}
+  const kidsHtml = kidStatus.map((k,ki)=>{
+    const cl = gc(k.cid);
+    const [cc,cbg] = clsColor(cl?.name||'');
+    const photo = k.photo||k.photo_url;
+    const rank = getRankInClass(k.id);
+    const pays = (DB.payments||[]).filter(p=>p.sid===k.id);
+    const trims = ['T1','T2','T3'];
+    return `<div class="dp-section" style="animation:fadeInUp .35s ${ki*.08}s ease both;border-left:3px solid ${k.statClr}">
+      <div style="padding:var(--sp-4)">
+        <div style="display:flex;align-items:center;gap:var(--sp-3)">
+          <div style="position:relative;flex-shrink:0">
+            <div style="width:56px;height:56px;border-radius:14px;background:${cbg};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:${cc}">
+              ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:ini(k.name)}
+            </div>
+            <div style="position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;border-radius:50%;background:${k.statClr};border:2px solid var(--bg-card);${k.pulse?'animation:pulse 2s ease infinite':''}"></div>
           </div>
-          <div style="position:absolute;bottom:-3px;right:-3px;width:20px;height:20px;border-radius:50%;background:${k.statClr};border:2.5px solid #fff;${k.pulse?'animation:ringPulse 2s ease infinite':''}"></div>
+          <div style="flex:1;min-width:0">
+            <div class="dp-list-title" style="font-size:var(--text-md)">${esc(k.name)}</div>
+            <div style="font-size:var(--text-sm);color:${k.statClr};font-weight:600;margin-top:2px">${k.statText}</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
+              <span style="font-size:var(--text-xs);color:var(--text-2)">${cl?esc(cl.name):''}</span>
+              ${rank?`<span class="dp-badge" style="background:${rank.pos<=3?'rgba(255,210,78,.15)':'rgba(255,255,255,.06)'};color:${rank.pos<=3?'var(--gold)':'var(--text-2)'}">${rank.pos<=3?['🥇','🥈','🥉'][rank.pos-1]:rank.pos+'e'} / ${rank.outOf}</span>`:''}
+            </div>
+          </div>
+          <button style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:var(--text-xs);font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0" onclick="go('children')">Détails</button>
         </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:17px;font-weight:800;color:#0f172a">${esc(k.name)}</div>
-          <div style="font-size:13px;color:${k.statClr};font-weight:600;margin-top:2px">${k.statText}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
-            <span style="font-size:11px;color:#64748b">${cl?esc(cl.name):''}</span>
-            ${rank?`<span style="font-size:11px;font-weight:700;background:${rank.pos<=3?'#fef3c7':'#f1f5f9'};color:${rank.pos<=3?'#92400e':'#475569'};border-radius:6px;padding:1px 7px">${rank.pos<=3?['🥇','🥈','🥉'][rank.pos-1]:rank.pos+'e'} / ${rank.outOf}</span>`:''}
+        <div style="display:flex;gap:6px;margin-top:var(--sp-3);flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:rgba(77,231,255,.1);color:var(--primary);border-color:rgba(77,231,255,.2);font-size:11px" onclick="go('devoirs_parent')">Devoirs</button>
+          ${k.access_parent&&(DB.settings?.toggles?.corrections??false)?`<button class="btn btn-sm" style="background:rgba(56,230,165,.1);color:var(--green);border-color:rgba(56,230,165,.2);font-size:11px" onclick="go('devoirs_parent')">Corrections</button>`:''}
+          ${k.access_parent&&(DB.settings?.toggles?.bulletin??false)?`<button class="btn btn-sm" style="background:rgba(255,210,78,.1);color:var(--gold);border-color:rgba(255,210,78,.2);font-size:11px" onclick="go('palmares_parent')">Bulletin</button>`:`<span style="font-size:11px;color:var(--text-3);padding:6px 0">Bulletin — contactez la direction</span>`}
+          <div style="margin-left:auto;display:flex;gap:4px">
+            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span class="dp-badge" style="background:${p?.paid?'rgba(56,230,165,.12)':'rgba(239,68,68,.1)'};color:${p?.paid?'var(--green)':'var(--pink)'}">${t}</span>`;}).join('')}
           </div>
         </div>
-        <button class="pp-btn" style="background:linear-gradient(135deg,${clr},${clr2});color:#fff;border:none;border-radius:12px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(109,40,217,.4);white-space:nowrap;flex-shrink:0" onclick="go('children')">Détails</button>
       </div>
-      <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">
-        <button class="btn btn-sm pp-btn" style="background:#eff6ff;color:#1d4ed8;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('devoirs_parent')">Devoirs</button>
-        ${k.access_parent&&(DB.settings.toggles?.corrections??false)?`<button class="btn btn-sm pp-btn" style="background:#f0fdf4;color:#065f46;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('devoirs_parent')">Corrections</button>`:''}
-        ${k.access_parent&&(DB.settings.toggles?.bulletin??false)?`<button class="btn btn-sm pp-btn" style="background:#fef9c3;color:#92400e;border:none;font-size:11px;font-weight:700;border-radius:10px;padding:6px 12px" onclick="go('palmares_parent')">Bulletin</button>`:`<span style="font-size:11px;color:#94a3b8;padding:6px 0">Bulletin — contactez la direction</span>`}
-      </div>
-    </div>
-  </div>`;
-  }).join('')}
-
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;animation:fadeInUp .35s ease both;animation-delay:.25s">
-    ${[['children','linear-gradient(135deg,#6d28d9,#4f46e5)','Enfants'],
-       [kids.some(k=>k.access_parent)&&(DB.settings.toggles?.bulletin??false)?'palmares_parent':'','linear-gradient(135deg,#c9a030,#a68520)','Palmarès'],
-       ['devoirs_parent','linear-gradient(135deg,#8b5cf6,#7c3aed)','Devoirs'],
-       ['messages','linear-gradient(135deg,#059669,#047857)','Messages']
-    ].map(([page,bg,label])=>`
-    <button class="pp-btn" onclick="${page?`go('${page}')`:``}"
-      style="background:${!page?'linear-gradient(135deg,#94a3b8,#64748b)':bg};border:none;border-radius:18px;padding:16px 6px 14px;cursor:pointer;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.18);position:relative;overflow:hidden">
-      ${unreadMsgs>0&&label==='Messages'?`<span style="position:absolute;top:7px;right:7px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:2px 5px;border-radius:7px;animation:badgePop .3s ease both">${unreadMsgs}</span>`:''}
-      <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);margin:0 auto 8px;display:flex;align-items:center;justify-content:center">
-        <div style="width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
-      </div>
-      <div style="font-size:11px;font-weight:700;color:#fff;letter-spacing:-.2px">${label}</div>
-    </button>`).join('')}
-  </div>
-
-  ${myNotifs.length>0?`
-  <div style="background:#fff;border-left:4px solid #3b82f6;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(59,130,246,.1);animation:fadeInUp .35s ease both;animation-delay:.35s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:#3b82f6"></div>
-      <div style="font-size:10px;font-weight:800;color:#3b82f6;letter-spacing:1.5px;text-transform:uppercase">Notifications (${myNotifs.length})</div>
-    </div>
-    ${myNotifs.slice(0,3).map((n,ni)=>`
-    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;${ni<Math.min(2,myNotifs.slice(0,3).length-1)?'border-bottom:1px solid #f1f5f9':''}">
-      <div style="width:32px;height:32px;border-radius:10px;background:${n.type==='alert'?'#fef2f2':n.type==='message'?'#eff6ff':'#f0fdf4'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <div style="width:10px;height:10px;border-radius:50%;background:${n.type==='alert'?'#dc2626':n.type==='message'?'#3b82f6':'#059669'}"></div>
-      </div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:#0f172a">${n.msg}</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">${n.date} ${n.time||''}</div></div>
-    </div>`).join('')}
-    ${myNotifs.length>3?`<div style="text-align:center;padding:8px 0 2px;font-size:13px;color:#3b82f6;cursor:pointer;font-weight:600" onclick="go('notifications')">Voir tout (${myNotifs.length}) →</div>`:''}
-  </div>`:''}
-
-  ${(()=>{
-    if(!kids.length) return '';
-    const trims=['T1','T2','T3'];let rows='';
-    kids.forEach(k=>{
-      const pays=DB.payments.filter(p=>p.sid===k.id);
-      const totalPaid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-      const totalDue=trims.reduce((s,t)=>s+Number(fees[t]||0),0);
-      const balance=totalDue-totalPaid;
-      rows+=`<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f1f5f9">
-        <div style="width:36px;height:36px;border-radius:10px;background:${balance===0?'#f0fdf4':'#fef2f2'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <div style="width:12px;height:12px;border-radius:50%;background:${balance===0?'#059669':'#dc2626'}"></div>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${esc(k.name)}</div>
-          <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
-            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:${p&&p.paid?'#dcfce7':'#fee2e2'};color:${p&&p.paid?'#166534':'#991b1b'};font-weight:600">${t} ${p&&p.paid?'OK':'$'+(fees[t]||0)}</span>`;}).join('')}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-weight:800;font-size:15px;color:${balance===0?'#059669':'#dc2626'}">${balance===0?'Payé':'$'+balance}</div>
-          <div style="font-size:10px;color:#94a3b8">sur $${totalDue}</div>
-        </div>
-      </div>`;
-    });
-    return `<div style="background:#fff;border-left:4px solid #059669;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 4px 18px rgba(5,150,105,.1);animation:fadeInUp .35s ease both;animation-delay:.45s">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-        <div style="width:3px;height:14px;border-radius:2px;background:#059669"></div>
-        <div style="font-size:10px;font-weight:800;color:#059669;letter-spacing:1.5px;text-transform:uppercase">Frais scolaires</div>
-      </div>
-      ${rows}
-      <div style="font-size:12px;color:${clr};margin-top:10px;cursor:pointer;font-weight:600" onclick="go('children')">Voir le détail →</div>
     </div>`;
-  })()}
+  }).join('');
 
-  <div style="background:#f8fafc;border-radius:20px;padding:18px;margin-bottom:8px;animation:fadeInUp .35s ease both;animation-delay:.55s">
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-      <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-      <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Accès rapides</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
-      ${[['attendance','#3b82f6','Présences'],['absences','#f59e0b','Justifier'],['authorized','#6d28d9','Autorisés'],['calendar','#ec4899','Calendrier'],['notifications','#64748b','Notifs']]
-      .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
-        <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
-          <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
-        </div>
-        <div style="font-size:10px;font-weight:700;color:#475569">${lb}</div>
-      </button>`).join('')}
+  const notifsHtml = myNotifs.length ? `
+    <div class="dp-section" style="animation:fadeInUp .35s .28s ease both">
+      <div class="dp-section-header">
+        <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Notifications (${myNotifs.length})</div>
+        <div class="dp-section-action" onclick="go('notifications');clearAllNotifs()">Effacer</div>
+      </div>
+      ${myNotifs.slice(0,4).map(n=>`<div class="dp-list-item">
+        <div class="dp-list-avatar" style="background:rgba(77,231,255,.08);color:var(--primary)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg></div>
+        <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(n.msg)}</div><div class="dp-list-sub">${n.date||''} ${n.time||''}</div></div>
+      </div>`).join('')}
+      ${myNotifs.length>4?`<div class="dp-list-item" onclick="go('notifications')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir tout (${myNotifs.length}) →</div>`:''}
+    </div>` : '';
+
+  return `${_weekendBanner(false)}
+<div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
+
+  <div class="dp-hero" style="background:linear-gradient(135deg,#3b0764,#7c3aed);animation:fadeInUp .35s ease both">
+    <div class="dp-hero-eyebrow">Espace Parent · SchoolSafe</div>
+    <div class="dp-hero-name">Bonjour, ${esc(u.name?.split(' ')[0]||'')}</div>
+    <div class="dp-hero-sub">${kids.length} enfant${kids.length!==1?'s':''} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    <div class="dp-hero-stats">
+      <div class="dp-hs"><div class="dp-hs-n">${kids.length}</div><div class="dp-hs-l">Enfants</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${myNotifs.length}</div><div class="dp-hs-l">Notifs</div></div>
+      <div class="dp-hs"><div class="dp-hs-n">${unreadMsgs}</div><div class="dp-hs-l">Messages</div></div>
     </div>
   </div>
 
-  </div>`;
+  ${kidsHtml}
+
+  <div class="dp-section" style="animation:fadeInUp .35s .22s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg> Accès rapides</div>
+    </div>
+    <div style="padding:var(--sp-3)">
+      <div class="dp-quick-grid">
+        <div class="dp-quick-btn" onclick="go('children')">
+          <div class="dp-quick-icon" style="background:rgba(124,58,237,.12)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div class="dp-quick-label">Enfants</div>
+        </div>
+        <div class="dp-quick-btn" onclick="${kids.some(k=>k.access_parent)&&(DB.settings?.toggles?.bulletin??false)?`go('palmares_parent')`:`''`}">
+          <div class="dp-quick-icon" style="background:rgba(255,210,78,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+          <div class="dp-quick-label">Palmarès</div>
+        </div>
+        <div class="dp-quick-btn" onclick="go('devoirs_parent')">
+          <div class="dp-quick-icon" style="background:rgba(77,231,255,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div class="dp-quick-label">Devoirs</div>
+        </div>
+        <div class="dp-quick-btn" onclick="go('messages')" style="position:relative">
+          ${unreadMsgs>0?`<span style="position:absolute;top:6px;right:6px;background:#f87171;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px">${unreadMsgs}</span>`:''}
+          <div class="dp-quick-icon" style="background:rgba(56,230,165,.1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+          <div class="dp-quick-label">Messages</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${notifsHtml}
+
+</div>`;
 }
+
 // ── CARDS SYSTEM (intégré depuis carte_verrouillee_source.html) ──
 
 // Constantes du système de cartes
