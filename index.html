@@ -2196,11 +2196,11 @@ function dashboardDirection() {
   const students = DB.students?.filter(s => !s.archived) || [];
   const teachers = DB.users?.filter(u => u.role === 'enseignant') || [];
   const classes  = DB.classes || [];
-  const today    = today();
+  const d        = today();
   const fees     = getFees();
 
   // Attendance today
-  const att = DB.attendance?.filter(a => a.date === today) || [];
+  const att = DB.attendance?.filter(a => a.date === d) || [];
   const present = att.filter(a => a.status === 'present').length;
   const total   = students.length;
   const pctPres = total > 0 ? Math.round(present / total * 100) : 0;
@@ -2215,12 +2215,12 @@ function dashboardDirection() {
   const unreadNotifs = (DB.notifs||[]).filter(n => n.uid===u.id && !n.read);
 
   // Scans today
-  const scansToday   = (DB.scan_log||[]).filter(s => s.date === today);
+  const scansToday   = (DB.scan_log||[]).filter(s => s.date === d);
   const entries      = scansToday.filter(s => s.type==='entry').length;
 
   // Caisse today
-  const recs  = (DB.daily_records||[]).filter(r => r.date===today);
-  const exps  = (DB.daily_expenses||[]).filter(e => e.date===today);
+  const recs  = (DB.daily_records||[]).filter(r => r.date===d);
+  const exps  = (DB.daily_expenses||[]).filter(e => e.date===d);
   const recT  = recs.reduce((s,r)=>s+(+r.amount||0),0);
   const expT  = exps.reduce((s,e)=>s+(+e.amount||0),0);
   const net   = recT - expT;
