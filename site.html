@@ -1236,6 +1236,146 @@ section h2{text-shadow:0 0 80px rgba(77,231,255,.1),0 0 160px rgba(77,231,255,.0
 .s-glow-line{display:block;width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(77,231,255,.25),transparent);margin-bottom:0;opacity:0;transition:opacity 1.2s}
 .s-glow-line.on{opacity:1}
 
+/* ══════════════════════════════════════════════
+   MAGICUI (magicuidesign/magicui — MIT License)
+   Converted from React/Framer Motion → Vanilla CSS/JS
+   ══════════════════════════════════════════════ */
+
+/* MagicUI — METEORS */
+@keyframes mu-meteor {
+  0%  { transform:rotate(215deg) translateX(0);opacity:1 }
+  70% { opacity:1 }
+  100%{ transform:rotate(215deg) translateX(-700px);opacity:0 }
+}
+.mu-meteor {
+  position:absolute;width:2px;height:2px;border-radius:50%;
+  background:rgba(255,255,255,.85);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+  animation:mu-meteor linear infinite;pointer-events:none;z-index:2;
+}
+.mu-meteor::before {
+  content:'';position:absolute;top:50%;left:0;transform:translateY(-50%);
+  width:70px;height:1px;
+  background:linear-gradient(to right,rgba(255,255,255,.75),transparent);
+}
+
+/* MagicUI — RIPPLE rings on CTA */
+@keyframes mu-ripple {
+  0%,100%{ transform:translate(-50%,-50%) scale(1);opacity:var(--rop,.22) }
+  50%    { transform:translate(-50%,-50%) scale(.88);opacity:calc(var(--rop,.22)*.6) }
+}
+.mu-ripple-wrap {
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;overflow:visible;border-radius:inherit;
+}
+.mu-ripple-ring {
+  position:absolute;border-radius:50%;border:1px solid rgba(77,231,255,.45);
+  top:50%;left:50%;
+  animation:mu-ripple 2.2s ease calc(var(--i,0)*.22s) infinite;
+}
+
+/* MagicUI — AURORA animated gradient text */
+@keyframes mu-aurora-pos {
+  0%  { background-position:0% 50% }
+  50% { background-position:100% 50% }
+  100%{ background-position:0% 50% }
+}
+.mu-aurora {
+  background:linear-gradient(135deg,#fff 0%,#bff5ff 20%,var(--gold) 40%,var(--cyan) 60%,#fff0aa 80%,#fff 100%);
+  background-size:300% 300%;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:mu-aurora-pos 5s ease infinite;
+}
+
+/* MagicUI — SHINY TEXT sweep on pills */
+@keyframes mu-shiny {
+  0%,85%,100%{ background-position:calc(-100% - 80px) 0,0 0 }
+  35%,65%    { background-position:calc(100% + 80px) 0,0 0 }
+}
+.mu-shiny {
+  background:linear-gradient(90deg,
+    transparent calc(50% - 40px),
+    rgba(255,255,255,.55) 50%,
+    transparent calc(50% + 40px)
+  ) no-repeat,
+  linear-gradient(135deg,rgba(77,231,255,.1),rgba(77,231,255,.25));
+  background-size:300% 100%,100% 100%;
+  -webkit-background-clip:text,border-box;
+  background-clip:text,border-box;
+  animation:mu-shiny 4s ease infinite;
+}
+
+/* MagicUI — BORDER BEAM (CSS offset-path) */
+@keyframes mu-beam { to { offset-distance:100% } }
+.mu-border-beam {
+  position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  overflow:hidden;z-index:0;
+}
+.mu-border-beam::before {
+  content:'';position:absolute;
+  width:90px;height:3px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--cyan),var(--gold),transparent);
+  offset-path:rect(0 100% 100% 0 round var(--radius,24px));
+  offset-distance:0%;
+  animation:mu-beam 3.5s linear infinite;
+  opacity:.85;
+}
+.mu-border-beam.slow::before  { animation-duration:6s }
+.mu-border-beam.gold::before  { background:linear-gradient(90deg,transparent,var(--gold),#fff0aa,transparent) }
+
+/* ══════════════════════════════════════════════
+   FLOWBITE (themesberg/flowbite — MIT License)
+   Toast notification system — adapted to dark theme
+   ══════════════════════════════════════════════ */
+
+#fb-toast-wrap {
+  position:fixed;top:1.4rem;right:1.4rem;z-index:99998;
+  display:flex;flex-direction:column;gap:.55rem;pointer-events:none;
+}
+.fb-toast-item {
+  display:flex;align-items:center;gap:.75rem;
+  background:rgba(7,15,35,.94);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:14px;padding:13px 14px;
+  min-width:260px;max-width:340px;
+  backdrop-filter:blur(18px);
+  box-shadow:0 8px 32px rgba(0,0,0,.45),0 0 0 0.5px rgba(255,255,255,.05);
+  pointer-events:all;position:relative;overflow:hidden;
+  animation:fb-in .38s var(--ease-out) forwards;
+}
+.fb-toast-item.fb-out { animation:fb-out .32s var(--ease-out) forwards }
+@keyframes fb-in  { from{opacity:0;transform:translateX(48px) scale(.95)} to{opacity:1;transform:none} }
+@keyframes fb-out { to  {opacity:0;transform:translateX(48px) scale(.95)} }
+
+.fb-ti-icon {
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.fb-ti-icon.success{background:rgba(56,230,165,.14);color:#38e6a5}
+.fb-ti-icon.error  {background:rgba(248,113,113,.14);color:#f87171}
+.fb-ti-icon.info   {background:rgba(77,231,255,.12);color:var(--cyan)}
+.fb-ti-icon.warning{background:rgba(255,210,78,.12);color:var(--gold)}
+
+.fb-ti-msg  { flex:1;font-family:'Inter',sans-serif;font-size:.84rem;color:rgba(247,251,255,.88);line-height:1.5 }
+.fb-ti-close{
+  background:none;border:none;cursor:pointer;
+  color:rgba(255,255,255,.3);width:26px;height:26px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;flex-shrink:0;
+}
+.fb-ti-close:hover { background:rgba(255,255,255,.09);color:#fff }
+.fb-ti-bar {
+  position:absolute;bottom:0;left:0;height:2px;border-radius:0 0 14px 14px;
+  animation:fb-drain linear forwards;
+}
+.success .fb-ti-bar{background:var(--green)}
+.error   .fb-ti-bar{background:#f87171}
+.info    .fb-ti-bar{background:var(--cyan)}
+.warning .fb-ti-bar{background:var(--gold)}
+@keyframes fb-drain { from{width:100%} to{width:0%} }
+
 /* ─── MOBILE EXTRAS ─── */
 @media(max-width:640px){
   .eleves-hero-grid{grid-template-columns:1fr}
@@ -3390,6 +3530,106 @@ async function loadClassesDropdowns() {
     }, { threshold: 0.1 });
     io.observe(sec);
   });
+})();
+
+/* ══ MagicUI — METEORS ══ */
+(function() {
+  if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  const hero = document.querySelector('.hero-left');
+  if (!hero) return;
+  hero.style.overflow = 'hidden';
+  for (let i = 0; i < 14; i++) {
+    const m = document.createElement('span');
+    m.className = 'mu-meteor';
+    const dur  = (Math.random() * 6 + 3).toFixed(1);
+    const del  = (Math.random() * 5).toFixed(1);
+    const top  = (Math.random() * 70).toFixed(1);
+    const left = (Math.random() * 100).toFixed(1);
+    m.style.cssText = `left:${left}%;top:${top}%;animation-duration:${dur}s;animation-delay:-${del}s;`;
+    hero.appendChild(m);
+  }
+})();
+
+/* ══ MagicUI — RIPPLE on CTA ══ */
+(function() {
+  if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  const btn = document.querySelector('.hero-btns .btn-primary');
+  if (!btn) return;
+  btn.style.position = 'relative';
+  btn.style.overflow = 'visible';
+  const wrap = document.createElement('span');
+  wrap.className = 'mu-ripple-wrap';
+  for (let i = 0; i < 4; i++) {
+    const ring = document.createElement('span');
+    ring.className = 'mu-ripple-ring';
+    const sz = 90 + i * 36;
+    ring.style.cssText = `width:${sz}px;height:${sz}px;--i:${i};`;
+    wrap.appendChild(ring);
+  }
+  btn.insertBefore(wrap, btn.firstChild);
+})();
+
+/* ══ MagicUI — AURORA on hero headline ══ */
+(function() {
+  document.querySelectorAll('.hero-left h1 .accent-glow, .hero-left h1 em').forEach(el => {
+    el.classList.add('mu-aurora');
+  });
+})();
+
+/* ══ MagicUI — BORDER BEAM on cards ══ */
+(function() {
+  if (window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  const selectors = ['.inscr-form-card', '.ct-card', '.about-card', '.prog-card:first-child'];
+  selectors.forEach((sel, idx) => {
+    document.querySelectorAll(sel).forEach(card => {
+      if (card.querySelector('.mu-border-beam')) return;
+      const beam = document.createElement('span');
+      beam.className = 'mu-border-beam' + (idx % 2 === 1 ? ' gold' : '') + (idx > 1 ? ' slow' : '');
+      const cs = getComputedStyle(card);
+      beam.style.setProperty('--radius', cs.borderRadius || '24px');
+      card.style.position = 'relative';
+      card.style.overflow = 'hidden';
+      card.appendChild(beam);
+    });
+  });
+})();
+
+/* ══ Flowbite — TOAST SYSTEM ══ */
+(function() {
+  const wrap = document.createElement('div');
+  wrap.id = 'fb-toast-wrap';
+  document.body.appendChild(wrap);
+
+  let _tid = 0;
+  window.toast = function(msg, type = 'info', duration = 4000) {
+    const id = ++_tid;
+    const icons = {
+      success: '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/></svg>',
+      error:   '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/></svg>',
+      warning: '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>',
+      info:    '<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/></svg>',
+    };
+    const item = document.createElement('div');
+    item.className = 'fb-toast-item';
+    item.dataset.id = id;
+    item.innerHTML = `
+      <div class="fb-ti-icon ${type}">${icons[type] || icons.info}</div>
+      <span class="fb-ti-msg">${msg}</span>
+      <button class="fb-ti-close" onclick="this.closest('.fb-toast-item').remove()" aria-label="Fermer">✕</button>
+      <div class="fb-ti-bar" style="animation-duration:${duration}ms"></div>`;
+    wrap.prepend(item);
+    const bar = item.querySelector('.fb-ti-bar');
+    if (bar) bar.addEventListener('animationend', () => {
+      item.classList.add('fb-out');
+      item.addEventListener('animationend', () => item.remove(), { once: true });
+    });
+    setTimeout(() => {
+      if (item.parentNode) {
+        item.classList.add('fb-out');
+        item.addEventListener('animationend', () => item.remove(), { once: true });
+      }
+    }, duration + 500);
+  };
 })();
 
 /* ══ INIT ══ */
