@@ -4194,7 +4194,7 @@ R.inscriptions = () => {
     </div>
     ${filtered.length === 0 ? `
       <div style="text-align:center;padding:3rem;color:var(--text-muted)">
-        <div style="font-size:2.5rem;margin-bottom:.5rem">📋</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div>
         <div>${tab==='pending' ? 'Aucune demande en attente' : 'Aucune demande traitée'}</div>
       </div>
     ` : `<div class="ww-section">${filtered.map(i => `
@@ -4203,7 +4203,7 @@ R.inscriptions = () => {
         <div style="flex:1;min-width:0">
           <div class="ww-item-title">${esc(i.prenom||'')} ${esc(i.nom||'')}</div>
           <div class="ww-item-sub">Classe demandée : <strong>${esc(i.classe||'')}</strong> · Parent : ${esc(i.nom_parent||'')}</div>
-          <div class="ww-item-sub">📞 ${esc(i.telephone||'')}${i.email?' · ✉️ '+esc(i.email):''}</div>
+          <div class="ww-item-sub">${esc(i.telephone||'')}${i.email?' · '+esc(i.email):''}</div>
           <div class="ww-item-sub" style="color:var(--text-muted);font-size:10px">${i.created_at ? new Date(i.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'}) : ''}</div>
           ${i.message ? `<div class="ww-item-sub" style="font-style:italic;margin-top:4px">"${esc(i.message)}"</div>` : ''}
           ${i.statut==='validated' ? `<span class="pill pill-green" style="margin-top:6px;display:inline-block">✓ Validée</span>` : ''}
@@ -7713,8 +7713,8 @@ R.devoirs = () => {
 
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📚 ${t('Devoirs','Assignments')}${cl?' — '+esc(cl.name):''}</span>
-    ${isTeacher?`<button class="btn btn-primary" onclick="openDevoirM()">➕ ${t('Publier','Publish')}</button>`:''}
+    <span style="font-size:16px;font-weight:700">${t('Devoirs','Assignments')}${cl?' — '+esc(cl.name):''}</span>
+    ${isTeacher?`<button class="btn btn-primary" onclick="openDevoirM()">${t('Publier','Publish')}</button>`:''}
   </div>
   ${sorted.length?sorted.map((d,i)=>{
     const cls=gc(d.cid);
@@ -7741,28 +7741,28 @@ R.devoirs = () => {
           const accentBg=d.category==='interro'?'#fef3c7':'#ede9fe';
           return `
           <div style="background:${accentBg};border-radius:10px;padding:12px 14px;margin-bottom:10px">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${accentCol};margin-bottom:6px">📖 Chapitres / Thèmes à réviser</div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:${accentCol};margin-bottom:6px">Chapitres / Thèmes à réviser</div>
             <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description||'—')}</div>
             ${d.duration?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px">Durée : ${esc(d.duration)}</div>`:''}
           </div>
           <div style="display:flex;gap:8px;margin-top:8px">
-            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:${accentCol};color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
+            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:${accentCol};color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Corriger — saisir les côtes</button>`:''}
           </div>`;
         })():`
         ${d.type==='text'&&d.content?`<div style="font-size:14px;color:var(--text);line-height:1.7;padding:12px;background:var(--bg);border-radius:10px">${esc(d.content)}</div>`:''}
         ${d.type==='photo'&&d.content?`<div style="border-radius:10px;overflow:hidden;max-height:300px"><img src="${d.content}" style="width:100%;display:block;object-fit:contain"></div>`:''}
         ${d.type==='pdf'?`<div style="padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;align-items:center;gap:12px">
-          <span style="font-size:32px">📄</span>
+          <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
           <div style="flex:1"><div style="font-weight:600">Document PDF</div>
             <div style="font-size:12px;color:var(--text-muted)">${d.content?'Disponible':'Non disponible hors-ligne'}</div></div>
           ${d.content?`<button onclick="openPdfDevoir('${d.id}')" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">📄 Ouvrir</button>`:''}
         </div>`:''}
-        ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">📅 À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
+        ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
         ${(()=>{
           const corrCount=DB.grades.filter(g=>g.devoir_id===d.id).length;
           const classSize=DB.students.filter(s=>s.cid===d.cid).length;
           return `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
+            ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Corriger — saisir les côtes</button>`:''}
             ${corrCount>0?`<span style="font-size:11px;color:#059669;font-weight:700;padding:5px 10px;background:#d1fae5;border-radius:8px">${corrCount}/${classSize} corrigés</span>`:''}
             ${(()=>{const sc=(d.sigs||[]).length;return sc>0?`<span style="font-size:11px;color:#2563eb;font-weight:700;padding:5px 10px;background:#dbeafe;border-radius:8px">${sc} parent${sc>1?'s':''} confirmé${sc>1?'s':''}</span>`:'';})()}
           </div>`;
@@ -9409,7 +9409,7 @@ R.authorized = () => {
       </div>
     </div>
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px;border-left:4px solid #f59e0b">
-      ⚠️ Chaque élève peut avoir <strong>1 parent principal</strong> (compte app) + <strong>jusqu'à 3 tutelles secondaires</strong> avec photo — visibles lors du scan de sortie.
+      Chaque élève peut avoir <strong>1 parent principal</strong> (compte app) + <strong>jusqu'à 3 tutelles secondaires</strong> avec photo — visibles lors du scan de sortie.
     </div>
     <div style="display:flex;flex-direction:column;gap:12px">
       ${studs.map(s=>{
@@ -9425,7 +9425,7 @@ R.authorized = () => {
               <div style="font-weight:700">${esc(s.name)}</div>
               <div style="font-size:12px;color:var(--text-secondary)">${esc(s.mat)} · ${c?esc(c.name):''}</div>
             </div>
-            ${tuts.length<3?`<button class="btn btn-primary btn-sm" onclick="openTutelleForm('${s.id}')">➕ Tutelle</button>`:`<span class="pill pill-orange">Max 3</span>`}
+            ${tuts.length<3?`<button class="btn btn-primary btn-sm" onclick="openTutelleForm('${s.id}')">+ Tutelle</button>`:`<span class="pill pill-orange">Max 3</span>`}
           </div>
           <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${parent?'#d1fae522':'#fee2e222'};border-radius:10px;margin-bottom:8px;border:1px solid ${parent?'#10b98133':'#ef444433'}">
             <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;overflow:hidden;flex-shrink:0">
@@ -9433,7 +9433,7 @@ R.authorized = () => {
             </div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:700">${parent?esc(parent.name):'— Aucun parent principal'}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">👑 Parent principal · ${parent?esc(parent.phone||'—'):'Non lié'}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">Parent principal · ${parent?esc(parent.phone||'—'):'Non lié'}</div>
             </div>
             <span class="pill" style="background:#dbeafe;color:#1e40af;font-size:10px">COMPTE APP</span>
           </div>
@@ -9446,7 +9446,7 @@ R.authorized = () => {
               <div style="font-size:11px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
               <div style="font-size:11px;color:var(--text-muted)">${t.phone||'—'}</div>
               <div style="display:flex;gap:4px;margin-top:6px">
-                <button class="btn btn-outline btn-sm" style="flex:1;padding:4px" onclick="openTutelleForm('${s.id}','${t.id}')">✏️</button>
+                <button class="btn btn-outline btn-sm" style="flex:1;padding:4px" onclick="openTutelleForm('${s.id}','${t.id}')">Édit.</button>
                 <button class="btn btn-danger btn-sm" style="padding:4px 6px" onclick="deleteTutelle('${t.id}')">Suppr.</button>
               </div>
             </div>`).join('')}
@@ -9459,10 +9459,10 @@ R.authorized = () => {
   // ── PARENT : vue avec ajout + toggle ──
   if (role === 'parent') {
     const myKids = DB.students.filter(s=>s.pid===S.user.id);
-    if (!myKids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔑</div>Aucun enfant lié à ce compte</div>`;
+    if (!myKids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:56px;height:56px;border-radius:16px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="8" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg></div>Aucun enfant lié à ce compte</div>`;
     return `
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:12px 14px;background:#dbeafe;border-radius:10px;border-left:3px solid #2563eb">
-      🔑 Vous pouvez ajouter jusqu'à <strong>3 tutelles</strong> par enfant et activer/désactiver leur autorisation de récupérer votre enfant.
+      Vous pouvez ajouter jusqu'à <strong>3 tutelles</strong> par enfant et activer/désactiver leur autorisation de récupérer votre enfant.
     </div>
     ${myKids.map(s=>{
       const tuts = DB.aps.filter(a=>a.sid===s.id);
@@ -9875,7 +9875,7 @@ const PAYMENT_TYPES = [
 
 R.caisse_paiement = () => `
 <div class="premium-section">
-  <div class="premium-section-title">🔍 Rechercher un élève</div>
+  <div class="premium-section-title">Rechercher un élève</div>
   <div class="ww-toolbar" style="margin-top:10px">
     <div class="ww-search" style="flex:1">
       <input id="caisse_search" placeholder="Nom ou matricule..." oninput="caisseSearch()" autocomplete="off">
@@ -9885,7 +9885,7 @@ R.caisse_paiement = () => `
 </div>
 <div id="caisse_form" style="display:none">
   <div class="premium-section">
-    <div class="premium-section-title">💵 Enregistrer le paiement</div>
+    <div class="premium-section-title">Enregistrer le paiement</div>
     <div id="caisse_student_info" style="margin-bottom:14px"></div>
     <div class="form-group">
       <label class="form-label">Type de paiement</label>
@@ -9910,7 +9910,7 @@ R.caisse_paiement = () => `
       <input class="form-input" id="caisse_note" placeholder="Ex: Paiement partiel...">
     </div>
     <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
+      <button class="btn btn-outline" onclick="caisseCancel()">Annuler</button>
       <button class="btn btn-primary" style="flex:1;padding:14px" onclick="caisseSavePaiement()">Enregistrer + Envoyer reçu</button>
     </div>
   </div>
@@ -10508,7 +10508,7 @@ R.statistiques = () => {
   const ml=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Statistiques analytiques — ${yr}</span></div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Statistiques analytiques — ${yr}</span></div>
 
   <div class="ww-stats">
     <div class="ww-stat" style="border-left-color:#2563eb"><div class="ww-stat-icon"><div style="width:28px;height:28px;border-radius:8px;background:#dbeafe;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#2563eb"></div></div></div><div class="ww-stat-val">${ts}</div><div class="ww-stat-label">Élèves inscrits</div></div>
@@ -10518,7 +10518,7 @@ R.statistiques = () => {
   </div>
 
   <div class="premium-section">
-    <div class="premium-section-title">📅 Présences — 7 derniers jours</div>
+    <div class="premium-section-title">Présences — 7 derniers jours</div>
     <div style="display:flex;align-items:flex-end;gap:4px;height:70px;margin-bottom:8px">
       ${week7.map(({d,pct})=>{
         const dn=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][new Date(d+'T12:00:00').getDay()];
@@ -10544,7 +10544,7 @@ R.statistiques = () => {
   </div>
 
   <div class="premium-section">
-    <div class="premium-section-title">🏫 Performance académique par classe <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(moyennes pondérées EPSP)</span></div>
+    <div class="premium-section-title">Performance académique par classe <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(moyennes pondérées EPSP)</span></div>
     ${classPerfStats.length?`<div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:var(--bg)">
@@ -10577,12 +10577,12 @@ R.statistiques = () => {
 
   ${top10.length?`
   <div class="premium-section">
-    <div class="premium-section-title">🏆 Top 10 élèves de l'école</div>
+    <div class="premium-section-title">Top 10 élèves de l'école</div>
     ${top10.map((s,i)=>{
       const cl=gc(s.cid);
-      const medals=['🥇','🥈','🥉'];
+      const rankBadge=(i)=>i===0?`<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>`:i===1?`<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#94a3b8,#64748b);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>`:i===2?`<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#cd7c2f,#b45309);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>`:`<div style="width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>`;
       return `<div class="premium-item">
-        <div style="width:28px;text-align:center;font-size:${i<3?'20px':'13px'};font-weight:700;color:${i<3?'#f59e0b':'#64748b'};flex-shrink:0">${i<3?medals[i]:(i+1)+'e'}</div>
+        ${rankBadge(i)}
         <div style="width:38px;height:38px;border-radius:10px;background:#e2e8f0;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#475569">
           ${s.photo?`<img src="${esc(s.photo)}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}
         </div>
@@ -10598,7 +10598,7 @@ R.statistiques = () => {
 
   ${absCounts.length?`
   <div class="premium-section" style="border-left:4px solid #f97316">
-    <div class="premium-section-title" style="color:#c2410c">⚠️ Absences chroniques (top ${absCounts.length})</div>
+    <div class="premium-section-title" style="color:#c2410c">Absences chroniques (top ${absCounts.length})</div>
     ${absCounts.map(({s,abs})=>{
       const cl=gc(s.cid);
       return `<div class="premium-item">
@@ -10848,27 +10848,27 @@ R.convocations = () => {
   const communiques=DB.messages.filter(m=>m.type==='communique').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📋 ${tab==='communiques'?'Communiqués':'Convocations parents'}</span>
-    ${isDir&&tab==='convocations'?`<button class="btn btn-primary btn-sm" onclick="openConvocationM()">➕ Convocation</button>`:''}
-    ${isDir&&tab==='communiques'?`<button class="btn btn-primary btn-sm" onclick="openCommuniqueM()">📣 Nouveau communiqué</button>`:''}
+    <span style="font-size:16px;font-weight:700">${tab==='communiques'?'Communiqués':'Convocations parents'}</span>
+    ${isDir&&tab==='convocations'?`<button class="btn btn-primary btn-sm" onclick="openConvocationM()">Nouvelle convocation</button>`:''}
+    ${isDir&&tab==='communiques'?`<button class="btn btn-primary btn-sm" onclick="openCommuniqueM()">Nouveau communiqué</button>`:''}
   </div>
   ${isDir?`<div style="display:flex;gap:6px;margin-bottom:14px">
-    <button class="pill ${tab==='convocations'?'pill-blue':''}" onclick="window._convTab='convocations';render()" style="cursor:pointer;border:none">📋 Convocations (${all.length})</button>
-    <button class="pill ${tab==='communiques'?'pill-blue':''}" onclick="window._convTab='communiques';render()" style="cursor:pointer;border:none">📣 Communiqués (${communiques.length})</button>
+    <button class="pill ${tab==='convocations'?'pill-blue':''}" onclick="window._convTab='convocations';render()" style="cursor:pointer;border:none">Convocations (${all.length})</button>
+    <button class="pill ${tab==='communiques'?'pill-blue':''}" onclick="window._convTab='communiques';render()" style="cursor:pointer;border:none">Communiqués (${communiques.length})</button>
   </div>`:''}
   ${isDir&&tab==='communiques'?`
-  ${!communiques.length?`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📣</div>Aucun communiqué envoyé</div>`:`
+  ${!communiques.length?`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="width:56px;height:56px;border-radius:16px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>Aucun communiqué envoyé</div>`:`
   <div class="premium-section">
     ${communiques.map(m=>{
       const targetLabel=m.to==='role:parent'?'Tous les parents':(DB.classes.find(c=>c.id===m.to_class)?.name||'Classe inconnue')+' — parents';
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
-        <div class="pi-icon" style="background:#dbeafe;color:#2563eb;font-size:20px">📣</div>
+        <div class="pi-icon" style="background:#dbeafe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${esc(m.subject||'Communiqué')}</div>
-          <div class="pi-sub">📢 ${targetLabel} · ${m.date||''}</div>
+          <div class="pi-sub">${targetLabel} · ${m.date||''}</div>
           <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;white-space:pre-line">${esc((m.body||'').slice(0,120))}${(m.body||'').length>120?'…':''}</div>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="downloadCommuniquePDF('${m.id}')">📄 PDF</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadCommuniquePDF('${m.id}')">PDF</button>
       </div>`;
     }).join('')}
   </div>`}`:''}
@@ -10882,27 +10882,27 @@ R.convocations = () => {
       const parent=s?gu(s.pid):null;
       const cl=s?gc(s.cid):null;
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px;align-items:flex-start">
-        <div class="pi-icon" style="background:${statusColor[conv.status]+'22'};color:${statusColor[conv.status]};font-size:20px">${conv.status==='scheduled'?'📅':conv.status==='completed'?'✅':conv.status==='missed'?'❌':'📋'}</div>
+        <div class="pi-icon" style="background:${statusColor[conv.status]+'22'}"><div style="width:10px;height:10px;border-radius:50%;background:${statusColor[conv.status]}"></div></div>
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?esc(s.name):'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div>
           <div class="pi-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''} ${parent?.phone&&isDir?waBtn(parent.phone,parent.name):''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.auto_generated?`<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">⚡ AUTO</span>`:''}${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
-          ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.auto_generated?`<span style="background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">AUTO</span>`:''}${esc(conv.reason||(conv.score!=null?`Moy. ${conv.score}%`:''))}</div>
+          ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2563eb;margin-top:3px">RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
           <span style="font-size:11px;font-weight:700;color:${statusColor[conv.status]||'#64748b'}">${statusLabel[conv.status]||conv.status}</span>
-          ${conv.parent_confirmed&&isDir?`<span style="font-size:10px;color:#7c3aed;font-weight:600">📬 Lu par le parent</span>`:''}
-          ${conv.status==='pending'&&isDir?`<button class="btn btn-primary btn-sm" onclick="planifierConvocation('${conv.id}')">📅 Fixer RDV</button>`:''}
+          ${conv.parent_confirmed&&isDir?`<span style="font-size:10px;color:#7c3aed;font-weight:600">Lu par le parent</span>`:''}
+          ${conv.status==='pending'&&isDir?`<button class="btn btn-primary btn-sm" onclick="planifierConvocation('${conv.id}')">Fixer RDV</button>`:''}
           ${conv.status==='scheduled'&&isDir?`<div style="display:flex;gap:4px">
             <button class="btn btn-success btn-sm" onclick="cloturerConvocation('${conv.id}','completed')">Venu</button>
             <button class="btn btn-danger btn-sm" onclick="cloturerConvocation('${conv.id}','missed')">Absent</button>
           </div>`:''}
-          ${isDir?`<button class="btn btn-outline btn-sm" onclick="downloadConvocationPDF('${conv.id}')">📄 PDF</button>`:''}
-          ${(conv.status==='pending'||conv.status==='scheduled')&&role==='parent'&&s&&s.pid===S.user.id&&!conv.parent_confirmed?`<button class="btn btn-outline btn-sm" style="border-color:#7c3aed;color:#7c3aed" onclick="confirmConvocationParent('${conv.id}')">📬 Confirmer réception</button>`:''}
+          ${isDir?`<button class="btn btn-outline btn-sm" onclick="downloadConvocationPDF('${conv.id}')">PDF</button>`:''}
+          ${(conv.status==='pending'||conv.status==='scheduled')&&role==='parent'&&s&&s.pid===S.user.id&&!conv.parent_confirmed?`<button class="btn btn-outline btn-sm" style="border-color:#7c3aed;color:#7c3aed" onclick="confirmConvocationParent('${conv.id}')">Confirmer réception</button>`:''}
         </div>
       </div>`;
     }).join('')}
-  </div>`:`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucune convocation ${filter==='active'?'en cours':filter==='closed'?'clôturée':''}</div>`:''}`
+  </div>`:`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="width:56px;height:56px;border-radius:16px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div>Aucune convocation ${filter==='active'?'en cours':filter==='closed'?'clôturée':''}</div>`:''}`
   ;
 };
 window.downloadConvocationPDF = (cid) => {
@@ -11468,12 +11468,12 @@ R.export = () => {
   const paidCount=totalFees>0?(DB.students||[]).filter(s=>{const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((s2,p)=>s2+(fees[p.t]||0),0);return paid>=totalFees;}).length:0;
   const finSection=isD2?
     '<div class="premium-section" style="margin-bottom:14px;border-left:3px solid #fde68a;padding:14px 16px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:24px">🔒</span><div style="font-size:13px;color:#92400e">Les exports financiers sont réservés à la Direction 1.</div></div></div>':
-    ('<div class="premium-section" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center;font-size:20px">💰</div><div><div style="font-size:15px;font-weight:800;color:#059669">Finances</div><div style="font-size:11px;color:var(--text-muted)">'+paidCount+'/'+nStudents+' soldés · '+nRecords+' opérations caisse</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'payments\')">📊 Paiements CSV</button><button class="btn btn-primary" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px;background:#059669" onclick="printReport(\'payments\')">💰 Paiements PDF</button><button class="btn btn-outline" style="grid-column:span 2;justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'caisse\')">📊 Caisse CSV ('+nRecords+' opérations)</button></div></div>');
+    ('<div class="premium-section" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:12px;background:#d1fae5;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div><div style="font-size:15px;font-weight:800;color:#059669">Finances</div><div style="font-size:11px;color:var(--text-muted)">'+paidCount+'/'+nStudents+' soldés · '+nRecords+' opérations caisse</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'payments\')">📊 Paiements CSV</button><button class="btn btn-primary" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px;background:#059669" onclick="printReport(\'payments\')">💰 Paiements PDF</button><button class="btn btn-outline" style="grid-column:span 2;justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'caisse\')">📊 Caisse CSV ('+nRecords+' opérations)</button></div></div>');
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📤 Export & Archives</span></div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Export & Archives</span></div>
   <div class="premium-section" style="margin-bottom:14px;padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-size:13px;font-weight:700">🗄️ Base de données — ${DB.settings.year||'2025-2026'}</span>
+      <span style="font-size:13px;font-weight:700">Base de données — ${DB.settings.year||'2025-2026'}</span>
       <span style="font-size:13px;font-weight:800;color:${szColor}">${sizeMb} Mo <span style="font-size:11px;color:var(--text-muted);font-weight:400">/ ${maxMb} Mo (${pct}%)</span></span>
     </div>
     <div style="background:#e5e7eb;border-radius:8px;height:10px;overflow:hidden;margin-bottom:10px">
@@ -11485,7 +11485,7 @@ R.export = () => {
   </div>
   <div class="premium-section" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <div style="width:40px;height:40px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:20px">📚</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:#dbeafe;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg></div>
       <div><div style="font-size:15px;font-weight:800;color:#1d4ed8">Pédagogie</div><div style="font-size:11px;color:var(--text-muted)">${nStudents} élèves · ${nGrades} notes · ${nClasses} classes</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -11500,7 +11500,7 @@ R.export = () => {
   ${finSection}
   <div class="premium-section" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <div style="width:40px;height:40px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:20px">📅</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
       <div><div style="font-size:15px;font-weight:800;color:#d97706">Présences & Activité</div><div style="font-size:11px;color:var(--text-muted)">${nAttendance} entrées · ${nScans} scans portail</div></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -11511,22 +11511,22 @@ R.export = () => {
   </div>
   <div class="premium-section">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-      <div style="width:40px;height:40px;border-radius:12px;background:#f3e8ff;display:flex;align-items:center;justify-content:center;font-size:20px">📦</div>
+      <div style="width:40px;height:40px;border-radius:12px;background:#f3e8ff;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></div>
       <div><div style="font-size:15px;font-weight:800;color:#7c3aed">Archive & Nettoyage</div><div style="font-size:11px;color:var(--text-muted)">${nNotifs} notifs · ${nAudit} audit · ${nScans} scans</div></div>
     </div>
     <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#5b21b6;margin-bottom:8px">🕐 Rétention automatique</div>
+      <div style="font-size:12px;font-weight:700;color:#5b21b6;margin-bottom:8px">Rétention automatique</div>
       <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Notifications</span><span class="pill" style="background:#fee2e2;color:#dc2626;font-size:10px">Supprimées après ${ret.notifs||30}j</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">💬 Messages lus</span><span class="pill" style="background:#fee2e2;color:#dc2626;font-size:10px">Supprimés après ${ret.messages||30}j</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">💬 Messages non lus</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.messages_unread||60}j</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📩 Convocations traitées</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimées après ${ret.convocations||90}j</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📝 Devoirs expirés</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimés à expiration</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">📷 Scans portail</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.scan_log||90}j</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">🔍 Journal audit</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimé après ${ret.audit_log||90}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Messages lus</span><span class="pill" style="background:#fee2e2;color:#dc2626;font-size:10px">Supprimés après ${ret.messages||30}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Messages non lus</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.messages_unread||60}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Convocations traitées</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimées après ${ret.convocations||90}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Devoirs expirés</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimés à expiration</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Scans portail</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimés après ${ret.scan_log||90}j</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Journal audit</span><span class="pill" style="background:#fef3c7;color:#d97706;font-size:10px">Supprimé après ${ret.audit_log||90}j</span></div>
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--text-secondary)">Approbations</span><span class="pill" style="background:#f1f5f9;color:#64748b;font-size:10px">Supprimées après ${ret.approbations||60}j</span></div>
       </div>
-      <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="openRetentionSettings()">⚙️ Modifier les durées de rétention</button>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px;width:100%;font-size:11px" onclick="openRetentionSettings()">Modifier les durées de rétention</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <button class="btn btn-outline" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportBackupJSON()">💾 Backup JSON</button>
