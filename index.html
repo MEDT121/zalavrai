@@ -4005,12 +4005,18 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
 
 // ── LOCKDOWN ──
 R.lockdown = () => `
-<div style="text-align:center;padding:40px 20px">
-  <div style="font-size:80px;margin-bottom:20px;animation:breathe 2s ease-in-out infinite">${S.lockdown?'🔴':'🟢'}</div>
-  <h2 style="font-size:28px;margin-bottom:8px">${S.lockdown?'ÉCOLE VERROUILLÉE':'École Ouverte'}</h2>
-  <p style="color:var(--text-secondary);margin-bottom:30px;font-size:15px">${S.lockdown?'Aucune sortie autorisée.':'L\'école fonctionne normalement.'}</p>
-  <button class="btn ${S.lockdown?'btn-primary':'btn-danger'}" style="padding:18px 40px;font-size:18px;border-radius:16px;animation:glow 3s ease-in-out infinite" onclick="toggleLockdown()">
-  ${S.lockdown?'🔓 DÉSACTIVER':'ACTIVER LE LOCKDOWN'}
+<div style="text-align:center;padding:32px 20px 40px">
+  <div style="width:80px;height:80px;border-radius:24px;background:${S.lockdown?'rgba(220,38,38,.12)':'rgba(5,150,105,.12)'};border:2px solid ${S.lockdown?'rgba(220,38,38,.3)':'rgba(5,150,105,.3)'};display:flex;align-items:center;justify-content:center;margin:0 auto 20px;animation:fadeInUp .3s ease both">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${S.lockdown?'#dc2626':'#059669'}" stroke-width="2">
+      ${S.lockdown
+        ? '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>'
+        : '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1M17 11V8"/>'}
+    </svg>
+  </div>
+  <h2 style="font-size:24px;font-weight:800;margin-bottom:8px;color:${S.lockdown?'#dc2626':'#059669'}">${S.lockdown?'ÉCOLE VERROUILLÉE':'École Ouverte'}</h2>
+  <p style="color:var(--text-muted);margin-bottom:28px;font-size:14px;line-height:1.6">${S.lockdown?'Aucune sortie autorisée jusqu\'à désactivation.':'L\'école fonctionne normalement.<br>Toutes les sorties sont autorisées.'}</p>
+  <button class="btn ${S.lockdown?'btn-primary':'btn-danger'}" style="padding:16px 36px;font-size:16px;font-weight:700;border-radius:14px;width:100%;max-width:320px" onclick="toggleLockdown()">
+    ${S.lockdown?'Désactiver le verrouillage':'Activer le Lockdown'}
   </button>
 </div>`;
 window.toggleLockdown = () => { S.lockdown=!S.lockdown; logAudit('lockdown_toggle', S.lockdown?'LOCKDOWN activé':'LOCKDOWN désactivé'); toast(S.lockdown?'LOCKDOWN ACTIVÉ':'🟢 LOCKDOWN désactivé',S.lockdown?'error':'success'); render(); };
@@ -4097,15 +4103,15 @@ R.notifications = () => {
     <span style="font-size:16px;font-weight:700">Notifications</span>
     <div style="display:flex;gap:6px;align-items:center">
       ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
-      ${(role==='direction'||role==='direction2')?`<button class="btn btn-primary btn-sm" onclick="openBroadcastM()" style="font-size:11px;padding:4px 10px">📣 Annonce</button>`:''}
-      ${sorted.length?`<button class="btn btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:11px;padding:4px 10px">🗑️ Effacer tout</button>`:''}
+      ${(role==='direction'||role==='direction2')?`<button class="btn btn-primary btn-sm" onclick="openBroadcastM()" style="font-size:11px;padding:4px 10px">Annonce</button>`:''}
+      ${sorted.length?`<button class="btn btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:11px;padding:4px 10px">Effacer tout</button>`:''}
     </div>
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
   <div class="ww-item" ${!n.read?'data-unread="true"':''} style="animation-delay:${i*.03}s;${typeBorder[n.type]?'border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f1f5f9'}">${typeIcon[n.type]||'●'}</div>
     <div class="ww-item-content">
-      ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
+      ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;display:flex;align-items:center;gap:4px"><div style="width:6px;height:6px;border-radius:50%;background:#dc2626"></div>URGENT</div>`:''}
       <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${n.msg}</div>
       ${n.receipt?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${n.receipt.num}</div>
@@ -4965,9 +4971,9 @@ R.approbations = () => {
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#d1fae5;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#059669"></div></div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
   <div class="premium-section" style="border-left:4px solid #f59e0b">
-    <div class="premium-section-title">⏳ ${total} en attente</div>
+    <div class="premium-section-title">${total} en attente</div>
   </div>
-  ${pendingReports.length?`<div class="premium-section"><div class="premium-section-title">📊 Rapports journaliers (${pendingReports.length})</div>
+  ${pendingReports.length?`<div class="premium-section"><div class="premium-section-title">Rapports journaliers (${pendingReports.length})</div>
     ${pendingReports.map(rep=>{
       const sender=DB.users.find(u=>u.id===rep.by);
       const totalIn=rep.records?rep.records.reduce((s,r)=>s+Number(r.amount||0),0):0;
@@ -4979,18 +4985,18 @@ R.approbations = () => {
           <div class="pi-sub">${rep.records?rep.records.length:0} paiements · ${rep.expenses?rep.expenses.length:0} dépenses · Solde: $${totalIn-totalOut}</div>
         </div>
         <div style="display:flex;gap:6px;width:100%">
-          <button class="btn btn-outline btn-sm" style="flex:1" onclick="viewDailyReport('${rep.id}')">👁️ Voir</button>
+          <button class="btn btn-outline btn-sm" style="flex:1" onclick="viewDailyReport('${rep.id}')">Voir</button>
           <button class="btn btn-success btn-sm" style="flex:1" onclick="validateDailyReport('${rep.id}')">Valider</button>
         </div>
       </div>`;
     }).join('')}</div>`:''}
-  ${pabs.length?`<div class="premium-section"><div class="premium-section-title">📄 Justifications d'absence</div>
+  ${pabs.length?`<div class="premium-section"><div class="premium-section-title">Justifications d'absence</div>
     ${pabs.map(a=>{
       const s=DB.students.find(x=>x.id===a.sid);
       return `<div class="premium-item"><div style="width:34px;height:34px;border-radius:10px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#f59e0b"></div></div><div style="flex:1"><div class="pi-title">${s?esc(s.name):''}</div><div class="pi-sub">${esc(a.dates)} — ${esc(a.motif||'')}</div></div>
       <div style="display:flex;gap:6px"><button class="btn btn-success btn-sm" onclick="validateAbs('${a.id}','approved')">Oui</button><button class="btn btn-danger btn-sm" onclick="validateAbs('${a.id}','refused')">Non</button></div></div>`;
     }).join('')}</div>`:''}
-  ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">✉️ Messages à approuver (${pendingMsgs.length})</div>
+  ${pendingMsgs.length?`<div class="premium-section"><div class="premium-section-title">Messages à approuver (${pendingMsgs.length})</div>
     ${pendingMsgs.map(m=>{const from=gu(m.from);return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#dbeafe">✉️</div><div style="flex:1;min-width:150px"><div class="pi-title">${esc(m.subject)}</div><div class="pi-sub">${esc(m.body.slice(0,80))}${m.body.length>80?'...':''}</div><div style="font-size:11px;color:var(--text-muted)">De: ${from?esc(from.name):'?'} · ${m.date}</div></div><div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">Oui</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">Non</button></div></div>`;}).join('')}
   </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Approbations (${apr.length})</div>
@@ -6438,17 +6444,24 @@ R.palmares = () => {
   let classes=DB.classes;
   const mc=role==='enseignant'?getMyClass():{cl:null,lang:null};
   if(role==='enseignant'){
-    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🏫</div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">${t('Aucune classe assignée','No class assigned')}</div><div style="font-size:14px">${t('La Direction doit vous affecter à une classe.<br>Contactez l\'administration.','Management needs to assign you to a class.<br>Contact administration.')}</div></div>`;
+    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:56px;height:56px;border-radius:16px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:8px">${t('Aucune classe assignée','No class assigned')}</div><div style="font-size:14px">${t('La Direction doit vous affecter à une classe.<br>Contactez l\'administration.','Management needs to assign you to a class.<br>Contact administration.')}</div></div>`;
     classes=[mc.cl];
   }
   if(!window._palmTrim) window._palmTrim=DB.settings?.currentTrimestre||'T1';
   const selTrim=window._palmTrim;
   const trimFilter=selTrim==='Tous'?undefined:selTrim;
   const getMention=pct=>pct>=90?{l:'Excellent',c:'#059669'}:pct>=75?{l:'Très Bien',c:'#0891b2'}:pct>=60?{l:'Bien',c:'#2563eb'}:pct>=50?{l:'Assez Bien',c:'#d97706'}:{l:'Insuffisant',c:'#dc2626'};
-  const medals=['🥇','🥈','🥉'];
+  const medals=['1','2','3'];
+  const medalBadge = (rank) => rank===0
+    ? `<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>`
+    : rank===1
+    ? `<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#94a3b8,#64748b);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>`
+    : rank===2
+    ? `<div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>`
+    : `<div style="width:24px;height:24px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${rank+1}</div>`;
 
   let html=`<div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">🏆 ${t('Palmarès','Rankings')}</span>
+    <span style="font-size:16px;font-weight:700">${t('Palmarès','Rankings')}</span>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
       ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmTrim='${tr}';render()">${tr}</button>`).join('')}
     </div>
@@ -6500,7 +6513,7 @@ R.palmares = () => {
           const colors=['linear-gradient(135deg,#fbbf24,#f59e0b)','linear-gradient(135deg,#94a3b8,#64748b)','linear-gradient(135deg,#cd7c2f,#a16207)'];
           const men=getMention(s.total);
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-            <div style="font-size:${pos===0?'28':'22'}px">${medals[pos]}</div>
+            ${medalBadge(pos)}
             <div style="width:44px;height:44px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(s.name)}</div>
             <div style="font-size:11px;font-weight:700;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
             <div style="font-size:9px;font-weight:700;color:${men.c};background:${men.c}22;border-radius:4px;padding:2px 5px">${men.l}</div>
@@ -6515,7 +6528,7 @@ R.palmares = () => {
           const condEmoji={4:'🌟',3:'😊',2:'😐',1:'😞',0:'—'}[Math.round(s.condAvg)]||'—';
           const men=getMention(s.total);
           return `<div class="ww-item" style="animation-delay:${i*.04}s">
-            <span style="font-size:${i<3?20:15}px;width:32px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
+            ${medalBadge(i)}
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
             <div class="ww-item-content">
               <div class="ww-item-title">${esc(s.name)}${s.moyPct<50&&s.gradeCount>0?' <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fee2e2;border-radius:4px;padding:1px 5px">⚠ ÉCHEC</span>':''}</div>
@@ -9329,7 +9342,10 @@ R.scan_log = () => {
   const late=entries.filter(l=>l.status==='late').length;
   const refused=entries.filter(l=>l.status==='refused').length;
   const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',authorized:'pill-green',unauthorized:'pill-red'};
-  const typeIcon={entry:'📥',exit:'🚪'};
+  const typeIcon={
+  entry:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>`,
+  exit:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>`
+};
   const datePicker=isDir?`<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;render()" style="flex:1;max-width:180px"><span style="font-size:13px;color:var(--text-muted)">${selDate===today()?'Aujourd\'hui':new Date(selDate).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>`:''
   const incidents=logs.filter(l=>l.status==='unauthorized'||l.status==='refused');
   return `
@@ -9340,8 +9356,8 @@ R.scan_log = () => {
     <div class="ww-stat" style="border-left-color:#dc2626"><div class="ww-stat-icon"><div style="width:28px;height:28px;border-radius:8px;background:#fee2e2;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div></div><div class="ww-stat-val">${refused}</div><div class="ww-stat-label">Refusés</div></div>
     <div class="ww-stat" style="border-left-color:#3b82f6"><div class="ww-stat-icon"><div style="width:28px;height:28px;border-radius:8px;background:#dbeafe;display:flex;align-items:center;justify-content:center"><div style="width:12px;height:12px;border-radius:50%;background:#3b82f6"></div></div></div><div class="ww-stat-val">${exits.length}</div><div class="ww-stat-label">Sorties</div></div>
   </div>
-  ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
-  ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité aujourd'hui (${incidents.length})</div>
+  ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">Envoyer liste à la Direction</button>`:''}
+  ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">Incidents de sécurité aujourd'hui (${incidents.length})</div>
     ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.label||l.status} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#dc2626">${l.time}</span></div>`).join('')}
   </div>`:''}
   ${logs.length?`
@@ -9364,7 +9380,7 @@ R.scan_log = () => {
         <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
       </div>`;}).join('')}
   </div>`:
-  '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>Aucun scan aujourd\'hui</div>'}`;
+  '<div style="text-align:center;padding:48px 16px"><div style="width:56px;height:56px;border-radius:16px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></div><div style="font-weight:600;font-size:15px;margin-bottom:4px">Aucun scan aujourd\'hui</div><div style="font-size:13px;color:var(--text-muted)">Les scans apparaîtront ici en temps réel</div></div>'}`;
 };
 
 window.sendAttendanceList = async () => {
@@ -13526,12 +13542,13 @@ R.audit_log = () => {
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const shown=filter?all.filter(e=>e.action===filter):all;
-  const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋',teacher_absence:'🏠'};
+  const _auditColor={student_add:'#3b82f6',student_edit:'#3b82f6',student_delete:'#ef4444',student_block:'#ef4444',student_unblock:'#10b981',payment_toggle:'#059669',user_add:'#8b5cf6',user_edit:'#8b5cf6',user_delete:'#ef4444',class_add:'#0891b2',class_edit:'#0891b2',class_delete:'#ef4444',passage_classe:'#d97706',lockdown_toggle:'#dc2626',fees_control:'#059669',cahier_add:'#0891b2',cahier_edit:'#0891b2',cahier_delete:'#ef4444',devoir_add:'#8b5cf6',rattrapage_signal:'#d97706',rattrapage_validate:'#10b981',convocation_create:'#0891b2',conduct_add:'#d97706',conduct_delete:'#ef4444',broadcast:'#3b82f6',rattrapage_pay:'#059669',report_validate:'#10b981',teacher_absence:'#f97316'};
+  const actionIcon=Object.fromEntries(Object.entries(_auditColor).map(([k,v])=>[k,`<div style="width:10px;height:10px;border-radius:50%;background:${v}"></div>`]));
   const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé',teacher_absence:'Absence enseignant'};
   const cats=[...new Set(all.map(e=>e.action))];
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">🕐 Historique des modifications</span>
+    <span style="font-size:16px;font-weight:700">Historique des modifications</span>
     <span style="font-size:12px;color:var(--text-muted)">${all.length} entrées</span>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;overflow-x:auto">
@@ -13540,7 +13557,7 @@ R.audit_log = () => {
   </div>
   ${shown.length?`<div class="premium-section">
     ${shown.map((e,i)=>`<div class="premium-item" style="animation-delay:${i*.02}s">
-      <div class="pi-icon" style="background:#f1f5f9;font-size:16px">${actionIcon[e.action]||'•'}</div>
+      <div class="pi-icon" style="background:${_auditColor[e.action]||'#94a3b8'}22;display:flex;align-items:center;justify-content:center">${actionIcon[e.action]||'<div style="width:10px;height:10px;border-radius:50%;background:#94a3b8"></div>'}</div>
       <div style="flex:1;min-width:0">
         <div class="pi-title" style="font-size:13px">${actionLabel[e.action]||e.action}</div>
         <div class="pi-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.detail||''}</div>
@@ -13550,7 +13567,7 @@ R.audit_log = () => {
         <div style="font-size:10px;color:var(--text-muted)">${e.date} ${e.time}</div>
       </div>
     </div>`).join('')}
-  </div>`:`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🕐</div>Aucune action enregistrée</div>`}`;
+  </div>`:`<div style="text-align:center;padding:48px 16px"><div style="width:56px;height:56px;border-radius:16px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div style="font-weight:600;font-size:15px;margin-bottom:4px">Aucune action enregistrée</div><div style="font-size:13px;color:var(--text-muted)">Les actions apparaîtront ici automatiquement</div></div>`}`;
 };
 
 // ── PROFIL GARDIEN ──
