@@ -5413,13 +5413,15 @@ R.payments = () => {
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id);
       const {paid,total,debt}=getStudentBalance(s.id);
       const [cc,cbg]=clsColor(c?c.name:'');
-      return `<div class="ww-section" style="margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid var(--border-light)">
+      return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;border:1.5px solid #efe3d3;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.05)">
+        <div style="display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1.5px solid #efe3d3">
           <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
           <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
           ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">sur $${total}</div></div>`:''}
         </div>
-        ${pays.map(p=>{const pLabel=p.t==='inscription'?'Frais d\'inscription':'Trimestre '+p.t;return`<div class="ww-item"><div class="ww-item-icon" style="background:${p.paid?'#d8f3e6':'#fee2e2'}"><div style="width:10px;height:10px;border-radius:50%;background:${p.paid?'#1f9d6b':'#ef5b5b'}"></div></div><div class="ww-item-content"><div class="ww-item-title">${pLabel}</div><div class="ww-item-sub">${p.paid?'Réglé — $'+(fees[p.t]||'?'):'À payer — $'+(fees[p.t]||'?')}</div></div><span class="pill ${p.paid?'pill-green':'pill-red'}">${p.paid?'Payé':'Non payé'}</span></div>`;}).join('')}
+        <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
+          ${pays.map(p=>{const pLabel=p.t==='inscription'?'Frais d\'inscription':'Trimestre '+p.t;return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:${p.paid?'#d8f3e6':'#fee2e2'};border:1px solid ${p.paid?'#86efac':'#fca5a5'}"><div style="width:9px;height:9px;border-radius:50%;background:${p.paid?'#1f9d6b':'#ef5b5b'};flex-shrink:0"></div><div style="flex:1;font-size:13px;font-weight:700;color:#241f1a">${pLabel}</div><span style="font-size:11px;font-weight:700;color:${p.paid?'#065f46':'#991b1b'}">${p.paid?'Payé':'À payer'} — $${fees[p.t]||'?'}</span></div>`;}).join('')}
+        </div>
       </div>`;
     }).join('');
   }
@@ -5483,26 +5485,26 @@ R.payments = () => {
       const {debt}=getStudentBalance(s.id);
       const [cc,cbg]=clsColor(c?c.name:'');
       const barColor=s.access_blocked?'#9b6fd4':paidC===3?'#2fbf8f':paidC>0?'#f59e0b':'#ef5b5b';
-      return `<div class="ww-card" style="animation-delay:${i*.03}s${s.access_blocked?';border:2px solid #f0e9fa;':''}">
-        <div class="ww-card-stripe" style="background:${barColor}"></div>
-        <div class="ww-card-body">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;box-shadow:0 3px 14px rgba(0,0,0,.06);animation:fadeInUp .3s ease both;animation-delay:${i*.03}s;border:1.5px solid ${s.access_blocked?'#d0c2f2':'#efe3d3'}">
+        <div style="height:4px;background:${barColor}"></div>
+        <div style="padding:14px 16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
             <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):''}</div></div>
-            ${s.access_blocked?`<span style="font-size:11px;padding:2px 7px;border-radius:6px;background:#f0e9fa;color:#6f44ab;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:700;font-size:13px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'OK'}</div>`:'')}
+            ${s.access_blocked?`<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:#f0e9fa;color:#6f44ab;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:800;font-size:13px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'✓'}</div>`:'')}
           </div>
-          <!-- T1/T2/T3 — dot + montant -->
-          <div style="display:flex;gap:5px;margin-bottom:8px">
-            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;flex:1;padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid ${p.paid?'rgba(16,185,129,.3)':'rgba(239,68,68,.25)'};background:${p.paid?'rgba(16,185,129,.1)':'rgba(239,68,68,.08)'}"><span style="width:7px;height:7px;border-radius:50%;background:${p.paid?'#2fbf8f':'#ef5b5b'};flex-shrink:0"></span><span style="font-size:11px;font-weight:700;color:${p.paid?'#065f46':'#991b1b'}">${p.t} $${fees[p.t]||'?'}</span></button>`).join('')}
+          <div style="display:flex;gap:5px;margin-bottom:10px">
+            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;flex:1;padding:7px 6px;border-radius:10px;cursor:pointer;border:1.5px solid ${p.paid?'#1f9d6b':'#ef5b5b'};background:${p.paid?'#d8f3e6':'#fee2e2'}"><span style="font-size:11px;font-weight:800;color:${p.paid?'#065f46':'#991b1b'}">${p.t}</span><span style="font-size:10px;font-weight:600;color:${p.paid?'#1f9d6b':'#ef5b5b'}">$${fees[p.t]||'?'}</span></button>`).join('')}
           </div>
-          <div class="ww-bar-wrap"><div class="ww-bar" style="width:${paidC/3*100}%;background:${barColor}"></div></div>
-          <!-- Actions: 2 principales + "+" révèle les autres -->
-          <div style="display:flex;gap:6px;margin-top:8px">
+          <div style="height:6px;border-radius:6px;background:#efe3d3;overflow:hidden;margin-bottom:10px">
+            <div style="height:100%;width:${paidC/3*100}%;background:${barColor};border-radius:6px;transition:width .4s"></div>
+          </div>
+          <div style="display:flex;gap:6px">
             ${debt>0?`<button class="btn btn-outline btn-sm" style="flex:1;min-height:36px" onclick="openAssignCaissePayment('${s.id}')">Affecter</button>`:''}
-            <button onclick="toggleStudentAccess('${s.id}')" style="flex:1;min-height:36px;padding:6px 10px;border-radius:9px;border:1px solid ${s.access_blocked?'#9b6fd4':'var(--border)'};background:${s.access_blocked?'#f0e9fa':'transparent'};cursor:pointer;font-size:12px;font-weight:700;color:${s.access_blocked?'#6f44ab':'var(--text-2)'}">
+            <button onclick="toggleStudentAccess('${s.id}')" style="flex:1;min-height:36px;padding:6px 10px;border-radius:9px;border:1.5px solid ${s.access_blocked?'#9b6fd4':'#efe3d3'};background:${s.access_blocked?'#f0e9fa':'transparent'};cursor:pointer;font-size:12px;font-weight:700;color:${s.access_blocked?'#6f44ab':'var(--text-2)'}">
               ${s.access_blocked?'Débloquer':'Bloquer'}
             </button>
-            <button onclick="var el=document.getElementById('ps${i}');el.style.display='flex';this.style.display='none'" style="width:36px;height:36px;flex-shrink:0;border:1px solid var(--border);border-radius:9px;background:var(--bg-card-2);cursor:pointer;font-size:18px;line-height:1;color:var(--text-2);display:flex;align-items:center;justify-content:center">+</button>
+            <button onclick="var el=document.getElementById('ps${i}');el.style.display='flex';this.style.display='none'" style="width:36px;height:36px;flex-shrink:0;border:1.5px solid #efe3d3;border-radius:9px;background:transparent;cursor:pointer;font-size:18px;line-height:1;color:var(--text-2);display:flex;align-items:center;justify-content:center">+</button>
           </div>
           <div id="ps${i}" style="display:none;gap:6px;margin-top:6px;animation:slideUp .2s ease both">
             <button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px" onclick="downloadRecuPaiement('${s.id}')">Reçu PDF</button>
