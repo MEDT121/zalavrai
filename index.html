@@ -5016,8 +5016,16 @@ R.approbations = () => {
   const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingConvs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#d8f3e6;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#1f9d6b"></div></div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
-  <div class="premium-section" style="border-left:4px solid #f59e0b">
-    <div class="premium-section-title">⏳ ${total} en attente</div>
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">⏳</div><div class="hbig" style="font-size:24px">${total}</div><div class="hsub">en attente</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🔁</div><div class="hbig" style="font-size:24px">${pendingRats.length}</div><div class="hsub">rattrapages</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📋</div><div class="hbig" style="font-size:24px">${pendingConvs.length}</div><div class="hsub">convocations</div>
+    </div>
   </div>
   ${pendingReports.length?`<div class="premium-section"><div class="premium-section-title">📊 Rapports journaliers (${pendingReports.length})</div>
     ${pendingReports.map(rep=>{
@@ -11548,7 +11556,21 @@ R.export = () => {
     '<div class="premium-section" style="margin-bottom:14px;border-left:3px solid #fde68a;padding:14px 16px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:24px">🔒</span><div style="font-size:13px;color:#92400e">Les exports financiers sont réservés à la Direction 1.</div></div></div>':
     ('<div class="premium-section" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="width:40px;height:40px;border-radius:12px;background:#d8f3e6;display:flex;align-items:center;justify-content:center;font-size:20px">💰</div><div><div style="font-size:15px;font-weight:800;color:#1f9d6b">Finances</div><div style="font-size:11px;color:var(--text-muted)">'+paidCount+'/'+nStudents+' soldés · '+nRecords+' opérations caisse</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn btn-outline" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'payments\')">📊 Paiements CSV</button><button class="btn btn-primary" style="justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px;background:#1f9d6b" onclick="printReport(\'payments\')">💰 Paiements PDF</button><button class="btn btn-outline" style="grid-column:span 2;justify-content:flex-start;gap:8px;font-size:12px;padding:10px 12px" onclick="exportCSV(\'caisse\')">📊 Caisse CSV ('+nRecords+' opérations)</button></div></div>');
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📤 Export & Archives</span></div>
+  <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#243a6b,#2f7bd6);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:22px">${nStudents}</div><div class="hsub">élèves</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">📝</div><div class="hbig" style="font-size:22px">${nGrades}</div><div class="hsub">notes</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ea580c);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">📋</div><div class="hbig" style="font-size:22px">${nScans}</div><div class="hsub">scans</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">💾</div><div class="hbig" style="font-size:22px">${sizeMb}</div><div class="hsub">Mo base</div>
+    </div>
+  </div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Export & Archives</span></div>
   <div class="premium-section" style="margin-bottom:14px;padding:14px 16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span style="font-size:13px;font-weight:700">🗄️ Base de données — ${DB.settings.year||'2025-2026'}</span>
@@ -12149,6 +12171,17 @@ R.settings = () => {
   const minsToTime=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
   const lastSave=localStorage.getItem('schoolsafe_db_ts');
   return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#243a6b,#2f7bd6);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🏫</div><div class="hbig" style="font-size:22px">${DB.students.length}</div><div class="hsub">élèves</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📚</div><div class="hbig" style="font-size:22px">${DB.classes.length}</div><div class="hsub">classes</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📅</div><div class="hbig" style="font-size:22px">${DB.settings.year||'—'}</div><div class="hsub">année</div>
+    </div>
+  </div>
   <!-- ══ ÉCOLE ══ -->
   <div class="premium-section" style="border-left:4px solid #243a6b">
     <div class="premium-section-title">🏫 Informations école</div>
@@ -14017,8 +14050,26 @@ R.accounts = () => {
       </div>`}
     </div>`;
   };
+  const nDir = DB.users.filter(u=>u.role==='direction'||u.role==='direction2'||u.role==='direction3').length;
+  const nEns = DB.users.filter(u=>u.role==='enseignant').length;
+  const nPar = DB.users.filter(u=>u.role==='parent').length;
+  const nGar = DB.users.filter(u=>u.role==='gardien').length;
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">👥 Comptes Accès</span></div>
+  <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#243a6b,#2f7bd6);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">👔</div><div class="hbig" style="font-size:22px">${nDir}</div><div class="hsub">direction</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">📚</div><div class="hbig" style="font-size:22px">${nEns}</div><div class="hsub">enseignants</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">👪</div><div class="hbig" style="font-size:22px">${nPar}</div><div class="hsub">parents</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ea580c);color:#fff;padding:13px 8px">
+      <div style="font-size:19px">🛡️</div><div class="hbig" style="font-size:22px">${nGar}</div><div class="hsub">gardiens</div>
+    </div>
+  </div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Comptes Accès</span></div>
   ${mkSection('direction','linear-gradient(90deg,#243a6b,#205fae)')}
   ${mkSection('direction2','linear-gradient(90deg,#2f7bd6,#9b6fd4)')}
   ${mkSection('direction3','linear-gradient(90deg,#1f9d6b,#2fbf8f)')}`;
