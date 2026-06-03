@@ -3332,7 +3332,7 @@ const cardClasses = [
 let schoolImg = new Image();
 let safeImg = new Image();
 let cardPhotoImg = null;
-schoolImg.src = cardSchoolLogo;
+schoolImg.src = window.SCHOOL_LOGO || cardSchoolLogo;
 safeImg.src = cardSafeLogo;
 
 // $ is already defined globally as document.getElementById
@@ -3610,7 +3610,7 @@ async function drawBack() {
   fillRound(ctx,44,44,928,126,30,c.dark);
   contain(ctx,schoolImg,72,64,86,86);
   ctx.fillStyle="#fff"; ctx.textAlign="left";
-  ctx.font="950 34px Arial"; ctx.fillText("THE WISE SCHOOL INTERNATIONAL",180,96);
+  ctx.font="950 34px Arial"; ctx.fillText((DB.settings.school?.name_en||DB.settings.school?.name||'SchoolSafe').toUpperCase(),180,96);
   ctx.font="850 22px Arial"; ctx.fillText("SchoolSafe",180,130);
   ctx.font="700 17px Arial"; ctx.fillText(devise,180,154);
   contain(ctx,safeImg,850,68,68,68);
@@ -3645,7 +3645,7 @@ async function drawBack() {
   // contacts bottom
   fillRound(ctx,76,526,862,66,22,c.color);
   ctx.fillStyle="#fff"; ctx.font="900 20px Arial"; ctx.textAlign="center";
-  ctx.fillText("Direction : "+directionTel+"   •   Email : "+schoolEmail,507,558);
+  ctx.fillText("Direction : "+(DB.settings.school?.phone||directionTel)+"   •   Email : "+(DB.settings.school?.email||schoolEmail),507,558);
   ctx.font="800 16px Arial";
   ctx.fillText("Cette carte est strictement personnelle et doit être présentée au gardien.",507,582);
 }
@@ -3932,6 +3932,7 @@ function applyCrop() {
     if(!DB.settings.school) DB.settings.school={};
     DB.settings.school.logo = data;
     window.SCHOOL_LOGO = data;
+    schoolImg.src = data;
     pushSync('settings','upsert',DB.settings);
     saveToCrypt();
     const prev=document.getElementById('school_logo_preview');
