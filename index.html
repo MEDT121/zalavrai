@@ -4770,12 +4770,25 @@ R.parents = () => {
   const parents = DB.users.filter(u => u.role === 'parent');
   const q = (window._parQ||'').toLowerCase();
   const list = q ? parents.filter(u=>u.name.toLowerCase().includes(q)||( u.phone&&u.phone.includes(q))) : parents;
+  const _withKids = parents.filter(p=>DB.students.some(s=>s.pid===p.id)).length;
+  const _withPhone = parents.filter(p=>p.phone).length;
   return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">👪</div><div class="hbig" style="font-size:24px">${parents.length}</div><div class="hsub">parents</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:24px">${_withKids}</div><div class="hsub">avec enfants</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📞</div><div class="hbig" style="font-size:24px">${_withPhone}</div><div class="hsub">avec tél.</div>
+    </div>
+  </div>
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
       <input placeholder="Rechercher un parent..." oninput="window._parQ=this.value;render()" value="${window._parQ||''}">
     </div>
-    <button class="btn btn-primary" onclick="openUserForm('parent')">➕ Ajouter</button>
+    <button class="btn btn-primary" onclick="openUserForm('parent')">+ Ajouter</button>
   </div>
   ${!list.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#f0e9fa;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#9b6fd4"></div></div>Aucun parent — cliquez ➕ pour ajouter</div>`:`
   <div style="display:flex;flex-direction:column;gap:14px">
@@ -6633,8 +6646,20 @@ R.palmares_parent = () => {
   const selTrim=window._palmPTrim;
   const trimFilter=selTrim==='Tous'?undefined:selTrim;
   const getMention=pct=>pct>=90?{l:'Excellent',c:'#1f9d6b'}:pct>=75?{l:'Très Bien',c:'#2f8fa6'}:pct>=60?{l:'Bien',c:'#2f7bd6'}:pct>=50?{l:'Assez Bien',c:'#d98a2b'}:{l:'Insuffisant',c:'#dc2626'};
+  const accessKids=kids.filter(k=>k.access_parent);
 
-  let html=`<div class="ww-toolbar" style="animation:fadeInUp .35s ease both">
+  let html=`<div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">👨‍👩‍👧</div><div class="hbig" style="font-size:24px">${kids.length}</div><div class="hsub">enfant${kids.length>1?'s':''}</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📅</div><div class="hbig" style="font-size:24px">${selTrim}</div><div class="hsub">trimestre</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${accessKids.length}</div><div class="hsub">accès activé${accessKids.length>1?'s':''}</div>
+    </div>
+  </div>
+  <div class="ww-toolbar" style="animation:fadeInUp .35s ease both">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(245,158,11,.3)"><div style="width:16px;height:16px;border-radius:50%;background:#fff"></div></div>
       <span style="font-size:16px;font-weight:700">Palmarès</span>
@@ -7691,6 +7716,17 @@ R.matieres = () => {
   const langLabel=mc.lang==='fr'?'Français 🇫🇷':'English 🇬🇧';
 
   return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📖</div><div class="hbig" style="font-size:24px">${allMat.length}</div><div class="hsub">${t('matières','subjects')}</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🏫</div><div class="hbig" style="font-size:24px">${(DB.classes||[]).length}</div><div class="hsub">${t('classes','classes')}</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">👨‍🏫</div><div class="hbig" style="font-size:24px">${(DB.users||[]).filter(u=>u.role==='enseignant').length}</div><div class="hsub">${t('enseignants','teachers')}</div>
+    </div>
+  </div>
   <div class="premium-section">
     <div class="premium-section-title">📐 ${t('Mes matières','My Subjects')} — ${esc(cl.name)} (${langLabel})</div>
     ${myMat.map((m,i)=>`
@@ -9850,7 +9886,21 @@ R.absences = () => {
     if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune justification soumise</div>`;
     const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
     const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
+    const _pending=all.filter(a=>a.status==='pending').length;
+    const _approved=all.filter(a=>a.status==='approved').length;
+    const _refused=all.filter(a=>a.status==='refused').length;
     return `
+    <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+      <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
+        <div style="font-size:19px">⏳</div><div class="hbig" style="font-size:24px">${_pending}</div><div class="hsub">en attente</div>
+      </div>
+      <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+        <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${_approved}</div><div class="hsub">approuvées</div>
+      </div>
+      <div class="htile" style="background:linear-gradient(135deg,#ef5b5b,#dc2626);color:#fff;padding:13px 10px">
+        <div style="font-size:19px">✗</div><div class="hbig" style="font-size:24px">${_refused}</div><div class="hsub">refusées</div>
+      </div>
+    </div>
     <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Justifications (${all.length})</span></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
       ${['','pending','approved','refused'].map(s=>`<button class="pill ${(window._absFilter||'')===(s)?'pill-blue':''}" onclick="window._absFilter='${s}';render()" style="cursor:pointer;border:none">${s===''?'Toutes':statusLabel[s]}</button>`).join('')}
@@ -9945,9 +9995,26 @@ const PAYMENT_TYPES = [
   {id:'autre', label:'Autre'},
 ];
 
-R.caisse_paiement = () => `
-<div class="premium-section">
-  <div class="premium-section-title">🔍 Rechercher un élève</div>
+R.caisse_paiement = () => {
+  const _totalStu = (DB.students||[]).length;
+  const fees = getFees();
+  const _totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  const _paidFull = _totalFees>0?(DB.students||[]).filter(s=>{const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((a,p)=>a+(fees[p.t]||0),0);return paid>=_totalFees;}).length:0;
+  const _todayPay = (DB.payments||[]).filter(p=>p.date===today()).length;
+  return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:24px">${_totalStu}</div><div class="hsub">élèves</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${_paidFull}</div><div class="hsub">soldés</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📥</div><div class="hbig" style="font-size:24px">${_todayPay}</div><div class="hsub">aujourd'hui</div>
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">Rechercher un élève</div>
   <div class="ww-toolbar" style="margin-top:10px">
     <div class="ww-search" style="flex:1">
       <input id="caisse_search" placeholder="Nom ou matricule..." oninput="caisseSearch()" autocomplete="off">
@@ -9987,6 +10054,7 @@ R.caisse_paiement = () => `
     </div>
   </div>
 </div>`;
+};
 
 window._caisseStudent = null;
 window.caisseTypeChanged = () => {
@@ -10932,9 +11000,23 @@ R.convocations = () => {
   const shown=filter==='active'?active:filter==='closed'?closed:all;
   // Communiqués: messages with type communique
   const communiques=DB.messages.filter(m=>m.type==='communique').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const _active=all.filter(c=>c.status==='pending'||c.status==='scheduled').length;
+  const _done=all.filter(c=>c.status==='completed').length;
+  const _missed=all.filter(c=>c.status==='missed').length;
   return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📋</div><div class="hbig" style="font-size:24px">${_active}</div><div class="hsub">en cours</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${_done}</div><div class="hsub">clôturées</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#ef5b5b,#dc2626);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">✗</div><div class="hbig" style="font-size:24px">${_missed}</div><div class="hsub">absents</div>
+    </div>
+  </div>
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">📋 ${tab==='communiques'?'Communiqués':'Convocations parents'}</span>
+    <span style="font-size:16px;font-weight:700">${tab==='communiques'?'Communiqués':'Convocations parents'}</span>
     ${isDir&&tab==='convocations'?`<button class="btn btn-primary btn-sm" onclick="openConvocationM()">➕ Convocation</button>`:''}
     ${isDir&&tab==='communiques'?`<button class="btn btn-primary btn-sm" onclick="openCommuniqueM()">📣 Nouveau communiqué</button>`:''}
   </div>
