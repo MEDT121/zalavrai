@@ -1826,6 +1826,7 @@ window.PT = {
   export:'Export', alert_urgent:'Alerte Urgence',
   devoirs_parent:'Devoirs', palmares_parent:'Palmarès', recus_parent:'Mes Reçus',
   caisse_paiement:'Enregistrer Paiement', caisse_depense:'Enregistrer Dépense',
+  recettes:'Recettes', depenses:'Dépenses',
   caisse_rapport:'Rapport du Jour',
   profil_gardien:'Mon profil', profil_caisse:'Mon profil',
   profil_direction:'Mon profil', profil_direction2:'Mon profil',
@@ -4319,7 +4320,7 @@ R.inscriptions = () => {
         </button>
         <button class="btn ${tab==='done'?'btn-primary':'btn-outline'} btn-sm" onclick="window._inscTab='done';render()">Traitées</button>
       </div>
-      <div class="ww-search"><input placeholder="Rechercher..." oninput="window._inscQ=this.value;render()" value="${esc(window._inscQ||'')}"></div>
+      <div class="ww-search"><input placeholder="Rechercher..." oninput="window._inscQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${esc(window._inscQ||'')}"></div>
     </div>
     ${filtered.length === 0 ? `
       <div style="text-align:center;padding:3rem;color:var(--text-muted)">
@@ -4441,7 +4442,7 @@ R.students = () => {
   </div>
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
-      <input id="stu_q" placeholder="Nom ou matricule..." value="${window._studentQ||''}" oninput="window._studentQ=this.value;render()">
+      <input id="stu_q" placeholder="Nom ou matricule..." value="${window._studentQ||''}" oninput="window._studentQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)">
     </div>
     <button class="btn btn-primary" onclick="openStudentForm()">+ Inscrire</button>
     <button class="btn btn-outline btn-sm" onclick="openImportCSV()" style="white-space:nowrap">Import CSV</button>
@@ -4807,7 +4808,7 @@ R.parents = () => {
   </div>
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
-      <input placeholder="Rechercher un parent..." oninput="window._parQ=this.value;render()" value="${window._parQ||''}">
+      <input placeholder="Rechercher un parent..." oninput="window._parQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._parQ||''}">
     </div>
     <button class="btn btn-primary" onclick="openUserForm('parent')">+ Ajouter</button>
   </div>
@@ -9540,7 +9541,7 @@ R.authorized = () => {
     </div>
     <div class="ww-toolbar">
       <div class="ww-search" style="flex:1">
-        <input placeholder="Rechercher un élève..." oninput="window._apQ=this.value;render()" value="${window._apQ||''}">
+        <input placeholder="Rechercher un élève..." oninput="window._apQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._apQ||''}">
       </div>
     </div>
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px;border-left:4px solid #f59e0b">
@@ -9677,7 +9678,7 @@ R.authorized = () => {
   return `
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
-      <input placeholder="Rechercher un élève..." oninput="window._apQG=this.value;render()" value="${window._apQG||''}">
+      <input placeholder="Rechercher un élève..." oninput="window._apQG=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._apQG||''}">
     </div>
   </div>
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:10px 14px;background:var(--bg);border-radius:10px;border-left:3px solid #2f7bd6">
@@ -10022,6 +10023,67 @@ const PAYMENT_TYPES = [
   {id:'autre', label:'Autre'},
 ];
 
+// ── RECETTES ──
+R.recettes = () => {
+  const allRec=DB.daily_records||[];
+  const todayRec=allRec.filter(r=>r.date===today());
+  const totalToday=todayRec.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const totalAll=allRec.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const totalVal=allRec.filter(r=>r.validated).reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const fmt=n=>n.toLocaleString('fr-FR');
+  const sorted=[...allRec].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  return `
+  <div class="hbento" style="margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff">
+      <div style="font-size:20px">📈</div><div class="hbig" style="font-size:20px">${fmt(totalToday)}</div><div class="hsub">Aujourd'hui (FC)</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#205fae,#2f7bd6);color:#fff">
+      <div style="font-size:20px">💰</div><div class="hbig" style="font-size:20px">${fmt(totalAll)}</div><div class="hsub">Total global (FC)</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff" onclick="go('caisse_paiement')" role="button" tabindex="0">
+      <div style="font-size:20px">✅</div><div class="hbig" style="font-size:20px">${fmt(totalVal)}</div><div class="hsub">Validé (FC)</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#d98a2b,#f59e0b);color:#fff">
+      <div style="font-size:20px">⏳</div><div class="hbig">${allRec.filter(r=>!r.validated).length}</div><div class="hsub">En attente</div>
+    </div>
+  </div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Recettes</span></div>
+  ${sorted.length?sorted.map((r,i)=>`
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;background:#fff5ea;border:1.5px solid #efe3d3;margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:${i*.03}s">
+    <div style="width:40px;height:40px;border-radius:12px;background:${r.validated?'#d8f3e6':'#fdeccd'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${r.validated?'✅':'⏳'}</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(r.label||r.type||r.by||'Recette')}</div><div style="font-size:12px;color:#6f6557">${r.date||''} ${r.time||''}</div></div>
+    <div style="font-weight:800;font-size:15px;color:${r.validated?'#1f9d6b':'#d98a2b'}">${fmt(Number(r.amount)||0)} FC</div>
+  </div>`).join(''):`<div style="text-align:center;padding:40px;color:#a89c8b;background:#fff5ea;border-radius:20px">Aucune recette enregistrée</div>`}
+  `;
+};
+
+// ── DÉPENSES ──
+R.depenses = () => {
+  const allExp=DB.daily_expenses||[];
+  const todayExp=allExp.filter(e=>e.date===today());
+  const totalToday=todayExp.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalAll=allExp.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const fmt=n=>n.toLocaleString('fr-FR');
+  const sorted=[...allExp].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  return `
+  <div class="hbento" style="margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff">
+      <div style="font-size:20px">📉</div><div class="hbig" style="font-size:20px">${fmt(totalToday)}</div><div class="hsub">Aujourd'hui (FC)</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff">
+      <div style="font-size:20px">💸</div><div class="hbig" style="font-size:20px">${fmt(totalAll)}</div><div class="hsub">Total global (FC)</div>
+    </div>
+  </div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📉 Dépenses</span></div>
+  ${sorted.length?sorted.map((e,i)=>`
+  <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:16px;background:#fff5ea;border:1.5px solid #efe3d3;margin-bottom:8px;animation:fadeInUp .3s ease both;animation-delay:${i*.03}s">
+    <div style="width:40px;height:40px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">📉</div>
+    <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">${esc(e.label||e.type||e.by||'Dépense')}</div><div style="font-size:12px;color:#6f6557">${e.date||''} ${e.time||''}</div></div>
+    <div style="font-weight:800;font-size:15px;color:#dc2626">-${fmt(Number(e.amount)||0)} FC</div>
+  </div>`).join(''):`<div style="text-align:center;padding:40px;color:#a89c8b;background:#fff5ea;border-radius:20px">Aucune dépense enregistrée</div>`}
+  `;
+};
+
 R.caisse_paiement = () => {
   const _totalStu = (DB.students||[]).length;
   const fees = getFees();
@@ -10044,7 +10106,7 @@ R.caisse_paiement = () => {
     <div class="premium-section-title">Rechercher un élève</div>
   <div class="ww-toolbar" style="margin-top:10px">
     <div class="ww-search" style="flex:1">
-      <input id="caisse_search" placeholder="Nom ou matricule..." oninput="caisseSearch()" autocomplete="off">
+      <input id="caisse_search" placeholder="Nom ou matricule..." oninput="clearTimeout(window._dT);window._dT=setTimeout(caisseSearch,300)" autocomplete="off">
     </div>
   </div>
   <div id="caisse_results" style="margin-top:8px"></div>
@@ -14759,7 +14821,7 @@ R.acces_parents = () => {
   <!-- Zone 3 : Liste élèves -->
   <div class="ww-toolbar" style="margin-bottom:10px">
     <div class="ww-search" style="flex:1">
-      <input placeholder="Nom élève ou parent..." oninput="window._accParQ=this.value;render()" value="${window._accParQ||''}">
+      <input placeholder="Nom élève ou parent..." oninput="window._accParQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._accParQ||''}">
     </div>
     <button onclick="autoActivatePaid()" style="background:#243a6b;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚡ Auto payés</button>
   </div>
@@ -14849,7 +14911,7 @@ window.resetParentPin = (uid) => {
 // ── RECHERCHE GLOBALE ──
 window.openGlobalSearch = () => {
   openM('🔍 Recherche globale',`
-  <input class="form-input" id="gSearch" placeholder="Nom, matricule, téléphone..." oninput="renderGSearch()" autofocus style="margin-bottom:10px">
+  <input class="form-input" id="gSearch" placeholder="Nom, matricule, téléphone..." oninput="clearTimeout(window._dT);window._dT=setTimeout(renderGSearch,300)" autofocus style="margin-bottom:10px">
   <div id="gSearchResults" style="max-height:60vh;overflow-y:auto"></div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
   setTimeout(()=>document.getElementById('gSearch')?.focus(),100);
