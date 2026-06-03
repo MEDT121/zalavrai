@@ -841,6 +841,34 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   <div style="font-size:11px;color:#334155" id="lb_key"></div>
 </div>
 
+<!-- ── Écran configuration Supabase (premier lancement ou reconfiguration) ── -->
+<div id="supaSetup" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:10000;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto">
+  <div style="font-size:48px;margin-bottom:12px">🗄️</div>
+  <div style="font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:6px">Connexion à la base de données</div>
+  <div style="font-size:13px;color:#94a3b8;margin-bottom:28px;max-width:340px;line-height:1.6">Entrez les informations de votre projet Supabase pour connecter SchoolSafe.</div>
+  <div style="width:100%;max-width:360px;text-align:left">
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">URL du projet Supabase</label>
+      <input id="ss_url" type="url" placeholder="https://xxxx.supabase.co" style="width:100%;padding:13px 16px;border-radius:12px;border:2px solid #1e3a5f;background:#0f172a;color:#f1f5f9;font-size:14px;outline:none;transition:border .2s" onfocus="this.style.borderColor='#2f7bd6'" onblur="this.style.borderColor='#1e3a5f'">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Clé Anon (publique)</label>
+      <input id="ss_key" type="password" placeholder="eyJhbGciOiJIUzI1NiIs…" style="width:100%;padding:13px 16px;border-radius:12px;border:2px solid #1e3a5f;background:#0f172a;color:#f1f5f9;font-size:13px;font-family:monospace;outline:none;transition:border .2s" onfocus="this.style.borderColor='#2f7bd6'" onblur="this.style.borderColor='#1e3a5f'">
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#64748b;cursor:pointer"><input type="checkbox" onchange="document.getElementById('ss_key').type=this.checked?'text':'password'" style="accent-color:#2f7bd6"> Afficher la clé</label>
+    </div>
+    <div id="ss_error" style="font-size:12px;color:#f87171;margin-bottom:12px;min-height:18px;text-align:center"></div>
+    <button id="ss_btn" onclick="connectSupabaseFromSetup()" style="width:100%;padding:14px;background:#2f7bd6;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px">🔌 Tester et connecter</button>
+    <div style="text-align:center;font-size:12px;color:#475569">
+      Vous avez une clé de licence ?
+      <a href="#" onclick="hideSupaSetup();showLicenseActivate('no_key');" style="color:#2f7bd6;text-decoration:none;font-weight:600"> Activer via licence →</a>
+    </div>
+  </div>
+  <div style="margin-top:28px;background:#0f172a;border-radius:14px;padding:14px 20px;max-width:360px;width:100%;text-align:left">
+    <div style="font-size:11px;color:#475569;margin-bottom:6px;font-weight:600">OÙ TROUVER CES INFORMATIONS ?</div>
+    <div style="font-size:12px;color:#64748b;line-height:1.7">Tableau de bord Supabase → <strong style="color:#94a3b8">Project Settings</strong> → <strong style="color:#94a3b8">API</strong><br>Copiez <em>Project URL</em> et <em>anon public key</em>.</div>
+  </div>
+</div>
+
 <!-- ── Crop Modal Photo ── -->
 <div id="cropModal" onclick="if(event.target===this)closeCropModal()">
   <div id="cropBox">
@@ -1410,15 +1438,25 @@ window.NAV = {
 //    2. RLS renforcée sur toutes les tables (audit_log/settings immuables)
 //    3. Repo GitHub privé
 // Ne jamais exposer la clé service_role (dashboard Supabase uniquement)
-let SUPA_URL='https://zqgksxgozpnhqzvzxloa.supabase.co';
-let SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+let SUPA_URL='';
+let SUPA_KEY='';
 window.DB_ONLINE = false;
-let _H = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'};
+let _H = {};
 // Applique dynamiquement une nouvelle connexion Supabase (multi-tenant)
 window._updateSupabase = (url, key) => {
-  SUPA_URL = url; SUPA_KEY = key;
+  SUPA_URL = url.replace(/\/$/,''); SUPA_KEY = key;
   _H = {'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'return=minimal'};
 };
+window._supaConfigured = () => !!(SUPA_URL && SUPA_KEY);
+// Migration one-shot : si l'ancienne URL est dans le code, on la bascule en localStorage
+(function _migrate(){
+  if(!localStorage.getItem('_school_supa_url')){
+    const leg='https://zqgksxgozpnhqzvzxloa.supabase.co';
+    const legK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+    localStorage.setItem('_school_supa_url',leg);
+    localStorage.setItem('_school_supa_key',legK);
+  }
+})();
 // Restaure la connexion sauvegardée au démarrage
 (function(){
   const u=localStorage.getItem('_school_supa_url');
@@ -1435,6 +1473,7 @@ async function _upsert(t,b){try{const h={..._H,'Prefer':'resolution=merge-duplic
 // Synchronise l'horloge locale avec le serveur Supabase.
 // Lit le header Date de la réponse HTTP — pas d'endpoint supplémentaire.
 window._syncServerClock = async () => {
+  if(!window._supaConfigured()) return;
   try {
     const t0 = Date.now();
     const r = await fetch(`${SUPA_URL}/rest/v1/`, {method:'HEAD', headers:{apikey:SUPA_KEY}});
@@ -1459,6 +1498,7 @@ window._syncServerClock = async () => {
 window._iv_clock = setInterval(() => { if (window.DB_ONLINE) window._syncServerClock(); }, 3600000);
 
 window.loadFromSupabase = async () => {
+  if(!window._supaConfigured()) return false;
   try {
     await window._syncServerClock();
     const ping = await _get('users','select=id&limit=1');
@@ -3984,6 +4024,52 @@ function downloadAllNine() {
 }
 
 // ── License ──
+// ── CONFIGURATION SUPABASE ──
+function showSupaSetup() {
+  const el = document.getElementById('supaSetup');
+  if(!el) return;
+  // Pré-remplir avec valeur existante si reconfiguration
+  if(SUPA_URL) document.getElementById('ss_url').value = SUPA_URL;
+  el.style.display = 'flex';
+}
+function hideSupaSetup() {
+  const el = document.getElementById('supaSetup');
+  if(el) el.style.display = 'none';
+}
+window.showSupaSetup = showSupaSetup;
+window.hideSupaSetup = hideSupaSetup;
+
+window.connectSupabaseFromSetup = async () => {
+  const url = (document.getElementById('ss_url')?.value||'').trim().replace(/\/$/,'');
+  const key = (document.getElementById('ss_key')?.value||'').trim();
+  const err = document.getElementById('ss_error');
+  const btn = document.getElementById('ss_btn');
+  if(!url||!key){ if(err) err.textContent='Entrez l\'URL et la clé.'; return; }
+  if(err) err.textContent='';
+  if(btn){ btn.textContent='⏳ Test en cours…'; btn.disabled=true; }
+  try {
+    const ctrl=new AbortController();
+    setTimeout(()=>ctrl.abort(),8000);
+    const r=await fetch(url+'/rest/v1/users?select=id&limit=1',{
+      headers:{'apikey':key,'Authorization':'Bearer '+key},signal:ctrl.signal
+    });
+    // 200 = OK, 406 = table exists but no RLS match — tous bons, connexion réussie
+    if(!r.ok && r.status!==406 && r.status!==400) throw new Error('HTTP '+r.status);
+    window._updateSupabase(url,key);
+    localStorage.setItem('_school_supa_url',SUPA_URL);
+    localStorage.setItem('_school_supa_key',SUPA_KEY);
+    if(btn){ btn.textContent='✅ Connecté !'; }
+    hideSupaSetup();
+    toast('✅ Supabase connecté — chargement des données…','success');
+    const ok=await loadFromSupabase();
+    if(!ok){ await loadFromCrypt(); }
+    showLogin();
+  } catch(e){
+    if(btn){ btn.textContent='🔌 Tester et connecter'; btn.disabled=false; }
+    if(err) err.textContent='❌ Connexion impossible — vérifiez l\'URL et la clé.';
+  }
+};
+
 async function checkLicense() {
   let key = (DB.settings?.license_key||'').trim();
   // Restaure depuis localStorage si absente (ex: après changement d'école et rechargement)
@@ -12868,6 +12954,18 @@ R.settings = () => {
     </div>
   </div>` : ''}
 
+  <!-- ══ CONNEXION SUPABASE ══ -->
+  ${S.user?.role==='direction' ? `
+  <div class="premium-section" style="border-left:4px solid #6366f1">
+    <div class="premium-section-title">🗄️ Base de données (Supabase)</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Connexion active de cette installation SchoolSafe.</div>
+    <div class="premium-item" style="margin-bottom:12px">
+      <span class="pi-icon">🔗</span>
+      <span class="pi-title" style="font-family:monospace;font-size:12px;word-break:break-all">${SUPA_URL ? SUPA_URL.replace(/^https?:\/\/([^.]+).*/, 'https://$1…supabase.co') : '⚠️ Non configuré'}</span>
+    </div>
+    <button class="btn btn-outline" style="width:100%" onclick="showSupaSetup()">⚙️ Reconfigurer la connexion</button>
+  </div>` : ''}
+
   <!-- ══ ANNÉE SCOLAIRE ══ -->
   <div class="premium-section" style="border-left:4px solid #2f7bd6">
     <div class="premium-section-title">📅 Année scolaire</div>
@@ -17002,7 +17100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Splash — tap immédiat ou auto après 1.5s
   const splash=$('SPLASH');
   window._splashGone = false;
-  const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; showLogin(); };
+  const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; if(!window._supaConfigured()){showSupaSetup();}else{showLogin();} };
   if(splash){
     splash.addEventListener('touchstart', goLogin, {passive:true});
     splash.addEventListener('click', goLogin);
