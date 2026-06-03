@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SchoolSafe Admin — Panneau de contrôle</title>
+<meta name="theme-color" content="#1a1612">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SS Admin">
+<link rel="manifest" href="admin-manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script>
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./admin-sw.js').catch(()=>{});
+  }
+</script>
 <style>
 :root {
   --bg: #1a1612;
@@ -546,6 +557,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="form-group">
           <label class="form-label">URL Supabase de l'école</label>
           <input class="form-input" id="sm-supa-url" type="url" placeholder="https://xxxx.supabase.co">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clé Anon Supabase de l'école</label>
+          <input class="form-input" id="sm-supa-key" type="text" placeholder="eyJhbGciOiJIUzI1NiIs..." style="font-family:monospace;font-size:12px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Clé anon/publique uniquement — jamais la clé service_role</div>
         </div>
         <div class="form-group">
           <label class="form-label">Notes internes</label>
@@ -1115,7 +1131,8 @@ function openSchoolModal(id) {
     document.getElementById('sm-license').value      = s.license_key || '';
     document.getElementById('sm-status').value       = s.status || 'active';
     document.getElementById('sm-expiry').value       = s.expiry_date ? s.expiry_date.substring(0,10) : '';
-    document.getElementById('sm-supa-url').value     = s.supabase_url || '';
+    document.getElementById('sm-supa-url').value      = s.supabase_url || '';
+    document.getElementById('sm-supa-key').value      = s.supabase_anon_key || '';
     document.getElementById('sm-notes').value        = s.notes || '';
   } else {
     document.getElementById('school-modal-title').textContent = 'Nouvelle école';
@@ -1128,6 +1145,7 @@ function openSchoolModal(id) {
     document.getElementById('sm-status').value       = 'active';
     document.getElementById('sm-expiry').value       = '';
     document.getElementById('sm-supa-url').value     = '';
+    document.getElementById('sm-supa-key').value     = '';
     document.getElementById('sm-notes').value        = '';
   }
   modal.style.display = 'block';
@@ -1157,7 +1175,8 @@ async function saveSchool() {
     license_key:   license,
     status:        document.getElementById('sm-status').value,
     expiry_date:   document.getElementById('sm-expiry').value || null,
-    supabase_url:  document.getElementById('sm-supa-url').value.trim() || null,
+    supabase_url:       document.getElementById('sm-supa-url').value.trim() || null,
+    supabase_anon_key:  document.getElementById('sm-supa-key').value.trim() || null,
     notes:         document.getElementById('sm-notes').value.trim() || null
   };
 

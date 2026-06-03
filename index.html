@@ -1410,10 +1410,21 @@ window.NAV = {
 //    2. RLS renforcée sur toutes les tables (audit_log/settings immuables)
 //    3. Repo GitHub privé
 // Ne jamais exposer la clé service_role (dashboard Supabase uniquement)
-const SUPA_URL='https://zqgksxgozpnhqzvzxloa.supabase.co';
-const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+let SUPA_URL='https://zqgksxgozpnhqzvzxloa.supabase.co';
+let SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
 window.DB_ONLINE = false;
-const _H = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'};
+let _H = {'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Prefer':'return=minimal'};
+// Applique dynamiquement une nouvelle connexion Supabase (multi-tenant)
+window._updateSupabase = (url, key) => {
+  SUPA_URL = url; SUPA_KEY = key;
+  _H = {'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'return=minimal'};
+};
+// Restaure la connexion sauvegardée au démarrage
+(function(){
+  const u=localStorage.getItem('_school_supa_url');
+  const k=localStorage.getItem('_school_supa_key');
+  if(u&&k) window._updateSupabase(u,k);
+})();
 
 async function _get(t,p=''){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${p}`,{headers:{..._H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());return await r.json();}catch(e){console.warn('[SB]',t,e.message);return null;}}
 async function _post(t,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:_H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
@@ -3974,13 +3985,15 @@ function downloadAllNine() {
 
 // ── License ──
 async function checkLicense() {
-  const key = (DB.settings?.license_key||'').trim();
-  if(!CENTRAL_URL||!CENTRAL_KEY) return {valid:true}; // not yet configured
+  let key = (DB.settings?.license_key||'').trim();
+  // Restaure depuis localStorage si absente (ex: après changement d'école et rechargement)
+  if(!key) { key = localStorage.getItem('_active_license_key')||''; if(key){ if(!DB.settings)DB.settings={}; DB.settings.license_key=key; } }
+  if(!CENTRAL_URL||!CENTRAL_KEY) return {valid:true};
   if(!key) return {valid:false, reason:'no_key'};
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), 5000);
-    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name', {
+    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name,supabase_url,supabase_anon_key', {
       headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY},
       signal: ctrl.signal
     });
@@ -3996,7 +4009,15 @@ async function checkLicense() {
     localStorage.setItem('_lc_status', sc.status);
     localStorage.setItem('_lc_ts', Date.now());
     localStorage.setItem('_lc_expiry', sc.expiry_date||'');
-    if(sc.status==='active') return {valid:true};
+    if(sc.status==='active') {
+      // Applique le Supabase de l'école si fourni par l'opérateur
+      if(sc.supabase_url && sc.supabase_anon_key) {
+        window._updateSupabase(sc.supabase_url, sc.supabase_anon_key);
+        localStorage.setItem('_school_supa_url', sc.supabase_url);
+        localStorage.setItem('_school_supa_key', sc.supabase_anon_key);
+      }
+      return {valid:true, supabaseUrl:sc.supabase_url, supabaseKey:sc.supabase_anon_key};
+    }
     return {valid:false, reason:sc.status, expiry:sc.expiry_date};
   } catch(e) {
     const ts = parseInt(localStorage.getItem('_lc_ts')||'0');
@@ -4039,6 +4060,20 @@ window.activateLicense = async () => {
   const lic = await checkLicense();
   if(btn){ btn.textContent = '✅ Activer SchoolSafe'; btn.disabled = false; }
   if(lic.valid){
+    const prevSupaUrl = localStorage.getItem('_school_supa_url')||'';
+    const schoolChanged = lic.supabaseUrl && prevSupaUrl && lic.supabaseUrl !== prevSupaUrl;
+    localStorage.setItem('_active_license_key', key);
+    if(schoolChanged) {
+      // Autre école détectée — effacer les données locales et recharger
+      localStorage.removeItem('schoolsafe_db_v4');
+      localStorage.removeItem('schoolsafe_crypt_key');
+      localStorage.removeItem('schoolsafe_db_ts');
+      localStorage.removeItem('schoolsafe_sync_queue');
+      document.getElementById('licenseActivate').style.display = 'none';
+      toast('🔄 Changement d\'école — rechargement en cours…','info');
+      setTimeout(()=>location.reload(), 1800);
+      return;
+    }
     pushSync('settings','upsert',DB.settings);
     saveToCrypt();
     document.getElementById('licenseActivate').style.display = 'none';
