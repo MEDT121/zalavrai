@@ -813,6 +813,17 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   <nav class="bottom-nav"><div class="bottom-nav-inner" id="BN"></div></nav>
 </div>
 
+<div id="licenseBlock" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+  <div style="font-size:56px;margin-bottom:16px">🔒</div>
+  <div style="font-size:22px;font-weight:800;color:#f1f5f9;margin-bottom:8px" id="lb_title">Accès suspendu</div>
+  <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;max-width:340px;line-height:1.6" id="lb_msg">Votre abonnement SchoolSafe a expiré ou a été suspendu. Veuillez contacter l'opérateur pour renouveler.</div>
+  <div style="background:#1e3a5f;border-radius:16px;padding:16px 24px;margin-bottom:20px">
+    <div style="font-size:12px;color:#64748b;margin-bottom:4px">Support SchoolSafe</div>
+    <a id="lb_wa" href="#" style="font-size:16px;font-weight:700;color:#25d366;text-decoration:none">📱 WhatsApp</a>
+  </div>
+  <div style="font-size:11px;color:#334155" id="lb_key"></div>
+</div>
+
 <!-- ── Crop Modal Photo ── -->
 <div id="cropModal" onclick="if(event.target===this)closeCropModal()">
   <div id="cropBox">
@@ -2071,11 +2082,14 @@ window.tryLogin = async () => {
   const _lkOk=(u.name||'').toLowerCase().slice(0,20); if(window._loginFails) window._loginFails[_lkOk]=0;
   loginAs(u);
 };
-window.loginAs = user => {
+window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
   if(DB.settings?.school?.logo) window.SCHOOL_LOGO = DB.settings.school.logo;
   if(DB.settings?.school?.signature) window.SCHOOL_SIGNATURE = DB.settings.school.signature;
+  const lic = await checkLicense();
+  if(!lic.valid){ showLicenseBlock(lic.reason, lic.expiry); return; }
+  if(lic.offline && lic.daysLeft <= 1) toast('⚠️ Licence: vérification impossible — '+lic.daysLeft+' jour(s) restant(s)','warning');
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
 };
 window.logout = () => {
@@ -3867,6 +3881,69 @@ function downloadAllNine() {
       }, 150);
     }, i*900);
   });
+}
+
+// ── License ──
+async function checkLicense() {
+  const key = (DB.settings?.license_key||'').trim();
+  if(!CENTRAL_URL||!CENTRAL_KEY) return {valid:true}; // not yet configured
+  if(!key) return {valid:false, reason:'no_key'};
+  try {
+    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name', {
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY}
+    });
+    if(!r.ok) throw new Error('http_'+r.status);
+    const data = await r.json();
+    if(!data||!data.length) {
+      localStorage.setItem('_lc_status','invalid');
+      localStorage.setItem('_lc_ts', Date.now());
+      return {valid:false, reason:'invalid_key'};
+    }
+    const sc = data[0];
+    localStorage.setItem('_lc_status', sc.status);
+    localStorage.setItem('_lc_ts', Date.now());
+    localStorage.setItem('_lc_expiry', sc.expiry_date||'');
+    if(sc.status==='active') return {valid:true};
+    return {valid:false, reason:sc.status, expiry:sc.expiry_date};
+  } catch(e) {
+    const ts = parseInt(localStorage.getItem('_lc_ts')||'0');
+    const st = localStorage.getItem('_lc_status')||'';
+    const daysSince = ts ? (Date.now()-ts)/86400000 : 999;
+    if(daysSince <= LICENSE_GRACE_DAYS && st==='active') {
+      return {valid:true, offline:true, daysLeft:Math.ceil(LICENSE_GRACE_DAYS-daysSince)};
+    }
+    return {valid:false, reason:'offline'};
+  }
+}
+
+function showLicenseBlock(reason, expiry) {
+  const bl = document.getElementById('licenseBlock');
+  if(!bl) return;
+  const title = document.getElementById('lb_title');
+  const msg = document.getElementById('lb_msg');
+  const wa = document.getElementById('lb_wa');
+  const keyEl = document.getElementById('lb_key');
+  const key = (DB.settings?.license_key||'').trim();
+  if(reason==='suspended') {
+    if(title) title.textContent = 'Application suspendue';
+    if(msg) msg.textContent = 'L\'accès à SchoolSafe a été suspendu pour votre école. Contactez l\'opérateur pour régulariser votre situation.';
+  } else if(reason==='expired') {
+    if(title) title.textContent = 'Abonnement expiré';
+    const d = expiry ? new Date(expiry).toLocaleDateString('fr-FR') : '';
+    if(msg) msg.textContent = 'Votre abonnement SchoolSafe a expiré'+(d?' le '+d:'')+'. Renouvelez pour continuer.';
+  } else if(reason==='invalid_key') {
+    if(title) title.textContent = 'Licence non reconnue';
+    if(msg) msg.textContent = 'La clé de licence configurée n\'est pas reconnue. Vérifiez les paramètres ou contactez l\'opérateur.';
+  } else if(reason==='no_key') {
+    if(title) title.textContent = 'Licence non configurée';
+    if(msg) msg.textContent = 'Aucune clé de licence n\'est configurée pour cette installation. Contactez l\'opérateur SchoolSafe.';
+  } else {
+    if(title) title.textContent = 'Connexion requise';
+    if(msg) msg.textContent = 'Impossible de vérifier la licence (hors ligne depuis plus de '+LICENSE_GRACE_DAYS+' jours). Reconnectez-vous à Internet.';
+  }
+  wa.href = 'https://wa.me/243978444167?text='+encodeURIComponent('Bonjour, je souhaite renouveler ma licence SchoolSafe. École: '+(DB.settings?.school?.name||'?')+' — Clé: '+key);
+  if(keyEl) keyEl.textContent = key ? 'Clé: '+key : '';
+  bl.style.display = 'flex';
 }
 
 // ── Crop Photo ──
@@ -12561,6 +12638,20 @@ R.settings = () => {
     <button class="btn btn-primary" style="width:100%" onclick="saveSettingsSchool()">💾 Enregistrer l'identité</button>
   </div>
 
+  <!-- ══ LICENCE ══ -->
+  <div class="premium-section" style="border-left:4px solid #0f172a">
+    <div class="premium-section-title">🔑 Licence SchoolSafe</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Clé fournie par l'opérateur SchoolSafe. Nécessaire pour activer l'application.</div>
+    <div class="form-group">
+      <label class="form-label">Clé de licence</label>
+      <input class="form-input" id="cfg_license_key" value="${esc(DB.settings?.license_key||'')}" placeholder="Ex: SS-2026-XXXX-XXXX" style="font-family:monospace;letter-spacing:1px">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveLicenseKey()">💾 Enregistrer</button>
+      <button class="btn btn-outline" onclick="checkLicenseManual()">🔄 Vérifier</button>
+    </div>
+  </div>
+
   <!-- ══ ANNÉE SCOLAIRE ══ -->
   <div class="premium-section" style="border-left:4px solid #2f7bd6">
     <div class="premium-section-title">📅 Année scolaire</div>
@@ -12701,6 +12792,22 @@ window.saveSettingsSchool = () => {
   DB.settings.school.devise=$('cfg_school_devise')?.value||'$';
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('Identité école enregistrée','success'); render();
+};
+
+window.saveLicenseKey = () => {
+  const k = ($('cfg_license_key')?.value||'').trim();
+  if(!DB.settings) DB.settings={};
+  DB.settings.license_key = k||null;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  toast('Clé de licence enregistrée','success');
+};
+
+window.checkLicenseManual = async () => {
+  toast('Vérification en cours…','info');
+  const r = await checkLicense();
+  if(r.valid) toast('✅ Licence valide'+(r.offline?' (hors ligne — grâce '+r.daysLeft+'j)':''),'success');
+  else { toast('❌ Licence invalide: '+r.reason,'error'); showLicenseBlock(r.reason, r.expiry); }
 };
 
 window.saveSettingsYear = () => {
