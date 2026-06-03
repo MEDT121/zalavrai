@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolSafe Admin — Panneau de contrôle</title>
+<style>
+:root {
+  --bg: #1a1612;
+  --surface: #231f1a;
+  --surface2: #2a2420;
+  --border: rgba(255,255,255,.08);
+  --text: #f0ebe4;
+  --text-secondary: #a89c8b;
+  --text-muted: #6f6557;
+  --accent: #2f7bd6;
+  --accent-dark: #1a5faa;
+  --success: #1f9d6b;
+  --warning: #d98a2b;
+  --danger: #dc2626;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── SCREENS ── */
+.screen { display:none; }
+.screen.active { display:block; animation:fadeIn .3s ease; }
+
+/* ── SETUP / LOGIN ── */
+.auth-wrap {
+  min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.auth-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:40px 36px; width:100%; max-width:440px; box-shadow:var(--shadow);
+}
+.auth-logo {
+  text-align:center; margin-bottom:28px;
+}
+.auth-logo .logo-icon {
+  width:56px; height:56px; background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+  border-radius:14px; display:inline-flex; align-items:center; justify-content:center;
+  font-size:28px; margin-bottom:12px;
+}
+.auth-logo h1 { font-size:22px; font-weight:700; }
+.auth-logo p { color:var(--text-secondary); font-size:14px; margin-top:4px; }
+
+.form-group { margin-bottom:18px; }
+.form-label { display:block; font-size:13px; font-weight:600; color:var(--text-secondary); margin-bottom:6px; }
+.form-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
+  color:var(--text); padding:11px 14px; font-size:14px; outline:none; transition:border .2s;
+}
+.form-input:focus { border-color:var(--accent); }
+.form-input::placeholder { color:var(--text-muted); }
+
+.btn {
+  display:inline-flex; align-items:center; gap:6px; padding:10px 18px;
+  border-radius:var(--radius-sm); font-size:14px; font-weight:600; cursor:pointer;
+  border:none; transition:opacity .15s, transform .1s; text-decoration:none;
+}
+.btn:active { transform:scale(.97); }
+.btn-primary { background:var(--accent); color:#fff; }
+.btn-primary:hover { opacity:.9; }
+.btn-success { background:var(--success); color:#fff; }
+.btn-success:hover { opacity:.9; }
+.btn-warning { background:var(--warning); color:#fff; }
+.btn-warning:hover { opacity:.9; }
+.btn-danger { background:var(--danger); color:#fff; }
+.btn-danger:hover { opacity:.9; }
+.btn-outline {
+  background:transparent; color:var(--text-secondary); border:1px solid var(--border);
+}
+.btn-outline:hover { background:var(--surface2); color:var(--text); }
+.btn-sm { padding:7px 12px; font-size:12px; }
+.btn-full { width:100%; justify-content:center; padding:13px; font-size:15px; }
+.btn-icon { padding:8px; border-radius:var(--radius-sm); }
+
+/* ── DASHBOARD LAYOUT ── */
+#screen-dashboard { display:none; flex-direction:column; min-height:100vh; }
+#screen-dashboard.active { display:flex; }
+
+.topbar {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:0 24px; height:60px; display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.topbar-brand { display:flex; align-items:center; gap:10px; }
+.topbar-brand .brand-icon {
+  width:34px; height:34px; background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+  border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.topbar-brand h1 { font-size:15px; font-weight:700; }
+.topbar-brand span { color:var(--text-muted); font-size:12px; }
+.topbar-actions { display:flex; align-items:center; gap:8px; }
+
+.dashboard-body { flex:1; padding:24px; max-width:1200px; width:100%; margin:0 auto; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+}
+.stat-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:18px 20px;
+}
+.stat-card .stat-label { font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.stat-card .stat-value { font-size:28px; font-weight:700; margin-top:6px; }
+.stat-card .stat-sub { font-size:12px; color:var(--text-secondary); margin-top:2px; }
+.stat-accent .stat-value { color:var(--accent); }
+.stat-success .stat-value { color:var(--success); }
+.stat-warning .stat-value { color:var(--warning); }
+.stat-danger .stat-value { color:var(--danger); }
+
+/* ── TABS ── */
+.tab-bar {
+  display:flex; gap:4px; background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:4px; margin-bottom:20px; width:fit-content;
+}
+.tab-btn {
+  padding:8px 20px; border-radius:8px; font-size:14px; font-weight:600;
+  cursor:pointer; border:none; background:transparent; color:var(--text-secondary);
+  transition:all .2s;
+}
+.tab-btn.active { background:var(--accent); color:#fff; }
+.tab-btn:not(.active):hover { background:var(--surface2); color:var(--text); }
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; animation:fadeIn .2s ease; }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap;
+}
+.toolbar-search {
+  flex:1; min-width:200px; background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--text); padding:9px 14px; font-size:14px;
+  outline:none; transition:border .2s;
+}
+.toolbar-search:focus { border-color:var(--accent); }
+.toolbar-search::placeholder { color:var(--text-muted); }
+.filter-pills { display:flex; gap:6px; flex-wrap:wrap; }
+.filter-pill {
+  padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;
+  cursor:pointer; border:1.5px solid var(--border); background:transparent;
+  color:var(--text-secondary); transition:all .2s;
+}
+.filter-pill.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.filter-pill:not(.active):hover { background:var(--surface2); color:var(--text); }
+
+/* ── SCHOOL CARDS ── */
+.schools-grid { display:flex; flex-direction:column; gap:10px; }
+.school-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:16px 20px; display:flex; align-items:center; gap:16px;
+  transition:border-color .2s;
+}
+.school-card.expiring-soon { border-color:var(--warning); }
+.school-avatar {
+  width:44px; height:44px; border-radius:12px; background:var(--accent);
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  font-weight:700; color:#fff; flex-shrink:0; text-transform:uppercase;
+}
+.school-info { flex:1; min-width:0; }
+.school-name { font-size:15px; font-weight:700; margin-bottom:3px; }
+.school-contact { font-size:13px; color:var(--text-secondary); }
+.school-meta { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:5px; }
+.school-actions { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+/* ── PILLS ── */
+.pill {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.4px;
+}
+.pill-green { background:rgba(31,157,107,.18); color:#4ade80; }
+.pill-orange { background:rgba(217,138,43,.18); color:#fbbf24; }
+.pill-red { background:rgba(220,38,38,.18); color:#f87171; }
+.pill-blue { background:rgba(47,123,214,.18); color:#60a5fa; }
+.pill-gray { background:rgba(111,101,87,.18); color:#a89c8b; }
+
+.expiry-badge {
+  font-size:11px; color:var(--warning); font-weight:600;
+  background:rgba(217,138,43,.12); padding:2px 8px; border-radius:20px;
+}
+
+/* ── ORDERS TABLE ── */
+.orders-table {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden;
+}
+.orders-table table { width:100%; border-collapse:collapse; }
+.orders-table th {
+  padding:12px 16px; text-align:left; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted);
+  border-bottom:1px solid var(--border); background:var(--surface2);
+}
+.orders-table td {
+  padding:13px 16px; font-size:14px; border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.orders-table tr:last-child td { border-bottom:none; }
+.orders-table tr:hover td { background:rgba(255,255,255,.02); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000;
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  animation:fadeIn .2s ease;
+}
+.modal {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  width:100%; max-width:560px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow);
+  animation:fadeIn .25s ease;
+}
+.modal-header {
+  padding:20px 24px 16px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.modal-header h2 { font-size:17px; font-weight:700; }
+.modal-close {
+  width:32px; height:32px; border-radius:8px; border:none; background:var(--surface2);
+  color:var(--text-secondary); cursor:pointer; font-size:18px; display:flex;
+  align-items:center; justify-content:center; transition:background .2s;
+}
+.modal-close:hover { background:var(--border); color:var(--text); }
+.modal-body { padding:20px 24px; }
+.modal-footer {
+  padding:16px 24px 20px; border-top:1px solid var(--border);
+  display:flex; justify-content:flex-end; gap:8px;
+}
+
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.license-row { display:flex; gap:8px; align-items:flex-end; }
+.license-row .form-input { flex:1; }
+
+/* ── SETTINGS PANEL ── */
+.settings-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:999;
+  animation:fadeIn .2s ease;
+}
+.settings-panel {
+  position:fixed; top:0; right:0; bottom:0; width:320px;
+  background:var(--surface); border-left:1px solid var(--border); z-index:1000;
+  padding:24px; overflow-y:auto; animation:fadeIn .2s ease;
+}
+.settings-panel h2 { font-size:16px; font-weight:700; margin-bottom:20px; }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align:center; padding:60px 20px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+}
+.empty-state .empty-icon { font-size:40px; margin-bottom:12px; opacity:.5; }
+.empty-state p { color:var(--text-secondary); font-size:14px; }
+
+/* ── LOADING ── */
+.spinner {
+  width:20px; height:20px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; display:inline-block;
+}
+.loading-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2000;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width:768px) {
+  .stats-bar { grid-template-columns:repeat(2,1fr); }
+  .dashboard-body { padding:16px; }
+  .topbar { padding:0 16px; }
+  .topbar-brand h1 { font-size:13px; }
+  .school-card { flex-wrap:wrap; }
+  .school-actions { width:100%; }
+  .form-row { grid-template-columns:1fr; }
+  .orders-table { overflow-x:auto; }
+  .orders-table table { min-width:520px; }
+}
+@media (max-width:480px) {
+  .stats-bar { grid-template-columns:1fr 1fr; gap:10px; }
+  .auth-card { padding:28px 20px; }
+  .tab-btn { padding:7px 14px; font-size:13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ SETUP SCREEN ══════════════════════════ -->
+<div id="screen-setup" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-icon">🏫</div>
+        <h1>SchoolSafe Admin</h1>
+        <p>Configuration initiale — première utilisation</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL Supabase (centrale)</label>
+        <input class="form-input" id="setup-url" type="url" placeholder="https://xxxx.supabase.co">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Clé Anon Supabase</label>
+        <input class="form-input" id="setup-key" type="text" placeholder="eyJhbGciOiJIUzI1NiIs...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe administrateur</label>
+        <input class="form-input" id="setup-pwd" type="password" placeholder="Choisissez un mot de passe fort">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Numéro WhatsApp (renouvellements)</label>
+        <input class="form-input" id="setup-wa" type="tel" placeholder="+243978444167">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doSetup()">Enregistrer et continuer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ LOGIN SCREEN ══════════════════════════ -->
+<div id="screen-login" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="logo-icon">🔐</div>
+        <h1>SchoolSafe Admin</h1>
+        <p>Panneau de contrôle opérateur</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe administrateur</label>
+        <input class="form-input" id="login-pwd" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">Se connecter</button>
+      <p style="text-align:center;margin-top:14px;font-size:12px;color:var(--text-muted);">
+        <a href="#" onclick="showSetup()" style="color:var(--accent);text-decoration:none;">Modifier la configuration</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ DASHBOARD SCREEN ══════════════════════════ -->
+<div id="screen-dashboard" class="screen">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="brand-icon">🏫</div>
+      <div>
+        <h1>SchoolSafe Admin</h1>
+        <span>Panneau de contrôle opérateur</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-outline btn-sm btn-icon" onclick="openSettings()" title="Paramètres">⚙️</button>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="dashboard-body">
+
+    <!-- Stats bar -->
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-card stat-accent">
+        <div class="stat-label">Total écoles</div>
+        <div class="stat-value" id="stat-total">—</div>
+        <div class="stat-sub">enregistrées</div>
+      </div>
+      <div class="stat-card stat-success">
+        <div class="stat-label">Actives</div>
+        <div class="stat-value" id="stat-active">—</div>
+        <div class="stat-sub">licences valides</div>
+      </div>
+      <div class="stat-card stat-warning">
+        <div class="stat-label">Suspendues</div>
+        <div class="stat-value" id="stat-suspended">—</div>
+        <div class="stat-sub">à régulariser</div>
+      </div>
+      <div class="stat-card stat-danger">
+        <div class="stat-label">Commandes</div>
+        <div class="stat-value" id="stat-orders">—</div>
+        <div class="stat-sub">en attente</div>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tab-ecoles-btn" onclick="switchTab('ecoles')">🏫 Écoles</button>
+      <button class="tab-btn" id="tab-orders-btn" onclick="switchTab('orders')">🖨️ Commandes cartes</button>
+    </div>
+
+    <!-- Tab: Écoles -->
+    <div class="tab-panel active" id="tab-ecoles">
+      <div class="toolbar">
+        <input class="toolbar-search" id="school-search" type="text" placeholder="🔍  Rechercher une école…" oninput="renderSchools()">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-sf="all" onclick="setSchoolFilter('all')">Tous</button>
+          <button class="filter-pill" data-sf="active" onclick="setSchoolFilter('active')">Actif</button>
+          <button class="filter-pill" data-sf="suspended" onclick="setSchoolFilter('suspended')">Suspendu</button>
+          <button class="filter-pill" data-sf="expired" onclick="setSchoolFilter('expired')">Expiré</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openSchoolModal()" style="margin-left:auto;">+ Nouvelle école</button>
+      </div>
+      <div class="schools-grid" id="schools-grid"></div>
+    </div>
+
+    <!-- Tab: Commandes -->
+    <div class="tab-panel" id="tab-orders">
+      <div class="toolbar">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-of="all" onclick="setOrderFilter('all')">Tous</button>
+          <button class="filter-pill" data-of="pending" onclick="setOrderFilter('pending')">En attente</button>
+          <button class="filter-pill" data-of="printing" onclick="setOrderFilter('printing')">En impression</button>
+          <button class="filter-pill" data-of="delivered" onclick="setOrderFilter('delivered')">Livré</button>
+        </div>
+      </div>
+      <div class="orders-table" id="orders-wrap"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ SCHOOL MODAL ══════════════════════════ -->
+<div id="school-modal" style="display:none;">
+  <div class="modal-overlay" onclick="if(event.target===this)closeSchoolModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="school-modal-title">Nouvelle école</h2>
+        <button class="modal-close" onclick="closeSchoolModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="sm-id">
+        <div class="form-group">
+          <label class="form-label">Nom de l'école *</label>
+          <input class="form-input" id="sm-name" type="text" placeholder="Ex : Complexe Scolaire Le Sage">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nom du contact</label>
+            <input class="form-input" id="sm-contact-name" type="text" placeholder="Directeur / Responsable">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Téléphone</label>
+            <input class="form-input" id="sm-contact-phone" type="tel" placeholder="+243…">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" id="sm-contact-email" type="email" placeholder="contact@ecole.cd">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clé de licence</label>
+          <div class="license-row">
+            <input class="form-input" id="sm-license" type="text" placeholder="SS-2026-XXXX-XXXX" style="font-family:monospace;">
+            <button class="btn btn-outline btn-sm" onclick="sm_genKey()" title="Générer une clé aléatoire">🎲 Générer</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Statut</label>
+            <select class="form-input" id="sm-status">
+              <option value="active">Actif</option>
+              <option value="suspended">Suspendu</option>
+              <option value="expired">Expiré</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date d'expiration</label>
+            <input class="form-input" id="sm-expiry" type="date">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL Supabase de l'école</label>
+          <input class="form-input" id="sm-supa-url" type="url" placeholder="https://xxxx.supabase.co">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes internes</label>
+          <textarea class="form-input" id="sm-notes" rows="3" placeholder="Remarques, historique…" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSchoolModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveSchool()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ ORDER NOTES MODAL ══════════════════════════ -->
+<div id="order-modal" style="display:none;">
+  <div class="modal-overlay" onclick="if(event.target===this)closeOrderModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Notes de commande</h2>
+        <button class="modal-close" onclick="closeOrderModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="om-id">
+        <div class="form-group">
+          <label class="form-label">Notes / Informations</label>
+          <textarea class="form-input" id="om-notes" rows="4" placeholder="Détails de la commande…" style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeOrderModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveOrderNotes()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ SETTINGS PANEL ══════════════════════════ -->
+<div id="settings-overlay" style="display:none;" onclick="closeSettings()"></div>
+<div id="settings-panel" style="display:none;" class="settings-panel">
+  <h2>⚙️ Paramètres</h2>
+  <div class="form-group">
+    <label class="form-label">URL Supabase (centrale)</label>
+    <input class="form-input" id="cfg-url" type="url">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Clé Anon Supabase</label>
+    <input class="form-input" id="cfg-key" type="text">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Mot de passe admin</label>
+    <input class="form-input" id="cfg-pwd" type="password" placeholder="(laisser vide = inchangé)">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Numéro WhatsApp</label>
+    <input class="form-input" id="cfg-wa" type="tel">
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary btn-sm" onclick="saveSettings()" style="flex:1;justify-content:center;">Enregistrer</button>
+    <button class="btn btn-outline btn-sm" onclick="closeSettings()">Annuler</button>
+  </div>
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Informations opérateur</p>
+    <p style="font-size:12px;color:var(--text-secondary);">WhatsApp : <strong id="display-wa"></strong></p>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════
+//  CONFIG & STATE
+// ════════════════════════════════════════
+let CFG = {};
+let DB_schools = [];
+let DB_orders  = [];
+let schoolFilter = 'all';
+let orderFilter  = 'all';
+let currentTab   = 'ecoles';
+
+function loadConfig() {
+  try { CFG = JSON.parse(localStorage.getItem('_ss_admin_cfg') || '{}'); } catch(e) { CFG = {}; }
+}
+
+function saveConfig(url, key, pwd, wa) {
+  CFG = { url, key, pwd, wa_phone: wa || '+243978444167' };
+  localStorage.setItem('_ss_admin_cfg', JSON.stringify(CFG));
+}
+
+// ════════════════════════════════════════
+//  API
+// ════════════════════════════════════════
+async function api(table, method, body, query) {
+  method = method || 'GET';
+  query  = query  || '';
+  const url = CFG.url.replace(/\/$/, '') + '/rest/v1/' + table + (query ? '?' + query : '');
+  const headers = {
+    'apikey':        CFG.key,
+    'Authorization': 'Bearer ' + CFG.key,
+    'Content-Type':  'application/json',
+    'Prefer':        'return=representation'
+  };
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(txt || ('HTTP ' + r.status));
+  }
+  if (r.status === 204) return null;
+  const ct = r.headers.get('content-type') || '';
+  if (ct.includes('json')) return r.json();
+  return null;
+}
+
+// ════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════
+function toast(msg, type) {
+  type = type || 'info';
+  const colors = { success: '#1f9d6b', error: '#dc2626', warning: '#d98a2b', info: '#2f7bd6' };
+  const t = document.createElement('div');
+  t.style.cssText = [
+    'position:fixed', 'bottom:24px', 'right:24px',
+    'background:' + (colors[type] || colors.info),
+    'color:#fff', 'padding:12px 20px', 'border-radius:12px',
+    'font-size:14px', 'font-weight:600', 'z-index:9999',
+    'animation:fadeIn .2s ease', 'box-shadow:0 4px 20px rgba(0,0,0,.4)',
+    'max-width:320px', 'word-break:break-word'
+  ].join(';');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { if (t.parentNode) t.remove(); }, 3000);
+}
+
+// ════════════════════════════════════════
+//  LOADING
+// ════════════════════════════════════════
+let _loadEl = null;
+function showLoading() {
+  if (_loadEl) return;
+  _loadEl = document.createElement('div');
+  _loadEl.className = 'loading-overlay';
+  _loadEl.innerHTML = '<div class="spinner" style="width:36px;height:36px;border-width:3px;"></div>';
+  document.body.appendChild(_loadEl);
+}
+function hideLoading() {
+  if (_loadEl) { _loadEl.remove(); _loadEl = null; }
+}
+
+// ════════════════════════════════════════
+//  SCREENS
+// ════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById('screen-' + id);
+  if (el) el.classList.add('active');
+}
+
+function showSetup() {
+  showScreen('setup');
+}
+
+// ════════════════════════════════════════
+//  SETUP
+// ════════════════════════════════════════
+function doSetup() {
+  const url = document.getElementById('setup-url').value.trim();
+  const key = document.getElementById('setup-key').value.trim();
+  const pwd = document.getElementById('setup-pwd').value.trim();
+  const wa  = document.getElementById('setup-wa').value.trim() || '+243978444167';
+  if (!url || !key || !pwd) { toast('Veuillez remplir tous les champs obligatoires.', 'error'); return; }
+  saveConfig(url, key, pwd, wa);
+  toast('Configuration enregistrée !', 'success');
+  showScreen('login');
+  document.getElementById('login-pwd').focus();
+}
+
+// ════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ════════════════════════════════════════
+function doLogin() {
+  const pwd = document.getElementById('login-pwd').value;
+  if (!pwd) { toast('Entrez votre mot de passe.', 'error'); return; }
+  if (pwd !== CFG.pwd) { toast('Mot de passe incorrect.', 'error'); return; }
+  sessionStorage.setItem('_ss_admin_auth', '1');
+  document.getElementById('login-pwd').value = '';
+  showDashboard();
+}
+
+function doLogout() {
+  sessionStorage.removeItem('_ss_admin_auth');
+  showScreen('login');
+  document.getElementById('login-pwd').value = '';
+  document.getElementById('login-pwd').focus();
+}
+
+// ════════════════════════════════════════
+//  DASHBOARD
+// ════════════════════════════════════════
+async function showDashboard() {
+  showScreen('dashboard');
+  await Promise.all([loadSchools(), loadOrders()]);
+}
+
+async function loadSchools() {
+  try {
+    showLoading();
+    DB_schools = await api('schools', 'GET', null, 'order=created_at.desc') || [];
+    renderStats();
+    renderSchools();
+  } catch(e) {
+    toast('Erreur chargement écoles : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+async function loadOrders() {
+  try {
+    DB_orders = await api('card_orders', 'GET', null, 'order=ordered_at.desc') || [];
+    renderOrders();
+    renderStats();
+  } catch(e) {
+    toast('Erreur chargement commandes : ' + e.message, 'error');
+  }
+}
+
+// ════════════════════════════════════════
+//  STATS
+// ════════════════════════════════════════
+function renderStats() {
+  const total     = DB_schools.length;
+  const active    = DB_schools.filter(s => s.status === 'active').length;
+  const suspended = DB_schools.filter(s => s.status === 'suspended').length;
+  const pending   = DB_orders.filter(o => o.status === 'pending').length;
+  document.getElementById('stat-total').textContent     = total;
+  document.getElementById('stat-active').textContent    = active;
+  document.getElementById('stat-suspended').textContent = suspended;
+  document.getElementById('stat-orders').textContent    = pending;
+}
+
+// ════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab + '-btn').classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ════════════════════════════════════════
+//  SCHOOLS RENDERING
+// ════════════════════════════════════════
+function setSchoolFilter(f) {
+  schoolFilter = f;
+  document.querySelectorAll('[data-sf]').forEach(b => {
+    b.classList.toggle('active', b.dataset.sf === f);
+  });
+  renderSchools();
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function statusPill(status) {
+  const map = {
+    active:    '<span class="pill pill-green">✓ Actif</span>',
+    suspended: '<span class="pill pill-orange">⏸ Suspendu</span>',
+    expired:   '<span class="pill pill-red">✕ Expiré</span>'
+  };
+  return map[status] || '<span class="pill pill-gray">' + esc(status) + '</span>';
+}
+
+function orderStatusPill(status) {
+  const map = {
+    pending:   '<span class="pill pill-orange">⏳ En attente</span>',
+    printing:  '<span class="pill pill-blue">🖨️ En impression</span>',
+    delivered: '<span class="pill pill-green">✅ Livré</span>'
+  };
+  return map[status] || '<span class="pill pill-gray">' + esc(status) + '</span>';
+}
+
+function isExpiringSoon(school) {
+  if (!school.expiry_date || school.status !== 'active') return false;
+  const exp  = new Date(school.expiry_date);
+  const now  = new Date();
+  const diff = (exp - now) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= 30;
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+}
+
+function renderSchools() {
+  const q = (document.getElementById('school-search').value || '').toLowerCase();
+  let list = DB_schools;
+
+  if (schoolFilter !== 'all') list = list.filter(s => s.status === schoolFilter);
+  if (q) list = list.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.contact_name || '').toLowerCase().includes(q) ||
+    (s.contact_phone || '').toLowerCase().includes(q) ||
+    (s.license_key || '').toLowerCase().includes(q)
+  );
+
+  const grid = document.getElementById('schools-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🏫</div><p>Aucune école trouvée</p></div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(s => {
+    const expiring = isExpiringSoon(s);
+    const expBadge = expiring ? '<span class="expiry-badge">⚠️ Expire le ' + esc(fmtDate(s.expiry_date)) + '</span>' : '';
+    const expText  = s.expiry_date && !expiring ? '<span style="font-size:12px;color:var(--text-muted);">Exp. ' + esc(fmtDate(s.expiry_date)) + '</span>' : '';
+    return `
+      <div class="school-card${expiring ? ' expiring-soon' : ''}">
+        <div class="school-avatar">${esc(initials(s.name))}</div>
+        <div class="school-info">
+          <div class="school-name">${esc(s.name)}</div>
+          <div class="school-contact">${s.contact_name ? esc(s.contact_name) + (s.contact_phone ? ' · ' + esc(s.contact_phone) : '') : (s.contact_phone ? esc(s.contact_phone) : '—')}</div>
+          <div class="school-meta">
+            ${statusPill(s.status)}
+            ${expBadge}
+            ${expText}
+            ${s.license_key ? '<span style="font-size:11px;color:var(--text-muted);font-family:monospace;">' + esc(s.license_key) + '</span>' : ''}
+          </div>
+        </div>
+        <div class="school-actions">
+          ${s.status !== 'active' ? '<button class="btn btn-success btn-sm" onclick="setStatus(\'' + s.id + '\',\'active\')">✓ Activer</button>' : ''}
+          ${s.status === 'active' ? '<button class="btn btn-warning btn-sm" onclick="setStatus(\'' + s.id + '\',\'suspended\')">⏸ Suspendre</button>' : ''}
+          <button class="btn btn-outline btn-sm" onclick="openSchoolModal(\'' + s.id + '\')">✏️ Modifier</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+//  SCHOOL STATUS
+// ════════════════════════════════════════
+async function setStatus(id, status) {
+  try {
+    showLoading();
+    await api('schools', 'PATCH', { status }, 'id=eq.' + id);
+    const label = status === 'active' ? 'École activée' : status === 'suspended' ? 'École suspendue' : 'Statut mis à jour';
+    toast(label, status === 'active' ? 'success' : 'warning');
+    await loadSchools();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// ════════════════════════════════════════
+//  SCHOOL MODAL
+// ════════════════════════════════════════
+function openSchoolModal(id) {
+  const modal = document.getElementById('school-modal');
+  if (id) {
+    const s = DB_schools.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('school-modal-title').textContent = 'Modifier l\'école';
+    document.getElementById('sm-id').value           = s.id;
+    document.getElementById('sm-name').value         = s.name || '';
+    document.getElementById('sm-contact-name').value = s.contact_name || '';
+    document.getElementById('sm-contact-phone').value= s.contact_phone || '';
+    document.getElementById('sm-contact-email').value= s.contact_email || '';
+    document.getElementById('sm-license').value      = s.license_key || '';
+    document.getElementById('sm-status').value       = s.status || 'active';
+    document.getElementById('sm-expiry').value       = s.expiry_date ? s.expiry_date.substring(0,10) : '';
+    document.getElementById('sm-supa-url').value     = s.supabase_url || '';
+    document.getElementById('sm-notes').value        = s.notes || '';
+  } else {
+    document.getElementById('school-modal-title').textContent = 'Nouvelle école';
+    document.getElementById('sm-id').value           = '';
+    document.getElementById('sm-name').value         = '';
+    document.getElementById('sm-contact-name').value = '';
+    document.getElementById('sm-contact-phone').value= '';
+    document.getElementById('sm-contact-email').value= '';
+    document.getElementById('sm-license').value      = genLicenseKey();
+    document.getElementById('sm-status').value       = 'active';
+    document.getElementById('sm-expiry').value       = '';
+    document.getElementById('sm-supa-url').value     = '';
+    document.getElementById('sm-notes').value        = '';
+  }
+  modal.style.display = 'block';
+  setTimeout(() => document.getElementById('sm-name').focus(), 50);
+}
+
+function closeSchoolModal() {
+  document.getElementById('school-modal').style.display = 'none';
+}
+
+function sm_genKey() {
+  document.getElementById('sm-license').value = genLicenseKey();
+}
+
+async function saveSchool() {
+  const id      = document.getElementById('sm-id').value.trim();
+  const name    = document.getElementById('sm-name').value.trim();
+  const license = document.getElementById('sm-license').value.trim();
+  if (!name) { toast('Le nom de l\'école est obligatoire.', 'error'); return; }
+  if (!license) { toast('La clé de licence est obligatoire.', 'error'); return; }
+
+  const payload = {
+    name,
+    contact_name:  document.getElementById('sm-contact-name').value.trim() || null,
+    contact_phone: document.getElementById('sm-contact-phone').value.trim() || null,
+    contact_email: document.getElementById('sm-contact-email').value.trim() || null,
+    license_key:   license,
+    status:        document.getElementById('sm-status').value,
+    expiry_date:   document.getElementById('sm-expiry').value || null,
+    supabase_url:  document.getElementById('sm-supa-url').value.trim() || null,
+    notes:         document.getElementById('sm-notes').value.trim() || null
+  };
+
+  try {
+    showLoading();
+    if (id) {
+      await api('schools', 'PATCH', payload, 'id=eq.' + id);
+      toast('École mise à jour.', 'success');
+    } else {
+      await api('schools', 'POST', payload);
+      toast('École ajoutée.', 'success');
+    }
+    closeSchoolModal();
+    await loadSchools();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// ════════════════════════════════════════
+//  LICENSE KEY GENERATOR
+// ════════════════════════════════════════
+function genLicenseKey() {
+  const yr   = new Date().getFullYear();
+  const rand = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+  return 'SS-' + yr + '-' + rand() + '-' + rand();
+}
+
+// ════════════════════════════════════════
+//  ORDERS RENDERING
+// ════════════════════════════════════════
+function setOrderFilter(f) {
+  orderFilter = f;
+  document.querySelectorAll('[data-of]').forEach(b => {
+    b.classList.toggle('active', b.dataset.of === f);
+  });
+  renderOrders();
+}
+
+function renderOrders() {
+  let list = DB_orders;
+  if (orderFilter !== 'all') list = list.filter(o => o.status === orderFilter);
+
+  const wrap = document.getElementById('orders-wrap');
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">🖨️</div><p>Aucune commande trouvée</p></div>';
+    return;
+  }
+
+  const rows = list.map(o => {
+    const actions = [];
+    if (o.status === 'pending') {
+      actions.push('<button class="btn btn-outline btn-sm" onclick="setOrderStatus(\'' + o.id + '\',\'printing\')">🖨️ En impression</button>');
+    }
+    if (o.status === 'printing') {
+      actions.push('<button class="btn btn-success btn-sm" onclick="setOrderStatus(\'' + o.id + '\',\'delivered\')">✅ Livré</button>');
+    }
+    actions.push('<button class="btn btn-outline btn-sm" onclick="openOrderModal(\'' + o.id + '\')">📝 Notes</button>');
+    return `
+      <tr>
+        <td><strong>${esc(o.school_name)}</strong></td>
+        <td><strong style="font-size:16px;">${o.quantity || 0}</strong> <span style="color:var(--text-muted);font-size:12px;">cartes</span></td>
+        <td style="color:var(--text-secondary);font-size:13px;">${fmtDate(o.ordered_at)}</td>
+        <td>${orderStatusPill(o.status)}</td>
+        <td>${o.delivered_at ? '<span style="color:var(--text-muted);font-size:12px;">Livré ' + esc(fmtDate(o.delivered_at)) + '</span>' : ''}</td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;">${actions.join('')}</div></td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>École</th>
+          <th>Quantité</th>
+          <th>Date commande</th>
+          <th>Statut</th>
+          <th>Livraison</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function setOrderStatus(id, status) {
+  try {
+    showLoading();
+    const payload = { status };
+    if (status === 'delivered') payload.delivered_at = new Date().toISOString();
+    await api('card_orders', 'PATCH', payload, 'id=eq.' + id);
+    const msg = status === 'printing' ? 'Commande en impression.' : 'Commande marquée livrée.';
+    toast(msg, 'success');
+    await loadOrders();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+function openOrderModal(id) {
+  const o = DB_orders.find(x => x.id === id);
+  if (!o) return;
+  document.getElementById('om-id').value    = id;
+  document.getElementById('om-notes').value = o.notes || '';
+  document.getElementById('order-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('om-notes').focus(), 50);
+}
+
+function closeOrderModal() {
+  document.getElementById('order-modal').style.display = 'none';
+}
+
+async function saveOrderNotes() {
+  const id    = document.getElementById('om-id').value;
+  const notes = document.getElementById('om-notes').value.trim() || null;
+  try {
+    showLoading();
+    await api('card_orders', 'PATCH', { notes }, 'id=eq.' + id);
+    toast('Notes enregistrées.', 'success');
+    closeOrderModal();
+    await loadOrders();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// ════════════════════════════════════════
+//  SETTINGS PANEL
+// ════════════════════════════════════════
+function openSettings() {
+  document.getElementById('cfg-url').value = CFG.url || '';
+  document.getElementById('cfg-key').value = CFG.key || '';
+  document.getElementById('cfg-pwd').value = '';
+  document.getElementById('cfg-wa').value  = CFG.wa_phone || '+243978444167';
+  document.getElementById('display-wa').textContent = CFG.wa_phone || '+243978444167';
+  document.getElementById('settings-overlay').style.display = 'block';
+  document.getElementById('settings-panel').style.display   = 'block';
+}
+
+function closeSettings() {
+  document.getElementById('settings-overlay').style.display = 'none';
+  document.getElementById('settings-panel').style.display   = 'none';
+}
+
+function saveSettings() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  const pwd = document.getElementById('cfg-pwd').value.trim();
+  const wa  = document.getElementById('cfg-wa').value.trim() || '+243978444167';
+  if (!url || !key) { toast('URL et clé Supabase obligatoires.', 'error'); return; }
+  const newPwd = pwd || CFG.pwd;
+  saveConfig(url, key, newPwd, wa);
+  document.getElementById('display-wa').textContent = wa;
+  toast('Paramètres mis à jour.', 'success');
+  closeSettings();
+}
+
+// ════════════════════════════════════════
+//  KEYBOARD
+// ════════════════════════════════════════
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeSchoolModal();
+    closeOrderModal();
+    closeSettings();
+  }
+});
+
+// ════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════
+(function init() {
+  loadConfig();
+
+  // First run — no config
+  if (!CFG.url || !CFG.key || !CFG.pwd) {
+    showSetup();
+    return;
+  }
+
+  // Session check
+  if (sessionStorage.getItem('_ss_admin_auth') === '1') {
+    showDashboard();
+    return;
+  }
+
+  showScreen('login');
+  setTimeout(() => {
+    const lp = document.getElementById('login-pwd');
+    if (lp) lp.focus();
+  }, 100);
+})();
+</script>
+</body>
+</html>
