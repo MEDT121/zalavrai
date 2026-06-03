@@ -2088,7 +2088,9 @@ window.loginAs = async user => {
   if(DB.settings?.school?.logo) window.SCHOOL_LOGO = DB.settings.school.logo;
   if(DB.settings?.school?.signature) window.SCHOOL_SIGNATURE = DB.settings.school.signature;
   const lic = await checkLicense();
-  if(!lic.valid){ showLicenseBlock(lic.reason, lic.expiry); return; }
+  if(!lic.valid && (lic.reason==='suspended'||lic.reason==='expired')){ showLicenseBlock(lic.reason, lic.expiry); return; }
+  if(!lic.valid && lic.reason==='no_key') setTimeout(()=>toast('⚠️ Clé de licence non configurée — Paramètres → Licence','warning'),1200);
+  if(!lic.valid && lic.reason==='invalid_key') setTimeout(()=>toast('⚠️ Clé de licence invalide — Paramètres → Licence','warning'),1200);
   if(lic.offline && lic.daysLeft <= 1) toast('⚠️ Licence: vérification impossible — '+lic.daysLeft+' jour(s) restant(s)','warning');
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
 };
@@ -3960,9 +3962,13 @@ async function checkLicense() {
   if(!CENTRAL_URL||!CENTRAL_KEY) return {valid:true}; // not yet configured
   if(!key) return {valid:false, reason:'no_key'};
   try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), 5000);
     const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name', {
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY}
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY},
+      signal: ctrl.signal
     });
+    clearTimeout(tid);
     if(!r.ok) throw new Error('http_'+r.status);
     const data = await r.json();
     if(!data||!data.length) {
