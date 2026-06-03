@@ -1944,6 +1944,7 @@ window.go = (p, noHistory) => {
     window._apQ='';window._apQG='';window._absFilter='';
     window._payFilterClass='';window._payFilterStatus='';
     window._msgTab='inbox';window._cardSysInited=false;window._profilePhoto=null;
+    window._absMainTab=null;window._convTab=null;window._sanctFilter=null;
   }
   S.page = p;
   closeSB();
@@ -11237,6 +11238,7 @@ R.convocations = () => {
             <button class="btn btn-danger btn-sm" onclick="cloturerConvocation('${conv.id}','missed')">Absent</button>
           </div>`:''}
           ${isDir?`<button class="btn btn-outline btn-sm" onclick="downloadConvocationPDF('${conv.id}')">📄 PDF</button>`:''}
+          ${isDir&&(conv.status==='pending'||conv.status==='scheduled')?`<button class="btn btn-outline btn-sm" onclick="editConvocationM('${conv.id}')">✏️</button>`:''}
           ${isDir?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteConvocation('${conv.id}')">🗑️</button>`:''}
           ${(conv.status==='pending'||conv.status==='scheduled')&&role==='parent'&&s&&s.pid===S.user.id&&!conv.parent_confirmed?`<button class="btn btn-outline btn-sm" style="border-color:#9b6fd4;color:#9b6fd4" onclick="confirmConvocationParent('${conv.id}')">📬 Confirmer réception</button>`:''}
         </div>
@@ -11461,6 +11463,27 @@ window.deleteConvocation = (id) => {
     pushSync('convocations','delete','','id=eq.'+id);
     saveToCrypt();render();toast('Convocation supprimée','info');
   });
+};
+window.editConvocationM = (id) => {
+  const conv=(DB.convocations||[]).find(x=>x.id===id); if(!conv) return;
+  openM('✏️ Modifier la convocation',`
+  <div class="form-group"><label class="form-label">Motif de convocation</label>
+    <select class="form-select" id="convEditReason">
+      ${['Résultats scolaires insuffisants','Problème de comportement','Absences répétées','Frais scolaires impayés','Information importante','Autre'].map(v=>`<option value="${v}"${conv.reason===v?' selected':''}>${v}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Précisions (optionnel)</label>
+    <textarea class="form-input" id="convEditNote" rows="2" style="resize:none">${esc(conv.note||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="updateConvocation('${id}')">Enregistrer</button>`);
+};
+window.updateConvocation = (id) => {
+  const conv=(DB.convocations||[]).find(x=>x.id===id); if(!conv) return;
+  conv.reason=$('convEditReason')?.value||conv.reason;
+  conv.note=($('convEditNote')?.value||'').trim()||null;
+  pushSync('convocations','patch',{reason:conv.reason,note:conv.note},'id=eq.'+id);
+  saveToCrypt();toast('Convocation modifiée','success');closeModal();render();
 };
 
 // ── ÉTAPE 9 — GESTION ANNÉE SCOLAIRE ──
@@ -16075,7 +16098,7 @@ R.evaluations_ens = () => {
       ${lastEv?`<div style="text-align:center;margin-right:8px"><div style="font-size:20px;font-weight:800;color:${badge}">${avg}/25</div><div style="font-size:10px;color:#6b7280">Dernier score</div></div>`:''}
       <button class="btn btn-primary btn-sm" onclick="openEvalForm('${u.id}')">⭐ Évaluer</button>
     </div>
-    ${ev.length?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">${ev.slice(0,3).map(e=>{const tot=(e.ponctualite||0)+(e.pedagogie||0)+(e.discipline||0)+(e.communication||0)+(e.assiduite||0);const bc=tot>=20?'#d8f3e6':tot>=15?'#fdeccd':'#fee2e2';const tc=tot>=20?'#065f46':tot>=15?'#92400e':'#991b1b';return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text-muted);flex:1">${e.trimestre||'—'} ${e.date||''}</span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:8px;background:${bc};color:${tc}">${tot}/25</span><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px" onclick="deleteEvaluation('${e.id}')">🗑️</button></div>`;}).join('')}</div>`:''}` ;
+    ${ev.length?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">${ev.slice(0,3).map(e=>{const tot=(e.ponctualite||0)+(e.pedagogie||0)+(e.discipline||0)+(e.communication||0)+(e.assiduite||0);const bc=tot>=20?'#d8f3e6':tot>=15?'#fdeccd':'#fee2e2';const tc=tot>=20?'#065f46':tot>=15?'#92400e':'#991b1b';return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text-muted);flex:1">${e.trimestre||'—'} ${e.date||''}</span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:8px;background:${bc};color:${tc}">${tot}/25</span><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px" onclick="editEvalForm('${e.id}')">✏️</button><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px" onclick="deleteEvaluation('${e.id}')">🗑️</button></div>`;}).join('')}</div>`:''}` ;
   }).join('')}`;
 };
 window.openEvalForm = (teacherId) => {
@@ -16131,6 +16154,44 @@ window.deleteEvaluation = (id) => {
     pushSync('evaluations','delete','','id=eq.'+id);
     saveToCrypt();render();toast('Évaluation supprimée','info');
   });
+};
+window.editEvalForm = (evalId) => {
+  const ev=(DB.evaluations||[]).find(x=>x.id===evalId); if(!ev) return;
+  const u=(DB.users||[]).find(x=>x.id===ev.teacher_id); if(!u) return;
+  const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
+  const criteriaLabels={ponctualite:'⏰ Ponctualité',pedagogie:'Qualité pédagogique',discipline:'🎯 Gestion de classe',communication:'Communication parents/direction',assiduite:'Assiduité'};
+  openM(`✏️ Modifier — ${u.name}`,`
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Notez chaque critère de 1 (insuffisant) à 5 (excellent).</div>
+  ${criteria.map(c=>`
+  <div class="form-group" style="margin-bottom:12px">
+    <label class="form-label">${criteriaLabels[c]}</label>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      ${[1,2,3,4,5].map(n=>`<button type="button" id="ev_${c}_${n}" onclick="evSelectScore('${c}',${n})"
+        style="flex:1;padding:10px;border-radius:10px;border:2px solid ${n<=(ev[c]||0)?'#f59e0b':'#efe3d3'};background:${n<=(ev[c]||0)?'#fdeccd':'#fff5ea'};cursor:pointer;font-size:14px;font-weight:700;color:${n<=(ev[c]||0)?'#92400e':'#6f6557'};transition:all .15s">${n}</button>`).join('')}
+    </div>
+  </div>`).join('')}
+  <div class="form-group"><label class="form-label">Trimestre</label>
+    <select class="form-select" id="ev_trim">
+      ${['T1','T2','T3'].map(t=>`<option value="${t}"${ev.trimestre===t?' selected':''}>${t}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Commentaire</label>
+    <textarea class="form-input" id="ev_comment" rows="2" placeholder="Observations...">${esc(ev.comment||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="updateEvalForm('${evalId}')">Enregistrer</button>`);
+  window._evScores={ponctualite:ev.ponctualite||0,pedagogie:ev.pedagogie||0,discipline:ev.discipline||0,communication:ev.communication||0,assiduite:ev.assiduite||0};
+};
+window.updateEvalForm = (evalId) => {
+  const ev=(DB.evaluations||[]).find(x=>x.id===evalId); if(!ev) return;
+  const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
+  const scores=window._evScores||{};
+  if(criteria.some(c=>!scores[c])){toast('Notez tous les critères','error');return;}
+  criteria.forEach(c=>{ ev[c]=scores[c]; });
+  ev.trimestre=$('ev_trim')?.value||ev.trimestre;
+  ev.comment=($('ev_comment')?.value||'').trim()||null;
+  pushSync('evaluations','upsert',ev);saveToCrypt();
+  toast('Évaluation modifiée','success');closeModal();render();
 };
 
 // ═══════════════════════════════════════════
