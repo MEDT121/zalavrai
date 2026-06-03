@@ -10376,6 +10376,7 @@ R.messages = () => {
         ${isNew?`<button class="btn btn-outline btn-sm" onclick="markMsgRead('${m.id}')">✓ Marquer lu</button>`:''}
         ${showReply?`<button class="btn btn-primary btn-sm" onclick="${isDir?'replyToParent':'replyToDirection'}('${m.id}')">↩️ Répondre</button>`:''}
         ${isDir&&m.status==='pending'?`<button class="btn btn-success btn-sm" onclick="approveMsg('${m.id}','approved')">Approuver</button><button class="btn btn-danger btn-sm" onclick="approveMsg('${m.id}','refused')">Refuser</button>`:''}
+        ${(m.from===uid||isDir)?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;padding:4px 10px" onclick="deleteMessage('${m.id}')">🗑️</button>`:''}
       </div>
     </div>`;
   };
@@ -10407,7 +10408,10 @@ R.messages = () => {
   <div style="display:flex;gap:5px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:10px;flex-wrap:wrap">
     ${tabs.map(t=>`<button onclick="window._msgTab='${t.id}';render()" style="flex:1;min-width:70px;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${tab===t.id?'var(--primary)':'var(--bg)'};color:${tab===t.id?'#fff':'var(--text-secondary)'}">${t.l}</button>`).join('')}
   </div>
-  <button class="btn btn-primary" style="width:100%;margin-bottom:14px" onclick="openComposeMsg()">✉️ ${role==='parent'?'Écrire à la Direction':role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
+  <div style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="btn btn-primary" style="flex:1" onclick="openComposeMsg()">✉️ ${role==='parent'?'Écrire à la Direction':role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
+    ${received.filter(m=>!m.read).length?`<button class="btn btn-outline" onclick="markAllMsgRead()">✓ Tout lu</button>`:''}
+  </div>
   ${tab==='parents'&&isDir?`<div>${fromParents.length?fromParents.map(m=>card(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📨</div>Aucun message de parent</div>'}</div>`:''}
   ${tab==='inbox'?`<div>${received.length?received.map(m=>{
     const canReply=role==='enseignant'&&m.from&&DB.users.find(u=>u.id===m.from&&(u.role==='direction'||u.role==='direction2'));
@@ -10418,6 +10422,25 @@ R.messages = () => {
 };
 
 window._msgTab = 'inbox';
+
+window.deleteMessage = (id) => {
+  showC('Supprimer ce message','Supprimer définitivement ce message ?',()=>{
+    DB.messages=(DB.messages||[]).filter(x=>x.id!==id);
+    pushSync('messages','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Message supprimé','info');
+  });
+};
+window.markAllMsgRead = () => {
+  const uid=S.user.id,role=S.user.role;
+  const myKidCids=role==='parent'?DB.students.filter(s=>s.pid===uid).map(s=>s.cid):[];
+  (DB.messages||[]).forEach(m=>{
+    if(!m.read&&(m.to===uid||(m.to_role&&m.to_role===role)||(role==='parent'&&m.to&&m.to.startsWith('class:')&&myKidCids.includes(m.to.slice(6))))){
+      m.read=true;
+      pushSync('messages','patch',{read:true},'id=eq.'+m.id);
+    }
+  });
+  saveToCrypt();render();toast('Tous les messages marqués comme lus','success');
+};
 
 window.openComposeMsg = () => {
   const role=S.user.role;
@@ -10980,7 +11003,8 @@ R.primes = () => {
   const totalPending = allRats.filter(r=>!r.paid&&r.validated_by).reduce((s,r)=>s+Number(r.amount||0),0);
 
   return `
-  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💎 Primes Enseignants — Rattrapages</span></div>
+  <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💎 Primes Enseignants</span><button class="btn btn-outline btn-sm" onclick="openPrimeForm()">➕ Prime directe</button></div>
+  ${(()=>{const dp=(DB.direct_primes||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!dp.length)return'';return`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p=>{const u2=gu(p.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p.motif||'—')} · ${p.date}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">$${p.amount}</span>${S.user.role==='direction'?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`;})()}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">$${totalDue}</div><div class="hsub">versées</div></div>
     <div class="htile h-pay"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">$${totalPending}</div><div class="hsub">dues</div></div>
@@ -11034,6 +11058,48 @@ R.primes = () => {
       </div>`;
     }).join('')}
   </div>`;
+};
+
+window.openPrimeForm = () => {
+  const teachers=(DB.users||[]).filter(u=>u.role==='enseignant').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  openM('💎 Accorder une prime directe',`
+  <div class="form-group"><label class="form-label">Enseignant *</label>
+    <select class="form-select" id="pr_tid">
+      <option value="">— Choisir un enseignant —</option>
+      ${teachers.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Montant ($) *</label>
+    <input class="form-input" id="pr_amount" type="number" min="1" step="1" placeholder="Ex: 20">
+  </div>
+  <div class="form-group"><label class="form-label">Motif *</label>
+    <input class="form-input" id="pr_motif" placeholder="Ex: Prime de fin d'année, Mérite exceptionnel...">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="savePrime()">💎 Accorder</button>`);
+};
+window.savePrime = () => {
+  const tid=($('pr_tid')?.value||'').trim();
+  const amount=parseFloat($('pr_amount')?.value)||0;
+  const motif=($('pr_motif')?.value||'').trim();
+  if(!tid){toast('Choisissez un enseignant','error');return;}
+  if(amount<=0){toast('Montant invalide','error');return;}
+  if(!motif){toast('Indiquez le motif','error');return;}
+  if(!DB.direct_primes) DB.direct_primes=[];
+  const obj={id:'dp'+Date.now(),teacher_id:tid,amount,motif,date:today(),by:S.user.id};
+  DB.direct_primes.push(obj);
+  pushSync('direct_primes','post',obj);
+  const u2=DB.users.find(x=>x.id===tid);
+  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:tid,msg:`💎 Prime accordée : $${amount} — ${motif}`,date:today(),time:nowTime(),read:false,type:'info'};
+  DB.notifs.unshift(n);pushSync('notifs','post',n);
+  saveToCrypt();closeModal();render();toast(`Prime de $${amount} accordée à ${u2?.name||'?'}`,'success');
+};
+window.deletePrime = (id) => {
+  showC('Supprimer','Supprimer cette prime ?',()=>{
+    DB.direct_primes=(DB.direct_primes||[]).filter(x=>x.id!==id);
+    pushSync('direct_primes','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Prime supprimée','info');
+  });
 };
 
 // ── CONDUITE — fonctions ──
