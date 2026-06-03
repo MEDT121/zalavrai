@@ -12755,6 +12755,10 @@ R.calendar = () => {
   gridHTML+='</div>';
   // Upcoming events
   const upcoming=sorted.filter(e=>e.date>=today()).slice(0,10);
+  const monthPfx=window._calMonth;
+  const monthEventsCount=sorted.filter(e=>e.date.startsWith(monthPfx)).length;
+  const upcomingCount=sorted.filter(e=>e.date>=today()).length;
+  const pastCount=sorted.filter(e=>e.date<today()).length;
   const listHTML=upcoming.length?upcoming.map((e,i)=>{
     const tp=ti[e.type]||ti.event;const d=new Date(e.date+'T00:00:00');
     return `<div class="ww-item" style="animation-delay:${i*.04}s">
@@ -12769,6 +12773,17 @@ R.calendar = () => {
     </div>`;
   }).join(''):`<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucun événement à venir</div>`;
   return `
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📅</div><div class="hbig" style="font-size:24px">${monthEventsCount}</div><div class="hsub">ce mois</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">⏳</div><div class="hbig" style="font-size:24px">${upcomingCount}</div><div class="hsub">à venir</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#6f6557,#a89c8b);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">🗂️</div><div class="hbig" style="font-size:24px">${pastCount}</div><div class="hsub">passés</div>
+    </div>
+  </div>
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">📅 Calendrier scolaire</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -14666,6 +14681,7 @@ R.acces_parents = () => {
   const allCount=DB.students.length;
   const paidCount=DB.students.filter(s=>getPayInfo(s.id).allPaid).length;
   const accessCount=DB.students.filter(s=>s.access_parent).length;
+  const noParentCount=DB.students.filter(s=>!s.pid||!DB.users.find(u=>u.id===s.pid)).length;
   const mkGlobalToggle=(key,active,icon,label,desc)=>`
     <div onclick="saveSettingsToggle('${key}',${!active})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:${active?'#f0fdf4':'#fff5ea'};border:2px solid ${active?'#22c55e':'#efe3d3'};cursor:pointer;flex:1;min-width:200px;transition:all .2s">
       <div style="width:44px;height:24px;border-radius:12px;background:${active?'#22c55e':'#ddd0bf'};position:relative;flex-shrink:0;transition:background .2s">
@@ -14700,18 +14716,15 @@ R.acces_parents = () => {
   </div>
 
   <!-- Zone 2 : Stats rapides -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-    <div style="flex:1;min-width:70px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center;border:1px solid var(--border)">
-      <div style="font-size:20px;font-weight:800;color:#2f7bd6">${paidCount}<span style="font-size:11px;color:var(--text-muted)">/${allCount}</span></div>
-      <div style="font-size:10px;color:var(--text-muted)">Frais complets</div>
+  <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">👨‍👩‍👧</div><div class="hbig" style="font-size:24px">${allCount}</div><div class="hsub">élèves total</div>
     </div>
-    <div style="flex:1;min-width:70px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center;border:1px solid var(--border)">
-      <div style="font-size:20px;font-weight:800;color:#22c55e">${accessCount}<span style="font-size:11px;color:var(--text-muted)">/${allCount}</span></div>
-      <div style="font-size:10px;color:var(--text-muted)">Accès activés</div>
+    <div class="htile" style="background:linear-gradient(135deg,#22c55e,#4ade80);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${accessCount}</div><div class="hsub">accès activés</div>
     </div>
-    <div style="flex:1;min-width:70px;padding:10px 8px;border-radius:12px;background:var(--bg);text-align:center;border:1px solid var(--border)">
-      <div style="font-size:20px;font-weight:800;color:#f59e0b">${allCount-paidCount}</div>
-      <div style="font-size:10px;color:var(--text-muted)">Impayés</div>
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">⚠️</div><div class="hbig" style="font-size:24px">${noParentCount}</div><div class="hsub">sans parent lié</div>
     </div>
   </div>
 
