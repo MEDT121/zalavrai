@@ -103,7 +103,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* ── STATS BAR ── */
 .stats-bar {
-  display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px;
 }
 .stat-card {
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
@@ -269,6 +269,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   display:flex; align-items:center; justify-content:center;
 }
 
+/* ── SITE EDITOR PANEL ── */
+.site-editor-panel {
+  position:fixed; top:0; right:0; bottom:0; width:400px;
+  background:var(--surface); border-left:1px solid var(--border); z-index:1000;
+  padding:24px; overflow-y:auto; animation:fadeIn .2s ease;
+}
+
+/* ── COLOR SWATCH ── */
+.color-swatch {
+  display:inline-block; width:24px; height:24px; border-radius:6px;
+  border:1px solid rgba(255,255,255,.15); vertical-align:middle;
+}
+
+/* ── ANN TABLE ── */
+.ann-table {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden;
+}
+.ann-table table { width:100%; border-collapse:collapse; }
+.ann-table th {
+  padding:12px 16px; text-align:left; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted);
+  border-bottom:1px solid var(--border); background:var(--surface2);
+}
+.ann-table td {
+  padding:13px 16px; font-size:14px; border-bottom:1px solid var(--border);
+  vertical-align:middle;
+}
+.ann-table tr:last-child td { border-bottom:none; }
+.ann-table tr:hover td { background:rgba(255,255,255,.02); }
+
 /* ── RESPONSIVE ── */
 @media (max-width:768px) {
   .stats-bar { grid-template-columns:repeat(2,1fr); }
@@ -385,12 +416,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="stat-value" id="stat-orders">—</div>
         <div class="stat-sub">en attente</div>
       </div>
+      <div class="stat-card stat-accent">
+        <div class="stat-label">Sites actifs</div>
+        <div class="stat-value" id="stat-sites">—</div>
+        <div class="stat-sub">en ligne</div>
+      </div>
+      <div class="stat-card stat-success">
+        <div class="stat-label">Actualités</div>
+        <div class="stat-value" id="stat-ann">—</div>
+        <div class="stat-sub">publiées</div>
+      </div>
     </div>
 
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="tab-btn active" id="tab-ecoles-btn" onclick="switchTab('ecoles')">🏫 Écoles</button>
       <button class="tab-btn" id="tab-orders-btn" onclick="switchTab('orders')">🖨️ Commandes cartes</button>
+      <button class="tab-btn" id="tab-sites-btn" onclick="switchTab('sites')">🌐 Sites web</button>
+      <button class="tab-btn" id="tab-ann-btn" onclick="switchTab('ann')">📢 Actualités</button>
     </div>
 
     <!-- Tab: Écoles -->
@@ -419,6 +462,33 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         </div>
       </div>
       <div class="orders-table" id="orders-wrap"></div>
+    </div>
+
+    <!-- Tab: Sites web -->
+    <div class="tab-panel" id="tab-sites">
+      <div class="toolbar">
+        <input class="toolbar-search" id="site-search" type="text" placeholder="🔍  Rechercher…" oninput="renderSites()">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-stf="all" onclick="setSiteFilter('all')">Tous</button>
+          <button class="filter-pill" data-stf="online" onclick="setSiteFilter('online')">En ligne</button>
+          <button class="filter-pill" data-stf="offline" onclick="setSiteFilter('offline')">Hors ligne</button>
+        </div>
+      </div>
+      <div class="schools-grid" id="sites-grid"></div>
+    </div>
+
+    <!-- Tab: Actualités -->
+    <div class="tab-panel" id="tab-ann">
+      <div class="toolbar">
+        <input class="toolbar-search" id="ann-search" type="text" placeholder="🔍  Rechercher…" oninput="renderAnnouncements()">
+        <div class="filter-pills">
+          <button class="filter-pill active" data-af="all" onclick="setAnnFilter('all')">Toutes</button>
+          <button class="filter-pill" data-af="published" onclick="setAnnFilter('published')">Publiées</button>
+          <button class="filter-pill" data-af="draft" onclick="setAnnFilter('draft')">Brouillons</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openAnnModal()" style="margin-left:auto;">+ Nouvelle actualité</button>
+      </div>
+      <div class="ann-table" id="ann-wrap"></div>
     </div>
 
   </div>
@@ -582,6 +652,116 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- SITE EDITOR PANEL -->
+<div id="site-editor-overlay" style="display:none;" onclick="closeSiteEditor()"></div>
+<div id="site-editor-panel" style="display:none;" class="site-editor-panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <h2 style="font-size:16px;font-weight:700;">🌐 Éditeur de site</h2>
+    <button class="modal-close" onclick="closeSiteEditor()">✕</button>
+  </div>
+  <input type="hidden" id="se-school-id">
+  <input type="hidden" id="se-site-id">
+  <p id="se-school-name" style="font-weight:700;color:var(--text);margin-bottom:16px;font-size:14px;"></p>
+
+  <div class="form-group">
+    <label class="form-label">Logo de l'école</label>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img id="se-logo-preview" src="" style="width:56px;height:56px;border-radius:10px;object-fit:contain;background:var(--surface2);border:1px solid var(--border);display:none;">
+      <div id="se-logo-placeholder" style="width:56px;height:56px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;">🏫</div>
+      <div>
+        <input type="file" id="se-logo-file" accept="image/*" style="display:none;" onchange="handleSiteLogoUpload(this)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-logo-file').click()">📁 Choisir</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Couleur principale <span id="se-color-swatch" class="color-swatch" style="background:#2f7bd6;vertical-align:middle;"></span></label>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input class="form-input" id="se-color" type="color" value="#2f7bd6" style="width:60px;height:38px;padding:2px;cursor:pointer;" oninput="document.getElementById('se-color-swatch').style.background=this.value">
+      <button class="btn btn-outline btn-sm" onclick="autoExtractColor()" id="se-extract-btn" disabled>🎨 Auto depuis logo</button>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Slogan / Devise</label>
+    <input class="form-input" id="se-tagline" type="text" placeholder="Ex : L'excellence au service de l'avenir">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Texte « À propos »</label>
+    <textarea class="form-input" id="se-about" rows="3" placeholder="Présentation de l'école…" style="resize:vertical;"></textarea>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" style="margin-bottom:10px;">Sections visibles</label>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-about" checked> À propos</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-contact" checked> Contact</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-gallery"> Galerie photos</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-ann" checked> Actualités</label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Statut du site</label>
+    <select class="form-input" id="se-status">
+      <option value="offline">🔴 Hors ligne</option>
+      <option value="online">🟢 En ligne</option>
+    </select>
+  </div>
+
+  <div id="se-preview-link" style="display:none;margin-bottom:16px;">
+    <a id="se-preview-a" href="#" target="_blank" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;">🔗 Voir le site</a>
+  </div>
+
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-primary btn-sm" onclick="saveSite()" style="flex:1;justify-content:center;">💾 Enregistrer</button>
+    <button class="btn btn-outline btn-sm" onclick="closeSiteEditor()">Annuler</button>
+  </div>
+</div>
+
+<!-- ANN MODAL -->
+<div id="ann-modal" style="display:none;">
+  <div class="modal-overlay" onclick="if(event.target===this)closeAnnModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="ann-modal-title">Nouvelle actualité</h2>
+        <button class="modal-close" onclick="closeAnnModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="am-id">
+        <div class="form-group">
+          <label class="form-label">École *</label>
+          <select class="form-input" id="am-school"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Titre *</label>
+          <input class="form-input" id="am-title" type="text" placeholder="Ex : Rentrée scolaire 2026-2027">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contenu</label>
+          <textarea class="form-input" id="am-content" rows="4" placeholder="Détails de l'annonce…" style="resize:vertical;"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input class="form-input" id="am-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="am-published"> Publier immédiatement
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="am-delete-btn" style="margin-right:auto;display:none;" onclick="deleteAnnouncement()">🗑️ Supprimer</button>
+        <button class="btn btn-outline" onclick="closeAnnModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveAnnouncement()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
@@ -594,6 +774,11 @@ let DB_orders  = [];
 let schoolFilter = 'all';
 let orderFilter  = 'all';
 let currentTab   = 'ecoles';
+let DB_sites = [];
+let DB_announcements = [];
+let siteFilter = 'all';
+let annFilter  = 'all';
+let _siteLogoBase64 = null;
 
 function loadConfig() {
   try { CFG = JSON.parse(localStorage.getItem('_ss_admin_cfg') || '{}'); } catch(e) { CFG = {}; }
@@ -717,7 +902,7 @@ function doLogout() {
 // ════════════════════════════════════════
 async function showDashboard() {
   showScreen('dashboard');
-  await Promise.all([loadSchools(), loadOrders()]);
+  await Promise.all([loadSchools(), loadOrders(), loadSites(), loadAnnouncements()]);
 }
 
 async function loadSchools() {
@@ -741,6 +926,28 @@ async function loadOrders() {
   }
 }
 
+async function loadSites() {
+  try {
+    DB_sites = await api('school_sites', 'GET', null, 'order=created_at.desc') || [];
+    renderSites();
+    renderStats();
+  } catch(e) {
+    console.warn('school_sites not available yet:', e.message);
+    DB_sites = [];
+  }
+}
+
+async function loadAnnouncements() {
+  try {
+    DB_announcements = await api('school_announcements', 'GET', null, 'order=date.desc') || [];
+    renderAnnouncements();
+    renderStats();
+  } catch(e) {
+    console.warn('school_announcements not available yet:', e.message);
+    DB_announcements = [];
+  }
+}
+
 // ════════════════════════════════════════
 //  STATS
 // ════════════════════════════════════════
@@ -753,6 +960,12 @@ function renderStats() {
   document.getElementById('stat-active').textContent    = active;
   document.getElementById('stat-suspended').textContent = suspended;
   document.getElementById('stat-orders').textContent    = pending;
+  const sitesActive = DB_sites.filter(s => s.status === 'online').length;
+  const annPub      = DB_announcements.filter(a => a.published).length;
+  const elSites = document.getElementById('stat-sites');
+  const elAnn   = document.getElementById('stat-ann');
+  if(elSites) elSites.textContent = sitesActive;
+  if(elAnn)   elAnn.textContent   = annPub;
 }
 
 // ════════════════════════════════════════
@@ -841,6 +1054,10 @@ function renderSchools() {
     const expiring = isExpiringSoon(s);
     const expBadge = expiring ? '<span class="expiry-badge">⚠️ Expire le ' + esc(fmtDate(s.expiry_date)) + '</span>' : '';
     const expText  = s.expiry_date && !expiring ? '<span style="font-size:12px;color:var(--text-muted);">Exp. ' + esc(fmtDate(s.expiry_date)) + '</span>' : '';
+    const siteRec  = DB_sites.find(x => x.school_id === s.id);
+    const siteBadge = siteRec
+      ? (siteRec.status === 'online' ? '<span class="pill pill-green" style="font-size:10px;">🌐 Site en ligne</span>' : '<span class="pill pill-gray" style="font-size:10px;">🌐 Hors ligne</span>')
+      : '<span class="pill pill-gray" style="font-size:10px;">🌐 Pas de site</span>';
     return `
       <div class="school-card${expiring ? ' expiring-soon' : ''}">
         <div class="school-avatar">${esc(initials(s.name))}</div>
@@ -852,11 +1069,13 @@ function renderSchools() {
             ${expBadge}
             ${expText}
             ${s.license_key ? '<span style="font-size:11px;color:var(--text-muted);font-family:monospace;">' + esc(s.license_key) + '</span>' : ''}
+            ${siteBadge}
           </div>
         </div>
         <div class="school-actions">
           ${s.status !== 'active' ? '<button class="btn btn-success btn-sm" onclick="setStatus(\'' + s.id + '\',\'active\')">✓ Activer</button>' : ''}
           ${s.status === 'active' ? '<button class="btn btn-warning btn-sm" onclick="setStatus(\'' + s.id + '\',\'suspended\')">⏸ Suspendre</button>' : ''}
+          <button class="btn btn-outline btn-sm" onclick="openSiteEditor(\'' + s.id + '\')">🌐 Site</button>
           <button class="btn btn-outline btn-sm" onclick="openKeyModal(\'' + s.id + '\')">🔑 Clé</button>
           <button class="btn btn-outline btn-sm" onclick="openSchoolModal(\'' + s.id + '\')">✏️ Modifier</button>
         </div>
@@ -1158,6 +1377,322 @@ function km_copyKey() {
 }
 
 // ════════════════════════════════════════
+//  SITES
+// ════════════════════════════════════════
+function setSiteFilter(f) {
+  siteFilter = f;
+  document.querySelectorAll('[data-stf]').forEach(b => b.classList.toggle('active', b.dataset.stf === f));
+  renderSites();
+}
+
+function renderSites() {
+  const q = (document.getElementById('site-search')?.value || '').toLowerCase();
+  let list = DB_sites;
+  if (siteFilter !== 'all') list = list.filter(s => s.status === siteFilter);
+  if (q) list = list.filter(s =>
+    (s.school_name || '').toLowerCase().includes(q) ||
+    (s.tagline || '').toLowerCase().includes(q)
+  );
+
+  const grid = document.getElementById('sites-grid');
+  if (!grid) return;
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">🌐</div><p>Aucun site configuré. Cliquez sur "🌐 Site" dans l\'onglet Écoles pour commencer.</p></div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(s => {
+    const statusPillSite = s.status === 'online'
+      ? '<span class="pill pill-green">🟢 En ligne</span>'
+      : '<span class="pill pill-gray">🔴 Hors ligne</span>';
+    const colorDot = s.primary_color ? `<span class="color-swatch" style="background:${esc(s.primary_color)};vertical-align:middle;"></span>` : '';
+    return `
+      <div class="school-card">
+        <div class="school-avatar" style="${s.primary_color ? 'background:' + esc(s.primary_color) : ''}">${esc(initials(s.school_name))}</div>
+        <div class="school-info">
+          <div class="school-name">${esc(s.school_name || '—')}</div>
+          <div class="school-contact">${esc(s.tagline || '—')}</div>
+          <div class="school-meta">${statusPillSite} ${colorDot}</div>
+        </div>
+        <div class="school-actions">
+          <button class="btn btn-outline btn-sm" onclick="openSiteEditor('${esc(s.school_id)}')">✏️ Éditer</button>
+          ${s.status === 'online' ? `<button class="btn btn-warning btn-sm" onclick="toggleSiteStatus('${esc(s.id)}','offline')">🔴 Mettre hors ligne</button>` : `<button class="btn btn-success btn-sm" onclick="toggleSiteStatus('${esc(s.id)}','online')">🟢 Mettre en ligne</button>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openSiteEditor(schoolId) {
+  const school = DB_schools.find(x => x.id === schoolId);
+  if (!school) return;
+  const site = DB_sites.find(x => x.school_id === schoolId) || {};
+
+  document.getElementById('se-school-id').value = schoolId;
+  document.getElementById('se-site-id').value   = site.id || '';
+  document.getElementById('se-school-name').textContent = school.name || '';
+  document.getElementById('se-tagline').value   = site.tagline || '';
+  document.getElementById('se-about').value     = site.about_text || '';
+  document.getElementById('se-status').value    = site.status || 'offline';
+  document.getElementById('se-color').value     = site.primary_color || '#2f7bd6';
+  document.getElementById('se-color-swatch').style.background = site.primary_color || '#2f7bd6';
+  document.getElementById('se-sec-about').checked   = site.section_about !== false;
+  document.getElementById('se-sec-contact').checked = site.section_contact !== false;
+  document.getElementById('se-sec-gallery').checked = !!site.section_gallery;
+  document.getElementById('se-sec-ann').checked     = site.section_announcements !== false;
+
+  _siteLogoBase64 = site.logo_url || null;
+  const prev = document.getElementById('se-logo-preview');
+  const ph   = document.getElementById('se-logo-placeholder');
+  if (_siteLogoBase64) {
+    prev.src = _siteLogoBase64; prev.style.display = 'block'; ph.style.display = 'none';
+    document.getElementById('se-extract-btn').disabled = false;
+  } else {
+    prev.style.display = 'none'; ph.style.display = 'flex';
+    document.getElementById('se-extract-btn').disabled = true;
+  }
+
+  const previewWrap = document.getElementById('se-preview-link');
+  if (site.id && site.status === 'online') {
+    previewWrap.style.display = 'block';
+    document.getElementById('se-preview-a').href = 'site.html?key=' + encodeURIComponent(school.license_key || '');
+  } else {
+    previewWrap.style.display = 'none';
+  }
+
+  document.getElementById('site-editor-overlay').style.display = 'block';
+  document.getElementById('site-editor-panel').style.display   = 'block';
+}
+
+function closeSiteEditor() {
+  document.getElementById('site-editor-overlay').style.display = 'none';
+  document.getElementById('site-editor-panel').style.display   = 'none';
+  _siteLogoBase64 = null;
+}
+
+function handleSiteLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    _siteLogoBase64 = e.target.result;
+    const prev = document.getElementById('se-logo-preview');
+    const ph   = document.getElementById('se-logo-placeholder');
+    prev.src = _siteLogoBase64; prev.style.display = 'block'; ph.style.display = 'none';
+    document.getElementById('se-extract-btn').disabled = false;
+    await autoExtractColor();
+  };
+  reader.readAsDataURL(file);
+}
+
+async function autoExtractColor() {
+  if (!_siteLogoBase64) return;
+  const color = await extractDominantColor(_siteLogoBase64);
+  document.getElementById('se-color').value = color;
+  document.getElementById('se-color-swatch').style.background = color;
+  toast('Couleur extraite : ' + color, 'success');
+}
+
+async function extractDominantColor(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 50; canvas.height = 50;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const data = ctx.getImageData(0, 0, 50, 50).data;
+        let r=0,g=0,b=0,count=0;
+        for(let i=0;i<data.length;i+=4){
+          const a=data[i+3];
+          if(a<100) continue;
+          const lum=(data[i]+data[i+1]+data[i+2])/3;
+          if(lum>230||lum<15) continue;
+          r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++;
+        }
+        if(!count){ resolve('#2f7bd6'); return; }
+        const toHex = v => Math.round(v/count).toString(16).padStart(2,'0');
+        resolve('#'+toHex(r)+toHex(g)+toHex(b));
+      } catch(e) { resolve('#2f7bd6'); }
+    };
+    img.onerror = () => resolve('#2f7bd6');
+    img.src = src;
+  });
+}
+
+async function saveSite() {
+  const schoolId = document.getElementById('se-school-id').value;
+  const siteId   = document.getElementById('se-site-id').value;
+  const school   = DB_schools.find(x => x.id === schoolId);
+  if (!school) return;
+
+  const payload = {
+    school_id:             schoolId,
+    license_key:           school.license_key || null,
+    school_name:           school.name || '',
+    status:                document.getElementById('se-status').value,
+    primary_color:         document.getElementById('se-color').value || '#2f7bd6',
+    tagline:               document.getElementById('se-tagline').value.trim() || null,
+    about_text:            document.getElementById('se-about').value.trim() || null,
+    logo_url:              _siteLogoBase64 || null,
+    section_about:         document.getElementById('se-sec-about').checked,
+    section_contact:       document.getElementById('se-sec-contact').checked,
+    section_gallery:       document.getElementById('se-sec-gallery').checked,
+    section_announcements: document.getElementById('se-sec-ann').checked,
+  };
+
+  try {
+    showLoading();
+    if (siteId) {
+      await api('school_sites', 'PATCH', payload, 'id=eq.' + siteId);
+    } else {
+      await api('school_sites', 'POST', payload);
+    }
+    toast('Site enregistré.', 'success');
+    closeSiteEditor();
+    await loadSites();
+    renderSchools();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+async function toggleSiteStatus(siteId, newStatus) {
+  try {
+    showLoading();
+    await api('school_sites', 'PATCH', { status: newStatus }, 'id=eq.' + siteId);
+    toast(newStatus === 'online' ? 'Site mis en ligne.' : 'Site hors ligne.', newStatus === 'online' ? 'success' : 'warning');
+    await loadSites();
+    renderSchools();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// ════════════════════════════════════════
+//  ANNOUNCEMENTS
+// ════════════════════════════════════════
+function setAnnFilter(f) {
+  annFilter = f;
+  document.querySelectorAll('[data-af]').forEach(b => b.classList.toggle('active', b.dataset.af === f));
+  renderAnnouncements();
+}
+
+function renderAnnouncements() {
+  const q = (document.getElementById('ann-search')?.value || '').toLowerCase();
+  let list = DB_announcements;
+  if (annFilter === 'published') list = list.filter(a => a.published);
+  if (annFilter === 'draft')     list = list.filter(a => !a.published);
+  if (q) list = list.filter(a =>
+    (a.title || '').toLowerCase().includes(q) ||
+    (a.school_name || '').toLowerCase().includes(q)
+  );
+
+  const wrap = document.getElementById('ann-wrap');
+  if (!wrap) return;
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📢</div><p>Aucune actualité</p></div>';
+    return;
+  }
+
+  const rows = list.map(a => `
+    <tr>
+      <td><strong>${esc(a.school_name || '—')}</strong></td>
+      <td>${esc(a.title || '—')}</td>
+      <td style="color:var(--text-secondary);font-size:13px;">${fmtDate(a.date)}</td>
+      <td>${a.published ? '<span class="pill pill-green">✓ Publiée</span>' : '<span class="pill pill-gray">Brouillon</span>'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="openAnnModal('${esc(a.id)}')">✏️</button></td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead><tr><th>École</th><th>Titre</th><th>Date</th><th>Statut</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function openAnnModal(id) {
+  const sel = document.getElementById('am-school');
+  sel.innerHTML = DB_schools.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
+
+  if (id) {
+    const a = DB_announcements.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('ann-modal-title').textContent = 'Modifier l\'actualité';
+    document.getElementById('am-id').value        = a.id;
+    sel.value                                      = a.school_id || '';
+    document.getElementById('am-title').value     = a.title || '';
+    document.getElementById('am-content').value   = a.content || '';
+    document.getElementById('am-date').value      = a.date ? a.date.substring(0,10) : '';
+    document.getElementById('am-published').checked = !!a.published;
+    document.getElementById('am-delete-btn').style.display = 'inline-flex';
+  } else {
+    document.getElementById('ann-modal-title').textContent = 'Nouvelle actualité';
+    document.getElementById('am-id').value        = '';
+    sel.value = DB_schools[0]?.id || '';
+    document.getElementById('am-title').value     = '';
+    document.getElementById('am-content').value   = '';
+    document.getElementById('am-date').value      = new Date().toISOString().substring(0,10);
+    document.getElementById('am-published').checked = false;
+    document.getElementById('am-delete-btn').style.display = 'none';
+  }
+  document.getElementById('ann-modal').style.display = 'block';
+}
+
+function closeAnnModal() {
+  document.getElementById('ann-modal').style.display = 'none';
+}
+
+async function saveAnnouncement() {
+  const id        = document.getElementById('am-id').value;
+  const schoolId  = document.getElementById('am-school').value;
+  const title     = document.getElementById('am-title').value.trim();
+  const school    = DB_schools.find(x => x.id === schoolId);
+  if (!title) { toast('Le titre est obligatoire.', 'error'); return; }
+
+  const payload = {
+    school_id:   schoolId,
+    license_key: school?.license_key || null,
+    school_name: school?.name || '',
+    title,
+    content:     document.getElementById('am-content').value.trim() || null,
+    date:        document.getElementById('am-date').value || new Date().toISOString().substring(0,10),
+    published:   document.getElementById('am-published').checked,
+  };
+
+  try {
+    showLoading();
+    if (id) {
+      await api('school_announcements', 'PATCH', payload, 'id=eq.' + id);
+      toast('Actualité mise à jour.', 'success');
+    } else {
+      await api('school_announcements', 'POST', payload);
+      toast('Actualité créée.', 'success');
+    }
+    closeAnnModal();
+    await loadAnnouncements();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+async function deleteAnnouncement() {
+  const id = document.getElementById('am-id').value;
+  if (!id) return;
+  if (!confirm('Supprimer cette actualité ?')) return;
+  try {
+    showLoading();
+    await api('school_announcements', 'DELETE', null, 'id=eq.' + id);
+    toast('Actualité supprimée.', 'success');
+    closeAnnModal();
+    await loadAnnouncements();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// ════════════════════════════════════════
 //  KEYBOARD
 // ════════════════════════════════════════
 document.addEventListener('keydown', function(e) {
@@ -1165,6 +1700,8 @@ document.addEventListener('keydown', function(e) {
     closeSchoolModal();
     closeKeyModal();
     closeOrderModal();
+    closeSiteEditor();
+    closeAnnModal();
     closeSettings();
   }
 });
