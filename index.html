@@ -3835,6 +3835,77 @@ function fillCardAsync(sid) {
   });
 }
 
+window.orderCards = async (classId) => {
+  const allStudents = (DB.students||[]).filter(s => !s.blocked);
+  const students = classId ? allStudents.filter(s => s.cid === classId) : allStudents;
+  if(!students.length){ toast('Aucun élève trouvé','error'); return; }
+  const className = classId ? (DB.classes||[]).find(c=>c.id===classId)?.name||'Classe' : 'Toute l\'école';
+  toast('⏳ Génération PDF — '+students.length+' cartes...','info');
+  // Render all cards
+  const cards = [];
+  for(const s of students){
+    await fillCardAsync(s.id);
+    const fc=$('front'), bc=$('back');
+    if(!fc||!bc) continue;
+    cards.push({ name:s.name, front:fc.toDataURL('image/jpeg',0.88), back:bc.toDataURL('image/jpeg',0.88) });
+  }
+  if(!cards.length){ toast('Erreur: aucune carte générée','error'); return; }
+  // Build printable HTML (3 students per page: front|back side by side)
+  const rows = cards.map(c=>`<div class="cr"><img src="${c.front}" class="ci"><img src="${c.back}" class="ci"></div>`).join('');
+  const html = `<style>@page{margin:6mm;size:A4 portrait}body{margin:0}
+.cr{display:flex;gap:3mm;margin-bottom:3mm;page-break-inside:avoid}
+.ci{width:91mm;height:57mm;object-fit:contain;display:block}</style><div>${rows}</div>`;
+  // Load html2pdf if needed
+  const LIB='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  if(typeof html2pdf==='undefined'){
+    await new Promise((res,rej)=>{ const s=document.createElement('script');s.src=LIB;s.onload=res;s.onerror=rej;document.head.appendChild(s); });
+  }
+  const el=document.createElement('div');
+  el.innerHTML=html;
+  el.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;background:#fff';
+  document.body.appendChild(el);
+  const schoolN=(DB.settings?.school?.name||'Ecole').replace(/\s+/g,'_');
+  const classN=className.replace(/\s+/g,'_');
+  const fname='Cartes_'+schoolN+'_'+classN+'_'+today()+'.pdf';
+  try{
+    await html2pdf().set({
+      margin:[6,6,6,6], filename:fname,
+      image:{type:'jpeg',quality:0.92},
+      html2canvas:{scale:2,useCORS:true,logging:false},
+      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+    }).from(el).save();
+    document.body.removeChild(el);
+    // Push order to central Supabase
+    if(CENTRAL_URL&&CENTRAL_KEY){
+      try{
+        await fetch(CENTRAL_URL+'/rest/v1/card_orders',{
+          method:'POST',
+          headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+          body:JSON.stringify({
+            school_name:DB.settings?.school?.name||'École inconnue',
+            quantity:cards.length,
+            status:'pending',
+            notes:'Classe: '+className+' | Licence: '+(DB.settings?.license_key||'?')
+          })
+        });
+      }catch(e){ /* offline */ }
+    }
+    // Show success modal with WA button
+    const waNum='243978444167';
+    const msg='Bonjour, commande de '+cards.length+' cartes élèves pour '+(DB.settings?.school?.name||'notre école')+' ('+className+'). Fichier PDF joint.';
+    openM('📦 Commande envoyée',`<div style="text-align:center;padding:8px 0">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <div style="font-weight:800;font-size:18px;margin-bottom:6px">${cards.length} cartes générées</div>
+      <div style="color:var(--text-secondary);font-size:13px;margin-bottom:20px">${className} · PDF téléchargé</div>
+      <a href="https://wa.me/${waNum}?text=${encodeURIComponent(msg)}" target="_blank" class="btn btn-primary" style="display:block;width:100%;text-decoration:none;margin-bottom:10px;padding:14px">📱 Notifier l'opérateur par WhatsApp</a>
+      <div style="font-size:11px;color:var(--text-muted)">Joignez le PDF téléchargé dans votre message WhatsApp</div>
+    </div>`,'<button class="btn btn-outline" onclick="closeModal()">Fermer</button>');
+  }catch(e){
+    if(document.body.contains(el)) document.body.removeChild(el);
+    toast('Erreur PDF: '+e.message,'error');
+  }
+};
+
 // Export ALL students' cards as a single ZIP (RECTO+VERSO+BADGE per student, organised by class)
 window.exportAllCardsZip = async () => {
   if(typeof JSZip==='undefined'){toast('JSZip non chargé — vérifiez la connexion','error');return;}
@@ -4254,6 +4325,20 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
       <canvas id="back" class="card-canvas" width="1016" height="638"></canvas>
     </div>
   </main>
+</div>
+
+<div class="premium-section" style="margin-top:16px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">📦 Commander les cartes</div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Générez le PDF de toute une classe et envoyez-le à l'opérateur SchoolSafe pour impression.</div>
+  <div class="form-group">
+    <label class="form-label">Classe à imprimer</label>
+    <select class="form-select" id="order_class">
+      <option value="">Toute l'école (${(DB.students||[]).filter(s=>!s.blocked).length} élèves)</option>
+      ${(DB.classes||[]).map(cl=>{const n=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.blocked).length;return n?`<option value="${cl.id}">${esc(cl.name)} (${n} élèves)</option>`:''}).join('')}
+    </select>
+  </div>
+  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700" onclick="orderCards($('order_class')?.value||null)">📄 Générer le PDF et commander</button>
+  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">Le PDF sera téléchargé sur votre appareil · Envoyez-le à l'opérateur par WhatsApp</div>
 </div>
 `;
 };
