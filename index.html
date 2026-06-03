@@ -4421,7 +4421,7 @@ R.students = () => {
   const q = (window._studentQ||'').toLowerCase();
   const cf = window._studentCF||'';
   let list = DB.students;
-  if (q) list = list.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q));
+  if (q) list = list.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q));
   if (cf) list = list.filter(s=>s.cid===cf);
   const _totalStu=DB.students.length;
   const _nClasses=DB.classes.length;
@@ -4793,7 +4793,7 @@ R.guardians = () => _simpleList('gardien','🛡️','linear-gradient(90deg,#ff7a
 R.parents = () => {
   const parents = DB.users.filter(u => u.role === 'parent');
   const q = (window._parQ||'').toLowerCase();
-  const list = q ? parents.filter(u=>u.name.toLowerCase().includes(q)||( u.phone&&u.phone.includes(q))) : parents;
+  const list = q ? parents.filter(u=>(u.name||'').toLowerCase().includes(q)||(u.phone&&u.phone.includes(q))) : parents;
   const _withKids = parents.filter(p=>DB.students.some(s=>s.pid===p.id)).length;
   const _withPhone = parents.filter(p=>p.phone).length;
   return `
@@ -9530,7 +9530,7 @@ R.authorized = () => {
   // ── DIRECTION 1 & 2 : gestion complète par élève ──
   if (role === 'direction' || role === 'direction2') {
     const q = (window._apQ||'').toLowerCase();
-    const studs = q ? DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)) : DB.students;
+    const studs = q ? DB.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)) : DB.students;
     const _wParent=DB.students.filter(s=>s.pid).length;
     const _tuts=(DB.aps||[]).length;
     const _noParent=DB.students.length-_wParent;
@@ -9676,7 +9676,7 @@ R.authorized = () => {
 
   // ── GARDIEN : vue lecture seule avec recherche ──
   const qG = (window._apQG||'').toLowerCase();
-  const studsToShow = qG ? DB.students.filter(s=>s.name.toLowerCase().includes(qG)||s.mat.toLowerCase().includes(qG)) : DB.students;
+  const studsToShow = qG ? DB.students.filter(s=>(s.name||'').toLowerCase().includes(qG)||(s.mat||'').toLowerCase().includes(qG)) : DB.students;
   return `
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
@@ -10157,7 +10157,7 @@ window.caisseSearch = () => {
   const q = ($('caisse_search').value||'').trim().toLowerCase();
   const res = $('caisse_results'); if(!res) return;
   if(!q){res.innerHTML='';return;}
-  const found = DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).slice(0,6);
+  const found = DB.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).slice(0,6);
   if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé</div>`;return;}
   res.innerHTML=found.map(s=>{
     const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
@@ -14765,7 +14765,7 @@ R.acces_parents = () => {
   let students=DB.students.filter(s=>{
     if(!q) return true;
     const par=DB.users.find(u=>u.id===s.pid);
-    return s.name.toLowerCase().includes(q)||(par&&par.name.toLowerCase().includes(q));
+    return (s.name||'').toLowerCase().includes(q)||(par&&(par.name||'').toLowerCase().includes(q));
   });
   if(filter==='complets') students=students.filter(s=>getPayInfo(s.id).allPaid);
   else if(filter==='partiels') students=students.filter(s=>{const p=getPayInfo(s.id);return p.anyPaid&&!p.allPaid;});
@@ -14925,7 +14925,7 @@ window.renderGSearch = () => {
   const role=S.user.role;
   const canSeeUsers=role==='direction'||role==='direction2';
   let items=[];
-  DB.students.filter(s=>s.name.toLowerCase().includes(q)||s.mat.toLowerCase().includes(q)).forEach(s=>{
+  DB.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).forEach(s=>{
     const cl=DB.classes.find(c=>c.id===s.cid);
     items.push({icon:'🎓',title:s.name,sub:`${s.mat} · ${cl?cl.name:'?'}`,sid:s.id,action:`go('students');closeModal();window._studentQ='${s.id}';render()`});
   });
