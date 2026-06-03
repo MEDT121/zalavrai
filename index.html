@@ -1943,7 +1943,7 @@ window.go = (p, noHistory) => {
     window._studentQ='';window._parQ='';window._inscQ='';
     window._apQ='';window._apQG='';window._absFilter='';
     window._payFilterClass='';window._payFilterStatus='';
-    window._msgTab='inbox';window._cardSysInited=false;
+    window._msgTab='inbox';window._cardSysInited=false;window._profilePhoto=null;
   }
   S.page = p;
   closeSB();
@@ -4652,14 +4652,14 @@ window.openUserForm = (role, uid) => {
   </div>
 </div>
 <div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="usr_cid_cb" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2f7bd6"> ${c.name}</label>`;}).join('')}</div></div>` : '';
-  const photoOpts = role==='parent' ? `<div class="form-group"><label class="form-label">Photo d'identité</label>
+  const photoOpts = `<div class="form-group"><label class="form-label">Photo d'identité</label>
     <div style="display:flex;align-items:center;gap:14px">
       <div id="usr_photo_preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">
         ${u&&u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:'👤'}
       </div>
       <label class="btn btn-outline btn-sm" style="cursor:pointer">📷 Choisir une photo<input type="file" accept="image/*" style="display:none" onchange="previewUserPhoto(this)"></label>
     </div>
-  </div>` : '';
+  </div>`;
   openM(u?`✏️ Modifier — ${u.name}`:`➕ Ajouter ${meta.icon} ${meta.label}`,`
 <input type="hidden" id="usr_id" value="${u?u.id:''}">
 <input type="hidden" id="usr_role" value="${role}">
@@ -14224,7 +14224,7 @@ R.accounts = () => {
       <div style="display:flex;flex-direction:column;gap:10px">
         ${users.map(u=>`
         <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:12px">
-          <div style="width:44px;height:44px;border-radius:12px;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0">${u.initials||ini(u.name)}</div>
+          <div style="width:44px;height:44px;border-radius:12px;overflow:hidden;background:${meta.bg};color:${meta.color};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;flex-shrink:0">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:(u.initials||ini(u.name))}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)">${esc(u.phone||'—')} ${u.phone?waBtn(u.phone,u.name):''}</div>
@@ -14292,7 +14292,7 @@ R.profil_direction = () => {
     <div style="position:relative;display:flex;align-items:center;gap:14px">
       <div style="position:relative;width:66px;height:66px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:20px;border:2px solid rgba(217,164,58,.65);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:66px;height:66px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;border:2px solid rgba(255,255,255,.35);box-shadow:0 8px 20px rgba(0,0,0,.25)">${u.initials||ini(u.name)}</div>
+        <div style="width:66px;height:66px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;border:2px solid rgba(255,255,255,.35);box-shadow:0 8px 20px rgba(0,0,0,.25)">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:(u.initials||ini(u.name))}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:#2fbf8f;border:2.5px solid ${clr};box-shadow:0 0 0 2px rgba(47,191,143,.4)"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -14371,6 +14371,17 @@ R.profil_direction = () => {
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
           <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
+        <div class="form-group"><label class="form-label">Photo de profil</label>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div id="dir_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+              ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">📷 Changer<input type="file" accept="image/*" style="display:none" onchange="if(this.files[0])compressWithProfile(this.files[0],'photo_user',d=>window._setProfilePhotoPreview('dir_photo_prev',d))"></label>
+              ${u.photo_url?`<button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;margin:0" onclick="window._profilePhotoRemove('dir_photo_prev','${esc(u.initials||ini(u.name))}')">✕ Supprimer</button>`:''}
+            </div>
+          </div>
+        </div>
         <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDirProfile('dir1_phone')">Enregistrer</button>
       </div>
     </div>
@@ -14431,7 +14442,7 @@ R.profil_direction2 = () => {
     <div style="position:relative;display:flex;align-items:center;gap:14px">
       <div style="position:relative;width:66px;height:66px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:20px;border:2px solid rgba(255,210,120,.65);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:66px;height:66px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;border:2px solid rgba(255,255,255,.35);box-shadow:0 8px 20px rgba(0,0,0,.22)">${u.initials||ini(u.name)}</div>
+        <div style="width:66px;height:66px;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;border:2px solid rgba(255,255,255,.35);box-shadow:0 8px 20px rgba(0,0,0,.22)">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:(u.initials||ini(u.name))}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:#2fbf8f;border:2.5px solid ${clr}"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -14509,6 +14520,17 @@ R.profil_direction2 = () => {
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
           <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
+        <div class="form-group"><label class="form-label">Photo de profil</label>
+          <div style="display:flex;align-items:center;gap:14px">
+            <div id="dir2_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+              ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0">📷 Changer<input type="file" accept="image/*" style="display:none" onchange="if(this.files[0])compressWithProfile(this.files[0],'photo_user',d=>window._setProfilePhotoPreview('dir2_photo_prev',d))"></label>
+              ${u.photo_url?`<button type="button" class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;margin:0" onclick="window._profilePhotoRemove('dir2_photo_prev','${esc(u.initials||ini(u.name))}')">✕ Supprimer</button>`:''}
+            </div>
+          </div>
+        </div>
         <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDirProfile('dir2_phone')">Enregistrer</button>
       </div>
     </div>
@@ -14533,9 +14555,12 @@ window.saveDirProfile = (inputId) => {
   if(!name){toast('Entrez votre nom','error');return;}
   const u=DB.users.find(x=>x.id===S.user.id);
   const init=initials||ini(name);
-  if(u){u.phone=phone;u.name=name;u.initials=init;}
-  S.user.phone=phone;S.user.name=name;S.user.initials=init;
-  pushSync('users','patch',{phone,name,initials:init},'id=eq.'+S.user.id);
+  const _ph=window._profilePhoto;
+  const _phUp=_ph==='__remove__'?{photo_url:null}:_ph?{photo_url:_ph}:{};
+  if(u){u.phone=phone;u.name=name;u.initials=init;if('photo_url' in _phUp)u.photo_url=_phUp.photo_url;}
+  S.user.phone=phone;S.user.name=name;S.user.initials=init;if('photo_url' in _phUp)S.user.photo_url=_phUp.photo_url;
+  window._profilePhoto=null;
+  pushSync('users','patch',{phone,name,initials:init,..._phUp},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast('Profil mis à jour','success');
 };
