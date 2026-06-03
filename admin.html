@@ -490,6 +490,45 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- ══════════════════════════ KEY MODAL ══════════════════════════ -->
+<div id="key-modal" style="display:none;">
+  <div class="modal-overlay" onclick="if(event.target===this)closeKeyModal()">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h2>🔑 Clé de licence</h2>
+        <button class="modal-close" onclick="closeKeyModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="km-id">
+        <p id="km-school-name" style="font-weight:700;font-size:15px;margin-bottom:16px;color:var(--text);"></p>
+        <div class="form-group">
+          <label class="form-label">Clé actuelle</label>
+          <div style="font-family:monospace;font-size:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text-secondary);margin-bottom:12px;" id="km-current-key"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nouvelle clé</label>
+          <div class="license-row">
+            <input class="form-input" id="km-new-key" type="text" placeholder="SS-2026-XXXX-XXXX" style="font-family:monospace;letter-spacing:1px;">
+            <button class="btn btn-outline btn-sm" onclick="km_genKey()" title="Générer">🎲</button>
+          </div>
+        </div>
+        <div id="km-wa-wrap" style="display:none;margin-top:16px;padding:14px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.2);border-radius:12px;">
+          <p style="font-size:13px;color:#4ade80;font-weight:600;margin-bottom:10px;">✅ Clé enregistrée — communiquer à l'école :</p>
+          <p id="km-key-display" style="font-family:monospace;font-size:16px;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:1px;"></p>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="km_copyKey()" style="flex:1;justify-content:center;">📋 Copier</button>
+            <a id="km-wa-link" href="#" target="_blank" class="btn btn-success btn-sm" style="flex:1;justify-content:center;">📱 WhatsApp</a>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" id="km-footer">
+        <button class="btn btn-outline" onclick="closeKeyModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveNewKey()">💾 Enregistrer la clé</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════════════ ORDER NOTES MODAL ══════════════════════════ -->
 <div id="order-modal" style="display:none;">
   <div class="modal-overlay" onclick="if(event.target===this)closeOrderModal()">
@@ -818,6 +857,7 @@ function renderSchools() {
         <div class="school-actions">
           ${s.status !== 'active' ? '<button class="btn btn-success btn-sm" onclick="setStatus(\'' + s.id + '\',\'active\')">✓ Activer</button>' : ''}
           ${s.status === 'active' ? '<button class="btn btn-warning btn-sm" onclick="setStatus(\'' + s.id + '\',\'suspended\')">⏸ Suspendre</button>' : ''}
+          <button class="btn btn-outline btn-sm" onclick="openKeyModal(\'' + s.id + '\')">🔑 Clé</button>
           <button class="btn btn-outline btn-sm" onclick="openSchoolModal(\'' + s.id + '\')">✏️ Modifier</button>
         </div>
       </div>`;
@@ -1059,11 +1099,71 @@ function saveSettings() {
 }
 
 // ════════════════════════════════════════
+//  KEY MODAL
+// ════════════════════════════════════════
+function openKeyModal(id) {
+  const s = DB_schools.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('km-id').value          = id;
+  document.getElementById('km-school-name').textContent = s.name || '';
+  document.getElementById('km-current-key').textContent = s.license_key || '(aucune)';
+  document.getElementById('km-new-key').value     = '';
+  document.getElementById('km-wa-wrap').style.display = 'none';
+  document.getElementById('km-footer').style.display  = '';
+  document.getElementById('key-modal').style.display  = 'block';
+  setTimeout(() => { km_genKey(); document.getElementById('km-new-key').select(); }, 50);
+}
+
+function closeKeyModal() {
+  document.getElementById('key-modal').style.display = 'none';
+}
+
+function km_genKey() {
+  document.getElementById('km-new-key').value = genLicenseKey();
+}
+
+async function saveNewKey() {
+  const id  = document.getElementById('km-id').value;
+  const key = (document.getElementById('km-new-key').value || '').trim();
+  if (!key) { toast('Entrez ou générez une clé.', 'error'); return; }
+  try {
+    showLoading();
+    await api('schools', 'PATCH', { license_key: key }, 'id=eq.' + id);
+    const s = DB_schools.find(x => x.id === id);
+    if (s) s.license_key = key;
+    document.getElementById('km-current-key').textContent = key;
+    document.getElementById('km-key-display').textContent = key;
+    const schoolName = document.getElementById('km-school-name').textContent;
+    const waMsg = encodeURIComponent('Bonjour, voici votre nouvelle clé de licence SchoolSafe :\n\n*' + key + '*\n\nEntrez-la dans l\'application pour l\'activer.\n\n— SchoolSafe');
+    const waNum = (CFG.wa_phone || '').replace(/\D/g, '');
+    document.getElementById('km-wa-link').href = 'https://wa.me/?text=' + waMsg;
+    document.getElementById('km-wa-wrap').style.display = 'block';
+    document.getElementById('km-footer').style.display  = 'none';
+    toast('Clé mise à jour pour ' + schoolName, 'success');
+    renderSchools();
+  } catch(e) {
+    toast('Erreur : ' + e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+function km_copyKey() {
+  const key = document.getElementById('km-key-display').textContent;
+  if (!key) return;
+  navigator.clipboard.writeText(key).then(() => toast('Clé copiée !', 'success')).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = key; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); el.remove();
+    toast('Clé copiée !', 'success');
+  });
+}
+
+// ════════════════════════════════════════
 //  KEYBOARD
 // ════════════════════════════════════════
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     closeSchoolModal();
+    closeKeyModal();
     closeOrderModal();
     closeSettings();
   }
