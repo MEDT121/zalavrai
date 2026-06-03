@@ -11223,6 +11223,7 @@ R.convocations = () => {
             <button class="btn btn-danger btn-sm" onclick="cloturerConvocation('${conv.id}','missed')">Absent</button>
           </div>`:''}
           ${isDir?`<button class="btn btn-outline btn-sm" onclick="downloadConvocationPDF('${conv.id}')">📄 PDF</button>`:''}
+          ${isDir?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteConvocation('${conv.id}')">🗑️</button>`:''}
           ${(conv.status==='pending'||conv.status==='scheduled')&&role==='parent'&&s&&s.pid===S.user.id&&!conv.parent_confirmed?`<button class="btn btn-outline btn-sm" style="border-color:#9b6fd4;color:#9b6fd4" onclick="confirmConvocationParent('${conv.id}')">📬 Confirmer réception</button>`:''}
         </div>
       </div>`;
@@ -11438,6 +11439,14 @@ window.saveConvocation = () => {
   }
   logAudit('convocation_create', `${DB.students.find(x=>x.id===sid)?.name||''} · ${reason}`, conv.id);
   saveToCrypt(); toast('Convocation créée — parent notifié','success'); closeModal(); render();
+};
+
+window.deleteConvocation = (id) => {
+  showC('Supprimer cette convocation','Supprimer définitivement cette convocation ?',()=>{
+    DB.convocations=(DB.convocations||[]).filter(x=>x.id!==id);
+    pushSync('convocations','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Convocation supprimée','info');
+  });
 };
 
 // ── ÉTAPE 9 — GESTION ANNÉE SCOLAIRE ──
@@ -12702,6 +12711,7 @@ R.sanctions = () => {
           ${isDir&&!sanc.parent_notified?`<button class="btn btn-outline btn-sm" onclick="markSanctionParentNotified('${sanc.id}')">✅ Marquer notifié</button>`:''}
           ${isDir?`<button class="btn btn-outline btn-sm" onclick="printSanctionLetter('${sanc.id}')">💾 PDF</button>`:''}
           ${isDir&&!sanc.lifted?`<button class="btn btn-outline btn-sm" onclick="liftSanction('${sanc.id}')">🔓 Lever</button>`:''}
+          ${isDir?`<button class="btn btn-outline btn-sm" onclick="editSanctionM('${sanc.id}')">✏️</button>`:''}
           ${isDir?`<button class="btn btn-danger btn-sm" onclick="deleteSanction('${sanc.id}')">Suppr.</button>`:''}
         </div>
       </div>`;
@@ -12753,6 +12763,61 @@ window.openSanctionM = (sid) => {
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" style="background:#dc2626" onclick="saveSanction()">⚖️ Enregistrer</button>`);
   if(sid){const s=DB.students.find(x=>x.id===sid);if(s){const cl=gc(s.cid);const el=document.getElementById('sanc_cls');if(el&&cl)el.textContent=cl.name;}}
+};
+
+window.editSanctionM = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  const isDir=S.user.role==='direction'||S.user.role==='direction2';
+  if(!isDir){toast('Accès non autorisé','error');return;}
+  const studs=(DB.students||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  openM('✏️ Modifier la sanction',`
+  <div class="form-group"><label class="form-label">Élève</label>
+    <select class="form-input" id="sanc_sid">
+      ${studs.map(s=>{const cl=gc(s.cid);return`<option value="${s.id}" ${s.id===sanc.sid?'selected':''}>${esc(s.name)}${cl?' ('+esc(cl.name)+')':''}</option>`;}).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Type de sanction *</label>
+    <select class="form-input" id="sanc_type" onchange="(function(){document.getElementById('sanc_dur_row').style.display=this.value==='renvoi'?'':'none';}).call(this)">
+      <option value="avertissement_oral" ${sanc.type==='avertissement_oral'?'selected':''}>⚠️ Avertissement oral</option>
+      <option value="avertissement_ecrit" ${sanc.type==='avertissement_ecrit'?'selected':''}>📝 Avertissement écrit</option>
+      <option value="blame" ${sanc.type==='blame'?'selected':''}>🔵 Blâme</option>
+      <option value="renvoi" ${sanc.type==='renvoi'?'selected':''}>🔴 Renvoi temporaire</option>
+      <option value="exclusion" ${sanc.type==='exclusion'?'selected':''}>⛔ Exclusion définitive</option>
+    </select>
+  </div>
+  <div class="form-row" id="sanc_dur_row" style="display:${sanc.type==='renvoi'?'':'none'}">
+    <div class="form-group"><label class="form-label">Durée (jours)</label>
+      <input class="form-input" id="sanc_dur" type="number" min="1" max="30" value="${sanc.duration_days||3}">
+    </div>
+    <div class="form-group"><label class="form-label">Date de retour</label>
+      <input class="form-input" id="sanc_ret" type="date" value="${sanc.return_date||''}">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Motif / Description *</label>
+    <textarea class="form-input" id="sanc_reason" rows="3">${esc(sanc.reason||'')}</textarea>
+  </div>
+  <div class="form-group"><label class="form-label">Date</label>
+    <input class="form-input" id="sanc_date" type="date" value="${sanc.date||today()}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="updateSanction('${id}')">💾 Enregistrer</button>`);
+};
+window.updateSanction = (id) => {
+  const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
+  const sid=($('sanc_sid')?.value||'').trim();
+  const type=($('sanc_type')?.value||'').trim();
+  const reason=($('sanc_reason')?.value||'').trim();
+  const date=($('sanc_date')?.value||today());
+  const dur=parseInt($('sanc_dur')?.value)||0;
+  const ret=($('sanc_ret')?.value||'').trim()||null;
+  if(!type){toast('Choisissez le type','error');return;}
+  if(!reason){toast('Motif requis','error');return;}
+  sanc.sid=sid||sanc.sid;
+  sanc.type=type;sanc.reason=reason;sanc.date=date;
+  sanc.duration_days=type==='renvoi'?dur:null;
+  sanc.return_date=type==='renvoi'?ret:null;
+  pushSync('sanctions','patch',{sid:sanc.sid,type,reason,date,duration_days:sanc.duration_days,return_date:sanc.return_date},'id=eq.'+id);
+  saveToCrypt();closeModal();render();toast('Sanction modifiée','success');
 };
 
 window.saveSanction = () => {
