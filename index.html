@@ -1955,7 +1955,7 @@ window.go = (p, noHistory) => {
     window._studentQ='';window._parQ='';window._inscQ='';
     window._apQ='';window._apQG='';window._absFilter='';
     window._payFilterClass='';window._payFilterStatus='';
-    window._msgTab='inbox';window._cardSysInited=false;window._profilePhoto=null;
+    window._msgTab='inbox';window._cardSysInited=false;window._profilePhoto=null;window._userPhoto=null;
     window._absMainTab=null;window._convTab=null;window._sanctFilter=null;
   }
   S.page = p;
@@ -3916,11 +3916,15 @@ function applyCrop() {
   img.onerror = () => { toast('❌ Erreur de traitement de la photo','error'); renderAll(); };
   img.src = data;
   closeCropModal();
-  // Update photo thumbnail
   const thumb = document.getElementById('photoThumb');
   const thumbBox = document.getElementById('photoThumbBox');
   if (thumb) thumb.src = data;
   if (thumbBox) thumbBox.style.display = 'flex';
+  const sid = document.getElementById('studentSelect')?.value;
+  if(sid){
+    const s=(DB.students||[]).find(x=>x.id===sid);
+    if(s){ s.photo=data; pushSync('students','patch',{photo:data},'id=eq.'+sid); saveToCrypt(); }
+  }
 }
 
 (function _cropEvents() {
@@ -4643,6 +4647,7 @@ window._simpleList = (role, icon, gradient) => {
 };
 
 window.openUserForm = (role, uid) => {
+  window._userPhoto = null;
   const users = DB.users||[];
   const classes = DB.classes||[];
   const u = uid ? users.find(x=>x.id===uid) : null;
