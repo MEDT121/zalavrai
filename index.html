@@ -4207,8 +4207,12 @@ R.notifications = () => {
   const sorted=[...ns].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
   const unread=sorted.filter(n=>!n.read);
   // Mark all as read
-  unread.forEach(n=>{ n.read=true; pushSync('notifs','patch',{read:true},'id=eq.'+n.id); });
-  if(unread.length) setTimeout(()=>render(),300);
+  unread.forEach(n=>{ n.read=true; });
+  if(unread.length) {
+    const _nids=unread.map(n=>n.id).join(',');
+    pushSync('notifs','patch',{read:true},'id=in.('+_nids+')');
+    setTimeout(()=>render(),300);
+  }
   const typeColor={academic:'#2f7bd6',alert:'#ef5b5b',urgent:'#dc2626',info:'#a89c8b',approval:'#d98a2b',receipt:'#1f9d6b',report:'#9b6fd4',correction:'#2f8fa6',correction_dir:'#9b6fd4',message:'#ec4899'};
   const typeIcon=Object.fromEntries(Object.entries(typeColor).map(([k,v])=>[k,`<div style="width:10px;height:10px;border-radius:50%;background:${v}"></div>`]));
   const typeBg={academic:'#dbeafe',alert:'#fee2e2',urgent:'#fef2f2',approval:'#fdeccd',receipt:'#d8f3e6',report:'#f0e9fa',info:'#f6ede0',correction:'#d8f3e6',correction_dir:'#f0e9fa',message:'#dbeafe'};
@@ -4243,7 +4247,8 @@ window.clearAllNotifs = () => {
   const uid=S.user.id, role=S.user.role;
   const toDelete = (role==='direction'||role==='direction2') ? [...DB.notifs] : DB.notifs.filter(n=>n.uid===uid);
   showC('Effacer toutes les notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} seront supprimées.`,()=>{
-    toDelete.forEach(n=>pushSync('notifs','delete',{},'id=eq.'+n.id));
+    if(toDelete.length){const _ids=toDelete.map(n=>n.id).join(',');pushSync('notifs','delete',{},'id=in.('+_ids+')');}
+
     if(role==='direction'||role==='direction2') DB.notifs=[];
     else DB.notifs=DB.notifs.filter(n=>n.uid!==uid);
     saveToCrypt(); toast('🗑️ Notifications effacées','info'); render();
@@ -4754,8 +4759,15 @@ window.deleteUser = (uid) => {
   const u=DB.users.find(x=>x.id===uid); if(!u) return;
   const linked=DB.students.filter(s=>s.pid===uid);
   showC(`Supprimer ${u.name} ?`,linked.length?`⚠️ ${linked.length} élève(s) lié(s) — le lien parent sera retiré.`:'Cette action est irréversible.',()=>{
-    linked.forEach(s=>{s.pid=null;pushSync('students','patch',{pid:null},'id=eq.'+s.id);});
-    DB.classes.forEach(c=>{if(c.teacher_id===uid){c.teacher_id=null;pushSync('classes','patch',{teacher_id:null},'id=eq.'+c.id);}if(c.teacher_id_en===uid){c.teacher_id_en=null;pushSync('classes','patch',{teacher_id_en:null},'id=eq.'+c.id);}});
+    linked.forEach(s=>{s.pid=null;});
+    if(linked.length){const _sids=linked.map(s=>s.id).join(',');pushSync('students','patch',{pid:null},'id=in.('+_sids+')');}
+    const _clsFr=DB.classes.filter(c=>c.teacher_id===uid);
+    const _clsEn=DB.classes.filter(c=>c.teacher_id_en===uid);
+    _clsFr.forEach(c=>{c.teacher_id=null;});
+    _clsEn.forEach(c=>{c.teacher_id_en=null;});
+    if(_clsFr.length) pushSync('classes','patch',{teacher_id:null},'id=in.('+_clsFr.map(c=>c.id).join(',')+')');
+    if(_clsEn.length) pushSync('classes','patch',{teacher_id_en:null},'id=in.('+_clsEn.map(c=>c.id).join(',')+')');
+
     DB.users=DB.users.filter(x=>x.id!==uid);
     pushSync('users','delete',{},'id=eq.'+uid);
     logAudit('user_delete', `${u.name} — ${u.role}`, uid);
@@ -5558,7 +5570,9 @@ window.blockAllUnpaid = () => {
   const unpaid=DB.students.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>!p.paid)&&!s.access_blocked;});
   if(!unpaid.length){toast('Aucun nouvel élève à bloquer','info');return;}
   showC(`Bloquer ${unpaid.length} élève(s) non-payé(s) ?`,`Ces élèves ne pourront plus entrer à l'école jusqu'au règlement des frais.`,()=>{
-    unpaid.forEach(s=>{s.access_blocked=true;pushSync('students','patch',{access_blocked:true},'id=eq.'+s.id);});
+    unpaid.forEach(s=>{s.access_blocked=true;});
+    const _bids=unpaid.map(s=>s.id).join(',');
+    pushSync('students','patch',{access_blocked:true},'id=in.('+_bids+')');
     toast(`${unpaid.length} élève(s) bloqué(s)`,'info');
     saveToCrypt(); render();
   });
@@ -5568,7 +5582,9 @@ window.unblockAll = () => {
   const blocked=DB.students.filter(s=>s.access_blocked);
   if(!blocked.length){toast('Aucun élève bloqué','info');return;}
   showC(`Débloquer ${blocked.length} élève(s) ?`,'Tous les élèves bloqués auront à nouveau accès à l\'école.',()=>{
-    blocked.forEach(s=>{s.access_blocked=false;pushSync('students','patch',{access_blocked:false},'id=eq.'+s.id);});
+    blocked.forEach(s=>{s.access_blocked=false;});
+    const _ubids=blocked.map(s=>s.id).join(',');
+    pushSync('students','patch',{access_blocked:false},'id=in.('+_ubids+')');
     toast(`${blocked.length} élève(s) débloqué(s)`,'success');
     saveToCrypt(); render();
   });
