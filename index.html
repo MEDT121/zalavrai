@@ -9919,7 +9919,21 @@ R.absences = () => {
     const _pending=all.filter(a=>a.status==='pending').length;
     const _approved=all.filter(a=>a.status==='approved').length;
     const _refused=all.filter(a=>a.status==='refused').length;
-    return `
+    const absTab=window._absMainTab||'eleves';
+    const teacherAbs=(DB.teacher_absences||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const tabBtns=`<div style="display:flex;gap:6px;margin-bottom:14px">
+      <button onclick="window._absMainTab='eleves';render()" style="flex:1;padding:9px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${absTab==='eleves'?'var(--primary)':'var(--bg)'};color:${absTab==='eleves'?'#fff':'var(--text-secondary)'}">🎓 Élèves (${all.length})</button>
+      <button onclick="window._absMainTab='enseignants';render()" style="flex:1;padding:9px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${absTab==='enseignants'?'var(--primary)':'var(--bg)'};color:${absTab==='enseignants'?'#fff':'var(--text-secondary)'}">👨‍🏫 Enseignants (${teacherAbs.length})</button>
+    </div>`;
+    if(absTab==='enseignants'){
+      return tabBtns+`
+      <div class="hbento" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
+        <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff;padding:13px 10px"><div style="font-size:19px">🏠</div><div class="hbig" style="font-size:24px">${teacherAbs.length}</div><div class="hsub">déclarées</div></div>
+        <div class="htile h-pay" style="padding:13px 10px"><div style="font-size:19px">📅</div><div class="hbig" style="font-size:24px">${teacherAbs.filter(a=>a.date===today()).length}</div><div class="hsub">aujourd'hui</div></div>
+      </div>
+      ${teacherAbs.length?`<div class="premium-section">${teacherAbs.map(a=>{const u=gu(a.uid);const cl=u?DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id):null;return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#fdeccd">🏠</div><div style="flex:1;min-width:150px"><div class="pi-title">${u?esc(u.name):'?'}${cl?` <span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div><div class="pi-sub">${esc(a.motif||'—')}${a.duree?' · '+esc(a.duree):''}</div><div style="font-size:11px;color:var(--text-muted)">${a.date} à ${a.time||'—'}</div></div>${a.date===today()?`<span class="pill" style="background:#fef9c3;color:#78350f;flex-shrink:0">Aujourd'hui</span>`:''}</div>`;}).join('')}</div>`:`<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune absence enseignant déclarée</div>`}`;
+    }
+    return tabBtns+`
     <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
       <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
         <div style="font-size:19px">⏳</div><div class="hbig" style="font-size:24px">${_pending}</div><div class="hsub">en attente</div>
@@ -13174,9 +13188,18 @@ R.mes_absences = () => {
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Signalé à ${a.time||'—'}${isToday?' · <strong style="color:#1f9d6b">Aujourd\'hui</strong>':''}</div>
         </div>
         ${isToday?`<span class="pill" style="background:#d8f3e6;color:#065f46;flex-shrink:0">En cours</span>`:''}
+        ${isToday?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626;flex-shrink:0" onclick="cancelTeacherAbsence('${a.id}')">✕ Annuler</button>`:''}
       </div>`;
     }).join(''):`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>Aucune absence déclarée<br><button class="btn btn-primary" style="margin-top:16px" onclick="declareTeacherAbsence()">➕ Déclarer une absence</button></div>`}
   </div>`;
+};
+
+window.cancelTeacherAbsence = (id) => {
+  showC('Annuler cette absence','Annuler l\'absence déclarée aujourd\'hui ?',()=>{
+    DB.teacher_absences=(DB.teacher_absences||[]).filter(x=>x.id!==id);
+    pushSync('teacher_absences','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Absence annulée','info');
+  });
 };
 
 // ── PROFIL ENSEIGNANT ──
@@ -16051,7 +16074,8 @@ R.evaluations_ens = () => {
       </div>
       ${lastEv?`<div style="text-align:center;margin-right:8px"><div style="font-size:20px;font-weight:800;color:${badge}">${avg}/25</div><div style="font-size:10px;color:#6b7280">Dernier score</div></div>`:''}
       <button class="btn btn-primary btn-sm" onclick="openEvalForm('${u.id}')">⭐ Évaluer</button>
-    </div>`;
+    </div>
+    ${ev.length?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">${ev.slice(0,3).map(e=>{const tot=(e.ponctualite||0)+(e.pedagogie||0)+(e.discipline||0)+(e.communication||0)+(e.assiduite||0);const bc=tot>=20?'#d8f3e6':tot>=15?'#fdeccd':'#fee2e2';const tc=tot>=20?'#065f46':tot>=15?'#92400e':'#991b1b';return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:var(--text-muted);flex:1">${e.trimestre||'—'} ${e.date||''}</span><span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:8px;background:${bc};color:${tc}">${tot}/25</span><button class="btn btn-outline btn-sm" style="padding:2px 7px;font-size:10px" onclick="deleteEvaluation('${e.id}')">🗑️</button></div>`;}).join('')}</div>`:''}` ;
   }).join('')}`;
 };
 window.openEvalForm = (teacherId) => {
@@ -16099,6 +16123,14 @@ window.saveEvalForm = (teacherId) => {
   DB.evaluations.push(obj);
   pushSync('evaluations','upsert',obj);saveToCrypt();
   toast('Évaluation enregistrée','success');closeModal();render();
+};
+
+window.deleteEvaluation = (id) => {
+  showC('Supprimer','Supprimer cette évaluation ?',()=>{
+    DB.evaluations=(DB.evaluations||[]).filter(x=>x.id!==id);
+    pushSync('evaluations','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Évaluation supprimée','info');
+  });
 };
 
 // ═══════════════════════════════════════════
@@ -16160,6 +16192,7 @@ R.salaires = () => {
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           <button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸 Avance</button>
           ${hasSal?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">💾 PDF</button>`:''}
+          ${hasSal?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteSalaire('${u.id}','${selMonth}')">🗑️</button>`:''}
           <button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>
         </div>
       </div>
@@ -16199,7 +16232,7 @@ window.openAvanceForm = (teacherId, month) => {
   openM(`💸 Avance sur salaire — ${u.name}`,`
   ${existing.length?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px">
     <div style="font-weight:700;color:#991b1b;margin-bottom:6px">Avances déjà accordées ce mois :</div>
-    ${existing.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><span style="font-weight:700;color:#dc2626">$${a.amount}</span></div>`).join('')}
+    ${existing.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:#dc2626">$${a.amount}</span><button onclick="deleteAdvance('${a.id}')" style="font-size:10px;padding:2px 7px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer">🗑️</button></div></div>`).join('')}
     <div style="border-top:1px solid #fca5a5;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total</span><span style="color:#dc2626">$${existing.reduce((s,a)=>s+a.amount,0)}</span></div>
   </div>`:''}
   <div class="form-group"><label class="form-label">Montant de l'avance ($) *</label>
@@ -16229,6 +16262,14 @@ window.saveAvance = (teacherId, month) => {
   saveToCrypt();
   toast(`✅ Avance de $${amount} accordée à ${u?.name}`,'success');
   closeModal();render();
+};
+
+window.deleteAdvance = (id) => {
+  showC('Supprimer cette avance','Supprimer définitivement cette avance ?',()=>{
+    DB.advances=(DB.advances||[]).filter(x=>x.id!==id);
+    pushSync('advances','delete','','id=eq.'+id);
+    saveToCrypt();closeModal();render();toast('Avance supprimée','info');
+  });
 };
 
 window.openSalaireForm = (teacherId, month) => {
@@ -16288,6 +16329,17 @@ window.saveSalaire = (teacherId, month) => {
   }
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
 };
+window.deleteSalaire = (teacherId, month) => {
+  showC('Supprimer ce salaire','Supprimer la fiche salariale de ce mois ?',()=>{
+    const idx=(DB.salaries||[]).findIndex(s=>s.teacher_id===teacherId&&s.month===month);
+    if(idx<0)return;
+    const id=DB.salaries[idx].id;
+    DB.salaries.splice(idx,1);
+    pushSync('salaries','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Salaire supprimé','info');
+  });
+};
+
 window.printFichePaie = (teacherId, month) => {
   const u=(DB.users||[]).find(x=>x.id===teacherId);if(!u)return;
   const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month);if(!sal)return;
