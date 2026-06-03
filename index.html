@@ -1943,7 +1943,7 @@ window.go = (p, noHistory) => {
     window._studentQ='';window._parQ='';window._inscQ='';
     window._apQ='';window._apQG='';window._absFilter='';
     window._payFilterClass='';window._payFilterStatus='';
-    window._msgTab='inbox';
+    window._msgTab='inbox';window._cardSysInited=false;
   }
   S.page = p;
   closeSB();
@@ -4016,7 +4016,9 @@ function fillCardFromStudent(sid) {
 
 // ── Initialisation du système de cartes ──
 function initCardSystem() {
+  if (window._cardSysInited) return;
   if (!document.getElementById('classe')) return;
+  window._cardSysInited = true;
   document.getElementById('classe').innerHTML = cardClasses.map((c,i) => `<option value="${i}">${c.label}</option>`).join('');
   document.getElementById('colors').innerHTML = cardClasses.map((c,i) => `<button class="colorBtn" style="background:${c.color}" onclick="setClass(${i})" title="${c.label}"></button>`).join('');
   document.querySelectorAll('#PC input, #PC select').forEach(el => el.addEventListener('input', renderAll));
@@ -7225,7 +7227,7 @@ R.cantine = () => {
   <!-- Historique menus -->
   <div class="premium-section">
     <div class="premium-section-title">📅 Menus récents</div>
-    ${(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7).map(m=>`
+    ${(DB.cantine_menus||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7).map(m=>`
     <div class="premium-item">
       ${m.photo_url?`<img src="${esc(m.photo_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display='none'">`:`<span class="pi-icon">${m.emoji||'🍽️'}</span>`}
       <div>
@@ -7389,7 +7391,7 @@ R.cantine_parent = () => {
 
   const todayStr=today();
   const menuAuj=(DB.cantine_menus||[]).find(m=>m.date===todayStr);
-  const menus7=(DB.cantine_menus||[]).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+  const menus7=(DB.cantine_menus||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7);
   const menuPhotoParent=menuAuj?.photo_url?`<img src="${esc(menuAuj.photo_url)}" style="width:100%;height:160px;object-fit:cover;border-radius:12px;margin-bottom:10px" onerror="this.style.display='none'">`:(menuAuj?`<div style="font-size:56px;text-align:center;padding:14px 0;background:var(--bg);border-radius:12px;margin-bottom:10px">${menuAuj.emoji||'🍽️'}</div>`:'');
   const menus7Html=menus7.length?menus7.map(m=>{
     const thumb=m.photo_url?('<img src="'+esc(m.photo_url)+'" style="width:80px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display=\'none\'">'):`<div style="width:64px;height:64px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">${m.emoji||'🍽️'}</div>`;
@@ -7429,7 +7431,7 @@ R.cantine_parent = () => {
   // Statut inscription enfants
   kids.forEach((k,ki)=>{
     const ins=(DB.cantine||[]).find(c=>c.sid===k.id&&c.active);
-    const pr7=(DB.cantine_presence||[]).filter(p=>p.sid===k.id&&p.present).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+    const pr7=(DB.cantine_presence||[]).filter(p=>p.sid===k.id&&p.present).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7);
     html+=`<div class="premium-section" style="margin-bottom:14px;border-radius:20px;padding:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);border-left:4px solid ${ins?'#2fbf8f':'#a89c8b'};animation:fadeInUp .35s ease both;animation-delay:calc(${ki+1}*.1s)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
         <div style="width:44px;height:44px;border-radius:12px;background:${ins?'#d8f3e6':'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:24px">👶</div>
@@ -9910,7 +9912,7 @@ R.absences = () => {
   const role = S.user.role;
   // Direction: voir toutes les justifications
   if (role === 'direction' || role === 'direction2') {
-    const all = DB.absences.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const all = DB.absences.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune justification soumise</div>`;
     const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
     const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
@@ -9955,7 +9957,7 @@ R.absences = () => {
   }
   // Parent: soumettre justification
   const kids = DB.students.filter(s=>s.pid===S.user.id);
-  const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>b.submitted.localeCompare(a.submitted));
+  const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>(b.submitted||'').localeCompare(a.submitted||''));
   const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
   const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
   return `
@@ -10343,11 +10345,11 @@ R.messages = () => {
     m.to===uid||
     (m.to_role&&m.to_role===role)||
     (role==='parent'&&m.to&&m.to.startsWith('class:')&&myKidCids.includes(m.to.slice(6)))
-  )).sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  )).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
   const sent=DB.messages.filter(m=>m.from===uid)
-    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
   const fromParents=isDir?DB.messages.filter(m=>m.from_role==='parent'&&m.status==='sent')
-    .sort((a,b)=>b.date.localeCompare(a.date)||b.time.localeCompare(a.time)):[];
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')):[];
   const pending=isDir?DB.messages.filter(m=>m.status==='pending'):[];
   const tab=window._msgTab||(isDir?'parents':'inbox');
   const unreadRec=received.filter(m=>!m.read).length;
@@ -10931,7 +10933,7 @@ R.teacher_activity = () => {
       const studCount = cl ? DB.students.filter(s=>s.cid===cl.id).length : 0;
       const devoirsW = DB.devoirs.filter(d=>d.teacher_id===u.id&&d.date>=weekStr).length;
       const cahierW = DB.cahier_texte.filter(c=>c.by===u.id&&c.date>=weekStr).length;
-      const lastAtt = DB.attendance.filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const lastAtt = DB.attendance.filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
       const daysSince = lastAtt ? Math.floor((Date.now()-new Date(lastAtt.date).getTime())/86400000) : 999;
       const alert = daysSince>3 && cl;
       return `<div class="ww-card" style="animation-delay:${i*.04}s">
@@ -12812,7 +12814,7 @@ R.calendar = () => {
   const canEdit=S.user.role==='direction'||S.user.role==='direction2';
   if(!window._calView) window._calView='list';
   if(!window._calMonth) window._calMonth=today().slice(0,7);
-  const sorted=[...DB.events].sort((a,b)=>a.date.localeCompare(b.date));
+  const sorted=[...DB.events].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   // Month grid
   const [yr,mo]=window._calMonth.split('-').map(Number);
   const firstDay=new Date(yr,mo-1,1);
@@ -12920,7 +12922,7 @@ window.prefillRDCHolidays = () => {
       DB.events.push(ev);pushSync('events','post',ev);added++;
     }
   });
-  if(added){DB.events.sort((a,b)=>a.date.localeCompare(b.date));saveToCrypt();toast('🇨🇩 '+added+' jour'+(added>1?'s':'')+' férié'+(added>1?'s':'')+' ajouté'+(added>1?'s':'')+'!','success');render();}
+  if(added){DB.events.sort((a,b)=>(a.date||'').localeCompare(b.date||''));saveToCrypt();toast('🇨🇩 '+added+' jour'+(added>1?'s':'')+' férié'+(added>1?'s':'')+' ajouté'+(added>1?'s':'')+'!','success');render();}
   else toast('Jours fériés déjà présents','info');
 };
 window.openCalM = () => openM('Ajouter un événement',`
@@ -12939,7 +12941,7 @@ window.saveCal = () => {
   if(!t||!d){toast('Remplir tous les champs','error');return;}
   const ev={id:'ev'+Date.now(),title:t,date:d,type:ty};
   DB.events.push(ev);
-  DB.events.sort((a,b)=>a.date.localeCompare(b.date));
+  DB.events.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   pushSync('events','post',ev);
   saveToCrypt();
   toast('Ajouté ✅','success'); closeModal(); render();
@@ -13244,8 +13246,8 @@ R.scan_history = () => {
   kids.forEach(kid=>{
     const cl=gc(kid.cid);
     const [cc]=clsColor(cl?cl.name:'');
-    const logs=DB.scan_log.filter(l=>l.sid===kid.id).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-    const att=DB.attendance.filter(a=>a.sid===kid.id).sort((a,b)=>b.date.localeCompare(a.date));
+    const logs=DB.scan_log.filter(l=>l.sid===kid.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+    const att=DB.attendance.filter(a=>a.sid===kid.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={};
     logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
     att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
@@ -14213,7 +14215,7 @@ R.accounts = () => {
     const meta=ROLE_META[role]||{label:role,icon:'👤',color:'#6f6557',bg:'#f6ede0'};
     const users=DB.users.filter(u=>u.role===role);
     return `
-    <div class="premium-section" style="margin-bottom:16px">
+    <div class="premium-section" style="margin-bottom:16px;background:#fff5ea">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:15px;font-weight:700">${meta.icon} ${meta.label} <span style="font-size:13px;font-weight:400;color:var(--text-muted)">(${users.length})</span></div>
         <button class="btn btn-primary btn-sm" onclick="openUserForm('${role}')">➕ Ajouter</button>
