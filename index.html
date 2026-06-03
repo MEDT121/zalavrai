@@ -12730,6 +12730,7 @@ R.settings = () => {
   const tog=DB.settings.toggles||{};
   const minsToTime=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
   const lastSave=localStorage.getItem('schoolsafe_db_ts');
+  const isSiteOwner=S.user?.role==='direction';
   return `
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#243a6b,#2f7bd6);color:#fff;padding:13px 10px">
@@ -12803,6 +12804,34 @@ R.settings = () => {
     </div>
     <button class="btn btn-outline" style="width:100%" onclick="checkLicenseManual()">🔄 Vérifier le statut</button>
   </div>
+
+  ${isSiteOwner ? `
+  <!-- ══ MON SITE WEB ══ -->
+  <div class="premium-section" style="border-left:4px solid #0f7f7f">
+    <div class="premium-section-title">🌐 Mon site web</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Informations publiques visibles sur le site de votre école.</div>
+    <div class="form-group">
+      <label class="form-label">Slogan / Devise publique</label>
+      <input class="form-input" id="cfg_site_tagline" value="${esc(DB.settings?.school?.site_tagline||'')}" placeholder="Ex : L'excellence au service de l'avenir">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Message d'accueil (À propos)</label>
+      <textarea class="form-input" id="cfg_site_about" rows="3" style="resize:vertical;" placeholder="Présentation publique de l'école…">${esc(DB.settings?.school?.site_about||'')}</textarea>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSiteFromApp()">💾 Mettre à jour le site</button>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e2e8f0)">
+      <div class="premium-section-title" style="font-size:13px;margin-bottom:10px;">📢 Publier une actualité</div>
+      <div class="form-group">
+        <label class="form-label">Titre</label>
+        <input class="form-input" id="cfg_ann_title" placeholder="Ex : Rentrée scolaire 2026-2027">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contenu</label>
+        <textarea class="form-input" id="cfg_ann_content" rows="2" style="resize:vertical;" placeholder="Détails…"></textarea>
+      </div>
+      <button class="btn btn-outline" style="width:100%" onclick="publishAnnFromApp()">📢 Publier l'actualité</button>
+    </div>
+  </div>` : ''}
 
   <!-- ══ ANNÉE SCOLAIRE ══ -->
   <div class="premium-section" style="border-left:4px solid #2f7bd6">
@@ -13007,6 +13036,59 @@ window.saveSessionTimeout = (val) => {
   saveToCrypt();
   if(typeof window._resetIdleTimer==='function') window._resetIdleTimer();
   toast('⏱️ Délai de session mis à jour : '+val+' min','success');
+};
+
+window.saveSiteFromApp = async () => {
+  const key = (DB.settings?.license_key||'').trim();
+  if(!key){ toast('Licence non configurée','error'); return; }
+  if(!CENTRAL_URL||!CENTRAL_KEY) return;
+  const tagline = ($('cfg_site_tagline')?.value||'').trim()||null;
+  const about   = ($('cfg_site_about')?.value||'').trim()||null;
+  if(!DB.settings.school) DB.settings.school={};
+  DB.settings.school.site_tagline = tagline;
+  DB.settings.school.site_about   = about;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt();
+  try {
+    const ctrl = new AbortController();
+    setTimeout(()=>ctrl.abort(),8000);
+    await fetch(CENTRAL_URL+'/rest/v1/school_sites?license_key=eq.'+encodeURIComponent(key), {
+      method:'PATCH',
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({ tagline, about_text: about }),
+      signal: ctrl.signal
+    });
+    toast('✅ Site mis à jour','success');
+  } catch(e){ toast('Site mis à jour localement (hors ligne)','info'); }
+};
+
+window.publishAnnFromApp = async () => {
+  const key   = (DB.settings?.license_key||'').trim();
+  if(!key){ toast('Licence non configurée','error'); return; }
+  if(!CENTRAL_URL||!CENTRAL_KEY) return;
+  const title   = ($('cfg_ann_title')?.value||'').trim();
+  const content = ($('cfg_ann_content')?.value||'').trim()||null;
+  if(!title){ toast('Entrez un titre','error'); return; }
+  try {
+    const ctrl = new AbortController();
+    setTimeout(()=>ctrl.abort(),8000);
+    const r = await fetch(CENTRAL_URL+'/rest/v1/school_announcements', {
+      method:'POST',
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({
+        license_key: key,
+        school_name: DB.settings?.school?.name||'',
+        title, content,
+        date: today(),
+        published: true
+      }),
+      signal: ctrl.signal
+    });
+    if(!r.ok) throw new Error('http_'+r.status);
+    if($('cfg_ann_title')) $('cfg_ann_title').value='';
+    if($('cfg_ann_content')) $('cfg_ann_content').value='';
+    toast('✅ Actualité publiée sur le site','success');
+  } catch(e){ toast('Erreur publication : hors ligne ?','error'); }
 };
 
 // ── SANCTIONS DISCIPLINAIRES ──
