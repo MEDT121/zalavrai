@@ -398,6 +398,33 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 /* ── ORDERS TABLE ROW HOVER ── */
 .orders-table tr:hover td { background:var(--orders-soft); }
 
+/* ── SITE EDITOR — SECTION HEADS & RICH ITEMS ── */
+.se-section-head {
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px;
+  color:var(--text-muted); padding:10px 0 8px;
+  border-top:1px solid var(--border); margin-top:4px; margin-bottom:12px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.se-item {
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:10px; position:relative;
+}
+.se-item .form-input {
+  background:var(--surface3); font-size:12px; padding:7px 10px; margin-bottom:6px;
+}
+.se-item .form-input:last-child { margin-bottom:0; }
+.se-item-remove {
+  position:absolute; top:6px; right:6px; width:20px; height:20px;
+  border-radius:50%; border:none; background:var(--danger-soft); color:var(--danger);
+  cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center;
+}
+.se-item-thumb {
+  width:100%; height:56px; object-fit:cover; border-radius:6px; margin-bottom:6px;
+  border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+  background:var(--surface3); color:var(--text-muted); font-size:18px;
+}
+.se-item-thumb img { width:100%; height:100%; object-fit:cover; border-radius:6px; display:block; }
+
 /* ── RESPONSIVE ── */
 @media (max-width:768px) {
   .stats-bar { grid-template-columns:repeat(2,1fr); }
@@ -759,54 +786,142 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <!-- SITE EDITOR PANEL -->
 <div id="site-editor-overlay" style="display:none;" onclick="closeSiteEditor()"></div>
 <div id="site-editor-panel" style="display:none;" class="site-editor-panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <h2 style="font-size:16px;font-weight:700;">🌐 Éditeur de site</h2>
     <button class="modal-close" onclick="closeSiteEditor()">✕</button>
   </div>
   <input type="hidden" id="se-school-id">
   <input type="hidden" id="se-site-id">
-  <p id="se-school-name" style="font-weight:700;color:var(--text);margin-bottom:16px;font-size:14px;"></p>
+  <p id="se-school-name" style="font-weight:700;color:var(--text);margin-bottom:14px;font-size:14px;"></p>
+
+  <!-- ── IDENTITÉ ── -->
+  <div class="se-section-head"><span>🎨 Identité</span></div>
 
   <div class="form-group">
-    <label class="form-label">Logo de l'école</label>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <img id="se-logo-preview" src="" style="width:56px;height:56px;border-radius:10px;object-fit:contain;background:var(--surface2);border:1px solid var(--border);display:none;">
-      <div id="se-logo-placeholder" style="width:56px;height:56px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;">🏫</div>
-      <div>
+    <label class="form-label">Logo & Image Hero</label>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Logo</div>
+        <img id="se-logo-preview" src="" style="width:52px;height:52px;border-radius:10px;object-fit:contain;background:var(--surface2);border:1px solid var(--border);display:none;">
+        <div id="se-logo-placeholder" style="width:52px;height:52px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;">🏫</div>
         <input type="file" id="se-logo-file" accept="image/*" style="display:none;" onchange="handleSiteLogoUpload(this)">
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-logo-file').click()">📁 Choisir</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-logo-file').click()" style="margin-top:4px;font-size:11px;padding:4px 8px;">📁</button>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Hero</div>
+        <img id="se-hero-preview" src="" style="width:90px;height:52px;border-radius:6px;object-fit:cover;background:var(--surface2);border:1px solid var(--border);display:none;">
+        <div id="se-hero-placeholder" style="width:90px;height:52px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;">🖼️</div>
+        <input type="file" id="se-hero-file" accept="image/*" style="display:none;" onchange="handleHeroUpload(this)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-hero-file').click()" style="margin-top:4px;font-size:11px;padding:4px 8px;">📁</button>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">Couleur <span id="se-color-swatch" class="color-swatch" style="background:#2f7bd6;vertical-align:middle;"></span></div>
+        <input class="form-input" id="se-color" type="color" value="#2f7bd6" style="width:100%;height:38px;padding:2px;cursor:pointer;" oninput="document.getElementById('se-color-swatch').style.background=this.value">
+        <button class="btn btn-outline btn-sm" onclick="autoExtractColor()" id="se-extract-btn" disabled style="width:100%;justify-content:center;margin-top:4px;font-size:11px;">🎨 Auto</button>
       </div>
     </div>
   </div>
 
   <div class="form-group">
-    <label class="form-label">Couleur principale <span id="se-color-swatch" class="color-swatch" style="background:#2f7bd6;vertical-align:middle;"></span></label>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input class="form-input" id="se-color" type="color" value="#2f7bd6" style="width:60px;height:38px;padding:2px;cursor:pointer;" oninput="document.getElementById('se-color-swatch').style.background=this.value">
-      <button class="btn btn-outline btn-sm" onclick="autoExtractColor()" id="se-extract-btn" disabled>🎨 Auto depuis logo</button>
-    </div>
+    <label class="form-label">Slogan / Devise</label>
+    <input class="form-input" id="se-tagline" type="text" placeholder="Former · Réformer · Exceller">
   </div>
 
   <div class="form-group">
-    <label class="form-label">Slogan / Devise</label>
-    <input class="form-input" id="se-tagline" type="text" placeholder="Ex : L'excellence au service de l'avenir">
+    <label class="form-label">Valeurs <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(séparées par virgules)</span></label>
+    <input class="form-input" id="se-values" type="text" placeholder="Excellence, Intégrité, Innovation">
   </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+      <label class="form-label">Ville</label>
+      <input class="form-input" id="se-city" type="text" placeholder="Kinshasa">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fondée en</label>
+      <input class="form-input" id="se-founded" type="number" placeholder="2017" min="1900" max="2099">
+    </div>
+  </div>
+
+  <!-- ── CONTACT ── -->
+  <div class="se-section-head"><span>📍 Contact & localisation</span></div>
+
+  <div class="form-group">
+    <label class="form-label">Adresse complète</label>
+    <textarea class="form-input" id="se-address" rows="2" placeholder="Kabambare A4, Ndolo — Barumbu, Kinshasa" style="resize:vertical;"></textarea>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Numéro WhatsApp</label>
+    <input class="form-input" id="se-whatsapp" type="tel" placeholder="+243 816 722 901">
+  </div>
+
+  <!-- ── CONTENU ── -->
+  <div class="se-section-head"><span>📝 Contenu principal</span></div>
 
   <div class="form-group">
     <label class="form-label">Texte « À propos »</label>
     <textarea class="form-input" id="se-about" rows="3" placeholder="Présentation de l'école…" style="resize:vertical;"></textarea>
   </div>
 
-  <div class="form-group">
-    <label class="form-label" style="margin-bottom:10px;">Sections visibles</label>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-about" checked> À propos</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-contact" checked> Contact</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-gallery"> Galerie photos</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="se-sec-ann" checked> Actualités</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+    <div class="form-group">
+      <label class="form-label" style="font-size:11px;">Élèves</label>
+      <input class="form-input" id="se-stat-students" type="text" placeholder="450+">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="font-size:11px;">Enseignants</label>
+      <input class="form-input" id="se-stat-teachers" type="text" placeholder="25+">
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="font-size:11px;">Classes</label>
+      <input class="form-input" id="se-stat-classes" type="text" placeholder="12">
     </div>
   </div>
 
+  <!-- ── ÉQUIPE ── -->
+  <div class="se-section-head">
+    <span>👥 Équipe</span>
+    <button class="btn btn-outline btn-sm" onclick="addTeamItem()" style="font-size:11px;padding:4px 10px;">+ Membre</button>
+  </div>
+  <div id="se-team-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;"></div>
+
+  <!-- ── PROGRAMMES ── -->
+  <div class="se-section-head">
+    <span>📚 Programmes</span>
+    <button class="btn btn-outline btn-sm" onclick="addProgItem()" style="font-size:11px;padding:4px 10px;">+ Programme</button>
+  </div>
+  <div id="se-prog-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;"></div>
+
+  <!-- ── TÉMOIGNAGES ── -->
+  <div class="se-section-head">
+    <span>💬 Témoignages</span>
+    <button class="btn btn-outline btn-sm" onclick="addTestiItem()" style="font-size:11px;padding:4px 10px;">+ Témoignage</button>
+  </div>
+  <div id="se-testi-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;"></div>
+
+  <!-- ── GALERIE ── -->
+  <div class="se-section-head">
+    <span>🖼️ Galerie</span>
+    <button class="btn btn-outline btn-sm" onclick="addGalleryItem()" style="font-size:11px;padding:4px 10px;">+ Photo</button>
+  </div>
+  <div id="se-gallery-list" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;"></div>
+
+  <!-- ── SECTIONS VISIBLES ── -->
+  <div class="se-section-head"><span>👁️ Sections visibles</span></div>
+  <div class="form-group">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-about" checked> À propos</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-team"> Équipe</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-prog"> Programmes</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-testi"> Témoignages</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-contact" checked> Contact</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-gallery"> Galerie</label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="se-sec-ann" checked> Actualités</label>
+    </div>
+  </div>
+
+  <!-- ── STATUT ── -->
   <div class="form-group">
     <label class="form-label">Statut du site</label>
     <select class="form-input" id="se-status">
@@ -815,7 +930,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     </select>
   </div>
 
-  <div id="se-preview-link" style="display:none;margin-bottom:16px;">
+  <div id="se-preview-link" style="display:none;margin-bottom:12px;">
     <a id="se-preview-a" href="#" target="_blank" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;">🔗 Voir le site</a>
   </div>
 
@@ -1497,6 +1612,35 @@ function km_copyKey() {
 }
 
 // ════════════════════════════════════════
+//  IMAGE COMPRESSION
+// ════════════════════════════════════════
+function compressImage(dataUrl, maxW, maxH, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxW || h > maxH) {
+        const r = Math.min(maxW/w, maxH/h);
+        w = Math.round(w*r); h = Math.round(h*r);
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality || 0.82));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function _parseArr(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') try { return JSON.parse(v); } catch(e) {}
+  return [];
+}
+
+// ════════════════════════════════════════
 //  SITES
 // ════════════════════════════════════════
 function setSiteFilter(f) {
@@ -1542,6 +1686,115 @@ function renderSites() {
   }).join('');
 }
 
+let _siteHeroBase64 = null;
+let _team         = [];
+let _programmes   = [];
+let _testimonials = [];
+let _gallery      = [];
+
+function handleHeroUpload(input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    _siteHeroBase64 = await compressImage(e.target.result, 1920, 800, 0.82);
+    const prev = document.getElementById('se-hero-preview');
+    const ph   = document.getElementById('se-hero-placeholder');
+    prev.src = _siteHeroBase64; prev.style.display = 'block'; ph.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── ÉQUIPE ──
+function renderTeamItems() {
+  const list = document.getElementById('se-team-list'); if(!list) return;
+  if (!_team.length) { list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:6px 0;">Aucun membre ajouté</p>'; return; }
+  list.innerHTML = _team.map((m,i) => `
+    <div class="se-item">
+      <button class="se-item-remove" onclick="removeTeamItem(${i})">✕</button>
+      <div class="se-item-thumb" style="overflow:hidden;">
+        ${m.photo ? `<img src="${esc(m.photo)}" style="width:100%;height:56px;object-fit:cover;border-radius:4px;">` : '👤'}
+      </div>
+      <input type="file" id="se-tp-${i}" accept="image/*" style="display:none;" onchange="handleTeamPhotoUpload(${i},this)">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-tp-${i}').click()" style="width:100%;justify-content:center;font-size:11px;margin-bottom:6px;">📷 Photo</button>
+      <input class="form-input" type="text" placeholder="Nom complet" value="${esc(m.name||'')}" oninput="_team[${i}].name=this.value">
+      <input class="form-input" type="text" placeholder="Rôle (Direction, Enseignant…)" value="${esc(m.role||'')}" oninput="_team[${i}].role=this.value">
+      <input class="form-input" type="text" placeholder="Titre complet" value="${esc(m.subtitle||'')}" oninput="_team[${i}].subtitle=this.value">
+    </div>`).join('');
+}
+function addTeamItem() { _team.push({name:'',role:'',subtitle:'',photo:''}); renderTeamItems(); }
+function removeTeamItem(i) { _team.splice(i,1); renderTeamItems(); }
+function handleTeamPhotoUpload(i, input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => { _team[i].photo = await compressImage(e.target.result, 300, 300, 0.82); renderTeamItems(); };
+  reader.readAsDataURL(file);
+}
+
+// ── PROGRAMMES ──
+function renderProgItems() {
+  const list = document.getElementById('se-prog-list'); if(!list) return;
+  if (!_programmes.length) { list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:6px 0;">Aucun programme ajouté</p>'; return; }
+  list.innerHTML = _programmes.map((p,i) => `
+    <div class="se-item">
+      <button class="se-item-remove" onclick="removeProgItem(${i})">✕</button>
+      <div class="se-item-thumb" style="overflow:hidden;">
+        ${p.photo ? `<img src="${esc(p.photo)}" style="width:100%;height:56px;object-fit:cover;border-radius:4px;">` : '📚'}
+      </div>
+      <input type="file" id="se-pp-${i}" accept="image/*" style="display:none;" onchange="handleProgPhotoUpload(${i},this)">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-pp-${i}').click()" style="width:100%;justify-content:center;font-size:11px;margin-bottom:6px;">📷 Photo</button>
+      <input class="form-input" type="text" placeholder="Titre (ex: Maternelle)" value="${esc(p.title||'')}" oninput="_programmes[${i}].title=this.value">
+      <textarea class="form-input" rows="2" placeholder="Description du programme…" oninput="_programmes[${i}].desc=this.value" style="resize:vertical;">${esc(p.desc||'')}</textarea>
+      <input class="form-input" type="text" placeholder="Niveaux (ex: 1ère Mat, 2ème Mat)" value="${esc(p.levels||'')}" oninput="_programmes[${i}].levels=this.value">
+    </div>`).join('');
+}
+function addProgItem() { _programmes.push({title:'',desc:'',levels:'',photo:''}); renderProgItems(); }
+function removeProgItem(i) { _programmes.splice(i,1); renderProgItems(); }
+function handleProgPhotoUpload(i, input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => { _programmes[i].photo = await compressImage(e.target.result, 800, 500, 0.82); renderProgItems(); };
+  reader.readAsDataURL(file);
+}
+
+// ── TÉMOIGNAGES ──
+function renderTestiItems() {
+  const list = document.getElementById('se-testi-list'); if(!list) return;
+  if (!_testimonials.length) { list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:6px 0;">Aucun témoignage ajouté</p>'; return; }
+  list.innerHTML = _testimonials.map((t,i) => `
+    <div class="se-item">
+      <button class="se-item-remove" onclick="removeTestiItem(${i})">✕</button>
+      <textarea class="form-input" rows="3" placeholder="Citation du parent…" oninput="_testimonials[${i}].quote=this.value" style="resize:vertical;">${esc(t.quote||'')}</textarea>
+      <input class="form-input" type="text" placeholder="Nom (ex: Marie Kabongo)" value="${esc(t.name||'')}" oninput="_testimonials[${i}].name=this.value">
+      <input class="form-input" type="text" placeholder="Rôle (ex: Parent · CM2)" value="${esc(t.role||'')}" oninput="_testimonials[${i}].role=this.value">
+    </div>`).join('');
+}
+function addTestiItem() { _testimonials.push({quote:'',name:'',role:''}); renderTestiItems(); }
+function removeTestiItem(i) { _testimonials.splice(i,1); renderTestiItems(); }
+
+// ── GALERIE ──
+function renderGalleryItems() {
+  const list = document.getElementById('se-gallery-list'); if(!list) return;
+  if (!_gallery.length) { list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);text-align:center;padding:6px 0;grid-column:1/-1;">Aucune photo ajoutée</p>'; return; }
+  list.innerHTML = _gallery.map((g,i) => `
+    <div class="se-item">
+      <button class="se-item-remove" onclick="removeGalleryItem(${i})">✕</button>
+      <div class="se-item-thumb" style="overflow:hidden;">
+        ${g.url ? `<img src="${esc(g.url)}" style="width:100%;height:56px;object-fit:cover;border-radius:4px;">` : '🖼️'}
+      </div>
+      <input type="file" id="se-gp-${i}" accept="image/*" style="display:none;" onchange="handleGalleryPhotoUpload(${i},this)">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('se-gp-${i}').click()" style="width:100%;justify-content:center;font-size:11px;margin-bottom:6px;">📷 Photo</button>
+      <input class="form-input" type="text" placeholder="Légende…" value="${esc(g.caption||'')}" oninput="_gallery[${i}].caption=this.value">
+    </div>`).join('');
+}
+function addGalleryItem() { _gallery.push({url:'',caption:''}); renderGalleryItems(); }
+function removeGalleryItem(i) { _gallery.splice(i,1); renderGalleryItems(); }
+function handleGalleryPhotoUpload(i, input) {
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => { _gallery[i].url = await compressImage(e.target.result, 800, 600, 0.82); renderGalleryItems(); };
+  reader.readAsDataURL(file);
+}
+
 function openSiteEditor(schoolId) {
   const school = DB_schools.find(x => x.id === schoolId);
   if (!school) return;
@@ -1550,27 +1803,68 @@ function openSiteEditor(schoolId) {
   document.getElementById('se-school-id').value = schoolId;
   document.getElementById('se-site-id').value   = site.id || '';
   document.getElementById('se-school-name').textContent = school.name || '';
-  document.getElementById('se-tagline').value   = site.tagline || '';
-  document.getElementById('se-about').value     = site.about_text || '';
-  document.getElementById('se-status').value    = site.status || 'offline';
-  document.getElementById('se-color').value     = site.primary_color || '#2f7bd6';
-  document.getElementById('se-color-swatch').style.background = site.primary_color || '#2f7bd6';
-  document.getElementById('se-sec-about').checked   = site.section_about !== false;
-  document.getElementById('se-sec-contact').checked = site.section_contact !== false;
-  document.getElementById('se-sec-gallery').checked = !!site.section_gallery;
-  document.getElementById('se-sec-ann').checked     = site.section_announcements !== false;
 
+  // Identité
+  const color = site.primary_color || '#2f7bd6';
+  document.getElementById('se-color').value = color;
+  document.getElementById('se-color-swatch').style.background = color;
+  document.getElementById('se-tagline').value      = site.tagline || '';
+  document.getElementById('se-values').value       = site.values || '';
+  document.getElementById('se-city').value         = site.city || '';
+  document.getElementById('se-founded').value      = site.founded_year || '';
+
+  // Contact
+  document.getElementById('se-address').value     = site.address || '';
+  document.getElementById('se-whatsapp').value     = site.whatsapp || '';
+
+  // Contenu
+  document.getElementById('se-about').value        = site.about_text || '';
+  document.getElementById('se-stat-students').value = site.stat_students || '';
+  document.getElementById('se-stat-teachers').value = site.stat_teachers || '';
+  document.getElementById('se-stat-classes').value  = site.stat_classes || '';
+
+  // Statut
+  document.getElementById('se-status').value       = site.status || 'offline';
+
+  // Sections
+  document.getElementById('se-sec-about').checked    = site.section_about !== false;
+  document.getElementById('se-sec-team').checked     = !!site.section_team;
+  document.getElementById('se-sec-prog').checked     = !!site.section_programmes;
+  document.getElementById('se-sec-testi').checked    = !!site.section_testimonials;
+  document.getElementById('se-sec-contact').checked  = site.section_contact !== false;
+  document.getElementById('se-sec-gallery').checked  = !!site.section_gallery;
+  document.getElementById('se-sec-ann').checked      = site.section_announcements !== false;
+
+  // Logo
   _siteLogoBase64 = site.logo_url || null;
-  const prev = document.getElementById('se-logo-preview');
-  const ph   = document.getElementById('se-logo-placeholder');
+  const logoPrev = document.getElementById('se-logo-preview');
+  const logoPh   = document.getElementById('se-logo-placeholder');
   if (_siteLogoBase64) {
-    prev.src = _siteLogoBase64; prev.style.display = 'block'; ph.style.display = 'none';
+    logoPrev.src = _siteLogoBase64; logoPrev.style.display = 'block'; logoPh.style.display = 'none';
     document.getElementById('se-extract-btn').disabled = false;
   } else {
-    prev.style.display = 'none'; ph.style.display = 'flex';
+    logoPrev.style.display = 'none'; logoPh.style.display = 'flex';
     document.getElementById('se-extract-btn').disabled = true;
   }
 
+  // Hero image
+  _siteHeroBase64 = site.hero_image_url || null;
+  const heroPrev = document.getElementById('se-hero-preview');
+  const heroPh   = document.getElementById('se-hero-placeholder');
+  if (_siteHeroBase64) {
+    heroPrev.src = _siteHeroBase64; heroPrev.style.display = 'block'; heroPh.style.display = 'none';
+  } else {
+    heroPrev.style.display = 'none'; heroPh.style.display = 'flex';
+  }
+
+  // Rich content
+  _team         = _parseArr(site.team);
+  _programmes   = _parseArr(site.programmes);
+  _testimonials = _parseArr(site.testimonials);
+  _gallery      = _parseArr(site.gallery);
+  renderTeamItems(); renderProgItems(); renderTestiItems(); renderGalleryItems();
+
+  // Preview link
   const previewWrap = document.getElementById('se-preview-link');
   if (site.id && site.status === 'online') {
     previewWrap.style.display = 'block';
@@ -1586,7 +1880,8 @@ function openSiteEditor(schoolId) {
 function closeSiteEditor() {
   document.getElementById('site-editor-overlay').style.display = 'none';
   document.getElementById('site-editor-panel').style.display   = 'none';
-  _siteLogoBase64 = null;
+  _siteLogoBase64 = null; _siteHeroBase64 = null;
+  _team = []; _programmes = []; _testimonials = []; _gallery = [];
 }
 
 function handleSiteLogoUpload(input) {
@@ -1654,9 +1949,25 @@ async function saveSite() {
     status:                document.getElementById('se-status').value,
     primary_color:         document.getElementById('se-color').value || '#2f7bd6',
     tagline:               document.getElementById('se-tagline').value.trim() || null,
+    values:                document.getElementById('se-values').value.trim() || null,
+    city:                  document.getElementById('se-city').value.trim() || null,
+    founded_year:          parseInt(document.getElementById('se-founded').value) || null,
+    address:               document.getElementById('se-address').value.trim() || null,
+    whatsapp:              document.getElementById('se-whatsapp').value.trim() || null,
     about_text:            document.getElementById('se-about').value.trim() || null,
+    stat_students:         document.getElementById('se-stat-students').value.trim() || null,
+    stat_teachers:         document.getElementById('se-stat-teachers').value.trim() || null,
+    stat_classes:          document.getElementById('se-stat-classes').value.trim() || null,
     logo_url:              _siteLogoBase64 || null,
+    hero_image_url:        _siteHeroBase64 || null,
+    team:                  _team.length ? _team : null,
+    programmes:            _programmes.length ? _programmes : null,
+    testimonials:          _testimonials.length ? _testimonials : null,
+    gallery:               _gallery.length ? _gallery : null,
     section_about:         document.getElementById('se-sec-about').checked,
+    section_team:          document.getElementById('se-sec-team').checked,
+    section_programmes:    document.getElementById('se-sec-prog').checked,
+    section_testimonials:  document.getElementById('se-sec-testi').checked,
     section_contact:       document.getElementById('se-sec-contact').checked,
     section_gallery:       document.getElementById('se-sec-gallery').checked,
     section_announcements: document.getElementById('se-sec-ann').checked,
