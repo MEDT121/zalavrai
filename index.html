@@ -898,7 +898,7 @@ window.openWATemplates = (sid) => {
           <label class="form-label">Élève (optionnel)</label>
           <select class="form-select" id="wa_sid" onchange="window._waUpdatePreview()">
             <option value="">— Choisir un élève —</option>
-            ${(DB.students||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(st=>`<option value="${st.id}" ${s&&st.id===s.id?'selected':''}>${esc(st.name)} (${gc(st.cid)?.name||'?'})</option>`).join('')}
+            ${(DB.students||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(st=>`<option value="${st.id}" ${s&&st.id===s.id?'selected':''}>${esc(st.name)} (${gc(st.cid)?.name||'?'})</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -1818,7 +1818,7 @@ window.PT = {
   attendance:'Présences', payments:'Paiements', palmares:'Palmarès',
   messages:'Messages', calendar:'Calendrier', notifications:'Notifications',
   scanner:'Scanner Entrée', scanner_exit:'Scanner Sortie', scan_log:'Historique Scans',
-  children:'Mes Enfants', authorized:'Personnes Autorisées', absences:'Justifier Absence', messages:'Messages', classes:'Classes',
+  children:'Mes Enfants', authorized:'Personnes Autorisées', absences:'Justifier Absence',
   lockdown:'LOCKDOWN', settings:'Paramètres', cards:'Cartes',
   approbations:'Approbations', devoirs:'Devoirs', matieres:'Matières',
   cahier_texte:'Cahier de texte', teacher_comm:'Communication',
@@ -1834,7 +1834,7 @@ window.PT = {
   mes_primes:'Mes primes', mes_absences:'Mes absences',
   profil_enseignant:'Mon profil', profil_parent:'Mon profil',
   scan_history:'Entrées / Sorties', convocations:'Convocations', sanctions:'Sanctions disciplinaires',
-  statistiques:'Statistiques', audit_log:'Historique',
+  statistiques:'Statistiques',
   tenafep:'ENAFEP CM2',
   evaluations_ens:'Évaluations des enseignants',
   salaires:'Salaires & Fiches de paie',
@@ -2061,8 +2061,8 @@ window.loginAs = user => {
 window.logout = () => {
   try { stopScan(); } catch(e) {}
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
-  [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock].forEach(iv=>{if(iv)clearInterval(iv);});
-  window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=null;
+  [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
+  window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=window._iv_autoreport=null;
   S.user=null; S.page='dashboard'; S._history=[];
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
   $('APP').classList.remove('active');
@@ -4079,7 +4079,7 @@ canvas.card-canvas { display:block; width:100%; height:auto; background:white; b
   <select id="studentSelect" class="form-select" onchange="fillCardFromStudent(this.value)" style="margin-top:8px">
     <option value="">— Choisir un élève —</option>
     ${DB.classes.map(cl => {
-      const studs = DB.students.filter(s => s.cid === cl.id).sort((a,b)=>a.name.localeCompare(b.name));
+      const studs = DB.students.filter(s => s.cid === cl.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
       if (!studs.length) return '';
       return '<optgroup label="'+esc(cl.name)+'">' + studs.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('') + '</optgroup>';
     }).join('')}
@@ -5380,7 +5380,7 @@ window.sendDailyReportNow = () => {
   saveToCrypt(); render();
 };
 
-setInterval(() => {
+window._iv_autoreport = setInterval(() => {
   if (!S.user) return;
   const now = new Date();
   const hh = now.getHours(), mm = now.getMinutes();
@@ -8922,7 +8922,7 @@ R.teacher_comm = () => {
 
   // Filter notes for this class
   const now=Date.now();
-  const notes=DB.teacher_notes.filter(n=>n.cid===cl.id&&(!n.expires_at||n.expires_at>now)).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const notes=DB.teacher_notes.filter(n=>n.cid===cl.id&&(!n.expires_at||n.expires_at>now)).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
 
   return `
   <div class="premium-section">
@@ -10177,7 +10177,7 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_search').value='';
   const pays=DB.payments.filter(p=>p.sid===s.id);
   const fees=getFees();
-  const recentRecs=DB.daily_records.filter(r=>r.sid===s.id).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
+  const recentRecs=DB.daily_records.filter(r=>r.sid===s.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,5);
   $('caisse_student_info').innerHTML=`
     <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:10px">
       <div class="pi-icon" style="background:${cbg};color:${cc}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
@@ -11335,7 +11335,7 @@ window.openConvocationM = () => {
     <select class="form-select" id="convSid">
       <option value="">— Choisir un élève —</option>
       ${DB.classes.map(cl=>{
-        const studs=DB.students.filter(s=>s.cid===cl.id).sort((a,b)=>a.name.localeCompare(b.name));
+        const studs=DB.students.filter(s=>s.cid===cl.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
         if(!studs.length) return '';
         return `<optgroup label="${esc(cl.name)}">${studs.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`;
       }).join('')}
@@ -12651,7 +12651,7 @@ R.sanctions = () => {
 window.openSanctionM = (sid) => {
   const isDir=S.user.role==='direction'||S.user.role==='direction2';
   if(!isDir){toast('Accès non autorisé','error');return;}
-  const studs=(DB.students||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const studs=(DB.students||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   openM('Nouvelle sanction disciplinaire',`
   <div class="form-group"><label class="form-label">Élève *</label>
     <select class="form-input" id="sanc_sid" onchange="(function(){const s=DB.students.find(x=>x.id===this.value);const cl=s?gc(s.cid):null;document.getElementById('sanc_cls').textContent=cl?cl.name:'';}).call(this)">
@@ -13072,7 +13072,7 @@ R.profil_enseignant = () => {
   const validTabs=['classe','profil','finances','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
   const clr='#205fae';
-  const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,6);
+  const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>(b.month||'').localeCompare(a.month||'')).slice(0,6);
   const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
   return `
   <div style="background:linear-gradient(135deg,${clr},#5b6fd6 60%,#2f8fa6);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 16px 44px rgba(29,78,216,.4)">
@@ -13894,7 +13894,7 @@ window.logAudit = (action, detail, targetId) => {
 R.audit_log = () => {
   if(!DB.audit_log) DB.audit_log=[];
   const filter=window._auditFilter||'';
-  const all=[...DB.audit_log].sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const all=[...DB.audit_log].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
   const shown=filter?all.filter(e=>e.action===filter):all;
   const actionIcon={student_add:'🎓',student_edit:'✏️',student_delete:'🗑️',student_block:'🔒',student_unblock:'🔓',payment_toggle:'💰',user_add:'👤',user_edit:'✏️',user_delete:'🗑️',class_add:'🏫',class_edit:'✏️',class_delete:'🗑️',passage_classe:'🎓',lockdown_toggle:'🚨',fees_control:'💰',cahier_add:'📖',cahier_edit:'✏️',cahier_delete:'🗑️',devoir_add:'📚',rattrapage_signal:'⚠️',rattrapage_validate:'✅',convocation_create:'📋',conduct_add:'📊',conduct_delete:'🗑️',broadcast:'📣',rattrapage_pay:'💰',report_validate:'📋',teacher_absence:'🏠'};
   const actionLabel={student_add:'Élève ajouté',student_edit:'Élève modifié',student_delete:'Élève supprimé',student_block:'Accès bloqué',student_unblock:'Accès autorisé',payment_toggle:'Paiement',user_add:'Utilisateur ajouté',user_edit:'Utilisateur modifié',user_delete:'Utilisateur supprimé',class_add:'Classe créée',class_edit:'Classe modifiée',class_delete:'Classe supprimée',passage_classe:'Passage de classe',lockdown_toggle:'Lockdown',fees_control:'Contrôle frais',cahier_add:'Cahier ajouté',cahier_edit:'Cahier modifié',cahier_delete:'Cahier supprimé',devoir_add:'Devoir ajouté',rattrapage_signal:'Rattrapage signalé',rattrapage_validate:'Rattrapage validé',convocation_create:'Convocation créée',conduct_add:'Conduite ajoutée',conduct_delete:'Conduite supprimée',broadcast:'Annonce envoyée',rattrapage_pay:'Prime versée',report_validate:'Rapport validé',teacher_absence:'Absence enseignant'};
