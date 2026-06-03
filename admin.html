@@ -484,6 +484,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
     </div>
     <div class="topbar-actions">
+      <button class="btn btn-outline btn-sm" id="admin-sync-btn" onclick="forceSyncAdmin()" title="Recharger toutes les données depuis Supabase">🔄 Sync</button>
       <button class="btn btn-outline btn-sm btn-icon" onclick="openSettings()" title="Paramètres">⚙️</button>
       <button class="btn btn-outline btn-sm" onclick="doLogout()">Déconnexion</button>
     </div>
@@ -1006,6 +1007,19 @@ function doLogout() {
 async function showDashboard() {
   showScreen('dashboard');
   await Promise.all([loadSchools(), loadOrders(), loadSites(), loadAnnouncements()]);
+}
+
+async function forceSyncAdmin() {
+  const btn = document.getElementById('admin-sync-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 Sync…'; btn.style.opacity = '.7'; }
+  try {
+    await Promise.all([loadSchools(), loadOrders(), loadSites(), loadAnnouncements()]);
+    toast('✅ Données actualisées', 'success');
+  } catch(e) {
+    toast('Erreur lors de la synchronisation : ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Sync'; btn.style.opacity = '1'; }
+  }
 }
 
 async function loadSchools() {
