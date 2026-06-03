@@ -1,5 +1,5 @@
-const CACHE = 'ss-admin-v1';
-const PRECACHE = ['./admin.html', './admin-manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'ss-admin-v2';
+const PRECACHE = ['./admin.html', './admin-manifest.json', './admin-icon-180.png', './admin-icon-192.png', './admin-icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));

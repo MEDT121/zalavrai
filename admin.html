@@ -17,21 +17,52 @@
 </script>
 <style>
 :root {
+  /* ── surfaces ── */
   --bg: #1a1612;
   --surface: #231f1a;
   --surface2: #2a2420;
+  --surface3: #141108;
   --border: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.15);
+  /* ── text ── */
   --text: #f0ebe4;
   --text-secondary: #a89c8b;
   --text-muted: #6f6557;
+  /* ── schools — blue ── */
   --accent: #2f7bd6;
   --accent-dark: #1a5faa;
+  --accent-soft: rgba(47,123,214,.14);
+  /* ── card orders — amber ── */
+  --orders: #f59e0b;
+  --orders-dark: #d97706;
+  --orders-soft: rgba(245,158,11,.14);
+  /* ── sites web — teal ── */
+  --sites: #14b8a6;
+  --sites-dark: #0d9488;
+  --sites-soft: rgba(20,184,166,.14);
+  /* ── announcements — violet ── */
+  --ann: #a78bfa;
+  --ann-dark: #8b5cf6;
+  --ann-soft: rgba(167,139,250,.14);
+  /* ── status ── */
   --success: #1f9d6b;
+  --success-soft: rgba(31,157,107,.14);
   --warning: #d98a2b;
+  --warning-soft: rgba(217,138,43,.14);
   --danger: #dc2626;
+  --danger-soft: rgba(220,38,38,.14);
+  /* ── geometry ── */
   --radius: 16px;
   --radius-sm: 10px;
-  --shadow: 0 4px 24px rgba(0,0,0,.35);
+  --shadow: 0 4px 24px rgba(0,0,0,.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,.55);
+  /* ── gradients ── */
+  --g-accent:  linear-gradient(135deg,#2f7bd6,#1a5faa);
+  --g-orders:  linear-gradient(135deg,#f59e0b,#d97706);
+  --g-sites:   linear-gradient(135deg,#14b8a6,#0d9488);
+  --g-ann:     linear-gradient(135deg,#a78bfa,#8b5cf6);
+  --g-success: linear-gradient(135deg,#1f9d6b,#166e51);
+  --g-danger:  linear-gradient(135deg,#dc2626,#b91c1c);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
@@ -49,6 +80,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .auth-card {
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
   padding:40px 36px; width:100%; max-width:440px; box-shadow:var(--shadow);
+  border-top: 3px solid var(--accent);
 }
 .auth-logo {
   text-align:center; margin-bottom:28px;
@@ -67,7 +99,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
   color:var(--text); padding:11px 14px; font-size:14px; outline:none; transition:border .2s;
 }
-.form-input:focus { border-color:var(--accent); }
+.form-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 .form-input::placeholder { color:var(--text-muted); }
 
 .btn {
@@ -97,7 +129,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 #screen-dashboard.active { display:flex; }
 
 .topbar {
-  background:var(--surface); border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--surface2),var(--surface));
+  border-bottom:1px solid var(--border);
   padding:0 24px; height:60px; display:flex; align-items:center; justify-content:space-between;
   position:sticky; top:0; z-index:100;
 }
@@ -118,15 +151,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .stat-card {
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:18px 20px;
+  padding:18px 20px; position:relative; overflow:hidden;
+  transition:border-color .2s, box-shadow .2s;
+}
+.stat-card:hover { border-color:var(--border-strong); box-shadow:var(--shadow); }
+.stat-card::after {
+  content:""; position:absolute; top:0; left:0; right:0; height:3px;
 }
 .stat-card .stat-label { font-size:12px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
 .stat-card .stat-value { font-size:28px; font-weight:700; margin-top:6px; }
 .stat-card .stat-sub { font-size:12px; color:var(--text-secondary); margin-top:2px; }
 .stat-accent .stat-value { color:var(--accent); }
+.stat-accent::after { background:var(--g-accent); }
 .stat-success .stat-value { color:var(--success); }
+.stat-success::after { background:var(--g-success); }
 .stat-warning .stat-value { color:var(--warning); }
+.stat-warning::after { background:var(--g-orders); }
 .stat-danger .stat-value { color:var(--danger); }
+.stat-danger::after { background:var(--g-danger); }
+.stat-teal .stat-value { color:var(--sites); }
+.stat-teal::after { background:var(--g-sites); }
+.stat-violet .stat-value { color:var(--ann); }
+.stat-violet::after { background:var(--g-ann); }
 
 /* ── TABS ── */
 .tab-bar {
@@ -140,6 +186,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .tab-btn.active { background:var(--accent); color:#fff; }
 .tab-btn:not(.active):hover { background:var(--surface2); color:var(--text); }
+#tab-ecoles-btn.active { background:var(--g-accent); }
+#tab-orders-btn.active { background:var(--g-orders); }
+#tab-sites-btn.active  { background:var(--g-sites); }
+#tab-ann-btn.active    { background:var(--g-ann); }
 
 .tab-panel { display:none; }
 .tab-panel.active { display:block; animation:fadeIn .2s ease; }
@@ -153,7 +203,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   border-radius:var(--radius-sm); color:var(--text); padding:9px 14px; font-size:14px;
   outline:none; transition:border .2s;
 }
-.toolbar-search:focus { border-color:var(--accent); }
+.toolbar-search:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 .toolbar-search::placeholder { color:var(--text-muted); }
 .filter-pills { display:flex; gap:6px; flex-wrap:wrap; }
 .filter-pill {
@@ -173,9 +223,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .school-card.expiring-soon { border-color:var(--warning); }
 .school-avatar {
-  width:44px; height:44px; border-radius:12px; background:var(--accent);
+  width:44px; height:44px; border-radius:12px; background:var(--g-accent);
   display:flex; align-items:center; justify-content:center; font-size:16px;
   font-weight:700; color:#fff; flex-shrink:0; text-transform:uppercase;
+  box-shadow:0 2px 8px rgba(47,123,214,.3);
 }
 .school-info { flex:1; min-width:0; }
 .school-name { font-size:15px; font-weight:700; margin-bottom:3px; }
@@ -189,11 +240,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;
   text-transform:uppercase; letter-spacing:.4px;
 }
-.pill-green { background:rgba(31,157,107,.18); color:#4ade80; }
+.pill-green  { background:rgba(31,157,107,.18); color:#4ade80; }
 .pill-orange { background:rgba(217,138,43,.18); color:#fbbf24; }
-.pill-red { background:rgba(220,38,38,.18); color:#f87171; }
-.pill-blue { background:rgba(47,123,214,.18); color:#60a5fa; }
-.pill-gray { background:rgba(111,101,87,.18); color:#a89c8b; }
+.pill-red    { background:rgba(220,38,38,.18); color:#f87171; }
+.pill-blue   { background:rgba(47,123,214,.18); color:#60a5fa; }
+.pill-gray   { background:rgba(111,101,87,.18); color:#a89c8b; }
+.pill-teal   { background:var(--sites-soft); color:var(--sites); }
+.pill-violet { background:var(--ann-soft); color:var(--ann); }
+.pill-amber  { background:var(--orders-soft); color:var(--orders); }
 
 .expiry-badge {
   font-size:11px; color:var(--warning); font-weight:600;
@@ -285,6 +339,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   position:fixed; top:0; right:0; bottom:0; width:400px;
   background:var(--surface); border-left:1px solid var(--border); z-index:1000;
   padding:24px; overflow-y:auto; animation:fadeIn .2s ease;
+  border-top:3px solid var(--sites);
 }
 
 /* ── COLOR SWATCH ── */
@@ -310,6 +365,38 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 }
 .ann-table tr:last-child td { border-bottom:none; }
 .ann-table tr:hover td { background:rgba(255,255,255,.02); }
+
+/* ── SCHOOL CARD HOVER ── */
+.school-card {
+  transition:border-color .2s, box-shadow .2s, background .2s;
+}
+.school-card:hover {
+  background:rgba(255,255,255,.02);
+  border-color:var(--border-strong);
+}
+
+/* ── TOPBAR BRAND ICON GRADIENT ── */
+.topbar-brand .brand-icon {
+  background:var(--g-accent);
+}
+
+/* ── BTN-WARNING uses amber ── */
+.btn-warning { background:var(--orders); color:#1a0f00; }
+.btn-warning:hover { background:var(--orders-dark); }
+
+/* ── MODAL HEADER ACCENT LINES per type ── */
+#ann-modal .modal-header { border-bottom:2px solid var(--ann-soft); }
+#key-modal .modal-header { border-bottom:2px solid var(--orders-soft); }
+#school-modal .modal-header { border-bottom:2px solid var(--accent-soft); }
+
+/* ── EMPTY STATE ── */
+.empty-state { background:linear-gradient(180deg,var(--surface),var(--surface2)); }
+
+/* ── ANN TABLE ROW HOVER ── */
+.ann-table tr:hover td { background:var(--ann-soft); }
+
+/* ── ORDERS TABLE ROW HOVER ── */
+.orders-table tr:hover td { background:var(--orders-soft); }
 
 /* ── RESPONSIVE ── */
 @media (max-width:768px) {
@@ -427,12 +514,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="stat-value" id="stat-orders">—</div>
         <div class="stat-sub">en attente</div>
       </div>
-      <div class="stat-card stat-accent">
+      <div class="stat-card stat-teal">
         <div class="stat-label">Sites actifs</div>
         <div class="stat-value" id="stat-sites">—</div>
         <div class="stat-sub">en ligne</div>
       </div>
-      <div class="stat-card stat-success">
+      <div class="stat-card stat-violet">
         <div class="stat-label">Actualités</div>
         <div class="stat-value" id="stat-ann">—</div>
         <div class="stat-sub">publiées</div>
