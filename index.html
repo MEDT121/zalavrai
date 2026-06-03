@@ -813,7 +813,24 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   <nav class="bottom-nav"><div class="bottom-nav-inner" id="BN"></div></nav>
 </div>
 
-<div id="licenseBlock" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+<!-- Écran activation (pas de clé / clé invalide) -->
+<div id="licenseActivate" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+  <div style="font-size:52px;margin-bottom:12px">🔑</div>
+  <div style="font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px">Activation requise</div>
+  <div style="font-size:13px;color:#94a3b8;margin-bottom:24px;max-width:320px;line-height:1.6" id="la_msg">Entrez la clé de licence fournie par votre opérateur SchoolSafe pour activer l'application.</div>
+  <div style="width:100%;max-width:340px;margin-bottom:12px">
+    <input id="la_key_input" type="text" placeholder="SS-2026-XXXX-XXXX" style="width:100%;padding:14px 16px;border-radius:14px;border:2px solid #2f7bd6;background:#0f172a;color:#f1f5f9;font-size:16px;font-family:monospace;letter-spacing:2px;text-align:center;outline:none">
+  </div>
+  <div id="la_error" style="font-size:12px;color:#f87171;margin-bottom:12px;min-height:18px"></div>
+  <button onclick="activateLicense()" style="width:100%;max-width:340px;padding:14px;background:#2f7bd6;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:20px">✅ Activer SchoolSafe</button>
+  <div style="background:#1e3a5f;border-radius:14px;padding:12px 20px;max-width:340px;width:100%">
+    <div style="font-size:11px;color:#64748b;margin-bottom:4px">Obtenir une clé — Support SchoolSafe</div>
+    <a id="la_wa" href="https://wa.me/243978444167" target="_blank" style="font-size:14px;font-weight:700;color:#25d366;text-decoration:none">📱 Contacter par WhatsApp</a>
+  </div>
+</div>
+
+<!-- Écran blocage (suspendu / expiré) -->
+<div id="licenseBlock" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
   <div style="font-size:56px;margin-bottom:16px">🔒</div>
   <div style="font-size:22px;font-weight:800;color:#f1f5f9;margin-bottom:8px" id="lb_title">Accès suspendu</div>
   <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;max-width:340px;line-height:1.6" id="lb_msg">Votre abonnement SchoolSafe a expiré ou a été suspendu. Veuillez contacter l'opérateur pour renouveler.</div>
@@ -2089,8 +2106,7 @@ window.loginAs = async user => {
   if(DB.settings?.school?.signature) window.SCHOOL_SIGNATURE = DB.settings.school.signature;
   const lic = await checkLicense();
   if(!lic.valid && (lic.reason==='suspended'||lic.reason==='expired')){ showLicenseBlock(lic.reason, lic.expiry); return; }
-  if(!lic.valid && lic.reason==='no_key') setTimeout(()=>toast('⚠️ Clé de licence non configurée — Paramètres → Licence','warning'),1200);
-  if(!lic.valid && lic.reason==='invalid_key') setTimeout(()=>toast('⚠️ Clé de licence invalide — Paramètres → Licence','warning'),1200);
+  if(!lic.valid && (lic.reason==='no_key'||lic.reason==='invalid_key'||lic.reason==='offline')){ showLicenseActivate(lic.reason); return; }
   if(lic.offline && lic.daysLeft <= 1) toast('⚠️ Licence: vérification impossible — '+lic.daysLeft+' jour(s) restant(s)','warning');
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); },450);
 };
@@ -3992,6 +4008,52 @@ async function checkLicense() {
     return {valid:false, reason:'offline'};
   }
 }
+
+function showLicenseActivate(reason) {
+  const el = document.getElementById('licenseActivate');
+  if(!el) return;
+  const msg = document.getElementById('la_msg');
+  const err = document.getElementById('la_error');
+  if(err) err.textContent = '';
+  if(msg){
+    if(reason==='invalid_key') msg.textContent = 'La clé saisie n\'est pas reconnue. Vérifiez et réessayez, ou contactez votre opérateur.';
+    else if(reason==='offline') msg.textContent = 'Connexion au serveur de licences impossible. Entrez votre clé pour vérifier.';
+    else msg.textContent = 'Entrez la clé de licence fournie par votre opérateur SchoolSafe pour activer l\'application.';
+  }
+  const inp = document.getElementById('la_key_input');
+  if(inp && DB.settings?.license_key) inp.value = DB.settings.license_key;
+  el.style.display = 'flex';
+  $('LS').style.display = 'none';
+}
+
+window.activateLicense = async () => {
+  const inp = document.getElementById('la_key_input');
+  const err = document.getElementById('la_error');
+  const key = (inp?.value||'').trim();
+  if(!key){ if(err) err.textContent = 'Entrez une clé de licence.'; return; }
+  if(err) err.textContent = '';
+  const btn = document.querySelector('#licenseActivate button');
+  if(btn){ btn.textContent = '⏳ Vérification...'; btn.disabled = true; }
+  if(!DB.settings) DB.settings = {};
+  DB.settings.license_key = key;
+  const lic = await checkLicense();
+  if(btn){ btn.textContent = '✅ Activer SchoolSafe'; btn.disabled = false; }
+  if(lic.valid){
+    pushSync('settings','upsert',DB.settings);
+    saveToCrypt();
+    document.getElementById('licenseActivate').style.display = 'none';
+    toast('✅ Licence activée — Bienvenue !','success');
+    $('APP').classList.add('active');
+    buildUI(); updateSyncIndicator();
+    history.pushState({page:'dashboard'},'','');
+    checkRattrapageReminders(); window._startIdleTimer();
+  } else if(lic.reason==='suspended'||lic.reason==='expired'){
+    document.getElementById('licenseActivate').style.display = 'none';
+    showLicenseBlock(lic.reason, lic.expiry);
+  } else {
+    if(err) err.textContent = lic.reason==='invalid_key' ? '❌ Clé non reconnue. Vérifiez auprès de votre opérateur.' : '❌ Impossible de vérifier. Vérifiez votre connexion.';
+  }
+};
 
 function showLicenseBlock(reason, expiry) {
   const bl = document.getElementById('licenseBlock');
