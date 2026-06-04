@@ -3,12 +3,14 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v6';
+const CACHE = 'schoolsafe-v7';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
   './index.html',
   './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
 ];
 
 // Domaines qui ne passent jamais par le cache

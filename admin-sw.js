@@ -1,4 +1,4 @@
-const CACHE = 'ss-admin-v2';
+const CACHE = 'ss-admin-v3';
 const PRECACHE = ['./admin.html', './admin-manifest.json', './admin-icon-180.png', './admin-icon-192.png', './admin-icon-512.png'];
 
 self.addEventListener('install', e => {
