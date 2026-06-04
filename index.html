@@ -7032,6 +7032,69 @@ window.checkRattrapageReminders = () => {
   });
 };
 
+// Détection automatique : déclenché après saveGradePanel, vérifie chaque élève/matière vs seuil
+window.checkRattrapageAuto = (cid) => {
+  const threshold = DB.settings.rattrapage_threshold != null ? DB.settings.rattrapage_threshold : 50;
+  const cl = gc(cid); if(!cl) return;
+  const trim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
+  const teacherId = S.user.id;
+  const students = (DB.students||[]).filter(s => s.cid === cid && !s.blocked);
+  const matieres = getClassMatieres(cid);
+  let newRats = [];
+  students.forEach(s => {
+    matieres.forEach(m => {
+      const avg = matAvgPct(s.id, m.name, trim);
+      if(avg === null || avg >= threshold) return;
+      const existing = (DB.rattrapages||[]).find(r =>
+        r.sid === s.id && r.matiere === m.name && r.trimestre === trim && !r.archived
+      );
+      if(existing) return;
+      const rat = {
+        id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+        sid: s.id, teacher_id: teacherId,
+        matiere: m.name,
+        motif: `Détection auto — Moyenne ${avg}% · Seuil: ${threshold}%`,
+        date: today(), status: 'pending', amount: 0, paid: false,
+        score: avg, auto_triggered: true, trimestre: trim
+      };
+      DB.rattrapages.push(rat);
+      pushSync('rattrapages', 'post', rat);
+      newRats.push({rat, s, matName: m.name});
+    });
+  });
+  if(!newRats.length) return;
+  // Notifier Direction 1 + Direction 2
+  const dirs = (DB.users||[]).filter(u => u.role==='direction' || u.role==='direction2');
+  const byMat = {};
+  newRats.forEach(({s, matName, rat}) => { if(!byMat[matName]) byMat[matName]=[]; byMat[matName].push({s, rat}); });
+  Object.entries(byMat).forEach(([matName, items]) => {
+    const names = items.map(i => `${i.s.name} (${i.rat.score}%)`).join(', ');
+    const msg = `🔴 Rattrapage auto — ${cl.name} · ${matName} · ${items.length} élève${items.length>1?'s':''} sous ${threshold}% : ${names.slice(0,120)}`;
+    dirs.forEach(u => {
+      const n = {id:'n'+Date.now()+Math.random().toString(36).slice(2,6), uid:u.id, msg, time:nowTime(), date:today(), read:false, type:'alert'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    });
+    // Notifier l'enseignant aussi (s'il n'est pas direction)
+    if(S.user.role !== 'direction' && S.user.role !== 'direction2') {
+      const nt = {id:'n'+Date.now()+Math.random().toString(36).slice(2,6), uid:S.user.id,
+        msg:`⚠️ Rattrapage auto signalé — ${cl.name} · ${matName} · ${items.length} élève${items.length>1?'s':''} sous ${threshold}% (Direction notifiée)`,
+        time:nowTime(), date:today(), read:false, type:'alert'};
+      DB.notifs.unshift(nt); pushSync('notifs','post',nt);
+    }
+  });
+  // Notifier les parents
+  newRats.forEach(({s, rat}) => {
+    if(s.pid) {
+      const np = {id:'n'+Date.now()+Math.random().toString(36).slice(2,6), uid:s.pid,
+        msg:`📚 ${s.name} — Résultats insuffisants en ${rat.matiere} (${rat.score}%). Un cours de rattrapage a été proposé par l'école.`,
+        time:nowTime(), date:today(), read:false, type:'alert'};
+      DB.notifs.unshift(np); pushSync('notifs','post',np);
+    }
+  });
+  saveToCrypt();
+  toast(`⚠️ ${newRats.length} rattrapage${newRats.length>1?'s':''} détecté${newRats.length>1?'s':''} — Direction notifiée`, 'warning');
+};
+
 window.markAttendance = (sid,status) => {
   let a=DB.attendance.find(x=>x.sid===sid&&x.date===today());
   if(a){ a.status=status; pushSync('attendance','patch',{status},'id=eq.'+a.id); }
@@ -8154,7 +8217,10 @@ window.saveGradePanel = cid => {
 
   if(!saved){toast(t('Aucune note à enregistrer','No grades to save'),'error'); return;}
   toast(t(`${saved} note${saved>1?'s':''} enregistrée${saved>1?'s':''} ✅`,`${saved} grade${saved>1?'s':''} saved ✅`), 'success');
-  saveToCrypt(); closeModal(); render();
+  saveToCrypt();
+  // Détection automatique des élèves sous le seuil de rattrapage
+  setTimeout(() => { if(typeof window.checkRattrapageAuto === 'function') window.checkRattrapageAuto(cid); }, 300);
+  closeModal(); render();
 };
 
 // ── Single student grades detail — all individual evaluations ──
@@ -13129,6 +13195,20 @@ R.settings = () => {
     <button class="btn btn-primary" style="width:100%" onclick="saveSettingsHoraires()">💾 Enregistrer les horaires</button>
   </div>
 
+  <!-- ══ SEUIL RATTRAPAGE ══ -->
+  <div class="premium-section" style="border-left:4px solid #f59e0b">
+    <div class="premium-section-title">📚 Détection automatique de rattrapage</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Après chaque saisie de notes (maternelle, primaire, secondaire, humanités), SchoolSafe analyse les moyennes par matière. Si un élève est sous le seuil, un rattrapage est automatiquement créé et la Direction + l'enseignant sont notifiés.</div>
+    <div class="form-group">
+      <label class="form-label">Seuil de déclenchement (%)</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <input class="form-input" id="cfg_rat_threshold" type="number" min="1" max="100" step="1" value="${DB.settings.rattrapage_threshold != null ? DB.settings.rattrapage_threshold : 50}" style="max-width:110px">
+        <span style="font-size:12px;color:var(--text-secondary)">Tout élève sous ce % dans une matière est automatiquement proposé au rattrapage</span>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveSettingsRattrapage()">💾 Enregistrer le seuil</button>
+  </div>
+
   <!-- ══ FONCTIONNALITÉS ══ -->
   <div class="premium-section" style="border-left:4px solid #9b6fd4">
     <div class="premium-section-title">🔧 Fonctionnalités actives</div>
@@ -13267,6 +13347,14 @@ window.saveSettingsHoraires = () => {
   };
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('Horaires d\'entrée mis à jour','success'); render();
+};
+
+window.saveSettingsRattrapage = () => {
+  const v = parseInt($('cfg_rat_threshold')?.value);
+  if(isNaN(v) || v < 1 || v > 100){toast('Seuil invalide (1–100)','error');return;}
+  DB.settings.rattrapage_threshold = v;
+  pushSync('settings','upsert',DB.settings);
+  saveToCrypt(); toast(`✅ Seuil de rattrapage : ${v}%`,'success'); render();
 };
 
 window.saveSettingsToggle = (key, val) => {
