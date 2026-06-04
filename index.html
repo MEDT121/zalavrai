@@ -2176,7 +2176,11 @@ window.tryLogin = async () => {
 window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
-  if(DB.settings?.school?.logo) window.SCHOOL_LOGO = DB.settings.school.logo;
+  if(DB.settings?.school?.logo){
+    window.SCHOOL_LOGO=DB.settings.school.logo;
+    const _slEl=document.getElementById('sidebarLogo');
+    if(_slEl){_slEl.src=window.SCHOOL_LOGO;_slEl.style.borderRadius='50%';_slEl.style.objectFit='cover';}
+  }
   if(DB.settings?.school?.signature) window.SCHOOL_SIGNATURE = DB.settings.school.signature;
   const _sn = DB.settings?.school?.name; if(_sn) document.title = 'SchoolSafe — ' + _sn;
   const _sc = DB.settings?.school?.country; if(_sc){ const el=document.getElementById('splashCountry'); if(el) el.textContent=_sc; }
@@ -2325,6 +2329,11 @@ window.buildUI = () => {
   document.querySelector('.dark-toggle').innerHTML = document.body.classList.contains('dark')?'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"5\"/><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"3\"/><line x1=\"12\" y1=\"21\" x2=\"12\" y2=\"23\"/><line x1=\"4.22\" y1=\"4.22\" x2=\"5.64\" y2=\"5.64\"/><line x1=\"18.36\" y1=\"18.36\" x2=\"19.78\" y2=\"19.78\"/><line x1=\"1\" y1=\"12\" x2=\"3\" y2=\"12\"/><line x1=\"21\" y1=\"12\" x2=\"23\" y2=\"12\"/><line x1=\"4.22\" y1=\"19.78\" x2=\"5.64\" y2=\"18.36\"/><line x1=\"18.36\" y1=\"5.64\" x2=\"19.78\" y2=\"4.22\"/></svg>':'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z\"/></svg>';
   // User photo
   if (S.user.photo_url) { const safeUrl = /^(https?:|data:image\/)/.test(S.user.photo_url||'') ? S.user.photo_url : ''; if(safeUrl) $('SA').innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`; }
+  // School logo + name in sidebar (dynamic per school)
+  const _sbn=document.querySelector('.sidebar-brand-name');
+  if(_sbn) _sbn.textContent=DB.settings?.school?.name||'SchoolSafe';
+  const _sl=$('sidebarLogo');
+  if(_sl&&window.SCHOOL_LOGO){_sl.src=window.SCHOOL_LOGO;_sl.style.borderRadius='50%';_sl.style.objectFit='cover';}
   // Vérifier alertes cahier de texte au login
   try { checkCahierAlerts(); } catch(e) {}
   render();
@@ -4310,6 +4319,10 @@ function applyCrop() {
     DB.settings.school.logo = data;
     window.SCHOOL_LOGO = data;
     schoolImg.src = data;
+    const _slEl2=document.getElementById('sidebarLogo');
+    if(_slEl2){_slEl2.src=data;_slEl2.style.borderRadius='50%';_slEl2.style.objectFit='cover';}
+    const _sbn2=document.querySelector('.sidebar-brand-name');
+    if(_sbn2) _sbn2.textContent=DB.settings?.school?.name||'SchoolSafe';
     pushSync('settings','upsert',DB.settings);
     saveToCrypt();
     const prev=document.getElementById('school_logo_preview');
@@ -9089,7 +9102,7 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   // Per-page header (logo always 72px)
   const mkHdr=(pn)=>`
     <div style="display:flex;align-items:center;gap:16px;padding-bottom:14px;border-bottom:3px solid ${catColor};margin-bottom:14px">
-      <img src="${window.SCHOOL_LOGO||''}" alt="Logo" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #efe3d3;background:#fff;flex-shrink:0">
+      ${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" alt="Logo" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid #efe3d3;background:#fff;flex-shrink:0">`:`<div style="width:72px;height:72px;border-radius:50%;background:#243a6b;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🏫</div>`}
       <div style="flex:1">
         <div style="font-size:15px;font-weight:900;color:#243a6b;letter-spacing:.5px">${school}</div>
         <div style="font-size:11px;color:#6f6557;margin-top:2px">${schoolAddr}</div>
@@ -10735,7 +10748,7 @@ window.viewReceipt = (nid) => {
   };
   const amtWords=(numToWords(r.amount)||'').charAt(0).toUpperCase()+(numToWords(r.amount)||'').slice(1)+' dollars américains';
   const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;align-items:flex-start;padding:20px;min-height:100vh}.page{background:#fff;width:100%;max-width:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;display:flex;align-items:center;gap:16px}.logo{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;flex-shrink:0}.school-name{color:#fff}.school-name h1{font-size:14px;font-weight:800;line-height:1.2}.school-name p{font-size:10px;opacity:.8;margin-top:3px}.badge{margin-top:16px;text-align:center;padding:12px 20px;background:#f8faff;border-bottom:2px dashed #ddd0bf}.badge .num{font-size:11px;color:#6b7280;letter-spacing:1px;text-transform:uppercase}.badge .title{font-size:18px;font-weight:800;color:#243a6b;margin-top:4px;text-transform:uppercase;letter-spacing:2px}.body{padding:20px 24px}.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f6ede0}.row:last-child{border-bottom:none}.lbl{font-size:12px;color:#6b7280;font-weight:500}.val{font-size:13px;font-weight:700;color:#1a1a1a;text-align:right}.amount-box{background:#243a6b;color:#fff;border-radius:10px;padding:16px 20px;text-align:center;margin:16px 0}.amount-box .av{font-size:28px;font-weight:900;letter-spacing:1px}.amount-box .aw{font-size:11px;opacity:.8;margin-top:6px;font-style:italic}.stamp{display:flex;align-items:center;gap:10px;background:#d8f3e6;border-radius:8px;padding:10px 14px;margin-top:14px}.stamp .icon{font-size:24px}.stamp .txt{font-size:11px;color:#065f46;font-weight:600}.footer{background:#f8faff;border-top:1px solid #e5e7eb;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#9ca3af}.pbtn{display:block;margin:16px auto;padding:11px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:10mm}}`;
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau ${esc(r.num)}</title><style>${CSS}</style></head><body><div class="page"><div class="hdr"><img src="${window.SCHOOL_LOGO}" class="logo" alt=""><div class="school-name"><h1>${school}</h1>${sc.address||sc.sub?`<p>${esc(sc.address||sc.sub)}</p>`:''}<p>${sc.phone?`📞 ${esc(sc.phone)}`:''}</p></div></div><div class="badge"><div class="num">Bordereau officiel de paiement · N° ${esc(r.num)}</div><div class="title">🧾 Reçu de paiement</div></div><div class="body"><div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(r.student)}</span></div><div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${esc(r.mat||'—')}</span></div><div class="row"><span class="lbl">🎓 Classe</span><span class="val">${esc(r.classe||'—')}</span></div><div class="row"><span class="lbl">📋 Type de paiement</span><span class="val">${esc(r.type_label)}${r.trimestre?' · '+esc(r.trimestre):''}</span></div><div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div><div class="row"><span class="lbl">⏰ Heure</span><span class="val">${r.time}</span></div><div class="row"><span class="lbl">💼 Reçu par</span><span class="val" style="color:#243a6b">${esc(r.by)}</span></div>${r.note?`<div class="row"><span class="lbl">📝 Note</span><span class="val">${esc(r.note)}</span></div>`:''}<div class="amount-box"><div class="av">${sc.devise||'$'}${r.amount}</div><div class="aw">${amtWords}</div></div><div class="stamp"><span class="icon">✅</span><div class="txt">Paiement reçu et enregistré dans le système SchoolSafe<br>${school} — Année ${DB.settings.year||'2025-2026'}</div></div><div style="padding:0 24px 16px">${_officialFooter(r.by,'Caisse')}</div></div></body></html>`;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau ${esc(r.num)}</title><style>${CSS}</style></head><body><div class="page"><div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" class="logo" alt="">`:`<div class="logo" style="background:#243a6b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px">🏫</div>`}<div class="school-name"><h1>${school}</h1>${sc.address||sc.sub?`<p>${esc(sc.address||sc.sub)}</p>`:''}<p>${sc.phone?`📞 ${esc(sc.phone)}`:''}</p></div></div><div class="badge"><div class="num">Bordereau officiel de paiement · N° ${esc(r.num)}</div><div class="title">🧾 Reçu de paiement</div></div><div class="body"><div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(r.student)}</span></div><div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${esc(r.mat||'—')}</span></div><div class="row"><span class="lbl">🎓 Classe</span><span class="val">${esc(r.classe||'—')}</span></div><div class="row"><span class="lbl">📋 Type de paiement</span><span class="val">${esc(r.type_label)}${r.trimestre?' · '+esc(r.trimestre):''}</span></div><div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div><div class="row"><span class="lbl">⏰ Heure</span><span class="val">${r.time}</span></div><div class="row"><span class="lbl">💼 Reçu par</span><span class="val" style="color:#243a6b">${esc(r.by)}</span></div>${r.note?`<div class="row"><span class="lbl">📝 Note</span><span class="val">${esc(r.note)}</span></div>`:''}<div class="amount-box"><div class="av">${sc.devise||'$'}${r.amount}</div><div class="aw">${amtWords}</div></div><div class="stamp"><span class="icon">✅</span><div class="txt">Paiement reçu et enregistré dans le système SchoolSafe<br>${school} — Année ${DB.settings.year||'2025-2026'}</div></div><div style="padding:0 24px 16px">${_officialFooter(r.by,'Caisse')}</div></div></body></html>`;
   dlPDF(html,`Recu-${(r.num||'').replace(/[^a-z0-9]/gi,'_')||today()}.pdf`);
 };
 
@@ -13177,7 +13190,7 @@ R.settings = () => {
   <div class="premium-section">
     <div class="premium-section-title">ℹ️ À propos</div>
     <div class="premium-item">
-      <img src="${window.SCHOOL_LOGO}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" alt="">
+      ${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" alt="">`:`<div style="width:40px;height:40px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏫</div>`}
       <div style="flex:1"><div class="pi-title">SchoolSafe v3.0</div><div class="pi-sub">${DB.settings.school?.name||'SchoolSafe'}${DB.settings.school?.address?' — '+DB.settings.school.address:''}</div></div>
       <span class="pill" style="background:#f6ede0;color:#374151;font-size:10px">${DB.settings.year||'2025-2026'}</span>
     </div>
