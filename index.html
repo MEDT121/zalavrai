@@ -3437,7 +3437,14 @@ const cardClasses = [
   { label:"6. CE1", short:"CE1", color:"#9b6fd4", dark:"#5e3a92", light:"#f0e9fa" },
   { label:"7. CE2", short:"CE2", color:"#0ea5a4", dark:"#134e4a", light:"#ccfbf1" },
   { label:"8. CM1", short:"CM1", color:"#ef5b5b", dark:"#991b1b", light:"#fee2e2" },
-  { label:"9. CM2", short:"CM2", color:"#0b2e6d", dark:"#020617", light:"#dbeafe" }
+  { label:"9. CM2", short:"CM2", color:"#0b2e6d", dark:"#020617", light:"#dbeafe" },
+  { label:"10. 6ème", short:"6e", color:"#0369a1", dark:"#082f49", light:"#e0f2fe" },
+  { label:"11. 5ème", short:"5e", color:"#0891b2", dark:"#164e63", light:"#cffafe" },
+  { label:"12. 4ème", short:"4e", color:"#0d9488", dark:"#134e4a", light:"#ccfbf1" },
+  { label:"13. 3ème", short:"3e", color:"#059669", dark:"#064e3b", light:"#d1fae5" },
+  { label:"14. 2nde", short:"2e", color:"#7c3aed", dark:"#4c1d95", light:"#ede9fe" },
+  { label:"15. 1ère", short:"1e", color:"#9333ea", dark:"#581c87", light:"#f3e8ff" },
+  { label:"16. Terminale", short:"Ter", color:"#b91c1c", dark:"#450a0a", light:"#fee2e2" }
 ];
 
 
@@ -4386,7 +4393,7 @@ function fillCardFromStudent(sid) {
   const cl = DB.classes.find(c => c.id === s.cid);
   const parent = DB.users.find(u => u.id === s.pid);
   const teacher = cl ? DB.users.find(u => u.id === cl.teacher_id) : null;
-  const classIdx = {'Petite Section':0,'Moyenne Section':1,'Grande Section':2,'CP1':3,'CP2':4,'CE1':5,'CE2':6,'CM1':7,'CM2':8}[cl ? cl.name : ''] ?? 0;
+  const classIdx = {'Petite Section':0,'Moyenne Section':1,'Grande Section':2,'CP1':3,'CP2':4,'CE1':5,'CE2':6,'CM1':7,'CM2':8,'6ème':9,'5ème':10,'4ème':11,'3ème':12,'2nde':13,'1ère':14,'Terminale':15}[cl ? cl.name : ''] ?? 0;
 
   if (!document.getElementById('nom')) return;
 
@@ -7152,7 +7159,7 @@ R.palmares_parent = () => {
     const me=ranked.find(s=>s.id===k.id);
     const mention=me?getMention(me.total):{l:'—',c:'#a89c8b'};
 
-    const isBilingual=cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+    const isBilingual=cl.teacher_id&&cl.teacher_id_en;
     const profFR=isBilingual?DB.users.find(u=>u.id===cl.teacher_id):null;
     const profEN=isBilingual?DB.users.find(u=>u.id===cl.teacher_id_en):null;
 
@@ -8171,7 +8178,7 @@ R.matieres = () => {
   const myMat=allMat.filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
   const otherMat=allMat.filter(m=>!myMat.includes(m));
   const [cc,cbg]=clsColor(cl.name);
-  const langLabel=mc.lang==='fr'?'Français 🇫🇷':'English 🇬🇧';
+  const langLabel=mc.lang==='fr'?'Français 🇫🇷':mc.lang==='en'?'English 🇬🇧':'Toutes matières';
 
   return `
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
@@ -9345,7 +9352,7 @@ R.teacher_comm = () => {
   if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">💬</div>Vous n'êtes titulaire d'aucune classe</div>`;
   const cl=mc.cl;
   // Find co-titulaire
-  const coId=mc.lang==='fr'?cl.teacher_id_en:cl.teacher_id;
+  const coId=mc.lang===null?null:(mc.lang==='fr'?cl.teacher_id_en:cl.teacher_id);
   const coTeacher=coId?gu(coId):null;
 
   // Filter notes for this class
@@ -9357,7 +9364,7 @@ R.teacher_comm = () => {
     <div class="premium-section-title">💬 ${t('Communication','Communication')} — ${esc(cl.name)}</div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;background:var(--bg);border-radius:12px">
       <div style="width:44px;height:44px;border-radius:12px;background:${mc.lang==='fr'?'#dbeafe':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(S.user.name)}</div>
-      <div><div style="font-weight:700">${esc(S.user.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${t('Titulaire','Lead teacher')} ${mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
+      <div><div style="font-weight:700">${esc(S.user.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${t('Titulaire','Lead teacher')} ${mc.lang===null?'':mc.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'}</div></div>
     </div>
     ${coTeacher?`
     <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding:12px;background:var(--bg);border-radius:12px">
@@ -12013,7 +12020,8 @@ window.setCurrentTrimestre = (t) => {
 };
 
 window.openPassageClasse = () => {
-  const classOrder = DB.classes.map(c=>c.id);
+  // Named progression for each cycle — order-independent
+  const CLASS_PROG = {'Petite Section':'Moyenne Section','Moyenne Section':'Grande Section','Grande Section':'CP1','CP1':'CP2','CP2':'CE1','CE1':'CE2','CE2':'CM1','CM1':'CM2','CM2':null,'6ème':'5ème','5ème':'4ème','4ème':'3ème','3ème':'2nde','2nde':'1ère','1ère':'Terminale','Terminale':null};
   // Helper: overall weighted % for a student
   const stuMoy = s => {
     const mats=getClassMatieres(s.cid);
@@ -12025,8 +12033,8 @@ window.openPassageClasse = () => {
   const rows=DB.classes.map(cl=>{
     const studs=DB.students.filter(s=>s.cid===cl.id);
     if(!studs.length) return '';
-    const nextIdx=classOrder.indexOf(cl.id)+1;
-    const nextCl=nextIdx<classOrder.length?DB.classes.find(c=>c.id===classOrder[nextIdx]):null;
+    const nextName=CLASS_PROG[cl.name];
+    const nextCl=nextName!==undefined?(nextName?DB.classes.find(c=>c.name===nextName)||null:null):null;
     const studRows=studs.map(s=>{
       const moy=stuMoy(s);
       const pass=moy===null||moy>=50;
@@ -12574,7 +12582,7 @@ window.printReport = (type) => {
     if(!k){toast('Élève introuvable','error');return;}
     const cl=gc(k.cid);
     const matieres=getClassMatieres(k.cid);
-    const isBilingual=cl&&cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+    const isBilingual=cl&&cl.teacher_id&&cl.teacher_id_en;
     const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
     const profEN=isBilingual?gu(cl.teacher_id_en):null;
     const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
@@ -12619,9 +12627,7 @@ window.printReport = (type) => {
       </div>
     </div>
     <table><tr><th>Matière</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th></tr>
-      ${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:sectionRows(matieres,'')}
-      ${enMats.length?`<tr><td colspan="5" style="background:#eaf3fc;font-weight:700;color:#205fae;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:'' }
-      ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:'' }
+      ${isBilingual?`${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:''} ${enMats.length?`<tr><td colspan="5" style="background:#eaf3fc;font-weight:700;color:#205fae;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:''} ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:sectionRows(matieres,'')}
     </table>
     ${(()=>{const conduct=DB.conduct.filter(c=>c.sid===k.id);if(!conduct.length)return '';const lbl={Excellent:'#1f9d6b',Bien:'#205fae',Moyen:'#d98a2b',Mauvais:'#dc2626'};const latest=conduct[conduct.length-1];return`<table><tr><th colspan="3">📊 Conduite & comportement</th></tr><tr><td>Note de conduite</td><td>${conduct.length} évaluation${conduct.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`})()}
     <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:30px">
@@ -12769,7 +12775,7 @@ window.downloadBulletin = (sid) => {
   const logoSrc=window.SCHOOL_LOGO||'';
   const cl=gc(k.cid);
   const matieres=getClassMatieres(k.cid);
-  const isBilingual=cl&&cl.cycle==='primaire'&&cl.teacher_id&&cl.teacher_id_en;
+  const isBilingual=cl&&cl.teacher_id&&cl.teacher_id_en;
   const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
   const profEN=isBilingual?gu(cl.teacher_id_en):null;
   const titulaire=cl?(gu(cl.titulaire_id)||profFR):null;
@@ -12853,10 +12859,8 @@ window.downloadBulletin = (sid) => {
   </div>
   <table>
     <tr><th style="text-align:left">Matière</th><th>Coeff</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th><th>Points</th></tr>
-    ${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`
-      :(isBilingual?'':`<tr class="section-hdr"><td colspan="7">📚 Toutes les matières</td></tr>${sectionRows(matieres,'📚')}`)}
-    ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''}
-    ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}
+    ${isBilingual?`${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`:''} ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''} ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:
+      `<tr class="section-hdr"><td colspan="7">📚 Toutes les matières</td></tr>${sectionRows(matieres,'📚')}`}
     <tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">TOTAL GÉNÉRAL →</td><td style="color:${mColor};font-size:14px">${grandPct}%</td><td style="color:${mColor};font-size:13px">${grandTot}/${grandMax} pts</td></tr>
   </table>
   ${grandPct<50?`<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b"><strong>⚠️ Matières insuffisantes (&lt;50%) :</strong> ${matieres.filter(m=>{const a=matAvgPct(k.id,m.name);return a!==null&&a<50;}).map(m=>m.name).join(', ')||'—'}</div>`:''}
@@ -16154,7 +16158,7 @@ window.viewArchive = (year) => {
 //  FEATURE #7 — ENAFEP CM2
 // ═══════════════════════════════════════════
 R.tenafep = () => {
-  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&(c.name.toUpperCase().includes('CM2')||c.name.toUpperCase().includes('6EME')||c.name.toUpperCase().includes('6ÈME'));});
+  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&c.cycle!=='secondaire'&&c.name.toUpperCase().includes('CM2');});
   const enafepData=DB.tenafep||[];
   const year=DB.settings.year||'2025-2026';
   const stats={admis:enafepData.filter(t=>t.result==='admis').length,echoue:enafepData.filter(t=>t.result==='echoue').length,attente:allCM2.length-enafepData.filter(t=>t.result==='admis'||t.result==='echoue').length};
@@ -16233,7 +16237,7 @@ window.saveTenafepRecord = (sid) => {
   toast('Enregistré','success');closeModal();render();
 };
 window.printTenafepList = () => {
-  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&(c.name.toUpperCase().includes('CM2')||c.name.toUpperCase().includes('6EME')||c.name.toUpperCase().includes('6ÈME'));});
+  const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&c.cycle!=='secondaire'&&c.name.toUpperCase().includes('CM2');});
   const ten=DB.tenafep||[];
   const sc=DB.settings.school||{};
   const yr=DB.settings.year||'2025-2026';
