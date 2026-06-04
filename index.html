@@ -1165,6 +1165,19 @@ window.DEFAULT_MATIERES = {
     {name:'Éducation Physique',lang:'commun',coeff:1},
     {name:'Dessin / Arts',lang:'commun',coeff:1},
     {name:'Musique / Chant',lang:'commun',coeff:1},
+  ],
+  secondaire: [
+    {name:'Mathématiques',lang:'fr',coeff:3},
+    {name:'Français',lang:'fr',coeff:3},
+    {name:'Anglais',lang:'fr',coeff:2},
+    {name:'Sciences Naturelles / Biologie',lang:'fr',coeff:2},
+    {name:'Physique-Chimie',lang:'fr',coeff:2},
+    {name:'Histoire',lang:'fr',coeff:1},
+    {name:'Géographie',lang:'fr',coeff:1},
+    {name:'Éducation Civique & Morale',lang:'fr',coeff:1},
+    {name:'Éducation Physique & Sport',lang:'fr',coeff:1},
+    {name:'Religion / Morale',lang:'fr',coeff:1},
+    {name:'Dessin Technique / Arts',lang:'fr',coeff:1},
   ]
 };
 
@@ -5314,15 +5327,17 @@ window._parQ = '';
 // ── CLASSES CRUD ──
 R.classes = () => {
   const _nMat=DB.classes.filter(c=>c.cycle==='maternelle').length;
-  const _nPrim=DB.classes.filter(c=>c.cycle!=='maternelle').length;
+  const _nPrim=DB.classes.filter(c=>c.cycle==='primaire').length;
+  const _nSec=DB.classes.filter(c=>c.cycle==='secondaire').length;
   const _nStu=DB.students.length;
   const _noTeach=DB.classes.filter(c=>!c.teacher_id&&!c.teacher_id_en).length;
   return `
-  <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+  <div class="hbento" style="grid-template-columns:repeat(${_nSec?5:4},1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🏫</div><div class="hbig" style="font-size:23px">${DB.classes.length}</div><div class="hsub">classes</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ff9c6e);color:#fff;padding:13px 8px"><div style="font-size:19px">🧸</div><div class="hbig" style="font-size:23px">${_nMat}</div><div class="hsub">maternelle</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📚</div><div class="hbig" style="font-size:23px">${_nPrim}</div><div class="hsub">primaire</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">🎓</div><div class="hbig" style="font-size:23px">${_nStu}</div><div class="hsub">élèves</div></div>
+    ${_nSec?`<div class="htile" style="background:linear-gradient(135deg,#0d9488,#2dd4bf);color:#fff;padding:13px 8px"><div style="font-size:19px">🎓</div><div class="hbig" style="font-size:23px">${_nSec}</div><div class="hsub">secondaire</div></div>`:''}
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👨‍🎓</div><div class="hbig" style="font-size:23px">${_nStu}</div><div class="hsub">élèves</div></div>
   </div>
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🏫 Classes (${DB.classes.length})</span>
@@ -5341,7 +5356,7 @@ R.classes = () => {
             <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${classDot(c.name)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:16px">${esc(c.name)}</div>
-              <div style="font-size:12px;color:var(--text-secondary);text-transform:capitalize">${c.cycle||'—'}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${{maternelle:'🧸 Maternelle',primaire:'📚 Primaire',secondaire:'🎓 Secondaire'}[c.cycle]||c.cycle||'—'}</div>
             </div>
             <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
           </div>
@@ -5369,9 +5384,9 @@ window.openClassForm = (cid) => {
 <input type="hidden" id="cls_id" value="${c?c.id:''}">
 <div class="form-row">
   <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
-  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()"><option value="primaire" ${!isMaternelle?'selected':''}>Primaire</option><option value="maternelle" ${isMaternelle?'selected':''}>Maternelle</option></select></div>
+  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()"><option value="primaire" ${c?.cycle==='primaire'||!c?'selected':''}>Primaire</option><option value="maternelle" ${c?.cycle==='maternelle'?'selected':''}>Maternelle</option><option value="secondaire" ${c?.cycle==='secondaire'?'selected':''}>Secondaire</option></select></div>
 </div>
-<div class="form-group" id="cls_tf_group" ${isMaternelle?'style="display:none"':''}><label class="form-label">🇫🇷 Professeur Français</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
+<div class="form-group" id="cls_tf_group" ${isMaternelle?'style="display:none"':''}><label class="form-label" id="cls_tf_label">${c?.cycle==='secondaire'?'🇫🇷 Professeur titulaire':'🇫🇷 Professeur Français'}</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
 <div class="form-group"><label class="form-label" id="cls_te_label">${isMaternelle?'Enseignant (Anglais)':'🇬🇧 Professeur Anglais'}</label><select class="form-select" id="cls_te" onchange="updateTitulaireOpts()">${teacherEnOpts}</select></div>
 <div class="form-group" id="cls_titulaire_group" ${isMaternelle?'style="display:none"':''}><label class="form-label">⭐ Titulaire de classe (responsable principal)</label>
   <select class="form-select" id="cls_titulaire">
@@ -5399,12 +5414,15 @@ window.updateTitulaireOpts = () => {
 window.updateClassCycleFields = () => {
   const cycle=$('cls_cycle').value;
   const isMat=cycle==='maternelle';
+  const isSec=cycle==='secondaire';
   const tfGroup=document.getElementById('cls_tf_group');
   const titGroup=document.getElementById('cls_titulaire_group');
   const teLabel=document.getElementById('cls_te_label');
   if(tfGroup) tfGroup.style.display=isMat?'none':'';
   if(titGroup) titGroup.style.display=isMat?'none':'';
-  if(teLabel) teLabel.textContent=isMat?'Enseignant (Anglais)':'🇬🇧 Professeur Anglais';
+  if(teLabel) teLabel.textContent=isMat?'Enseignant (Anglais)':isSec?'🇬🇧 Prof Anglais (optionnel)':'🇬🇧 Professeur Anglais';
+  const tfLabel=document.getElementById('cls_tf_label');
+  if(tfLabel) tfLabel.textContent=isSec?'🇫🇷 Professeur titulaire':'🇫🇷 Professeur Français';
   if(isMat&&$('cls_tf')) $('cls_tf').value='';
 };
 
@@ -5417,7 +5435,7 @@ window.saveClass = () => {
   const tid_en=$('cls_te').value||null;
   const tid_fr=isMat?null:($('cls_tf').value||null);
   const titId=isMat?tid_en:($('cls_titulaire')?($('cls_titulaire').value||null):null);
-  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId};
+  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||null};
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
@@ -6172,7 +6190,7 @@ R.children = () => {
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:20px;font-weight:900;color:${cc};line-height:1.2">${esc(k.name)}</div>
-          <div style="font-size:13px;color:${cc}bb;margin-top:3px">${c?esc(c.name):''} · ${c?c.cycle:''}</div>
+          <div style="font-size:13px;color:${cc}bb;margin-top:3px">${c?esc(c.name):''} · ${{maternelle:'Maternelle',primaire:'Primaire',secondaire:'Secondaire'}[c?.cycle]||c?.cycle||''}</div>
           <div style="font-size:11px;color:${cc}88;margin-top:2px">N° ${esc(k.mat||'—')}</div>
         </div>
         <button class="pp-btn" style="background:rgba(255,255,255,.22);color:${cc};border:1.5px solid rgba(255,255,255,.4);border-radius:12px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap" onclick="showChildQR('${k.id}')">Carte</button>
@@ -6445,11 +6463,12 @@ window.getClassMatieres = (cid) => {
   const custom=DB.matieres.filter(m=>m.cid===cid&&m.active!==false);
   if(custom.length) return custom;
   // Otherwise return defaults
-  if(cl.cycle==='maternelle') return DEFAULT_MATIERES.maternelle.map((m,i)=>({id:'dm'+i,cid,name:m.name,lang:m.lang,active:true}));
+  if(cl.cycle==='maternelle') return DEFAULT_MATIERES.maternelle.map((m,i)=>({id:'dm'+i,cid,name:m.name,lang:m.lang,coeff:m.coeff||1,active:true}));
+  if(cl.cycle==='secondaire') return DEFAULT_MATIERES.secondaire.map((m,i)=>({id:'ds'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
   return [
-    ...DEFAULT_MATIERES.primaire_fr.map((m,i)=>({id:'dfr'+i,cid,name:m.name,lang:'fr',active:true})),
-    ...DEFAULT_MATIERES.primaire_en.map((m,i)=>({id:'den'+i,cid,name:m.name,lang:'en',active:true})),
-    ...DEFAULT_MATIERES.commun.map((m,i)=>({id:'dc'+i,cid,name:m.name,lang:'commun',active:true})),
+    ...DEFAULT_MATIERES.primaire_fr.map((m,i)=>({id:'dfr'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true})),
+    ...DEFAULT_MATIERES.primaire_en.map((m,i)=>({id:'den'+i,cid,name:m.name,lang:'en',coeff:m.coeff||1,active:true})),
+    ...DEFAULT_MATIERES.commun.map((m,i)=>({id:'dc'+i,cid,name:m.name,lang:'commun',coeff:m.coeff||1,active:true})),
   ];
 };
 
@@ -7990,7 +8009,7 @@ window.openGradePanel = cid => {
   if(!matieres.length){toast(t('Aucune matière configurée','No subjects configured'),'error'); return;}
   window._gradeTrim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   window._gradeType = window._gradeType || 'devoir';
-  const isMaternelle = cl && (cl.cycle==='maternelle'||cl.name.toLowerCase().includes('mat')||cl.name.toLowerCase().includes('nursery')||cl.name.toLowerCase().includes('cp')||cl.name.toLowerCase().includes('gs')||cl.name.toLowerCase().includes('ms'));
+  const isMaternelle = cl && cl.cycle==='maternelle';
   const _tp=[[`devoir`,t('Devoir','Assignment'),'#9b6fd4'],[`interro`,t('⚠️ Interro','⚠️ Quiz'),'#f59e0b'],[`examen`,t('📝 Examen','📝 Exam'),'#dc2626'],[`composition`,t('Composition','Composition'),'#9b6fd4']];
 
   openM(`${t('📝 Saisir notes','📝 Enter Grades')} — ${cl.name}`, `
@@ -9492,7 +9511,8 @@ window.render = () => { stopScan(); _baseRender(); if(['scanner','scanner_exit']
 // ── 3-Level arrival system ──
 function getArrivalStatus(cycle) {
   const d=new Date(), mins=d.getHours()*60+d.getMinutes();
-  const h=DB.settings.horaires[cycle]||DB.settings.horaires.primaire;
+  const hr=DB.settings.horaires||{};
+  const h=hr[cycle]||hr.primaire||{ontime:455,late:480};
   if(mins<=h.ontime) return {status:'ontime', label:'À l\'heure', color:'green', level:1};
   if(mins<=h.late)   return {status:'late',   label:'Retard léger ⚠️', color:'orange', level:2};
   return                    {status:'refused', label:'Retard grave 🚫', color:'red', level:3};
@@ -12862,6 +12882,7 @@ R.settings = () => {
   const hr=DB.settings.horaires||{};
   const hp=hr.primaire||{ontime:455,late:480};
   const hm=hr.maternelle||{ontime:485,late:510};
+  const hs=hr.secondaire||{ontime:420,late:435};
   const tog=DB.settings.toggles||{};
   const minsToTime=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
   const lastSave=localStorage.getItem('schoolsafe_db_ts');
@@ -13039,6 +13060,15 @@ R.settings = () => {
         <input class="form-input" id="cfg_m_late" type="time" value="${minsToTime(hm.late)}">
       </div>
     </div>
+    <div style="font-weight:600;font-size:13px;margin:8px 0;color:#0d9488">🎓 Secondaire</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">À l'heure jusqu'à</label>
+        <input class="form-input" id="cfg_s_ontime" type="time" value="${minsToTime(hs.ontime)}">
+      </div>
+      <div class="form-group"><label class="form-label">⚠️ Retard léger jusqu'à</label>
+        <input class="form-input" id="cfg_s_late" type="time" value="${minsToTime(hs.late)}">
+      </div>
+    </div>
     <button class="btn btn-primary" style="width:100%" onclick="saveSettingsHoraires()">💾 Enregistrer les horaires</button>
   </div>
 
@@ -13173,6 +13203,10 @@ window.saveSettingsHoraires = () => {
   DB.settings.horaires.maternelle={
     ontime:timeToMins($('cfg_m_ontime')?.value),
     late:timeToMins($('cfg_m_late')?.value)
+  };
+  DB.settings.horaires.secondaire={
+    ontime:timeToMins($('cfg_s_ontime')?.value),
+    late:timeToMins($('cfg_s_late')?.value)
   };
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('Horaires d\'entrée mis à jour','success'); render();
