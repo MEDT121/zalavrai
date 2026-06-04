@@ -1302,6 +1302,10 @@ window.NAV = {
       {id:'cahier_texte',i:'●',l:{fr:'Cahier de texte',en:'Lesson Book'}},
       {id:'timetable',i:'●',l:{fr:'Emploi du temps',en:'Timetable'}},
       {id:'teacher_comm',i:'●',l:{fr:'Communication co-titulaire',en:'Co-teacher Chat'}},
+      {s:{fr:'Portail scolaire',en:'School Gate'}},
+      {id:'scanner',i:'📷',l:{fr:'Scanner Entrée',en:'Entry Scan'}},
+      {id:'scanner_exit',i:'●',l:{fr:'Scanner Sortie',en:'Exit Scan'}},
+      {id:'scan_log',i:'📜',l:{fr:'Historique portail',en:'Gate Log'}},
       {s:{fr:'Mon compte',en:'My Account'}},
       {id:'mes_primes',i:'●',l:{fr:'Mes primes',en:'My Bonuses'}},
       {id:'mes_absences',i:'●',l:{fr:'Mes absences',en:'My Absences'}},
@@ -9656,7 +9660,7 @@ window.processScanEntry = async code => {
   if(fc.active){
     const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
-      const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry'};
+      const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
       DB.scan_log.unshift(log); pushSync('scan_log','post',log);
       // Notifier Direction
       DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
@@ -9674,7 +9678,7 @@ window.processScanEntry = async code => {
 
   // Check per-student access block set by Direction
   if(student.access_blocked){
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué',type:'entry'};
+    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
@@ -9697,7 +9701,7 @@ window.processScanEntry = async code => {
     // Enter + notify parent
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime'};
     DB.attendance.push(att); pushSync('attendance','post',att);
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry'};
+    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','!','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
@@ -9710,7 +9714,7 @@ window.processScanEntry = async code => {
   if(res.level===2){
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late'};
     DB.attendance.push(att); pushSync('attendance','post',att);
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry'};
+    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
     showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré`,time);
@@ -9720,7 +9724,7 @@ window.processScanEntry = async code => {
 
   // ── NIVEAU 3 : RETARD GRAVE — REFUSÉ ──
   // L'enfant NE RENTRE PAS — alerte Direction
-  const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry'};
+  const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   await pushNotif('u1',`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
   showScanResult('red','✕','RETARD GRAVE — REFUSÉ',student.name,'En attente de décision de la Direction',time);
@@ -9985,9 +9989,9 @@ R.scan_log = () => {
         <div class="ww-item-content">
           <div class="ww-item-title">${esc(l.name)}</div>
           <div class="ww-item-sub">${l.type==='entry'?'Entrée':'Sortie'}${l.label?' — '+esc(l.label):''}</div>
-          ${l.type==='exit'&&byLabel?`<div style="font-size:11px;color:#9b6fd4;margin-top:2px;display:flex;align-items:center;gap:4px">
-            <span style="width:18px;height:18px;border-radius:50%;background:#f0e9fa;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#9b6fd4;flex-shrink:0">${ini(byLabel)}</span>
-            <span>Autorisé par ${esc(byLabel)}</span>
+          ${byLabel?`<div style="font-size:11px;color:${l.by_role==='enseignant'?'#1f9d6b':l.by_role==='direction'||l.by_role==='direction2'?'#205fae':'#9b6fd4'};margin-top:2px;display:flex;align-items:center;gap:4px">
+            <span style="width:18px;height:18px;border-radius:50%;background:${l.by_role==='enseignant'?'#d8f3e6':l.by_role==='direction'||l.by_role==='direction2'?'#dbeafe':'#f0e9fa'};display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">${ini(byLabel)}</span>
+            <span>${l.type==='exit'?'Autorisé par':'Scanné par'} ${esc(byLabel)} <span style="opacity:.6;font-size:10px">(${l.by_role==='enseignant'?'Prof':l.by_role==='gardien'?'Gardien':'Direction'})</span></span>
           </div>`:''}
         </div>
         <span style="font-size:13px;font-weight:700;color:var(--text-secondary)">${l.time}</span>
