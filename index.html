@@ -1182,18 +1182,22 @@ window.syncQueue = {
   clear() { localStorage.removeItem(SYNC_QUEUE_KEY); },
   count() { return this.load().length; },
   async flush() {
-    const queue = this.load();
+    let queue = this.load();
     if (!queue.length || !DB_ONLINE) return 0;
-    let done = 0, failed = 0;
+    let done = 0;
+    const remaining = [];
     for (const item of queue) {
       try {
-        if (item.op === 'upsert') { if (await _upsert(item.table, item.data)) done++; else failed++; }
-        else if (item.op === 'post') { if (await _post(item.table, item.data)) done++; else failed++; }
-        else if (item.op === 'patch') { if (await _patch(item.table, item.data.query, item.data.body)) done++; else failed++; }
-        else if (item.op === 'delete') { if (await _del(item.table, item.data.query)) done++; else failed++; }
-      } catch(e) { failed++; }
+        let ok = false;
+        if (item.op === 'upsert') ok = await _upsert(item.table, item.data);
+        else if (item.op === 'post') ok = await _post(item.table, item.data);
+        else if (item.op === 'patch') ok = await _patch(item.table, item.data.query, item.data.body);
+        else if (item.op === 'delete') ok = await _del(item.table, item.data.query);
+        if (ok) done++; else remaining.push(item);
+      } catch(e) { remaining.push(item); }
     }
-    if (done > 0 && failed === 0) this.clear();
+    if (remaining.length === 0) this.clear();
+    else localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
     return done;
   }
 };
@@ -1826,7 +1830,10 @@ window.forceSyncDB = async () => {
     const ok = await loadFromSupabase();
     window._lastSyncTime = nowTime();
     if (ok) {
-      toast(`✅ Sync complète — ${DB.students.length} élèves · ${DB.users.length} comptes`,'success');
+      const flushed = await syncQueue.flush();
+      updateSyncIndicator();
+      const extra = flushed > 0 ? ` · ${flushed} changement(s) envoyé(s)` : '';
+      toast(`✅ Sync complète — ${DB.students.length} élèves · ${DB.users.length} comptes${extra}`,'success');
     } else {
       toast('🔴 Hors ligne — données locales conservées','warning');
     }
@@ -13078,9 +13085,10 @@ R.settings = () => {
     </div>
     <div class="premium-item"><div class="pi-icon" style="background:#fdeccd">🔄</div>
       <div style="flex:1"><div class="pi-title">File en attente</div><div class="pi-sub">${syncQueue.count()} opération(s) non synchronisée(s)</div></div>
-      ${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>toast(''+n+' envoyés','success'))">Vider</button>`:''}
+      ${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>{updateSyncIndicator();toast(n>0?n+' envoyés ✅':'Aucun envoyé — vérifier connexion','info');render();})">Envoyer</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="showC('Effacer la file','Supprimer les ${syncQueue.count()} opération(s) bloquées ? (les données déjà en base ne seront pas affectées)',()=>{syncQueue.clear();updateSyncIndicator();toast('File vidée','success');render();})">Effacer</button>`:''}
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="forceSyncNow()">🔄 Forcer la synchronisation</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="forceSyncNow()">🔄 Forcer la synchronisation complète</button>
   </div>
 
   <!-- ══ CARTES & VERSION ══ -->
