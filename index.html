@@ -4111,7 +4111,7 @@ async function checkLicense() {
   try {
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), 5000);
-    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name,supabase_url,supabase_anon_key', {
+    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name,supabase_url,supabase_anon_key,features', {
       headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY},
       signal: ctrl.signal
     });
@@ -4134,6 +4134,8 @@ async function checkLicense() {
         localStorage.setItem('_school_supa_url', sc.supabase_url);
         localStorage.setItem('_school_supa_key', sc.supabase_anon_key);
       }
+      window._schoolFeatures = sc.features || {};
+      localStorage.setItem('_school_features', JSON.stringify(sc.features||{}));
       return {valid:true, supabaseUrl:sc.supabase_url, supabaseKey:sc.supabase_anon_key};
     }
     return {valid:false, reason:sc.status, expiry:sc.expiry_date};
@@ -4142,6 +4144,7 @@ async function checkLicense() {
     const st = localStorage.getItem('_lc_status')||'';
     const daysSince = ts ? (Date.now()-ts)/86400000 : 999;
     if(daysSince <= LICENSE_GRACE_DAYS && st==='active') {
+      try { window._schoolFeatures = JSON.parse(localStorage.getItem('_school_features')||'{}'); } catch(e) { window._schoolFeatures={}; }
       return {valid:true, offline:true, daysLeft:Math.ceil(LICENSE_GRACE_DAYS-daysSince)};
     }
     return {valid:false, reason:'offline'};
@@ -4470,6 +4473,38 @@ function initCardSystem() {
 
 // ── CARDS PREVIEW (Direction) ──
 R.cards = () => {
+  const cardsEnabled = !!(window._schoolFeatures?.cards);
+
+  // ── Locked state: operator must enable card generation ──
+  if (!cardsEnabled) {
+    const wa = window._OPERATOR_WA || '243978444167';
+    const schoolName = DB.settings?.school?.name || 'notre école';
+    const waMsg = encodeURIComponent(`Bonjour, je suis la Direction de ${schoolName}. Je souhaite activer la génération de cartes élèves sur SchoolSafe. Merci.`);
+    return `
+<div style="text-align:center;padding:48px 20px;animation:fadeInUp .4s ease both">
+  <div style="font-size:72px;margin-bottom:16px">🔒</div>
+  <div style="font-size:20px;font-weight:800;margin-bottom:8px">Génération de cartes non activée</div>
+  <div style="font-size:14px;color:var(--text-secondary);max-width:340px;margin:0 auto 28px;line-height:1.6">Cette fonctionnalité doit être activée par votre opérateur SchoolSafe. Contactez-le pour l'activer sur votre compte.</div>
+  <a href="https://wa.me/${wa}?text=${waMsg}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:#25d366;color:#fff;border-radius:14px;padding:14px 24px;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.3)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.556 4.122 1.528 5.862L.057 23.428a.5.5 0 00.615.615l5.566-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.946 0-3.773-.5-5.365-1.378l-.385-.214-3.991 1.046 1.046-3.991-.214-.385A9.946 9.946 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+    📱 Contacter l'opérateur
+  </a>
+</div>
+<div class="premium-section" style="margin-top:16px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">📦 Commander les cartes</div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Générez le PDF de toute une classe et envoyez-le à l'opérateur SchoolSafe pour impression.</div>
+  <div class="form-group">
+    <label class="form-label">Classe à imprimer</label>
+    <select class="form-select" id="order_class">
+      <option value="">Toute l'école (${(DB.students||[]).filter(s=>!s.blocked).length} élèves)</option>
+      ${(DB.classes||[]).map(cl=>{const n=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.blocked).length;return n?`<option value="${cl.id}">${esc(cl.name)} (${n} élèves)</option>`:''}).join('')}
+    </select>
+  </div>
+  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700" onclick="orderCards($('order_class')?.value||null)">📄 Générer le PDF et commander</button>
+  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">Le PDF sera téléchargé sur votre appareil · Envoyez-le à l'opérateur par WhatsApp</div>
+</div>`;
+  }
+
   window._cardReady = false;
   setTimeout(initCardSystem, 100);
   return `
