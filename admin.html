@@ -1463,6 +1463,9 @@ function renderOrders() {
     if (o.status === 'printing') {
       actions.push('<button class="btn btn-success btn-sm" onclick="setOrderStatus(\'' + o.id + '\',\'delivered\')">✅ Livré</button>');
     }
+    if (o.status === 'pending' || o.status === 'printing') {
+      actions.push('<button class="btn btn-primary btn-sm" onclick="generateCardsForOrder(\'' + o.id + '\')">🎨 Générer</button>');
+    }
     actions.push('<button class="btn btn-outline btn-sm" onclick="openOrderModal(\'' + o.id + '\')">📝 Notes</button>');
     return `
       <tr>
@@ -2147,6 +2150,7 @@ document.addEventListener('keydown', function(e) {
     closeSiteEditor();
     closeAnnModal();
     closeSettings();
+    if(typeof window.closeGenModal==='function') window.closeGenModal();
   }
 });
 
@@ -2174,6 +2178,319 @@ document.addEventListener('keydown', function(e) {
     if (lp) lp.focus();
   }, 100);
 })();
+
+// ════════════════════════════════════════
+//  CARD GENERATION ENGINE
+// ════════════════════════════════════════
+(function() {
+
+const ADM_W = 1016, ADM_H = 638;
+
+const admCardClasses = [
+  { label:"1. Petite Section",  short:"PS",  color:"#e83e8c", dark:"#9d174d", light:"#ffe4f1" },
+  { label:"2. Moyenne Section", short:"MS",  color:"#ff7a4d", dark:"#9a3412", light:"#ffedd5" },
+  { label:"3. Grande Section",  short:"GS",  color:"#eab308", dark:"#854d0e", light:"#fef9c3" },
+  { label:"4. CP1",  short:"CP1", color:"#1f9d6b", dark:"#15603f", light:"#dcfce7" },
+  { label:"5. CP2",  short:"CP2", color:"#2f7bd6", dark:"#243a6b", light:"#dbeafe" },
+  { label:"6. CE1",  short:"CE1", color:"#9b6fd4", dark:"#5e3a92", light:"#f0e9fa" },
+  { label:"7. CE2",  short:"CE2", color:"#0ea5a4", dark:"#134e4a", light:"#ccfbf1" },
+  { label:"8. CM1",  short:"CM1", color:"#ef5b5b", dark:"#991b1b", light:"#fee2e2" },
+  { label:"9. CM2",  short:"CM2", color:"#0b2e6d", dark:"#020617", light:"#dbeafe" },
+  { label:"10. 6ème",  short:"6e",  color:"#0369a1", dark:"#082f49", light:"#e0f2fe" },
+  { label:"11. 5ème",  short:"5e",  color:"#0891b2", dark:"#164e63", light:"#cffafe" },
+  { label:"12. 4ème",  short:"4e",  color:"#0d9488", dark:"#134e4a", light:"#ccfbf1" },
+  { label:"13. 3ème",  short:"3e",  color:"#059669", dark:"#064e3b", light:"#d1fae5" },
+  { label:"14. 2nde",  short:"2e",  color:"#7c3aed", dark:"#4c1d95", light:"#ede9fe" },
+  { label:"15. 1ère",  short:"1e",  color:"#9333ea", dark:"#581c87", light:"#f3e8ff" },
+  { label:"16. Terminale", short:"Ter", color:"#b91c1c", dark:"#450a0a", light:"#fee2e2" }
+];
+
+const admClassIdx = {
+  'Petite Section':0,'Moyenne Section':1,'Grande Section':2,
+  'CP1':3,'CP2':4,'CE1':5,'CE2':6,'CM1':7,'CM2':8,
+  '6ème':9,'5ème':10,'4ème':11,'3ème':12,'2nde':13,'1ère':14,'Terminale':15
+};
+
+let admSchoolImg = new Image();
+let admPhotoImg  = null;
+let _genCards    = [];
+
+function admRr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function admFillRound(ctx,x,y,w,h,r,fill){ctx.fillStyle=fill;admRr(ctx,x,y,w,h,r);ctx.fill();}
+function admStrokeRound(ctx,x,y,w,h,r,color,lw){ctx.strokeStyle=color;ctx.lineWidth=lw||2;admRr(ctx,x,y,w,h,r);ctx.stroke();}
+function admCover(ctx,img,x,y,w,h,r){if(!img||!img.width||!img.height)return;const s=Math.max(w/img.width,h/img.height);const nw=img.width*s,nh=img.height*s;ctx.save();if(r){admRr(ctx,x,y,w,h,r);ctx.clip();}ctx.drawImage(img,x+(w-nw)/2,y+(h-nh)/2,nw,nh);ctx.restore();}
+function admContain(ctx,img,x,y,w,h){if(!img||!img.width||!img.height)return;const s=Math.min(w/img.width,h/img.height);const nw=img.width*s,nh=img.height*s;ctx.drawImage(img,x+(w-nw)/2,y+(h-nh)/2,nw,nh);}
+function admTextFit(ctx,txt,x,y,maxW,size,weight,color,align){let fs=size||32;ctx.textAlign=align||"left";ctx.textBaseline="alphabetic";do{ctx.font=(weight||"900")+" "+fs+"px Arial";fs--;}while(ctx.measureText(txt).width>maxW&&fs>18);ctx.fillStyle=color||"#241f1a";ctx.fillText(txt,x,y);}
+function admLine(ctx,x1,y1,x2,y2,color,lw){ctx.strokeStyle=color;ctx.lineWidth=lw||2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+function admDrawFlag(ctx,x,y,w,h){ctx.fillStyle="#205fae";ctx.fillRect(x,y,w,h);ctx.fillStyle="#facc15";ctx.beginPath();ctx.moveTo(x+w*.20,y+h*.20);ctx.lineTo(x+w*.25,y+h*.39);ctx.lineTo(x+w*.45,y+h*.39);ctx.lineTo(x+w*.29,y+h*.50);ctx.lineTo(x+w*.35,y+h*.70);ctx.lineTo(x+w*.20,y+h*.58);ctx.lineTo(x+w*.05,y+h*.70);ctx.lineTo(x+w*.11,y+h*.50);ctx.lineTo(x-w*.05,y+h*.39);ctx.lineTo(x+w*.15,y+h*.39);ctx.closePath();ctx.fill();ctx.strokeStyle="#ef5b5b";ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(x+w*.30,y+h);ctx.lineTo(x+w,y);ctx.stroke();ctx.strokeStyle="#facc15";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x+w*.24,y+h);ctx.lineTo(x+w*.94,y);ctx.stroke();}
+
+function admDrawQrVisual(ctx, payload, x, y, size, classColor) {
+  admFillRound(ctx,x,y,size,size,14,"white");
+  return new Promise(resolve => {
+    try {
+      if (typeof QRCode !== "undefined") {
+        const holder = document.createElement("div");
+        holder.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:"+size+"px;height:"+size+"px";
+        document.body.appendChild(holder);
+        new QRCode(holder, {text:String(payload),width:size,height:size,colorDark:"#241f1a",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel?QRCode.CorrectLevel.H:2});
+        const qrCanvas=holder.querySelector("canvas"),qrImg=holder.querySelector("img");
+        const done=()=>{try{if(qrCanvas)ctx.drawImage(qrCanvas,x,y,size,size);else if(qrImg)ctx.drawImage(qrImg,x,y,size,size);}catch(_){}admStrokeRound(ctx,x,y,size,size,14,classColor,5);if(holder.parentNode)document.body.removeChild(holder);resolve();};
+        if(qrCanvas){setTimeout(done,0);return;}
+        if(qrImg){if(qrImg.complete&&qrImg.naturalWidth){done();return;}qrImg.onload=done;qrImg.onerror=done;return;}
+        if(holder.parentNode)document.body.removeChild(holder);
+      }
+    } catch(e) {}
+    admStrokeRound(ctx,x,y,size,size,14,classColor,5);
+    let seed=2166136261;
+    for(let i=0;i<payload.length;i++)seed=Math.imul(seed^payload.charCodeAt(i),16777619);
+    function rnd(){seed=Math.imul(seed+0x6D2B79F5,1);seed^=seed>>>15;return((seed>>>0)%1000)/1000;}
+    const n=31,csz=size/n;
+    function finder(cx,cy){ctx.fillStyle="#241f1a";ctx.fillRect(x+cx*csz,y+cy*csz,7*csz,7*csz);ctx.fillStyle="#fff";ctx.fillRect(x+(cx+1)*csz,y+(cy+1)*csz,5*csz,5*csz);ctx.fillStyle="#241f1a";ctx.fillRect(x+(cx+2)*csz,y+(cy+2)*csz,3*csz,3*csz);}
+    finder(2,2);finder(22,2);finder(2,22);
+    ctx.fillStyle="#241f1a";
+    for(let r=0;r<n;r++){for(let col=0;col<n;col++){const f1=col>=2&&col<9&&r>=2&&r<9,f2=col>=22&&col<29&&r>=2&&r<9,f3=col>=2&&col<9&&r>=22&&r<29;if(!f1&&!f2&&!f3&&rnd()>.56)ctx.fillRect(x+col*csz,y+r*csz,Math.ceil(csz),Math.ceil(csz));}}
+    resolve();
+  });
+}
+
+async function admDrawFront(ctx, d) {
+  const c = admCardClasses[d.classIdx||0];
+  ctx.clearRect(0,0,ADM_W,ADM_H);
+  const g=ctx.createLinearGradient(0,0,ADM_W,ADM_H);g.addColorStop(0,"#eaf7ff");g.addColorStop(.42,"#bde9ff");g.addColorStop(1,"#f8fbff");ctx.fillStyle=g;ctx.fillRect(0,0,ADM_W,ADM_H);
+  admFillRound(ctx,24,24,ADM_W-48,ADM_H-48,38,c.dark);admFillRound(ctx,44,44,ADM_W-88,ADM_H-88,30,"#e6f6ff");
+  const top=ctx.createLinearGradient(44,44,972,214);top.addColorStop(0,c.dark);top.addColorStop(.55,c.color);top.addColorStop(1,"#0b2e6d");admFillRound(ctx,44,44,928,178,28,top);
+  ctx.save();ctx.globalAlpha=.46;for(let i=0;i<6;i++){ctx.strokeStyle=i%2?"#ffffff":"#f2c79a";ctx.lineWidth=5-i*.35;ctx.beginPath();ctx.moveTo(50,210+i*12);ctx.bezierCurveTo(255,150+i*6,390,250+i*4,560,190+i*9);ctx.bezierCurveTo(740,125+i*7,820,185+i*5,970,150+i*10);ctx.stroke();}ctx.restore();
+  admFillRound(ctx,72,72,150,84,8,"rgba(255,255,255,.18)");admDrawFlag(ctx,82,82,130,64);
+  admFillRound(ctx,810,58,130,130,65,"rgba(255,255,255,.92)");admContain(ctx,admSchoolImg,822,70,106,106);
+  ctx.shadowColor="rgba(0,0,0,.25)";ctx.shadowBlur=4;ctx.shadowOffsetY=2;
+  admTextFit(ctx,"REPUBLIQUE DEMOCRATIQUE DU CONGO",250,106,520,33,"950","#fff");
+  admTextFit(ctx,(d.schoolName||'').toUpperCase(),250,158,515,37,"950","#fff");
+  ctx.font="800 22px Arial";ctx.fillStyle="#eaf7ff";ctx.textAlign="left";ctx.textBaseline="alphabetic";ctx.fillText((d.schoolNameEn||'').toUpperCase(),252,195);
+  ctx.shadowColor="transparent";
+  admFillRound(ctx,360,238,296,56,24,c.color);ctx.font="950 29px Arial";ctx.fillStyle="#fff";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("CARTE D'ELEVE",508,266);
+  admFillRound(ctx,72,260,210,278,18,"#ffffff");admStrokeRound(ctx,72,260,210,278,18,c.color,6);
+  if(admPhotoImg)admCover(ctx,admPhotoImg,86,276,182,210,16);
+  else{admFillRound(ctx,86,276,182,210,16,"#efe3d3");ctx.fillStyle="#a89c8b";ctx.beginPath();ctx.arc(177,350,48,0,Math.PI*2);ctx.fill();admFillRound(ctx,119,402,116,64,24,"#a89c8b");ctx.fillStyle="#fff";ctx.font="950 28px Arial";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("PHOTO",177,392);}
+  ctx.fillStyle="#0b63b8";ctx.font="950 24px Arial";ctx.textAlign="left";ctx.textBaseline="alphabetic";ctx.fillText("SchoolSafe",150,520);
+  const lx=330,vx=535;
+  const rows=[["NOM",(d.nom||'').toUpperCase()],["MATRICULE",(d.mat||'').toUpperCase()],["CLASSE",c.label],["DATE NAISS.",d.dob||''],["VALIDITE",d.validite||'']];
+  let y=334;rows.forEach(function(r,idx){ctx.fillStyle="#241f1a";ctx.font="900 28px Arial";ctx.textAlign="left";ctx.textBaseline="alphabetic";ctx.fillText(r[0]+" :",lx,y);admLine(ctx,lx,y+12,760,y+12,"rgba(14,116,144,.25)",2);admTextFit(ctx,r[1],idx===0?420:vx,y,idx===0?390:240,27,"900","#241f1a");y+=54;});
+  ctx.setLineDash([16,14]);admLine(ctx,330,560,760,560,c.color,4);ctx.setLineDash([]);
+  ctx.font="950 34px Arial";ctx.fillStyle="#241f1a";ctx.textAlign="left";ctx.textBaseline="alphabetic";ctx.fillText("ID:",330,608);
+  admTextFit(ctx,d.sid||'',405,608,350,34,"950","#241f1a");
+  admFillRound(ctx,792,298,156,190,18,"rgba(255,255,255,.88)");
+  await admDrawQrVisual(ctx,"schoolsafe://student/"+(d.sid||'')+"/"+(d.mat||''),806,315,128,c.color);
+  ctx.fillStyle=c.dark;ctx.font="950 15px Arial";ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText("SCAN GARDIEN",870,468);
+  admFillRound(ctx,44,562,928,32,0,c.color);
+  ctx.font="950 21px Arial";ctx.fillStyle="#fff";ctx.textAlign="center";
+  ctx.fillText(c.label.toUpperCase()+(d.motto?"  *  "+d.motto.toUpperCase():""),508,586);
+}
+
+async function admDrawBack(ctx, d) {
+  const c = admCardClasses[d.classIdx||0];
+  ctx.clearRect(0,0,ADM_W,ADM_H);
+  const g=ctx.createLinearGradient(0,0,ADM_W,ADM_H);g.addColorStop(0,"#f8fbff");g.addColorStop(.55,"#fdeeda");g.addColorStop(1,"#fff");ctx.fillStyle=g;ctx.fillRect(0,0,ADM_W,ADM_H);
+  admFillRound(ctx,24,24,ADM_W-48,ADM_H-48,38,c.dark);admFillRound(ctx,44,44,ADM_W-88,ADM_H-88,30,"#ffffff");
+  ctx.save();ctx.globalAlpha=.07;admContain(ctx,admSchoolImg,260,105,500,500);ctx.restore();
+  admFillRound(ctx,44,44,928,126,30,c.dark);admContain(ctx,admSchoolImg,72,64,86,86);
+  ctx.fillStyle="#fff";ctx.textAlign="left";ctx.textBaseline="alphabetic";
+  ctx.font="950 34px Arial";ctx.fillText((d.schoolNameEn||d.schoolName||'SchoolSafe').toUpperCase(),180,96);
+  ctx.font="850 22px Arial";ctx.fillText("SchoolSafe",180,130);
+  ctx.font="700 17px Arial";ctx.fillText(d.motto||'',180,154);
+  ctx.font="950 17px Arial";ctx.textAlign="center";ctx.fillText("SchoolSafe",884,154);
+  admFillRound(ctx,76,220,520,280,24,"#fff5ea");admStrokeRound(ctx,76,220,520,280,24,"#dbeafe",3);
+  ctx.textAlign="left";ctx.fillStyle="#241f1a";ctx.font="950 27px Arial";ctx.fillText("Verification de sortie",104,268);
+  const brows=[["Eleve",d.nom||''],["Classe",c.label],["Parent / tuteur",d.parent||''],["Tel. parent",d.parentTel||''],["Enseignant(e)",d.teacher||'']];
+  let by=316;brows.forEach(function(row){ctx.fillStyle="#6f6557";ctx.font="900 17px Arial";ctx.fillText(row[0],104,by);admTextFit(ctx,row[1]||'',285,by,280,22,"900","#241f1a");by+=36;});
+  admFillRound(ctx,656,220,282,280,24,"#ffffff");admStrokeRound(ctx,656,220,282,280,24,c.color,5);
+  await admDrawQrVisual(ctx,"schoolsafe://verify/"+(d.sid||'')+"/"+(d.mat||''),708,250,178,c.color);
+  ctx.fillStyle="#241f1a";ctx.font="950 21px Arial";ctx.textAlign="center";ctx.textBaseline="alphabetic";ctx.fillText("SCAN SORTIE",797,455);
+  ctx.fillStyle="#5c5346";ctx.font="800 15px Arial";ctx.fillText("photos + personnes autorisees",797,480);
+  admFillRound(ctx,76,526,862,66,22,c.color);
+  ctx.fillStyle="#fff";ctx.font="900 20px Arial";ctx.textAlign="center";
+  ctx.fillText("Direction : "+(d.schoolPhone||'')+"   *   Email : "+(d.schoolEmail||''),507,558);
+  ctx.font="800 16px Arial";
+  ctx.fillText("Cette carte est strictement personnelle et doit etre presentee au gardien.",507,582);
+}
+
+window.closeGenModal = function() {
+  document.getElementById('gen-modal').style.display='none';
+  _genCards=[];
+};
+
+function updateGenProgress(n, total, name) {
+  var bar=document.getElementById('gen-bar'),txt=document.getElementById('gen-status');
+  if(bar) bar.style.width=Math.round(n/total*100)+'%';
+  if(txt) txt.textContent=n+'/'+total+' -- '+(name||'');
+}
+
+function loadAdmSchoolLogo(src) {
+  admSchoolImg = new Image();
+  if(!src) return Promise.resolve();
+  admSchoolImg.crossOrigin = 'anonymous';
+  return new Promise(function(resolve) {
+    admSchoolImg.onload = resolve;
+    admSchoolImg.onerror = resolve;
+    admSchoolImg.src = src;
+    setTimeout(resolve, 4000);
+  });
+}
+
+function loadAdmPhoto(src) {
+  admPhotoImg = null;
+  if(!src) return Promise.resolve();
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { admPhotoImg = img; resolve(); };
+    img.onerror = resolve;
+    img.src = src;
+    setTimeout(resolve, 4000);
+  });
+}
+
+function admApiSchool(supaUrl, supaKey, table, query) {
+  var url = supaUrl.replace(/\/$/, '')+'/rest/v1/'+table+(query?'?'+query:'');
+  return fetch(url, {headers:{'apikey':supaKey,'Authorization':'Bearer '+supaKey}}).then(function(r) {
+    if(!r.ok) throw new Error('HTTP '+r.status+' ('+table+')');
+    return r.json();
+  });
+}
+
+window.generateCardsForOrder = async function(orderId) {
+  var order = DB_orders.find(function(o){return o.id===orderId;});
+  if (!order) { toast('Commande introuvable','error'); return; }
+
+  var licKey = ((order.notes||'').match(/Licence: ([^|]+)/)||[])[1];
+  if(licKey) licKey=licKey.trim();
+  var school = DB_schools.find(function(s){return (licKey&&s.license_key===licKey)||s.name===order.school_name;});
+
+  if (!school || !school.supabase_url || !school.supabase_anon_key) {
+    toast('Identifiants Supabase manquants pour cette ecole -- verifiez la fiche ecole','error');
+    return;
+  }
+
+  document.getElementById('gen-modal').style.display='flex';
+  document.getElementById('gen-download-btn').style.display = 'none';
+  document.getElementById('gen-bar').style.width = '0%';
+  document.getElementById('gen-status').textContent = 'Chargement des donnees ecole...';
+  _genCards = [];
+  window._redownloadGenPDF = null;
+
+  try {
+    var results = await Promise.all([
+      admApiSchool(school.supabase_url, school.supabase_anon_key, 'students', 'blocked=eq.false&select=id,name,mat,cid,pid,photo,dob,adresse,nom_papa,nom_maman'),
+      admApiSchool(school.supabase_url, school.supabase_anon_key, 'classes'),
+      admApiSchool(school.supabase_url, school.supabase_anon_key, 'users', 'select=id,name,role,phone'),
+      admApiSchool(school.supabase_url, school.supabase_anon_key, 'settings')
+    ]);
+    var students=results[0]||[], classes=results[1]||[], users=results[2]||[], settings=(results[3]||[])[0]||{};
+    var sc = settings.school||{};
+
+    var className = ((order.notes||'').match(/Classe: ([^|]+)/)||[])[1];
+    if(className) className=className.trim();
+    var targets = students;
+    if (className && className !== "Toute l'ecole") {
+      var cl2 = classes.find(function(c){return c.name===className;});
+      if (cl2) targets = students.filter(function(s){return s.cid===cl2.id;});
+    }
+    if (!targets.length) { toast('Aucun eleve trouve pour cette commande','error'); window.closeGenModal(); return; }
+
+    await loadAdmSchoolLogo(sc.logo||null);
+
+    var fc = document.getElementById('adm-front');
+    var bc = document.getElementById('adm-back');
+
+    for (var i = 0; i < targets.length; i++) {
+      var s = targets[i];
+      updateGenProgress(i+1, targets.length, s.name);
+      var cl = classes.find(function(c){return c.id===s.cid;});
+      var parent = users.find(function(u){return u.id===s.pid;});
+      var teacher = cl ? users.find(function(u){return u.id===cl.teacher_id;}) : null;
+      var cname = cl?cl.name:'';
+      var classIdx = admClassIdx[cname]!==undefined ? admClassIdx[cname] : 0;
+      var d = {
+        nom: s.name||'', mat: s.mat||'', sid: s.id||'',
+        dob: s.dob||'', validite: settings.year||'2025-2026',
+        adresse: s.adresse||sc.address||'Kinshasa / RDC',
+        parent: parent?parent.name:(s.nom_papa||s.nom_maman||''),
+        parentTel: parent?(parent.phone||''):'',
+        teacher: teacher?teacher.name:'',
+        classIdx: classIdx,
+        schoolName: sc.name||school.name||'',
+        schoolNameEn: sc.name_en||sc.sub||'',
+        schoolPhone: sc.phone||'',
+        schoolEmail: sc.email||'',
+        motto: sc.motto||''
+      };
+      await loadAdmPhoto(s.photo||null);
+      await admDrawFront(fc.getContext('2d'), d);
+      await admDrawBack(bc.getContext('2d'), d);
+      _genCards.push({name:s.name, front:fc.toDataURL('image/jpeg',0.88), back:bc.toDataURL('image/jpeg',0.88)});
+    }
+
+    var schoolN=(school.name||'Ecole').replace(/\s+/g,'_');
+    var classN=(className||'All').replace(/\s+/g,'_');
+    var fname='Cartes_'+schoolN+'_'+classN+'_'+new Date().toISOString().slice(0,10)+'.pdf';
+
+    document.getElementById('gen-status').textContent = 'Generation PDF...';
+    await _buildAndDownloadPDF(fname);
+
+    window._redownloadGenPDF = function(){ _buildAndDownloadPDF(fname); };
+    document.getElementById('gen-download-btn').style.display = 'inline-block';
+    document.getElementById('gen-status').textContent = _genCards.length+' cartes generees avec succes';
+    document.getElementById('gen-bar').style.width = '100%';
+
+    await api('card_orders','PATCH',{status:'printing'},'id=eq.'+orderId);
+    await loadOrders();
+    toast('PDF genere -- '+_genCards.length+' cartes','success');
+
+  } catch(e) {
+    console.error('[GEN]', e);
+    document.getElementById('gen-status').textContent = 'Erreur: '+e.message;
+    toast('Erreur generation: '+e.message,'error');
+  }
+};
+
+window._buildAndDownloadPDF = async function(fname) {
+  if(!_genCards.length){ toast('Aucune carte a telecharger','error'); return; }
+  var rows = _genCards.map(function(c){return '<div class="cr"><img src="'+c.front+'" class="ci"><img src="'+c.back+'" class="ci"></div>';}).join('');
+  var html = '<style>@page{margin:6mm;size:A4 portrait}body{margin:0}.cr{display:flex;gap:3mm;margin-bottom:3mm;page-break-inside:avoid}.ci{width:91mm;height:57mm;object-fit:contain;display:block}</style><div>'+rows+'</div>';
+  var LIB = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  if(typeof html2pdf==='undefined'){
+    await new Promise(function(res,rej){var s=document.createElement('script');s.src=LIB;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+  }
+  var el=document.createElement('div');el.innerHTML=html;el.style.cssText='position:fixed;top:-9999px;left:-9999px;width:794px;background:#fff';
+  document.body.appendChild(el);
+  try{
+    await html2pdf().set({margin:[6,6,6,6],filename:fname||'Cartes.pdf',image:{type:'jpeg',quality:0.92},html2canvas:{scale:2,useCORS:true,logging:false},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save();
+  } finally {
+    if(document.body.contains(el)) document.body.removeChild(el);
+  }
+};
+
+})(); // end card engine
+
 </script>
+
+<!-- ── Card generation canvases (hidden) ── -->
+<canvas id="adm-front" width="1016" height="638" style="display:none;position:fixed;left:-9999px;top:-9999px"></canvas>
+<canvas id="adm-back"  width="1016" height="638" style="display:none;position:fixed;left:-9999px;top:-9999px"></canvas>
+
+<!-- ── Card generation modal ── -->
+<div id="gen-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#1a1f2e;border-radius:20px;padding:32px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="font-size:40px;margin-bottom:16px">🎨</div>
+    <h3 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#f8fafc">Génération des cartes</h3>
+    <div id="gen-status" style="color:#94a3b8;font-size:14px;margin-bottom:20px">Initialisation…</div>
+    <div style="background:#2d3748;border-radius:8px;height:8px;overflow:hidden;margin-bottom:24px">
+      <div id="gen-bar" style="height:100%;background:#2f7bd6;border-radius:8px;width:0%;transition:width .3s ease"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="gen-download-btn" class="btn btn-primary" onclick="window._redownloadGenPDF&&window._redownloadGenPDF()" style="display:none">📥 Retélécharger le PDF</button>
+      <button class="btn btn-outline" onclick="closeGenModal()">Fermer</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

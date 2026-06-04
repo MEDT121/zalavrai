@@ -4489,133 +4489,122 @@ function initCardSystem() {
   }
 }
 
-// ── CARDS PREVIEW (Direction) ──
+// ── CARDS COMMANDER (Direction) ──
 R.cards = () => {
-  const cardsEnabled = !!(window._schoolFeatures?.cards);
-
-  // ── Locked state: operator must enable card generation ──
-  if (!cardsEnabled) {
-    const wa = window._OPERATOR_WA || '243978444167';
-    const schoolName = DB.settings?.school?.name || 'notre école';
-    const waMsg = encodeURIComponent(`Bonjour, je suis la Direction de ${schoolName}. Je souhaite activer la génération de cartes élèves sur SchoolSafe. Merci.`);
-    return `
-<div style="text-align:center;padding:48px 20px;animation:fadeInUp .4s ease both">
-  <div style="font-size:72px;margin-bottom:16px">🔒</div>
-  <div style="font-size:20px;font-weight:800;margin-bottom:8px">Génération de cartes non activée</div>
-  <div style="font-size:14px;color:var(--text-secondary);max-width:340px;margin:0 auto 28px;line-height:1.6">Cette fonctionnalité doit être activée par votre opérateur SchoolSafe. Contactez-le pour l'activer sur votre compte.</div>
-  <a href="https://wa.me/${wa}?text=${waMsg}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:#25d366;color:#fff;border-radius:14px;padding:14px 24px;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 4px 16px rgba(37,211,102,.3)">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.556 4.122 1.528 5.862L.057 23.428a.5.5 0 00.615.615l5.566-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.946 0-3.773-.5-5.365-1.378l-.385-.214-3.991 1.046 1.046-3.991-.214-.385A9.946 9.946 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-    📱 Contacter l'opérateur
-  </a>
-</div>
-<div class="premium-section" style="margin-top:16px;border-left:4px solid #2f7bd6">
-  <div class="premium-section-title">📦 Commander les cartes</div>
-  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Générez le PDF de toute une classe et envoyez-le à l'opérateur SchoolSafe pour impression.</div>
-  <div class="form-group">
-    <label class="form-label">Classe à imprimer</label>
-    <select class="form-select" id="order_class">
-      <option value="">Toute l'école (${(DB.students||[]).filter(s=>!s.blocked).length} élèves)</option>
-      ${(DB.classes||[]).map(cl=>{const n=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.blocked).length;return n?`<option value="${cl.id}">${esc(cl.name)} (${n} élèves)</option>`:''}).join('')}
-    </select>
-  </div>
-  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700" onclick="orderCards($('order_class')?.value||null)">📄 Générer le PDF et commander</button>
-  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">Le PDF sera téléchargé sur votre appareil · Envoyez-le à l'opérateur par WhatsApp</div>
-</div>`;
-  }
-
-  window._cardReady = false;
-  setTimeout(initCardSystem, 100);
+  const total = (DB.students||[]).filter(s=>!s.blocked).length;
+  const withPhoto = (DB.students||[]).filter(s=>!s.blocked&&s.photo).length;
+  const complete = (DB.students||[]).filter(s=>!s.blocked&&s.photo&&s.name&&s.mat&&s.dob).length;
+  const pcPhoto = total ? Math.round(withPhoto/total*100) : 0;
+  const pcComplete = total ? Math.round(complete/total*100) : 0;
+  const ordersHtml = (window._myCardOrders||[]).length
+    ? (window._myCardOrders||[]).slice(0,5).map(o=>{
+        const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
+        const cl = (o.notes||'').match(/Classe: ([^|]+)/)?.[1]?.trim()||'—';
+        return `<div class="premium-item"><div class="pi-icon">📦</div><div><div class="pi-title">${esc(cl)} · ${o.quantity||0} cartes</div><div class="pi-sub">${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+      }).join('')
+    : '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>';
+  setTimeout(()=>{ if(typeof window.loadMyCardOrders==="function") window.loadMyCardOrders(); }, 200);
   return `
-<style>
-.card-layout { display:grid; grid-template-columns:340px 1fr; gap:16px; }
-.card-panel { background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:16px; }
-.card-preview { background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:16px; }
-.card-canvasBox { background:#fff5ea; border:1px solid #efe3d3; border-radius:16px; padding:12px; margin-bottom:12px; }
-.card-canvasBox b { display:block; margin-bottom:8px; font-size:13px; }
-canvas.card-canvas { display:block; width:100%; height:auto; background:white; border-radius:12px; border:1px solid #ddd0bf; }
-.card-colors { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; }
-.colorBtn { height:32px; border-radius:10px; border:3px solid transparent; cursor:pointer; }
-.colorBtn.active { border-color:#241f1a; }
-.card-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-@media(max-width:768px) { .card-layout { grid-template-columns:1fr; } }
-.photo-preview-thumb{width:100%;height:80px;background:#f6ede0;border:2px dashed #ddd0bf;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;margin-top:6px}
-.photo-preview-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px}
-</style>
-<div class="premium-section" style="margin-bottom:14px">
-  <div class="premium-section-title">&#127891; Sélectionner un élève</div>
-  <select id="studentSelect" class="form-select" onchange="fillCardFromStudent(this.value)" style="margin-top:8px">
-    <option value="">— Choisir un élève —</option>
-    ${DB.classes.map(cl => {
-      const studs = DB.students.filter(s => s.cid === cl.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      if (!studs.length) return '';
-      return '<optgroup label="'+esc(cl.name)+'">' + studs.map(s => '<option value="'+s.id+'">'+esc(s.name)+'</option>').join('') + '</optgroup>';
-    }).join('')}
-  </select>
+<div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">📊 État des données élèves</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:var(--text-primary)">${total}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Élèves actifs</div>
+    </div>
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:${pcPhoto>=80?'#1f9d6b':'#d98a2b'}">${withPhoto}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Avec photo (${pcPhoto}%)</div>
+    </div>
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:${pcComplete>=80?'#1f9d6b':'#dc2626'}">${complete}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Dossiers complets (${pcComplete}%)</div>
+    </div>
+  </div>
+  ${complete < total ? `<div style="background:#fff3cd;border:1px solid #d98a2b;border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e">⚠️ ${total-complete} élève${total-complete>1?'s':''} avec dossier incomplet. Complétez la photo ou les informations manquantes avant de commander.</div>` : ''}
 </div>
-<div class="card-layout">
-  <aside class="card-panel">
-    <h3 style="font-size:16px;font-weight:700;margin:0 0 12px">Données carte</h3>
-    <label class="form-label">Classe</label>
-    <select id="classe" class="form-select" style="margin-bottom:6px"></select>
-    <div class="card-colors" id="colors"></div>
-    <label class="form-label">Nom de l'élève</label>
-    <input id="nom" class="form-input" value="KASONGO MATHIS">
-    <div class="card-row" style="margin-top:8px">
-      <div><label class="form-label">Matricule</label><input id="matricule" class="form-input" value="CS-2026-00123"></div>
-      <div><label class="form-label">ID</label><input id="sid" class="form-input" value="WSI-00123"></div>
-    </div>
-    <div class="card-row" style="margin-top:8px">
-      <div><label class="form-label">Date naissance</label><input id="dob" class="form-input" value="12/05/2019"></div>
-      <div><label class="form-label">Validité</label><input id="validite" class="form-input" value="2025 - 2026"></div>
-    </div>
-    <label class="form-label" style="margin-top:8px">Adresse</label>
-    <input id="adresse" class="form-input" value="${DB.settings.school?.address||'Kinshasa / Barumbu'}">
-    <label class="form-label" style="margin-top:8px">Parent titulaire</label>
-    <input id="parent" class="form-input" value="KASONGO Jean-Pierre">
-    <label class="form-label" style="margin-top:8px">Tél. parent</label>
-    <input id="parentTel" class="form-input" value="+243 816 722 901">
-    <label class="form-label" style="margin-top:8px">Enseignant(e)</label>
-    <input id="teacher" class="form-input" value="Mme KABONGO">
-    <label class="form-label" style="margin-top:8px">Photo élève</label>
-    <input id="photo" type="file" accept="image/*" class="form-input" style="padding:6px">
-    <div class="photo-preview-thumb" onclick="document.getElementById('photo').click()" id="photoThumbBox" style="display:none">
-      <img id="photoThumb" src="" alt="aperçu">
-    </div>
-    <div style="margin-top:12px">
-      <button class="btn btn-gold" style="width:100%;padding:14px;font-size:15px;font-weight:700;border-radius:14px" onclick="downloadZip()">&#128230; T&#233;l&#233;charger la carte</button>
-    </div>
-  </aside>
-  <main class="card-preview">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <h3 style="font-size:16px;font-weight:700;margin:0">Aperçu imprimeur</h3>
-      <span style="font-size:12px;color:var(--text-muted)" id="status">Prêt</span>
-    </div>
-    <div class="card-canvasBox">
-      <b>Recto — carte élève</b>
-      <canvas id="front" class="card-canvas" width="1016" height="638"></canvas>
-    </div>
-    <div class="card-canvasBox">
-      <b>Verso universel</b>
-      <canvas id="back" class="card-canvas" width="1016" height="638"></canvas>
-    </div>
-  </main>
-</div>
-
-<div class="premium-section" style="margin-top:16px;border-left:4px solid #2f7bd6">
+<div class="premium-section" style="border-left:4px solid #2f7bd6">
   <div class="premium-section-title">📦 Commander les cartes</div>
-  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Générez le PDF de toute une classe et envoyez-le à l'opérateur SchoolSafe pour impression.</div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Sélectionnez la classe à imprimer et envoyez la commande. Les cartes seront générées et imprimées par l'opérateur SchoolSafe.</div>
   <div class="form-group">
-    <label class="form-label">Classe à imprimer</label>
+    <label class="form-label">Classe à commander</label>
     <select class="form-select" id="order_class">
-      <option value="">Toute l'école (${(DB.students||[]).filter(s=>!s.blocked).length} élèves)</option>
+      <option value="">Toute l'école (${total} élèves)</option>
       ${(DB.classes||[]).map(cl=>{const n=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.blocked).length;return n?`<option value="${cl.id}">${esc(cl.name)} (${n} élèves)</option>`:''}).join('')}
     </select>
   </div>
-  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700" onclick="orderCards($('order_class')?.value||null)">📄 Générer le PDF et commander</button>
-  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">Le PDF sera téléchargé sur votre appareil · Envoyez-le à l'opérateur par WhatsApp</div>
+  <div class="form-group" style="margin-top:10px">
+    <label class="form-label">Message pour l'opérateur (optionnel)</label>
+    <textarea class="form-input" id="order_notes" rows="2" placeholder="Instructions particulières..." style="resize:none"></textarea>
+  </div>
+  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:4px" onclick="submitCardOrder()">📦 Envoyer la commande</button>
+  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">L'opérateur recevra votre commande et vous contactera pour la livraison des cartes imprimées</div>
+</div>
+<div class="premium-section" style="margin-top:16px;border-left:4px solid #6b7280">
+  <div class="premium-section-title">📋 Historique des commandes</div>
+  <div id="card-orders-history">${ordersHtml}</div>
 </div>
 `;
 };
+
+window.loadMyCardOrders = async () => {
+  const sName = (DB.settings?.school?.name||'').trim();
+  if(!sName||!CENTRAL_URL||!CENTRAL_KEY) return;
+  try {
+    const r = await fetch(CENTRAL_URL+'/rest/v1/card_orders?school_name=eq.'+encodeURIComponent(sName)+'&order=ordered_at.desc&limit=10', {
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY}
+    });
+    if(!r.ok) return;
+    window._myCardOrders = await r.json();
+    const el = document.getElementById('card-orders-history');
+    if(!el) return;
+    if(!(window._myCardOrders||[]).length) { el.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>'; return; }
+    el.innerHTML = (window._myCardOrders||[]).slice(0,5).map(o=>{
+      const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
+      const cl = (o.notes||'').match(/Classe: ([^|]+)/)?.[1]?.trim()||'—';
+      return `<div class="premium-item"><div class="pi-icon">📦</div><div><div class="pi-title">${esc(cl)} · ${o.quantity||0} cartes</div><div class="pi-sub">${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+    }).join('');
+  } catch(e) { /* offline — fail silently */ }
+};
+
+window.submitCardOrder = async () => {
+  const classId = document.getElementById('order_class')?.value||'';
+  const extraNotes = (document.getElementById('order_notes')?.value||'').trim();
+  const allStudents = (DB.students||[]).filter(s=>!s.blocked);
+  const students = classId ? allStudents.filter(s=>s.cid===classId) : allStudents;
+  if(!students.length){ toast('Aucun élève dans cette sélection','error'); return; }
+  const className = classId ? ((DB.classes||[]).find(c=>c.id===classId)?.name||'Classe') : "Toute l'école";
+  const schoolName = DB.settings?.school?.name||'École';
+  const licenseKey = (DB.settings?.license_key||'').trim();
+  if(!CENTRAL_URL||!CENTRAL_KEY){ toast('Configuration centrale manquante','error'); return; }
+  try {
+    toast('⏳ Envoi de la commande...','info');
+    const resp = await fetch(CENTRAL_URL+'/rest/v1/card_orders', {
+      method:'POST',
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({
+        school_name: schoolName,
+        quantity: students.length,
+        status: 'pending',
+        notes: 'Classe: '+className+' | Licence: '+licenseKey+(extraNotes?' | '+extraNotes:'')
+      })
+    });
+    if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'HTTP '+resp.status); }
+    window._myCardOrders = null;
+    logAudit('card_order','Commande cartes: '+className+' ('+students.length+' élèves)');
+    const waNum = window._OPERATOR_WA||'243978444167';
+    const waMsg = encodeURIComponent('Bonjour, commande de '+students.length+' cartes ('+className+') — '+schoolName+'. Merci de traiter notre commande SchoolSafe.');
+    openM('✅ Commande envoyée',`<div style="text-align:center;padding:8px 0">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <div style="font-weight:800;font-size:18px;margin-bottom:6px">${students.length} cartes commandées</div>
+      <div style="color:var(--text-secondary);font-size:13px;margin-bottom:20px">${esc(className)} · En attente de traitement</div>
+      <a href="https://wa.me/${waNum}?text=${waMsg}" target="_blank" class="btn btn-primary" style="display:block;width:100%;text-decoration:none;margin-bottom:10px;padding:14px">📱 Notifier l'opérateur par WhatsApp</a>
+    </div>`,`<button class="btn btn-outline" onclick="closeModal();render()">Fermer</button>`);
+  } catch(e) {
+    toast('Erreur commande: '+e.message,'error');
+  }
+};
+
 
 // ── LOCKDOWN ──
 R.lockdown = () => `
