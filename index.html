@@ -5946,9 +5946,9 @@ R.payments = () => {
   const pf=window._payFilterStatus||'';
   let studs=DB.students;
   if(cf) studs=studs.filter(s=>s.cid===cf);
-  if(pf==='paid') studs=studs.filter(s=>DB.payments.filter(p=>p.sid===s.id).every(p=>p.paid));
+  if(pf==='paid') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.length>0&&pays.every(p=>p.paid);});
   if(pf==='partial') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>p.paid)&&pays.some(p=>!p.paid);});
-  if(pf==='unpaid') studs=studs.filter(s=>DB.payments.filter(p=>p.sid===s.id).every(p=>!p.paid));
+  if(pf==='unpaid') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.length===0||pays.every(p=>!p.paid);});
   if(pf==='blocked') studs=studs.filter(s=>s.access_blocked);
   const blockedCount=DB.students.filter(s=>s.access_blocked).length;
   const ringR = 38, ringC = 2*Math.PI*ringR, ringDash = Math.round(pct/100*ringC);
