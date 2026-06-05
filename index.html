@@ -15854,10 +15854,11 @@ R.profil_direction2 = () => {
   const totalStudents=(DB.students||[]).length;
   const totalClasses=(DB.classes||[]).length;
   const teachers=(DB.users||[]).filter(x=>x.role==='enseignant').length;
-  const pendingRats=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by).length;
+  const pendingRats=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated).length;
   const todayAttDir2=(DB.attendance||[]).filter(a=>a.date===today());
   const todayPresDir2=todayAttDir2.filter(a=>a.status==='ontime').length;
-  const attPct2=totalStudents?Math.round(todayPresDir2/totalStudents*100):0;
+  const todayLateDir2=todayAttDir2.filter(a=>a.status==='late').length;
+  const attPct2=totalStudents?Math.round((todayPresDir2+todayLateDir2)/totalStudents*100):0;
   const validTabs=['stats','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
   const clr='#4c1d95';const clr2='#6d28d9';
@@ -15906,7 +15907,7 @@ R.profil_direction2 = () => {
       <div style="background:#fff5ea;border-left:4px solid ${clr};border-radius:20px;padding:16px 18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:12px;font-weight:700;color:#241f1a">Présences aujourd'hui</div>
-          <span style="font-size:12px;font-weight:800;color:${attPct2>=80?'#1f9d6b':attPct2>=40?'#d98a2b':'#dc2626'}">${todayPresDir2}/${totalStudents} (${attPct2}%)</span>
+          <span style="font-size:12px;font-weight:800;color:${attPct2>=80?'#1f9d6b':attPct2>=40?'#d98a2b':'#dc2626'}">${todayPresDir2+todayLateDir2}/${totalStudents} (${attPct2}%)</span>
         </div>
         <div style="height:8px;border-radius:8px;background:#efe3d3;overflow:hidden">
           <div style="height:100%;width:${attPct2}%;background:${attPct2>=80?'#1f9d6b':attPct2>=40?'#f59e0b':'#ef5b5b'};border-radius:8px;transition:width .4s"></div>
