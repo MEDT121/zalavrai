@@ -3360,6 +3360,35 @@ function dashboardParent() {
     </div>`;
   }).join('');
 
+  const myActsHtml = (()=>{
+    const myKidIds=kids.map(k=>k.id);
+    const myInscs=(DB.activites_inscriptions||[]).filter(i=>i.active&&myKidIds.includes(i.sid));
+    if(!myInscs.length) return '';
+    const byAct={};
+    myInscs.forEach(i=>{if(!byAct[i.act_id])byAct[i.act_id]=[];byAct[i.act_id].push(i.sid);});
+    const actLines=Object.entries(byAct).map(([aid,sids])=>{
+      const act=(DB.activites||[]).find(a=>a.id===aid);
+      if(!act) return '';
+      const enrolled=kids.filter(k=>sids.includes(k.id));
+      return `<div class="dp-list-item">
+        <div class="dp-list-avatar" style="background:${act.color}22;font-size:18px;flex-shrink:0">${act.emoji||'🎭'}</div>
+        <div style="flex:1;min-width:0">
+          <div class="dp-list-title">${esc(act.name)}</div>
+          <div class="dp-list-sub">${enrolled.map(k=>esc(k.name.split(' ')[0])).join(', ')}${act.jour?' · '+esc(act.jour):''}${act.heure?' '+esc(act.heure):''}</div>
+        </div>
+        ${act.frais?`<span class="dp-badge" style="background:rgba(239,68,68,.1);color:#dc2626;font-weight:700;flex-shrink:0">+${act.frais}$/mois</span>`:''}
+      </div>`;
+    }).filter(Boolean).join('');
+    if(!actLines) return '';
+    return `<div class="dp-section" style="animation:fadeInUp .35s .22s ease both">
+      <div class="dp-section-header">
+        <div class="dp-section-title">🎭 Activités extrascolaires</div>
+        <div class="dp-section-action" onclick="go('activites_parent')">Voir tout</div>
+      </div>
+      ${actLines}
+    </div>`;
+  })();
+
   const notifsHtml = myNotifs.length ? `
     <div class="dp-section" style="animation:fadeInUp .35s .28s ease both">
       <div class="dp-section-header">
@@ -3431,6 +3460,8 @@ function dashboardParent() {
       <div class="hqa" onclick="go('convocations')"><div class="hqa-ic" style="background:#fef0e9"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff7a4d" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="hqa-t">Convoc.</div></div>
     </div>
   </div>
+
+  ${myActsHtml}
 
   ${notifsHtml}
 
@@ -7175,7 +7206,7 @@ R.palmares = () => {
           const men=getMention(s.total);
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">
             <div style="font-size:${pos===0?'28':'22'}px">${medals[pos]}</div>
-            <div style="width:44px;height:44px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700">${ini(s.name)}</div>
+            <div style="width:44px;height:44px;border-radius:12px;background:${cbg};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${cc}">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
             <div style="font-size:11px;font-weight:700;text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
             <div style="font-size:9px;font-weight:700;color:${men.c};background:${men.c}22;border-radius:4px;padding:2px 5px">${men.l}</div>
             <div style="width:70px;height:${heights[pos]}px;border-radius:10px 10px 0 0;background:${colors[pos]};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff">${s.total}</div>
@@ -7190,7 +7221,7 @@ R.palmares = () => {
           const men=getMention(s.total);
           return `<div class="ww-item" style="animation-delay:${i*.04}s">
             <span style="font-size:${i<3?20:15}px;width:32px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
-            <div style="width:38px;height:38px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+            <div style="width:38px;height:38px;border-radius:10px;background:${cbg};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:${cc}">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
             <div class="ww-item-content">
               <div class="ww-item-title">${esc(s.name)}${s.moyPct<50&&s.gradeCount>0?' <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fee2e2;border-radius:4px;padding:1px 5px">⚠ ÉCHEC</span>':''}</div>
               <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#1f9d6b':s.moyPct>=50?'#d98a2b':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · <span style="font-size:11px;font-weight:700;color:${men.c}">${men.l}</span> · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
@@ -7350,7 +7381,12 @@ R.palmares_parent = () => {
 
     return `<div class="premium-section" style="margin-bottom:16px;border-radius:20px;padding:18px;box-shadow:0 6px 22px rgba(0,0,0,.09);border-left:4px solid ${pos<=3?'#f59e0b':cc};animation:fadeInUp .4s ease both">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-        <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cc};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2);animation:badgePop .4s ease both">${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}</div>
+        <div style="position:relative;width:72px;height:72px;flex-shrink:0">
+          <div style="width:72px;height:72px;border-radius:50%;background:${pos<=3?'linear-gradient(135deg,#fbbf24,#f59e0b)':cbg};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:${pos<=3?'#fff':cc};box-shadow:0 4px 16px rgba(0,0,0,.2);animation:badgePop .4s ease both">
+            ${(k.photo||k.photo_url)?`<img src="${k.photo||k.photo_url}" style="width:100%;height:100%;object-fit:cover">`:`${pos<=3?['🥇','🥈','🥉'][pos-1]:pos+'e'}`}
+          </div>
+          ${(k.photo||k.photo_url)&&pos<=3?`<div style="position:absolute;bottom:-2px;right:-2px;font-size:20px;line-height:1">${['🥇','🥈','🥉'][pos-1]}</div>`:''}
+        </div>
         <div style="flex:1">
           <div style="font-size:20px;font-weight:800">${esc(k.name)}</div>
           <div style="font-size:14px;color:var(--text-secondary)">${esc(cl.name)} — ${pos}${pos===1?'er':'ème'} sur ${ranked.length}</div>
@@ -17139,6 +17175,13 @@ window.saveActivite = (aid) => {
     const na={id:'act'+Date.now(),...data,color:'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'),date:today()};
     DB.activites.push(na);
     pushSync('activites','post',na);
+    if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
+    (DB.students||[]).forEach(s=>{
+      const ni={id:'ai'+Date.now()+Math.random().toString(36).slice(2,5),act_id:na.id,sid:s.id,active:true,date:today()};
+      DB.activites_inscriptions.push(ni);
+      pushSync('activites_inscriptions','post',ni);
+      if(s.pid) pushNotif(s.pid,na.emoji+' '+na.name+' — '+s.name+' est inscrit(e)'+(na.frais?' · Frais : '+na.frais+'$/mois':''));
+    });
   }
   closeModal(); saveToCrypt(); render();
   toast('Activité enregistrée','success');
