@@ -4672,7 +4672,7 @@ R.alert_urgent = () => {
 ${recent.length?`
 <div class="premium-section">
   <div class="premium-section-title">🕐 Mes alertes récentes</div>
-  ${recent.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title" style="font-size:12px">${n.msg.replace(/^🚨 ALERTE PORTAIL — [^—]+— /,'')}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
+  ${recent.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title" style="font-size:12px">${esc(n.msg.replace(/^🚨 ALERTE PORTAIL — [^—]+— /,''))}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
 </div>`:''}`;
 };
 window.sendUrgentAlert = () => {
@@ -4719,7 +4719,7 @@ R.notifications = () => {
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f6ede0'}">${typeIcon[n.type]||'●'}</div>
     <div class="ww-item-content">
       ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
-      <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${n.msg}</div>
+      <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${esc(n.msg)}</div>
       ${n.receipt?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${n.receipt.num}</div>
         <div style="font-size:12px;color:#374151"><strong>${n.receipt.student}</strong>${n.receipt.mat?' · '+n.receipt.mat:''}</div>
@@ -5559,7 +5559,7 @@ R.approbations = () => {
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
         <div class="pi-icon" style="background:#d8f3e6">📊</div>
         <div style="flex:1;min-width:150px">
-          <div class="pi-title">${sender?sender.name:'?'} — ${rep.date}</div>
+          <div class="pi-title">${sender?esc(sender.name):'?'} — ${rep.date}</div>
           <div class="pi-sub">${rep.records?rep.records.length:0} paiements · ${rep.expenses?rep.expenses.length:0} dépenses · Solde: $${totalIn-totalOut}</div>
         </div>
         <div style="display:flex;gap:6px;width:100%">
@@ -5617,7 +5617,7 @@ R.approbations = () => {
           </div>`:''}
           ${r.weak_details?.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
             ${r.weak_details.map(w=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${w.avg<30?'#fee2e2':w.avg<40?'#ffedd5':'#fdeccd'};color:${w.avg<30?'#991b1b':w.avg<40?'#c2410c':'#92400e'};font-weight:700">${w.mat}: ${w.avg}%</span>`).join('')}
-          </div>`:`<div class="pi-sub" style="margin-top:3px">${r.motif?.split('\n')[0]||''}</div>`}
+          </div>`:`<div class="pi-sub" style="margin-top:3px">${esc(r.motif?.split('\n')[0]||'')}</div>`}
           <div style="font-size:11px;color:var(--text-muted)">${t?t.name:'?'} · ${r.date}${isD2?'':' · Frais: '+(hasPaid?'Payés':'Non payés')}</div>
         </div>
         ${isD2
@@ -5834,9 +5834,9 @@ window.viewDailyReport = (rid) => {
       <div style="font-size:13px;color:#065f46;margin-top:4px">Encaissé: $${totalIn} &nbsp;|&nbsp; Dépensé: $${totalOut} &nbsp;|&nbsp; Solde: $${totalIn-totalOut}</div>
     </div>
     ${rep.records&&rep.records.length?`<div style="font-weight:700;margin-bottom:6px">Paiements (${rep.records.length})</div>
-    ${rep.records.map(r=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${r.student_name} — ${r.type_label}${r.note?' ('+r.note+')':''}: <strong>$${r.amount}</strong> à ${r.time}</div>`).join('')}`:''}
+    ${rep.records.map(r=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(r.student_name)} — ${esc(r.type_label)}${r.note?' ('+esc(r.note)+')':''}: <strong>$${r.amount}</strong> à ${r.time}</div>`).join('')}`:''}
     ${rep.expenses&&rep.expenses.length?`<div style="font-weight:700;margin:10px 0 6px">Dépenses (${rep.expenses.length})</div>
-    ${rep.expenses.map(e=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${e.motif}: <strong>$${e.amount}</strong> à ${e.time}</div>`).join('')}`:''}`;
+    ${rep.expenses.map(e=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(e.motif)}: <strong>$${e.amount}</strong> à ${e.time}</div>`).join('')}`:''}`;
   openM(`Rapport du ${rep.date}`, body, `<button class="btn btn-success" onclick="validateDailyReport('${rep.id}');closeModal()">Valider</button><button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
 };
 
@@ -6420,7 +6420,7 @@ R.children = () => {
                 <span style="font-size:12px;font-weight:700;color:${scoreColor}">Moy: ${r.score}%</span>
                 <div style="flex:1;height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden"><div style="width:${r.score}%;height:100%;background:${scoreColor};border-radius:3px"></div></div>
               </div>`:''}
-              <div style="font-size:12px;color:#6f6557">${r.motif}</div>
+              <div style="font-size:12px;color:#6f6557">${esc(r.motif)}</div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
                 <span style="font-weight:700;color:${paid?'#1f9d6b':'#d98a2b'}">${paid?'Payé ($'+r.amount+')':r.amount?'$'+r.amount+' à régler':'Montant à fixer'}</span>
                 ${r.status==='pending'&&r.amount?`<span class="pill" style="background:#fdeccd;color:#92400e">À régler</span>`:paid?`<span class="pill" style="background:#d8f3e6;color:#065f46">Payé</span>`:`<span class="pill" style="background:#fee2e2;color:#dc2626">En attente</span>`}
@@ -8504,7 +8504,7 @@ R.devoirs_parent = () => {
         ${(()=>{
           const g=kidId&&canSeeCorr?DB.grades.find(x=>x.devoir_id===d.id&&x.sid===kidId):null;
           if(!g) return '';
-          const pct=Math.round(g.note/g.max*100);
+          const pct=Math.round(g.note/(g.max||20)*100);
           const col=pct>=70?'#1f9d6b':pct>=50?'#d98a2b':'#dc2626';
           const bg=pct>=70?'#d8f3e6':pct>=50?'#fdeccd':'#fee2e2';
           return `<div style="margin-top:8px;padding:10px 12px;background:${bg};border-radius:10px;border-left:3px solid ${col};display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -8541,7 +8541,6 @@ R.devoirs_parent = () => {
   kids.forEach((k,ki)=>{
     const cl=gc(k.cid);
     const canSeeCorr=k.access_parent&&togCorr;
-    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid); // used for conduite gate check only
     const kidColors=['#2f7bd6','#9b6fd4','#1f9d6b','#dc2626','#d98a2b','#2f8fa6','#9b6fd4','#be185d'];
     const kidColor=kidColors[ki%kidColors.length];
     html+=`<div style="margin-bottom:20px">
@@ -8675,7 +8674,7 @@ R.devoirs_parent = () => {
           <div style="width:34px;height:34px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:${tc}"></div></div>
           <div style="flex:1">
             <div class="pi-title" style="color:${tc};font-weight:700">${cd.score}</div>
-            <div class="pi-sub">${cd.date}${cd.remark?' · '+cd.remark:''}</div>
+            <div class="pi-sub">${cd.date}${cd.remark?' · '+esc(cd.remark):''}</div>
           </div>
           
           ${canAddConduct?`<button onclick="deleteConductEntry('${cd.id}')" style="background:none;border:none;font-size:14px;cursor:pointer;color:#dc2626;padding:4px;opacity:.7;font-weight:700">×</button>`:''}
@@ -9375,8 +9374,8 @@ R.cahier_texte = () => {
         <div class="ww-item" style="animation-delay:${i*.04}s">
           <div class="ww-item-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d8f3e6'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
           <div class="ww-item-content">
-            <div class="ww-item-title">${e.matiere}</div>
-            <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${e.content}</div>
+            <div class="ww-item-title">${esc(e.matiere)}</div>
+            <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${esc(e.content)}</div>
           </div>
         </div>`).join('')}
       </div>`;
@@ -9407,8 +9406,8 @@ R.cahier_texte = () => {
           <div class="premium-section-title">📅 ${d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
           ${items.map(e=>`<div class="premium-item">
             <div class="pi-icon" style="background:${e.lang==='fr'?'#dbeafe':'#d8f3e6'}">${e.lang==='fr'?'🇫🇷':'🇬🇧'}</div>
-            <div style="flex:1"><div class="pi-title">${e.matiere}</div>
-              <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${e.content}</div>
+            <div style="flex:1"><div class="pi-title">${esc(e.matiere)}</div>
+              <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${esc(e.content)}</div>
             </div>
           </div>`).join('')}
         </div>`;
@@ -10843,7 +10842,7 @@ ${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).length?`
   ${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).map(e=>`
     <div class="premium-item">
       <div class="pi-icon" style="background:#fee2e2">💸</div>
-      <div style="flex:1"><div class="pi-title">${e.motif}</div><div class="pi-sub">${e.time}</div></div>
+      <div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div>
       <span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span>
     </div>`).join('')}
 </div>`:''}`;
@@ -10889,7 +10888,7 @@ R.caisse_rapport = () => {
     ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label}${r.note?' · '+r.note:''} — ${r.time}</div></div><span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${r.amount}</span></div>`).join('')}
   </div>`:''}
   ${exps.length?`<div class="premium-section"><div class="premium-section-title">💸 Dépenses (${exps.length})</div>
-    ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${e.motif}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
+    ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
   </div>`:''}
   ${(()=>{
     const past7=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated').slice(0,7);
