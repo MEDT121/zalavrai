@@ -1255,6 +1255,8 @@ window.NAV = {
       {id:'attendance',i:'●',l:'Présences'},
       {id:'timetable',i:'●',l:'Emploi du temps'},
       {id:'cards',i:'●',l:'Cartes d\'élèves'},
+      {s:'Site internet'},
+      {id:'mon_site',i:'🌐',l:'Mon site web'},
       {s:'Communication'},
       {id:'messages',i:'●',l:'Messages'},
       {id:'cahier_texte',i:'●',l:'Cahier de texte'},
@@ -12987,6 +12989,373 @@ window.downloadBulletin = (sid) => {
   toast(`📥 Bulletin de ${esc(k.name.split(' ')[0])} (${trim}) en cours de téléchargement...`,'info');
 };
 
+// ── MON SITE WEB ──
+window._siteDataReady   = false;
+window._siteDataLoading = false;
+window._siteData        = null;
+window._siteGallery     = [];
+window._sitePillars     = [];
+window._selSiteColor    = null;
+
+window._loadSiteDataForPage = async function() {
+  const key = (DB.settings?.license_key||'').trim();
+  if (!key || !CENTRAL_URL || !CENTRAL_KEY) {
+    window._siteData = {}; window._siteDataReady = true;
+    window._siteGallery = []; window._sitePillars = [];
+    return;
+  }
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(
+      CENTRAL_URL + '/rest/v1/school_sites?license_key=eq.' + encodeURIComponent(key) + '&limit=1',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY }, signal: ctrl.signal }
+    );
+    const rows = r.ok ? await r.json() : [];
+    window._siteData = rows[0] || {};
+  } catch(e) { window._siteData = {}; }
+  window._siteDataReady = true;
+  window._siteGallery = JSON.parse(JSON.stringify((window._siteData||{}).gallery  || []));
+  window._sitePillars = JSON.parse(JSON.stringify((window._siteData||{}).pillars  || []));
+};
+
+R.mon_site = () => {
+  if (!window._siteDataReady && !window._siteDataLoading) {
+    window._siteDataLoading = true;
+    window._loadSiteDataForPage().then(() => { window._siteDataLoading = false; render(); });
+    return `<div style="text-align:center;padding:80px 20px;color:var(--text-secondary)">
+      <div style="font-size:40px;margin-bottom:14px">🌐</div>
+      <div style="font-size:15px;font-weight:600">Chargement des données du site…</div>
+    </div>`;
+  }
+
+  const d   = window._siteData || {};
+  const sc  = DB.settings?.school || {};
+  const totalS  = (DB.students||[]).filter(s=>!s.blocked).length;
+  const totalT  = (DB.users||[]).filter(u=>u.role==='enseignant').length;
+  const totalCl = (DB.classes||[]).length;
+  const pub     = d.published || false;
+  const clr     = d.primary_color || '#c0962e';
+  const theme   = d.theme || 'dark';
+  const gallery = window._siteGallery || [];
+  const pillars = window._sitePillars || [];
+  const progs   = d.programs || {};
+  const origin  = window.location.origin;
+  const base    = window.location.pathname.replace(/\/[^/]*$/, '/');
+  const siteUrl = origin + base + 'site.html';
+
+  const COLORS = [
+    {c:'#c0962e',l:'Or'},   {c:'#1a4db6',l:'Bleu'},    {c:'#157a5b',l:'Vert'},
+    {c:'#d42b2b',l:'Rouge'},{c:'#7c3aed',l:'Violet'},  {c:'#db6d14',l:'Orange'},
+    {c:'#0f7f7f',l:'Cyan'}, {c:'#374151',l:'Gris'},    {c:'#be185d',l:'Rose'},
+    {c:'#1e40af',l:'Marine'},{c:'#065f46',l:'Émeraude'},{c:'#92400e',l:'Marron'},
+  ];
+
+  return `
+  <div class="ww-toolbar">
+    <span style="font-size:16px;font-weight:700">🌐 Mon site web</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="window.open('site.html','_blank')">👁️ Aperçu</button>
+      <button class="btn btn-primary btn-sm" onclick="saveSiteData()">💾 Enregistrer</button>
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid ${pub?'#1f9d6b':'#f59e0b'}">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="premium-section-title" style="margin-bottom:4px">${pub?'🟢 Site publié':'🟡 Site non publié'}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${pub?'Votre site est visible par le public.':'Publiez-le pour qu\'il soit visible.'}</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <span style="font-size:13px;color:var(--text-secondary)">${pub?'Publié':'Brouillon'}</span>
+        <span style="position:relative;display:inline-block;width:48px;height:26px">
+          <input type="checkbox" id="site_published" ${pub?'checked':''} style="opacity:0;width:0;height:0">
+          <span style="position:absolute;cursor:pointer;inset:0;background:${pub?'#1f9d6b':'#ddd'};border-radius:26px;transition:.2s"><span style="position:absolute;height:20px;width:20px;left:${pub?'25px':'3px'};bottom:3px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none"></span></span>
+        </span>
+      </label>
+    </div>
+    <div style="margin-top:10px;padding:9px 12px;background:var(--bg-secondary,#f8fafc);border-radius:8px;font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all">🔗 ${siteUrl}</div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #6366f1">
+    <div class="premium-section-title">📊 Données automatiques</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Ces données sont synchronisées automatiquement depuis SchoolSafe.</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#2f7bd6">${totalS}</div><div style="font-size:11px;color:var(--text-muted)">Élèves</div>
+      </div>
+      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#1f9d6b">${totalT}</div><div style="font-size:11px;color:var(--text-muted)">Enseignants</div>
+      </div>
+      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:#f59e0b">${totalCl}</div><div style="font-size:11px;color:var(--text-muted)">Classes</div>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:var(--bg-secondary,#f8fafc);border-radius:8px;display:flex;align-items:center;gap:10px">
+      ${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0">`:'<div style="width:38px;height:38px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏫</div>'}
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sc.name||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${esc(sc.address||'')}</div></div>
+      <button class="btn btn-outline btn-sm" onclick="go('settings')" style="flex-shrink:0">⚙️</button>
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #2f7bd6">
+    <div class="premium-section-title">✍️ Identité publique</div>
+    <div class="form-group"><label class="form-label">Slogan / Tagline</label>
+      <input class="form-input" id="site_tagline" value="${esc(d.tagline||sc.site_tagline||'')}" placeholder="Ex: L'excellence au service de l'avenir">
+    </div>
+    <div class="form-group"><label class="form-label">À propos de l'école</label>
+      <textarea class="form-input" id="site_about" rows="4" style="resize:vertical">${esc(d.about_text||sc.site_about||'')}</textarea>
+    </div>
+    <div class="form-group"><label class="form-label">Mission</label>
+      <textarea class="form-input" id="site_mission" rows="2" style="resize:vertical" placeholder="Ex: Former des leaders intègres…">${esc(d.mission||'')}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Année de fondation</label>
+        <input class="form-input" id="site_founded_year" type="number" min="1900" max="2030" value="${d.founded_year||''}" placeholder="2017">
+      </div>
+      <div class="form-group"><label class="form-label">Ville</label>
+        <input class="form-input" id="site_city" value="${esc(d.city||'')}" placeholder="Kinshasa">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">WhatsApp public</label>
+      <input class="form-input" id="site_whatsapp" value="${esc(d.whatsapp||sc.phone||'')}" placeholder="+243…">
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #f59e0b">
+    <div class="premium-section-title">🎨 Apparence du site</div>
+    <div class="form-group">
+      <label class="form-label">Couleur principale</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        ${COLORS.map(({c,l}) => `<div title="${l}" onclick="window._selSiteColor='${c}';document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent');this.style.outline='3px solid #2f7bd6';document.getElementById('site_color_val').value='${c}'" class="ss-csw" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;outline:${clr===c?'3px solid #2f7bd6':'2px solid transparent'};outline-offset:2px;transition:.1s"></div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="color" id="site_color_val" value="${clr}" oninput="window._selSiteColor=this.value;document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent')" style="width:42px;height:36px;padding:2px 4px;cursor:pointer;border:1px solid var(--border);border-radius:6px;flex-shrink:0">
+        <span style="font-size:12px;color:var(--text-muted)">Couleur personnalisée</span>
+        <button class="btn btn-outline btn-sm" onclick="extractSiteLogoColor()">🔍 Auto depuis logo</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Thème</label>
+      <select class="form-input" id="site_theme_val">
+        <option value="dark" ${theme==='dark'?'selected':''}>🌑 Sombre — fond noir élégant (Le Sage)</option>
+        <option value="light" ${theme==='light'?'selected':''}>☀️ Clair — fond blanc moderne</option>
+        <option value="custom" ${theme==='custom'?'selected':''}>✨ Personnalisé — adapté à la couleur choisie</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #0f7f7f">
+    <div class="premium-section-title">🖼️ Photo principale (Hero)</div>
+    ${d.hero_url ? `<div style="border-radius:10px;overflow:hidden;margin-bottom:12px;height:130px;background:#111"><img src="${esc(d.hero_url)}" style="width:100%;height:100%;object-fit:cover;opacity:.8"></div>` : ''}
+    <div class="form-group"><label class="form-label">URL de la photo d'accueil</label>
+      <input class="form-input" id="site_hero_url" value="${esc(d.hero_url||'')}" placeholder="https://…">
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #7c3aed">
+    <div class="premium-section-title">📷 Galerie photos</div>
+    <div id="site-gallery-list">
+      ${gallery.map((g,i) => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          ${g.url?`<img src="${esc(g.url)}" style="width:50px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">`:'<div style="width:50px;height:38px;background:var(--bg-secondary,#f8fafc);border-radius:6px;flex-shrink:0"></div>'}
+          <input class="form-input" style="flex:1;font-size:12px" value="${esc(g.url||'')}" placeholder="URL photo" oninput="window._siteGallery[${i}].url=this.value">
+          <input class="form-input" style="width:110px;font-size:12px" value="${esc(g.caption||'')}" placeholder="Légende" oninput="window._siteGallery[${i}].caption=this.value">
+          <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSiteGalleryPhoto(${i})">✕</button>
+        </div>`).join('')}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addSiteGalleryPhoto()">➕ Ajouter</button>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #be185d">
+    <div class="premium-section-title">🏆 Valeurs / Piliers</div>
+    <div id="site-pillars-list">
+      ${pillars.map((p,i) => `
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+          <input class="form-input" style="flex:1;font-size:13px" value="${esc(p.title||'')}" placeholder="Titre" oninput="window._sitePillars[${i}].title=this.value">
+          <input class="form-input" style="flex:2;font-size:13px" value="${esc(p.desc||'')}" placeholder="Description" oninput="window._sitePillars[${i}].desc=this.value">
+          <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSitePillar(${i})">✕</button>
+        </div>`).join('')}
+    </div>
+    <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addSitePillar()">➕ Ajouter</button>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #157a5b">
+    <div class="premium-section-title">📚 Descriptions des programmes</div>
+    <div class="form-group"><label class="form-label">🌱 Maternelle</label>
+      <textarea class="form-input" id="site_prog_mat" rows="2" style="resize:vertical">${esc(progs.maternelle||'')}</textarea>
+    </div>
+    <div class="form-group"><label class="form-label">📖 Primaire</label>
+      <textarea class="form-input" id="site_prog_pri" rows="2" style="resize:vertical">${esc(progs.primaire||'')}</textarea>
+    </div>
+    <div class="form-group"><label class="form-label">🎓 Secondaire</label>
+      <textarea class="form-input" id="site_prog_sec" rows="2" style="resize:vertical">${esc(progs.secondaire||'')}</textarea>
+    </div>
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #d42b2b">
+    <div class="premium-section-title">📢 Publier une actualité</div>
+    <div class="form-group"><label class="form-label">Titre</label>
+      <input class="form-input" id="site_ann_title" placeholder="Ex: Rentrée scolaire 2026-2027">
+    </div>
+    <div class="form-group"><label class="form-label">Contenu</label>
+      <textarea class="form-input" id="site_ann_content" rows="2" style="resize:vertical"></textarea>
+    </div>
+    <button class="btn btn-outline" style="width:100%" onclick="publishAnnFromApp()">📢 Publier l'actualité</button>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%;margin-bottom:40px;font-size:15px;padding:14px" onclick="saveSiteData()">💾 Enregistrer toutes les modifications</button>`;
+};
+
+window.addSiteGalleryPhoto = () => {
+  const i = window._siteGallery.length;
+  window._siteGallery.push({url:'', caption:''});
+  const list = document.getElementById('site-gallery-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
+  div.innerHTML = '<div style="width:50px;height:38px;background:var(--bg-secondary,#f8fafc);border-radius:6px;flex-shrink:0"></div>'
+    + '<input class="form-input" style="flex:1;font-size:12px" value="" placeholder="URL photo" oninput="window._siteGallery['+i+'].url=this.value">'
+    + '<input class="form-input" style="width:110px;font-size:12px" value="" placeholder="Légende" oninput="window._siteGallery['+i+'].caption=this.value">'
+    + '<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSiteGalleryPhoto('+i+')">✕</button>';
+  list.appendChild(div);
+};
+
+window.removeSiteGalleryPhoto = (i) => {
+  window._siteGallery.splice(i, 1);
+  render();
+};
+
+window.addSitePillar = () => {
+  const i = window._sitePillars.length;
+  window._sitePillars.push({title:'', desc:''});
+  const list = document.getElementById('site-pillars-list');
+  if (!list) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  div.innerHTML = '<input class="form-input" style="flex:1;font-size:13px" value="" placeholder="Titre" oninput="window._sitePillars['+i+'].title=this.value">'
+    + '<input class="form-input" style="flex:2;font-size:13px" value="" placeholder="Description" oninput="window._sitePillars['+i+'].desc=this.value">'
+    + '<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSitePillar('+i+')">✕</button>';
+  list.appendChild(div);
+};
+
+window.removeSitePillar = (i) => {
+  window._sitePillars.splice(i, 1);
+  render();
+};
+
+window.extractSiteLogoColor = () => {
+  if (!window.SCHOOL_LOGO) { toast('Aucun logo configuré dans les paramètres','info'); return; }
+  try {
+    const img = new Image();
+    img.onload = () => {
+      const cnv = document.createElement('canvas');
+      cnv.width = img.width; cnv.height = img.height;
+      const ctx = cnv.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const px = ctx.getImageData(0, 0, img.width, img.height).data;
+      const freq = {};
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i+3] < 100) continue;
+        const bright = (px[i]*299 + px[i+1]*587 + px[i+2]*114) / 1000;
+        if (bright > 220 || bright < 25) continue;
+        const k = (Math.round(px[i]/16)*16) + ',' + (Math.round(px[i+1]/16)*16) + ',' + (Math.round(px[i+2]/16)*16);
+        freq[k] = (freq[k]||0)+1;
+      }
+      const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+      if (!top.length) { toast('Couleur non détectée — choisissez manuellement','info'); return; }
+      const [r,g,b] = top[0][0].split(',').map(Number);
+      const hex = '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+      const el = document.getElementById('site_color_val');
+      if (el) el.value = hex;
+      window._selSiteColor = hex;
+      document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent');
+      toast('Couleur extraite du logo : '+hex, 'success');
+    };
+    img.crossOrigin = 'anonymous';
+    img.src = window.SCHOOL_LOGO;
+  } catch(e) { toast('Erreur extraction couleur','error'); }
+};
+
+window.saveSiteData = async () => {
+  const key = (DB.settings?.license_key||'').trim();
+  if (!key) { toast('Licence non configurée — allez dans Paramètres','error'); return; }
+  if (!CENTRAL_URL || !CENTRAL_KEY) return;
+
+  const sc = DB.settings?.school || {};
+  const tagline      = ($('site_tagline')?.value||'').trim() || null;
+  const about_text   = ($('site_about')?.value||'').trim() || null;
+  const mission      = ($('site_mission')?.value||'').trim() || null;
+  const founded_year = parseInt($('site_founded_year')?.value) || null;
+  const city         = ($('site_city')?.value||'').trim() || null;
+  const whatsapp     = ($('site_whatsapp')?.value||'').trim() || null;
+  const hero_url     = ($('site_hero_url')?.value||'').trim() || null;
+  const published    = $('site_published')?.checked || false;
+  const primary_color = ($('site_color_val')?.value || window._selSiteColor || '#c0962e');
+  const theme        = $('site_theme_val')?.value || 'dark';
+  const gallery      = (window._siteGallery||[]).filter(g=>(g.url||'').trim());
+  const pillars      = (window._sitePillars||[]).filter(p=>(p.title||'').trim());
+  const programs     = {
+    maternelle: ($('site_prog_mat')?.value||'').trim() || null,
+    primaire:   ($('site_prog_pri')?.value||'').trim() || null,
+    secondaire: ($('site_prog_sec')?.value||'').trim() || null,
+  };
+  const stats = {
+    students: (DB.students||[]).filter(s=>!s.blocked).length,
+    teachers: (DB.users||[]).filter(u=>u.role==='enseignant').length,
+    classes:  (DB.classes||[]).length,
+  };
+  const staff = (DB.users||[])
+    .filter(u=>u.role==='enseignant'||u.role==='direction'||u.role==='direction2')
+    .map(u => ({
+      name:      u.name,
+      position:  u.position || (u.role==='direction'?'Directeur Général':u.role==='direction2'?'Direction Pédagogique':'Enseignant'),
+      cycle:     (DB.classes||[]).find(c=>c.teacher_id===u.id)?.cycle || null,
+      photo_url: (u.photo && !u.photo.startsWith('data:') ? u.photo : null),
+      quote:     u.site_quote || null,
+    }));
+  const school_name    = sc.name || null;
+  const school_name_en = sc.name_en || sc.sub || null;
+  const address        = sc.address || null;
+  const phone          = sc.phone || null;
+  const email          = sc.email || null;
+  const logo_url       = (window.SCHOOL_LOGO && !window.SCHOOL_LOGO.startsWith('data:') ? window.SCHOOL_LOGO : null);
+
+  const body = {
+    tagline, about_text, mission, founded_year, city, whatsapp,
+    hero_url, published, primary_color, theme, gallery, pillars,
+    programs, stats, staff, school_name, school_name_en, address,
+    phone, email, logo_url,
+  };
+
+  if (!DB.settings.school) DB.settings.school = {};
+  DB.settings.school.site_tagline = tagline;
+  DB.settings.school.site_about   = about_text;
+  pushSync('settings','upsert', DB.settings);
+  saveToCrypt();
+
+  try {
+    toast('⏳ Sauvegarde…','info');
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(
+      CENTRAL_URL + '/rest/v1/school_sites?license_key=eq.' + encodeURIComponent(key),
+      {
+        method: 'PATCH',
+        headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      }
+    );
+    if (r.status >= 400) throw new Error('http_'+r.status);
+    window._siteData = Object.assign(window._siteData||{}, body);
+    window._siteGallery = JSON.parse(JSON.stringify(gallery));
+    window._sitePillars = JSON.parse(JSON.stringify(pillars));
+    toast('✅ Site mis à jour','success');
+    render();
+  } catch(e) { toast('Sauvegardé localement (vérifier connexion)','info'); }
+};
+
 // ── SETTINGS ──
 R.settings = () => {
   const sc=DB.settings.school||{};
@@ -13083,28 +13452,8 @@ R.settings = () => {
   <!-- ══ MON SITE WEB ══ -->
   <div class="premium-section" style="border-left:4px solid #0f7f7f">
     <div class="premium-section-title">🌐 Mon site web</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Informations publiques visibles sur le site de votre école.</div>
-    <div class="form-group">
-      <label class="form-label">Slogan / Devise publique</label>
-      <input class="form-input" id="cfg_site_tagline" value="${esc(DB.settings?.school?.site_tagline||'')}" placeholder="Ex : L'excellence au service de l'avenir">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Message d'accueil (À propos)</label>
-      <textarea class="form-input" id="cfg_site_about" rows="3" style="resize:vertical;" placeholder="Présentation publique de l'école…">${esc(DB.settings?.school?.site_about||'')}</textarea>
-    </div>
-    <button class="btn btn-primary" style="width:100%" onclick="saveSiteFromApp()">💾 Mettre à jour le site</button>
-    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e2e8f0)">
-      <div class="premium-section-title" style="font-size:13px;margin-bottom:10px;">📢 Publier une actualité</div>
-      <div class="form-group">
-        <label class="form-label">Titre</label>
-        <input class="form-input" id="cfg_ann_title" placeholder="Ex : Rentrée scolaire 2026-2027">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Contenu</label>
-        <textarea class="form-input" id="cfg_ann_content" rows="2" style="resize:vertical;" placeholder="Détails…"></textarea>
-      </div>
-      <button class="btn btn-outline" style="width:100%" onclick="publishAnnFromApp()">📢 Publier l'actualité</button>
-    </div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Gérez l'apparence, les couleurs, les photos et le contenu de votre site public SchoolSafe.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="go('mon_site')">🌐 Gérer mon site web →</button>
   </div>` : ''}
 
   <!-- ══ CONNEXION SUPABASE ══ -->
@@ -13362,36 +13711,14 @@ window.saveSessionTimeout = (val) => {
   toast('⏱️ Délai de session mis à jour : '+val+' min','success');
 };
 
-window.saveSiteFromApp = async () => {
-  const key = (DB.settings?.license_key||'').trim();
-  if(!key){ toast('Licence non configurée','error'); return; }
-  if(!CENTRAL_URL||!CENTRAL_KEY) return;
-  const tagline = ($('cfg_site_tagline')?.value||'').trim()||null;
-  const about   = ($('cfg_site_about')?.value||'').trim()||null;
-  if(!DB.settings.school) DB.settings.school={};
-  DB.settings.school.site_tagline = tagline;
-  DB.settings.school.site_about   = about;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt();
-  try {
-    const ctrl = new AbortController();
-    setTimeout(()=>ctrl.abort(),8000);
-    await fetch(CENTRAL_URL+'/rest/v1/school_sites?license_key=eq.'+encodeURIComponent(key), {
-      method:'PATCH',
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({ tagline, about_text: about }),
-      signal: ctrl.signal
-    });
-    toast('✅ Site mis à jour','success');
-  } catch(e){ toast('Site mis à jour localement (hors ligne)','info'); }
-};
-
 window.publishAnnFromApp = async () => {
   const key   = (DB.settings?.license_key||'').trim();
   if(!key){ toast('Licence non configurée','error'); return; }
   if(!CENTRAL_URL||!CENTRAL_KEY) return;
-  const title   = ($('cfg_ann_title')?.value||'').trim();
-  const content = ($('cfg_ann_content')?.value||'').trim()||null;
+  const titleEl   = $('site_ann_title') || $('cfg_ann_title');
+  const contentEl = $('site_ann_content') || $('cfg_ann_content');
+  const title   = (titleEl?.value||'').trim();
+  const content = (contentEl?.value||'').trim()||null;
   if(!title){ toast('Entrez un titre','error'); return; }
   try {
     const ctrl = new AbortController();
@@ -13409,8 +13736,8 @@ window.publishAnnFromApp = async () => {
       signal: ctrl.signal
     });
     if(!r.ok) throw new Error('http_'+r.status);
-    if($('cfg_ann_title')) $('cfg_ann_title').value='';
-    if($('cfg_ann_content')) $('cfg_ann_content').value='';
+    if(titleEl) titleEl.value='';
+    if(contentEl) contentEl.value='';
     toast('✅ Actualité publiée sur le site','success');
   } catch(e){ toast('Erreur publication : hors ligne ?','error'); }
 };
