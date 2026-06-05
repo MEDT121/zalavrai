@@ -5366,7 +5366,7 @@ R.parents = () => {
                             ${!active?`<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center">🚫</div>`:''}
                           </div>
                           <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name.split(' ')[0]}</div>
-                          <div style="font-size:10px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
+                          <div style="font-size:10px;color:var(--text-secondary)">${esc(t.relation||'Tutelle')}</div>
                           <div style="font-size:10px;color:${active?'#1f9d6b':'#dc2626'};font-weight:600;margin:3px 0">${active?'Autorisé':'Désactivé'}</div>
                           <div style="display:flex;gap:4px;justify-content:center;margin-top:5px">
                             <button onclick="openTutelleForm('${s.id}','${t.id}')" style="padding:4px 7px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px">✏️</button>
@@ -6395,7 +6395,7 @@ R.children = () => {
               <div style="flex:1">
                 <div style="font-weight:700;font-size:13px;color:#dc2626">Convocation Direction</div>
                 <div style="font-size:13px;font-weight:600;margin-top:2px">RDV : ${new Date(c.rdv_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-                ${c.note?`<div style="font-size:12px;color:#6f6557;margin-top:2px">${c.note}</div>`:''}
+                ${c.note?`<div style="font-size:12px;color:#6f6557;margin-top:2px">${esc(c.note)}</div>`:''}
               </div>
             </div>
           </div>`).join('');
@@ -10135,9 +10135,9 @@ R.authorized = () => {
               <div style="width:60px;height:70px;border-radius:10px;overflow:hidden;margin:0 auto 6px;background:#efe3d3;display:flex;align-items:center;justify-content:center">
                 ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:20px;font-weight:700;color:#6f6557">${ini(t.name)}</span>`}
               </div>
-              <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">${t.relation||'Tutelle'}</div>
-              <div style="font-size:11px;color:var(--text-muted)">${t.phone||'—'}</div>
+              <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${esc(t.relation||'Tutelle')}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${esc(t.phone||'—')}</div>
               <div style="display:flex;gap:4px;margin-top:6px">
                 <button class="btn btn-outline btn-sm" style="flex:1;padding:4px" onclick="openTutelleForm('${s.id}','${t.id}')">✏️</button>
                 <button class="btn btn-danger btn-sm" style="padding:4px 6px" onclick="deleteTutelle('${t.id}')">Suppr.</button>
