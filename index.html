@@ -2570,7 +2570,7 @@ function dashboardDirection() {
     const stLabel = ok ? (late ? 'En retard' : 'À l\'heure') : '—';
     return `
       <div class="dp-list-item" onclick="go('students')" role="button" tabindex="0" aria-label="${esc(s.name)}">
-        <div class="dp-list-avatar" style="background:rgba(37,99,235,.12);color:#5c92ff;border-radius:50%">${ini(s.name)}</div>
+        <div class="dp-list-avatar" style="background:rgba(37,99,235,.12);color:#5c92ff;border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div>
         <div style="flex:1;min-width:0">
           <div class="dp-list-title">${esc(s.name)}</div>
           <div class="dp-list-sub">${esc(cl?.name||'—')}</div>
@@ -6642,7 +6642,7 @@ R.attendance = () => {
       const [cc,cbg]=clsColor(c?c.name:'');
       const st=a?(a.status==='ontime'?{b:'#d8f3e6',c:'#065f46',l:t("À l'heure",'On time'),i:''}:a.status==='late'?{b:'#fdeccd',c:'#92400e',l:t('Retard','Late'),i:''}:a.status==='excused'?{b:'#dbeafe',c:'#205fae',l:t('Justifié','Excused'),i:''}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:''}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:''}):{b:'#f6ede0',c:'#5c5346',l:t('Absent','Absent'),i:''};
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
-        <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
+        <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${esc(s.name)}</div><div class="ww-item-sub">${scanEntry?'Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.l}</span>
         ${canModify&&!a?`<button class="action-btn" onclick="manualMarkPresent('${s.id}')" title="Marquer présent manuellement" style="flex-shrink:0;background:#d8f3e6;border-color:#95ddbb;color:#065f46;font-size:11px;padding:4px 8px">+Pré</button><button class="action-btn" onclick="markAttendance('${s.id}','sick')" title="Sorti maladie" style="flex-shrink:0;font-size:11px;padding:4px 8px">Mal.</button><button class="action-btn" onclick="markAttendance('${s.id}','excused')" title="Absent justifié" style="flex-shrink:0;background:#dbeafe;border-color:#93c5fd;font-size:11px;padding:4px 8px">Just.</button>`:''}
@@ -7444,7 +7444,7 @@ R.palmares_parent = () => {
           const isMyKid=kids.some(k=>k.id===s.id);
           return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
             <div style="font-size:${pos===0?'26':'20'}px">${medals[pos]}</div>
-            <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${ini(s.name)}</div>
+            <div style="width:40px;height:40px;border-radius:12px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
             <div style="font-size:11px;font-weight:700;text-align:center;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
             <div style="font-size:10px;color:var(--text-muted)">${esc(s.cl.name)}</div>
             <div style="width:64px;height:${heights[pos]}px;border-radius:8px 8px 0 0;background:${bgPodium[pos]};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:#fff">${s.score}</div>
@@ -7457,7 +7457,7 @@ R.palmares_parent = () => {
           const isMyKid=kids.some(k=>k.id===s.id);
           return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:${isMyKid?'linear-gradient(135deg,#f0fdf4,#dcfce7)':i%2===0?'var(--bg)':'transparent'};border:${isMyKid?'1.5px solid #86efac':'1px solid transparent'};animation:fadeInUp .3s ease both;animation-delay:calc(${i}*.06s)">
             <span style="font-size:${i<3?18:13}px;width:28px;text-align:center;flex-shrink:0;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
-            <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+            <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:700">${esc(s.name)}${isMyKid?' *':''}</div>
               <div style="font-size:11px;color:var(--text-muted)">${esc(s.cl.name)}</div>
@@ -7800,7 +7800,7 @@ R.cantine = () => {
         const isPresent=pr?.present===true;
         const [cc,cbg]=clsColor((DB.classes||[]).find(c=>c.id===s.cid)?.name||'');
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${isPresent?'#d8f3e6':'var(--bg)'};border-radius:10px;border:1px solid ${isPresent?'#95ddbb':'var(--border)'}">
-          <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+          <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
             <div style="font-size:11px;color:var(--text-muted)">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'}</div>
@@ -8211,7 +8211,7 @@ window.openGradePanel = cid => {
   <div id="gradeInputs" style="margin-top:4px">
     ${students.map(s => `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
-      <div style="width:34px;height:34px;border-radius:9px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+      <div style="width:34px;height:34px;border-radius:9px;background:#f6ede0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
       <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
       ${isMaternelle?`<select class="form-select mat-grade-input grade-input" data-sid="${s.id}" style="flex:1"><option value="">—</option><option value="18">Acquis (A)</option><option value="12">En cours (EC)</option><option value="5">Non acquis (NA)</option></select>`:`<input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="20" step="0.5" placeholder="—"><span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>`}
     </div>`).join('')}
@@ -8581,7 +8581,7 @@ R.devoirs_parent = () => {
     const kidColor=kidColors[ki%kidColors.length];
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,${kidColor}22,${kidColor}0a);border-radius:18px;border-left:4px solid ${kidColor};margin-bottom:12px;box-shadow:0 2px 10px ${kidColor}20;animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
-        <div style="width:48px;height:48px;border-radius:14px;background:${kidColor};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;box-shadow:0 3px 10px ${kidColor}50;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800">${ini(k.name)}</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:${kidColor};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;box-shadow:0 3px 10px ${kidColor}50;flex-shrink:0;color:#fff;font-weight:800">${(k.photo||k.photo_url)?`<img src="${k.photo||k.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(k.name)}</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:17px">${esc(k.name)}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:1px">${cl?esc(cl.name):''}</div>
@@ -9050,7 +9050,7 @@ window.openCorrecteurDevoir = dvId => {
       const ex=existingGrades.find(g=>g.sid===s.id);
       return `<div style="padding:10px 0;border-bottom:1px solid var(--border-light)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <div style="width:34px;height:34px;border-radius:9px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+          <div style="width:34px;height:34px;border-radius:9px;background:#f6ede0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
           <input class="form-input gc-input" data-sid="${s.id}" style="width:70px;text-align:center;padding:8px" type="number" min="0" max="100" step="0.5" placeholder="—" value="${ex!==undefined?ex.note:''}">
           <span id="gcMaxLabel_${s.id}" style="font-size:12px;color:var(--text-muted);min-width:28px">/20</span>
@@ -10768,7 +10768,7 @@ window.caisseSearch = () => {
   res.innerHTML=found.map(s=>{
     const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
     return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
-      <div class="pi-icon" style="background:${cbg};color:${cc}">${ini(s.name)}</div>
+      <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
       <span class="premium-badge" style="background:#d8f3e6;color:#065f46">Sélectionner</span>
     </div>`;
@@ -14961,7 +14961,7 @@ R.profil_parent = () => {
         const isMyKid=kids.some(k=>k.id===s.id);
         return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;animation:fadeInUp .4s ease both;animation-delay:${pos*.08}s">
           <div style="font-size:${pos===0?'30':'24'}px;line-height:1">${medals[pos]}${isMyKid?'<span style="font-size:10px;background:#8255c4;color:#fff;border-radius:6px;padding:1px 5px;vertical-align:top;margin-left:2px">Moi</span>':''}</div>
-          <div style="width:46px;height:46px;border-radius:14px;background:${cbg2};color:${cc2};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;box-shadow:0 3px 10px rgba(0,0,0,.1)">${ini(s.name)}</div>
+          <div style="width:46px;height:46px;border-radius:14px;background:${cbg2};color:${cc2};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;box-shadow:0 3px 10px rgba(0,0,0,.1)">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="font-size:11px;font-weight:700;text-align:center;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name.split(' ')[0])}</div>
           <div style="font-size:10px;color:#6f6557">${esc(s.cl.name)}</div>
           <div style="width:68px;height:${heights[pos]}px;border-radius:10px 10px 0 0;background:${bgP[pos]};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#fff;box-shadow:${shadows[pos]}">${s.score}</div>
@@ -14973,7 +14973,7 @@ R.profil_parent = () => {
       const isMyKid=kids.some(k=>k.id===s.id);
       return `<div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:16px;background:${isMyKid?'#f5f3ff':'#fff5ea'};border:${isMyKid?'2px solid #d0c2f2':'2px solid #f6ede0'};margin-bottom:6px;animation:fadeInUp .3s ease both;animation-delay:${i*.04}s;box-shadow:${isMyKid?'0 3px 12px rgba(109,40,217,.12)':'none'}">
         <span style="font-size:${i<3?20:14}px;width:30px;text-align:center;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</span>
-        <div style="width:38px;height:38px;border-radius:10px;background:${cbg2};color:${cc2};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${ini(s.name)}</div>
+        <div style="width:38px;height:38px;border-radius:10px;background:${cbg2};color:${cc2};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:700">${esc(s.name)}${isMyKid?'<span style="font-size:10px;background:#8255c4;color:#fff;border-radius:5px;padding:1px 5px;margin-left:4px;vertical-align:middle">Mon enfant</span>':''}</div>
           <div style="font-size:12px;color:#6f6557">${esc(s.cl.name)}</div>
@@ -16339,7 +16339,7 @@ R.acces_parents = () => {
       return `
       <div class="premium-section" style="margin-bottom:0;border-left:4px solid ${acc?fc:'#efe3d3'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <div style="width:46px;height:46px;border-radius:12px;background:${cbg};color:${cc};font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini(s.name)}</div>
+          <div style="width:46px;height:46px;border-radius:12px;background:${cbg};color:${cc};overflow:hidden;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:15px">${esc(s.name)}</div>
             <div style="font-size:11px;color:var(--text-muted)">${s.mat} · ${cl?esc(cl.name):'?'}</div>
