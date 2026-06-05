@@ -12995,6 +12995,7 @@ window._siteDataLoading = false;
 window._siteData        = null;
 window._siteGallery     = [];
 window._sitePillars     = [];
+window._siteHeroPhotos  = [];
 window._selSiteColor    = null;
 
 window._loadSiteDataForPage = async function() {
@@ -13015,8 +13016,9 @@ window._loadSiteDataForPage = async function() {
     window._siteData = rows[0] || {};
   } catch(e) { window._siteData = {}; }
   window._siteDataReady = true;
-  window._siteGallery = JSON.parse(JSON.stringify((window._siteData||{}).gallery  || []));
-  window._sitePillars = JSON.parse(JSON.stringify((window._siteData||{}).pillars  || []));
+  window._siteGallery    = JSON.parse(JSON.stringify((window._siteData||{}).gallery     || []));
+  window._sitePillars    = JSON.parse(JSON.stringify((window._siteData||{}).pillars     || []));
+  window._siteHeroPhotos = JSON.parse(JSON.stringify((window._siteData||{}).hero_photos || []));
 };
 
 R.mon_site = () => {
@@ -13146,25 +13148,39 @@ R.mon_site = () => {
   </div>
 
   <div class="premium-section" style="border-left:4px solid #0f7f7f">
-    <div class="premium-section-title">🖼️ Photo principale (Hero)</div>
-    ${d.hero_url ? `<div style="border-radius:10px;overflow:hidden;margin-bottom:12px;height:130px;background:#111"><img src="${esc(d.hero_url)}" style="width:100%;height:100%;object-fit:cover;opacity:.8"></div>` : ''}
-    <div class="form-group"><label class="form-label">URL de la photo d'accueil</label>
-      <input class="form-input" id="site_hero_url" value="${esc(d.hero_url||'')}" placeholder="https://…">
+    <div class="premium-section-title">🖼️ Photos principales (Défilement)</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Ajoutez jusqu'à 5 photos — elles défileront automatiquement sur votre site. Compression et amélioration automatiques.</div>
+    <div id="site-hero-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      ${(window._siteHeroPhotos||[]).map((url,i) => `
+        <div style="position:relative;width:110px;height:78px;border-radius:8px;overflow:hidden;background:#111;flex-shrink:0">
+          <img src="${esc(url)}" style="width:100%;height:100%;object-fit:cover;filter:saturate(1.15) contrast(1.05)" onerror="this.style.opacity='.3'">
+          <button onclick="removeSiteHeroPhoto(${i})" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:22px;padding:0;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>`).join('')}
+      ${(window._siteHeroPhotos||[]).length < 5 ? `<label style="width:110px;height:78px;border-radius:8px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;gap:4px;font-size:12px;color:var(--text-muted);text-align:center">
+        <span style="font-size:22px">📤</span>Ajouter
+        <input type="file" accept="image/*" style="display:none" onchange="if(this.files[0])uploadSiteHeroPhoto(this.files[0])">
+      </label>` : ''}
     </div>
+    <div style="font-size:11px;color:var(--text-muted)">Photo redimensionnée à 1920px max · JPEG 85% · Saturation et luminosité augmentées.</div>
   </div>
 
   <div class="premium-section" style="border-left:4px solid #7c3aed">
     <div class="premium-section-title">📷 Galerie photos</div>
-    <div id="site-gallery-list">
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez plusieurs photos en une fois. Compression et amélioration automatiques.</div>
+    <div id="site-gallery-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
       ${gallery.map((g,i) => `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          ${g.url?`<img src="${esc(g.url)}" style="width:50px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">`:'<div style="width:50px;height:38px;background:var(--bg-secondary,#f8fafc);border-radius:6px;flex-shrink:0"></div>'}
-          <input class="form-input" style="flex:1;font-size:12px" value="${esc(g.url||'')}" placeholder="URL photo" oninput="window._siteGallery[${i}].url=this.value">
-          <input class="form-input" style="width:110px;font-size:12px" value="${esc(g.caption||'')}" placeholder="Légende" oninput="window._siteGallery[${i}].caption=this.value">
-          <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSiteGalleryPhoto(${i})">✕</button>
+        <div style="flex-shrink:0">
+          <div style="position:relative;width:90px;height:68px;border-radius:8px;overflow:hidden;background:#111">
+            ${g.url?`<img src="${esc(g.url)}" style="width:100%;height:100%;object-fit:cover;filter:saturate(1.15) contrast(1.05)" onerror="this.style.opacity='.3'">`:'<div style="width:100%;height:100%;background:var(--bg-secondary,#f8fafc)"></div>'}
+            <button onclick="removeSiteGalleryPhoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:20px;padding:0;display:flex;align-items:center;justify-content:center">✕</button>
+          </div>
+          <input class="form-input" style="width:90px;font-size:10px;margin-top:4px;padding:3px 6px" value="${esc(g.caption||'')}" placeholder="Légende" oninput="window._siteGallery[${i}].caption=this.value">
         </div>`).join('')}
+      <label style="width:90px;height:68px;border-radius:8px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;gap:4px;font-size:11px;color:var(--text-muted);text-align:center">
+        <span style="font-size:20px">📤</span>Ajouter
+        <input type="file" accept="image/*" multiple style="display:none" onchange="addSiteGalleryPhotos(this.files)">
+      </label>
     </div>
-    <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addSiteGalleryPhoto()">➕ Ajouter</button>
   </div>
 
   <div class="premium-section" style="border-left:4px solid #be185d">
@@ -13277,6 +13293,97 @@ window.extractSiteLogoColor = () => {
   } catch(e) { toast('Erreur extraction couleur','error'); }
 };
 
+window._processAndUploadSitePhoto = function(file, name) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const maxW = 1920, maxH = 1920;
+        let w = img.width, h = img.height;
+        if (w > maxW || h > maxH) { const ratio=Math.min(maxW/w,maxH/h); w=Math.round(w*ratio); h=Math.round(h*ratio); }
+        const cnv = document.createElement('canvas');
+        cnv.width = w; cnv.height = h;
+        const ctx = cnv.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        // HSL boost: saturation +20%, brightness +3%
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const px = imgData.data;
+        const h2r = (p,q,t) => { if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<.5)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+        for (let i = 0; i < px.length; i += 4) {
+          const r=px[i]/255, g=px[i+1]/255, b=px[i+2]/255;
+          const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+          let hh=0, s=0, l=(mx+mn)/2;
+          if (mx!==mn) {
+            const d=mx-mn;
+            s = l>.5 ? d/(2-mx-mn) : d/(mx+mn);
+            if(mx===r) hh=(g-b)/d+(g<b?6:0);
+            else if(mx===g) hh=(b-r)/d+2;
+            else hh=(r-g)/d+4;
+            hh/=6;
+          }
+          s=Math.min(1,s*1.20); l=Math.min(1,l*1.03);
+          let r2,g2,b2;
+          if (s===0) { r2=g2=b2=l; }
+          else { const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q; r2=h2r(p,q,hh+1/3); g2=h2r(p,q,hh); b2=h2r(p,q,hh-1/3); }
+          px[i]=Math.round(r2*255); px[i+1]=Math.round(g2*255); px[i+2]=Math.round(b2*255);
+        }
+        ctx.putImageData(imgData, 0, 0);
+        cnv.toBlob(async (blob) => {
+          try {
+            const fname = name+'_'+Date.now()+'.jpg';
+            const upR = await fetch(SUPA_URL+'/storage/v1/object/photos/site/'+fname, {
+              method: 'POST',
+              headers: { apikey: SUPA_KEY, Authorization: 'Bearer '+SUPA_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+              body: blob
+            });
+            if (!upR.ok) { reject(new Error('upload_'+upR.status)); return; }
+            resolve(SUPA_URL+'/storage/v1/object/public/photos/site/'+fname);
+          } catch(e) { reject(e); }
+        }, 'image/jpeg', 0.85);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+window.uploadSiteHeroPhoto = async function(file) {
+  if (!file) return;
+  if ((window._siteHeroPhotos||[]).length >= 5) { toast('Maximum 5 photos hero','info'); return; }
+  try {
+    toast('⏳ Compression et envoi…','info');
+    const url = await window._processAndUploadSitePhoto(file, 'hero');
+    window._siteHeroPhotos = window._siteHeroPhotos || [];
+    window._siteHeroPhotos.push(url);
+    toast('✅ Photo ajoutée','success');
+    render();
+  } catch(e) { toast('Erreur upload — vérifiez le bucket "photos" dans Supabase Storage','error'); }
+};
+
+window.removeSiteHeroPhoto = (i) => {
+  (window._siteHeroPhotos||[]).splice(i, 1);
+  render();
+};
+
+window.addSiteGalleryPhotos = async function(files) {
+  if (!files || !files.length) return;
+  toast('⏳ Traitement de '+files.length+' photo(s)…','info');
+  let added = 0;
+  for (const f of Array.from(files)) {
+    try {
+      const url = await window._processAndUploadSitePhoto(f, 'gal');
+      window._siteGallery = window._siteGallery || [];
+      window._siteGallery.push({url, caption:''});
+      added++;
+    } catch(e) {}
+  }
+  if (added) { toast('✅ '+added+' photo(s) ajoutée(s)','success'); render(); }
+  else toast('Erreur upload — vérifiez Supabase Storage','error');
+};
+
 window.saveSiteData = async () => {
   const key = (DB.settings?.license_key||'').trim();
   if (!key) { toast('Licence non configurée — allez dans Paramètres','error'); return; }
@@ -13289,7 +13396,7 @@ window.saveSiteData = async () => {
   const founded_year = parseInt($('site_founded_year')?.value) || null;
   const city         = ($('site_city')?.value||'').trim() || null;
   const whatsapp     = ($('site_whatsapp')?.value||'').trim() || null;
-  const hero_url     = ($('site_hero_url')?.value||'').trim() || null;
+  const hero_photos  = (window._siteHeroPhotos||[]).filter(u=>(u||'').trim());
   const published    = $('site_published')?.checked || false;
   const primary_color = ($('site_color_val')?.value || window._selSiteColor || '#c0962e');
   const theme        = $('site_theme_val')?.value || 'dark';
@@ -13323,7 +13430,7 @@ window.saveSiteData = async () => {
 
   const body = {
     tagline, about_text, mission, founded_year, city, whatsapp,
-    hero_url, published, primary_color, theme, gallery, pillars,
+    hero_photos, published, primary_color, theme, gallery, pillars,
     programs, stats, staff, school_name, school_name_en, address,
     phone, email, logo_url,
   };
@@ -13349,8 +13456,9 @@ window.saveSiteData = async () => {
     );
     if (r.status >= 400) throw new Error('http_'+r.status);
     window._siteData = Object.assign(window._siteData||{}, body);
-    window._siteGallery = JSON.parse(JSON.stringify(gallery));
-    window._sitePillars = JSON.parse(JSON.stringify(pillars));
+    window._siteGallery    = JSON.parse(JSON.stringify(gallery));
+    window._sitePillars    = JSON.parse(JSON.stringify(pillars));
+    window._siteHeroPhotos = JSON.parse(JSON.stringify(hero_photos));
     toast('✅ Site mis à jour','success');
     render();
   } catch(e) { toast('Sauvegardé localement (vérifier connexion)','info'); }

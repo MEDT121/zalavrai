@@ -14,6 +14,7 @@ ALTER TABLE school_sites
   ADD COLUMN IF NOT EXISTS whatsapp          text,
   ADD COLUMN IF NOT EXISTS logo_url          text,
   ADD COLUMN IF NOT EXISTS hero_url          text,
+  ADD COLUMN IF NOT EXISTS hero_photos       jsonb       DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS primary_color     varchar(7)  DEFAULT '#c0962e',
   ADD COLUMN IF NOT EXISTS theme             varchar(20) DEFAULT 'dark',
   ADD COLUMN IF NOT EXISTS mission           text,
