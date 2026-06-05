@@ -2987,10 +2987,8 @@ function dashboardDirection2() {
   const pendingAppr = (DB.approbations||[]).filter(a=>a.status==='pending');
   const pendingConvs = (DB.convocations||[]).filter(c=>c.status==='pending');
   const allTeachers = DB.users?.filter(u=>u.role==='enseignant')||[];
-  const noCahier = allTeachers.filter(u=>{
-    const hasCl = (DB.classes||[]).some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-    return hasCl&&!(DB.cahier_texte||[]).some(e=>e.by===u.id&&e.date===d);
-  });
+  const withClass = allTeachers.filter(u=>(DB.classes||[]).some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id));
+  const noCahier = withClass.filter(u=>!(DB.cahier_texte||[]).some(e=>e.by===u.id&&e.date===d));
 
   const alertsHtml = (()=>{
     const items=[];
@@ -3006,7 +3004,7 @@ function dashboardDirection2() {
     const pct = sc>0?Math.round(cp/sc*100):0;
     const barColor = pct>=80?'var(--green)':pct>=60?'var(--gold)':'var(--pink)';
     return `<div class="dp-list-item" onclick="go('attendance')">
-      <div class="dp-list-avatar" style="background:rgba(92,146,255,.1);color:#5c92ff;font-size:11px;font-weight:800">${esc(cl.name?.charAt(0)||'?')}</div>
+      <div class="dp-list-avatar" style="background:rgba(92,146,255,.1);color:#5c92ff;font-size:11px;font-weight:800">${esc(cl.name?.slice(0,3)||'?')}</div>
       <div style="flex:1;min-width:0">
         <div class="dp-list-title">${esc(cl.name)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
@@ -3050,7 +3048,7 @@ function dashboardDirection2() {
     </div>
     <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('cahier_texte')">
       <div class="dp-stat-icon">📖</div>
-      <div class="dp-stat-num">${teachers.length - noCahier.length}</div>
+      <div class="dp-stat-num">${withClass.length - noCahier.length}</div>
       <div class="dp-stat-label">Cahiers à jour</div>
       <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${noCahier.length>0?noCahier.length+' manquant'+(noCahier.length>1?'s':''):'Tous à jour ✓'}</div>
     </div>
@@ -3234,7 +3232,7 @@ function dashboardGardien() {
     </div>
   </div>
 
-  ${fc.active?`<div class="dp-alert urgent" style="margin-bottom:var(--sp-4)"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="dp-alert-title">CONTRÔLE FRAIS — ${fc.trimestre}</div><div class="dp-alert-sub">Refuser tout élève dont les frais ${fc.trimestre} ne sont pas réglés.</div></div></div>`:''}
+  ${fc.active?`<div class="dp-alert urgent" style="margin-bottom:var(--sp-4)"><div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="dp-alert-title">CONTRÔLE FRAIS — ${fc.trimestre||'—'}</div><div class="dp-alert-sub">Refuser tout élève dont les frais ${fc.trimestre||'—'} ne sont pas réglés.</div></div></div>`:''}
 
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-4);animation:fadeInUp .35s .08s ease both">
     <div class="dp-cta" style="background:linear-gradient(135deg,rgba(56,230,165,.18),rgba(56,230,165,.1));border:1px solid rgba(56,230,165,.3);flex-direction:column;gap:10px;text-align:center;padding:var(--sp-5) var(--sp-3);min-height:90px" onclick="go('scanner')">
@@ -9652,7 +9650,7 @@ R.scanner = () => `
   </div>
   <h2 style="font-size:18px;font-weight:700;margin-bottom:4px;position:relative;z-index:1">Scanner Entrée</h2>
   <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;position:relative;z-index:1">Scannez la carte QR de l'élève</p>
-  ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`<div style="background:#fee2e2;border:2px solid #ef5b5b;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;width:100%;max-width:380px"><span style="font-size:22px">🔴</span><div><div style="font-weight:700;font-size:13px;color:#991b1b">Contrôle frais ${fc.trimestre}</div><div style="font-size:11px;color:#991b1b">Élèves non payés = refusés</div></div></div>`:''})()}
+  ${(()=>{const fc=DB.settings.feesControl||{};return fc.active?`<div style="background:#fee2e2;border:2px solid #ef5b5b;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:10px;width:100%;max-width:380px"><span style="font-size:22px">🔴</span><div><div style="font-weight:700;font-size:13px;color:#991b1b">Contrôle frais ${fc.trimestre||'—'}</div><div style="font-size:11px;color:#991b1b">Élèves non payés = refusés</div></div></div>`:''})()}
   <div class="scan-video-wrap">
     <video id="scanVideo" autoplay playsinline muted></video>
     <div class="scan-line"></div>
@@ -14504,8 +14502,6 @@ R.profil_enseignant = () => {
         </div>
         ${recentDevs.map((d,di)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${di<recentDevs.length-1?'border-bottom:1px solid #f6ede0':''}"><span style="font-size:13px;font-weight:600;color:#241f1a">${esc(d.title)}</span><span style="font-size:11px;background:#fdeccd;color:#92400e;border-radius:8px;padding:2px 8px;font-weight:600">${d.date||''}</span></div>`).join('')}
       </div>`:''}`:`<div style="font-size:13px;color:#a89c8b;padding:24px;text-align:center;background:#fff5ea;border-radius:16px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
-    </div>
-
       <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
@@ -14522,6 +14518,7 @@ R.profil_enseignant = () => {
           </div>`).join('')}
         </div>
       </div>
+    </div>
 
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
@@ -15389,8 +15386,6 @@ R.profil_gardien = () => {
           </div>`;
         }).join('')}
       </div>`:''}
-    </div>
-
       <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
@@ -15407,6 +15402,7 @@ R.profil_gardien = () => {
           </div>`).join('')}
         </div>
       </div>
+    </div>
 
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
@@ -15546,8 +15542,6 @@ R.profil_caisse = () => {
           }).join('')}
         </div>
       </div>
-    </div>
-
       <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
@@ -15564,6 +15558,7 @@ R.profil_caisse = () => {
           </div>`).join('')}
         </div>
       </div>
+    </div>
 
     <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
       <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
