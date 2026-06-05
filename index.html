@@ -2386,6 +2386,20 @@ window.saveProfile = async () => {
   toast('PIN mis à jour ✅','success'); closeModal();
 };
 
+// ── ROLE GUARD ──
+// Returns an error HTML string if current user lacks the required role(s), or null if allowed.
+window._requireRole = (...allowed) => {
+  if(!S.user || !allowed.includes(S.user.role)){
+    setTimeout(()=>go('dashboard'),100);
+    return `<div style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:48px;margin-bottom:12px">🔒</div>
+      <div style="font-weight:700;margin-bottom:8px">Accès refusé</div>
+      <div style="font-size:13px">Vous n'avez pas la permission d'accéder à cette page.</div>
+    </div>`;
+  }
+  return null;
+};
+
 // ── DASHBOARDS ──
 
 // DIRECTION DASHBOARD
@@ -3048,7 +3062,7 @@ function dashboardDirection2() {
     </div>
     <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('cahier_texte')">
       <div class="dp-stat-icon">📖</div>
-      <div class="dp-stat-num">${withClass.length - noCahier.length}</div>
+      <div class="dp-stat-num">${withClass.length - noCahier.length}<span style="font-size:14px;font-weight:500;opacity:.55">/${withClass.length}</span></div>
       <div class="dp-stat-label">Cahiers à jour</div>
       <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px">${noCahier.length>0?noCahier.length+' manquant'+(noCahier.length>1?'s':''):'Tous à jour ✓'}</div>
     </div>
@@ -5592,7 +5606,7 @@ R.approbations = () => {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <div class="pi-title">${s?esc(s.name):'?'}</div>
             ${r.auto_triggered?`<span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:10px;font-weight:700">AUTO</span>`:`<span style="font-size:10px;background:#fdeccd;color:#92400e;padding:2px 6px;border-radius:10px">Manuel</span>`}
-            ${r.d2_validated?`<span style="font-size:10px;background:#dbeafe;color:#205fae;padding:2px 6px;border-radius:10px;font-weight:700">D2 ✓</span>`:''}
+            ${r.d2_validated?`<span style="font-size:10px;background:#dbeafe;color:#205fae;padding:2px 6px;border-radius:10px;font-weight:700" title="${esc(r.validated_by_d2_name||'Direction 2')}">D2 ✓ ${r.validated_by_d2_name?esc(r.validated_by_d2_name.split(' ')[0]):''}</span>`:''}
           </div>
           <div class="pi-sub">${esc(r.matiere)} · ${cl?esc(cl.name):'?'}</div>
           ${r.score!=null?`<div style="margin-top:4px;display:flex;align-items:center;gap:6px">
@@ -6864,7 +6878,8 @@ window.validerRattrapage = (rid, noPayment) => {
   // Direction 2: approve academically without setting a fee
   if(noPayment || S.user.role==='direction2') {
     r.d2_validated=true; r.validated_date=today();
-    pushSync('rattrapages','patch',{d2_validated:true,validated_date:r.validated_date},'id=eq.'+rid);
+    r.validated_by_d2=S.user.id; r.validated_by_d2_name=S.user.name;
+    pushSync('rattrapages','patch',{d2_validated:true,validated_date:r.validated_date,validated_by_d2:S.user.id,validated_by_d2_name:S.user.name},'id=eq.'+rid);
     if(s&&s.pid){
       const notif={id:'n'+Date.now(),uid:s.pid,
         msg:`📚 Cours de rattrapage approuvé — ${s.name} · ${r.matiere}. Raison : ${r.motif}`,
@@ -10642,6 +10657,7 @@ R.depenses = () => {
 };
 
 R.caisse_paiement = () => {
+  const _g=_requireRole('direction','direction3'); if(_g) return _g;
   const _totalStu = (DB.students||[]).length;
   const fees = getFees();
   const _totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
@@ -12030,6 +12046,7 @@ window.updateConvocation = (id) => {
 
 // ── ÉTAPE 9 — GESTION ANNÉE SCOLAIRE ──
 R.year_mgmt = () => {
+  const _g=_requireRole('direction'); if(_g) return _g;
   const s = DB.settings;
   const yr = s.year||'2025-2026';
   const locks = s.trimLocks||{T1:false,T2:false,T3:false};
@@ -12362,6 +12379,7 @@ window.genererPalmaresAnnuel = () => {
 };
 
 R.export = () => {
+  const _g=_requireRole('direction','direction2','direction3'); if(_g) return _g;
   const isD2=S.user.role==='direction2';
   const sizeMb=parseFloat(getDbSizeMb());
   const maxMb=500;
@@ -13461,6 +13479,7 @@ window.saveSiteData = async () => {
 
 // ── SETTINGS ──
 R.settings = () => {
+  const _g=_requireRole('direction'); if(_g) return _g;
   const sc=DB.settings.school||{};
   const fees=getFees();
   const hr=DB.settings.horaires||{};
@@ -15272,6 +15291,7 @@ window.logAudit = (action, detail, targetId) => {
 };
 
 R.audit_log = () => {
+  const _g=_requireRole('direction'); if(_g) return _g;
   if(!DB.audit_log) DB.audit_log=[];
   const filter=window._auditFilter||'';
   const all=[...DB.audit_log].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
@@ -15617,6 +15637,7 @@ window.saveCaisseProfile = () => {
 
 // ── COMPTES ACCÈS (Direction 1 seulement) ──
 R.accounts = () => {
+  const _g=_requireRole('direction'); if(_g) return _g;
   const mkSection = (role, gradient) => {
     const meta=ROLE_META[role]||{label:role,icon:'👤',color:'#6f6557',bg:'#f6ede0'};
     const users=DB.users.filter(u=>u.role===role);
@@ -15789,7 +15810,7 @@ R.profil_direction = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDirProfile('dir1_phone')">Enregistrer</button>
+        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDir1Profile()">Enregistrer</button>
       </div>
     </div>
 
@@ -15839,9 +15860,9 @@ R.profil_direction2 = () => {
   const attPct2=totalStudents?Math.round(todayPresDir2/totalStudents*100):0;
   const validTabs=['stats','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
-  const clr='#2f7bd6';const clr2='#5b6fd6';
+  const clr='#4c1d95';const clr2='#6d28d9';
   return `
-  <div style="background:linear-gradient(135deg,${clr},${clr2});border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(37,99,235,.4)">
+  <div style="background:linear-gradient(135deg,${clr},${clr2} 65%,#5b6fd6);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
     <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
     <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmerSlide 3s linear infinite"></div>
@@ -15938,7 +15959,7 @@ R.profil_direction2 = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDirProfile('dir2_phone')">Enregistrer</button>
+        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDir2Profile()">Enregistrer</button>
       </div>
     </div>
 
@@ -15954,9 +15975,8 @@ R.profil_direction2 = () => {
     </div>
   </div>`;
 };
-window.saveDirProfile = (inputId) => {
-  const phone=(document.getElementById(inputId)?.value||'').trim()||null;
-  const prefix=inputId.startsWith('dir2_')?'dir2_':'dir_';
+const _saveProfileCore = (prefix, phoneId) => {
+  const phone=(document.getElementById(phoneId)?.value||'').trim()||null;
   const name=(document.getElementById(prefix+'name')?.value||'').trim();
   const initials=(document.getElementById(prefix+'init')?.value||'').trim();
   if(!name){toast('Entrez votre nom','error');return;}
@@ -15971,6 +15991,9 @@ window.saveDirProfile = (inputId) => {
   saveToCrypt();render();
   toast('Profil mis à jour','success');
 };
+window.saveDir1Profile = () => _saveProfileCore('dir_','dir1_phone');
+window.saveDir2Profile = () => _saveProfileCore('dir2_','dir2_phone');
+window.saveDirProfile  = (inputId) => inputId.startsWith('dir2_') ? saveDir2Profile() : saveDir1Profile();
 
 window.archiverAnnee = () => {
   const yr = DB.settings.year||'2025-2026';
@@ -16183,6 +16206,7 @@ window.exportArchivePDF = () => {
 
 // ── ACCÈS PARENTS PAR ÉLÈVE ──
 R.acces_parents = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const q=(window._accParQ||'').toLowerCase();
   const filter=window._accParFilter||'tous';
   const tog=DB.settings.toggles||{};
