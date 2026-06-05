@@ -4528,22 +4528,71 @@ function initCardSystem() {
 
 // ── CARDS COMMANDER (Direction) ──
 R.cards = () => {
-  const total = (DB.students||[]).filter(s=>!s.blocked).length;
-  const withPhoto = (DB.students||[]).filter(s=>!s.blocked&&s.photo).length;
-  const complete = (DB.students||[]).filter(s=>!s.blocked&&s.photo&&s.name&&s.mat&&s.dob).length;
+  const allStudents = (DB.students||[]).filter(s=>!s.blocked);
+  const total = allStudents.length;
+  const withPhoto = allStudents.filter(s=>s.photo).length;
+  const complete = allStudents.filter(s=>s.photo&&s.name&&s.mat&&s.dob).length;
   const pcPhoto = total ? Math.round(withPhoto/total*100) : 0;
   const pcComplete = total ? Math.round(complete/total*100) : 0;
   const ordersHtml = (window._myCardOrders||[]).length
-    ? (window._myCardOrders||[]).slice(0,5).map(o=>{
+    ? (window._myCardOrders||[]).slice(0,8).map(o=>{
         const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
-        const cl = (o.notes||'').match(/Classe: ([^|]+)/)?.[1]?.trim()||'—';
-        return `<div class="premium-item"><div class="pi-icon">📦</div><div><div class="pi-title">${esc(cl)} · ${o.quantity||0} cartes</div><div class="pi-sub">${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+        return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
       }).join('')
     : '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>';
   setTimeout(()=>{ if(typeof window.loadMyCardOrders==="function") window.loadMyCardOrders(); }, 200);
+
+  // Build student identity gallery
+  const classFilter = window._cardClassFilter||'';
+  const nameSearch = (window._cardNameSearch||'').toLowerCase();
+  let students = allStudents;
+  if(classFilter) students = students.filter(s=>s.cid===classFilter);
+  if(nameSearch) students = students.filter(s=>(s.name||'').toLowerCase().includes(nameSearch)||(s.mat||'').toLowerCase().includes(nameSearch));
+
+  const cycleLabel = (cl) => {
+    if(!cl) return '';
+    if(cl.cycle==='humanites') return 'Humanités'+(cl.option?' · '+cl.option:'');
+    if(cl.cycle==='maternelle') return 'Maternelle';
+    if(cl.cycle==='primaire') return 'Primaire';
+    if(cl.cycle==='secondaire') return 'Secondaire';
+    return cl.cycle||'';
+  };
+
+  const cardHtml = students.map(s=>{
+    const cl = (DB.classes||[]).find(c=>c.id===s.cid);
+    const parent = (DB.users||[]).find(u=>u.id===s.pid);
+    const teacher = cl ? (DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)) : null;
+    const parentName = parent ? parent.name : (s.nom_papa||s.nom_maman||'—');
+    const parentPhone = parent ? (parent.phone||'—') : '—';
+    const isComplete = s.photo&&s.name&&s.mat&&s.dob;
+    return `<div style="background:var(--bg-card,#fff);border-radius:14px;border:1.5px solid ${isComplete?'var(--border-light,#efe3d3)':'#f59e0b'};padding:14px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:52px;height:62px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#efe3d3;display:flex;align-items:center;justify-content:center;font-size:20px;border:1.5px solid var(--border-light,#efe3d3)">
+          ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover">`:'👤'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-top:1px">${esc(s.mat||'—')}</div>
+          <div style="font-size:11px;color:#2f7bd6;font-weight:600;margin-top:3px">${cl?esc(cl.name):'—'}</div>
+          <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${esc(cycleLabel(cl))}</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border-light,#f0e8df);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:11px">
+        <div><span style="color:var(--text-muted)">Né(e) le:</span> <span style="color:var(--text-primary)">${s.dob||'—'}</span></div>
+        <div><span style="color:var(--text-muted)">Lieu:</span> <span style="color:var(--text-primary)">${esc(s.lieu_naissance||'—')}</span></div>
+        <div><span style="color:var(--text-muted)">N° inscr.:</span> <span style="color:var(--text-primary);font-family:monospace">${esc(s.num_inscription||'—')}</span></div>
+        <div><span style="color:var(--text-muted)">Parent:</span> <span style="color:var(--text-primary)">${esc(parentName)}</span></div>
+        <div><span style="color:var(--text-muted)">Tél. parent:</span> <span style="color:var(--text-primary)">${esc(parentPhone)}</span></div>
+        <div><span style="color:var(--text-muted)">Prof.:</span> <span style="color:var(--text-primary)">${esc(teacher?teacher.name:'—')}</span></div>
+      </div>
+      ${!isComplete?`<div style="background:#fff3cd;border-radius:8px;padding:6px 8px;font-size:10px;color:#92400e">⚠️ Dossier incomplet — complétez avant de commander</div>`:''}
+      <button class="btn btn-primary btn-sm" style="width:100%;font-weight:700" onclick="submitCardOrder('${s.id}')" ${!isComplete?'disabled':''}>🪪 Commander cette carte</button>
+    </div>`;
+  }).join('');
+
   return `
 <div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
-  <div class="premium-section-title">📊 État des données élèves</div>
+  <div class="premium-section-title">📊 État des dossiers élèves</div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
     <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
       <div style="font-size:26px;font-weight:800;color:var(--text-primary)">${total}</div>
@@ -4558,26 +4607,24 @@ R.cards = () => {
       <div style="font-size:11px;color:var(--text-secondary)">Dossiers complets (${pcComplete}%)</div>
     </div>
   </div>
-  ${complete < total ? `<div style="background:#fff3cd;border:1px solid #d98a2b;border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e">⚠️ ${total-complete} élève${total-complete>1?'s':''} avec dossier incomplet. Complétez la photo ou les informations manquantes avant de commander.</div>` : ''}
+  ${complete < total ? `<div style="background:#fff3cd;border:1px solid #d98a2b;border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e">⚠️ ${total-complete} élève${total-complete>1?'s':''} avec dossier incomplet. Ajoutez la photo, la date de naissance ou le matricule manquant.</div>` : ''}
 </div>
-<div class="premium-section" style="border-left:4px solid #2f7bd6">
-  <div class="premium-section-title">📦 Commander les cartes</div>
-  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">Sélectionnez la classe à imprimer et envoyez la commande. Les cartes seront générées et imprimées par l'opérateur SchoolSafe.</div>
-  <div class="form-group">
-    <label class="form-label">Classe à commander</label>
-    <select class="form-select" id="order_class">
-      <option value="">Toute l'école (${total} élèves)</option>
-      ${(DB.classes||[]).map(cl=>{const n=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.blocked).length;return n?`<option value="${cl.id}">${esc(cl.name)} (${n} élèves)</option>`:''}).join('')}
+<div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">🪪 Identités élèves — Commander une carte</div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Vérifiez l'identité complète de chaque élève, puis envoyez la demande à l'opérateur carte par carte.</div>
+  <div class="ww-toolbar" style="margin-bottom:12px">
+    <input class="ww-search" placeholder="Rechercher élève ou matricule…" oninput="window._cardNameSearch=this.value;render()" value="${esc(window._cardNameSearch||'')}">
+    <select class="form-select" style="flex-shrink:0;width:auto;min-width:120px;font-size:13px" onchange="window._cardClassFilter=this.value;render()">
+      <option value="">Toutes les classes</option>
+      ${(DB.classes||[]).map(cl=>`<option value="${cl.id}" ${classFilter===cl.id?'selected':''}>${esc(cl.name)}</option>`).join('')}
     </select>
   </div>
-  <div class="form-group" style="margin-top:10px">
-    <label class="form-label">Message pour l'opérateur (optionnel)</label>
-    <textarea class="form-input" id="order_notes" rows="2" placeholder="Instructions particulières..." style="resize:none"></textarea>
-  </div>
-  <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:4px" onclick="submitCardOrder()">📦 Envoyer la commande</button>
-  <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">L'opérateur recevra votre commande et vous contactera pour la livraison des cartes imprimées</div>
+  ${students.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardHtml}</div>`
+    : `<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Aucun élève trouvé</div>`
+  }
 </div>
-<div class="premium-section" style="margin-top:16px;border-left:4px solid #6b7280">
+<div class="premium-section" style="border-left:4px solid #6b7280">
   <div class="premium-section-title">📋 Historique des commandes</div>
   <div id="card-orders-history">${ordersHtml}</div>
 </div>
@@ -4596,49 +4643,70 @@ window.loadMyCardOrders = async () => {
     const el = document.getElementById('card-orders-history');
     if(!el) return;
     if(!(window._myCardOrders||[]).length) { el.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>'; return; }
-    el.innerHTML = (window._myCardOrders||[]).slice(0,5).map(o=>{
+    el.innerHTML = (window._myCardOrders||[]).slice(0,8).map(o=>{
       const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
-      const cl = (o.notes||'').match(/Classe: ([^|]+)/)?.[1]?.trim()||'—';
-      return `<div class="premium-item"><div class="pi-icon">📦</div><div><div class="pi-title">${esc(cl)} · ${o.quantity||0} cartes</div><div class="pi-sub">${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+      return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
     }).join('');
   } catch(e) { /* offline — fail silently */ }
 };
 
-window.submitCardOrder = async () => {
-  const classId = document.getElementById('order_class')?.value||'';
-  const extraNotes = (document.getElementById('order_notes')?.value||'').trim();
-  const allStudents = (DB.students||[]).filter(s=>!s.blocked);
-  const students = classId ? allStudents.filter(s=>s.cid===classId) : allStudents;
-  if(!students.length){ toast('Aucun élève dans cette sélection','error'); return; }
-  const className = classId ? ((DB.classes||[]).find(c=>c.id===classId)?.name||'Classe') : "Toute l'école";
+window.submitCardOrder = async (sid) => {
+  const s = (DB.students||[]).find(x=>x.id===sid);
+  if(!s){ toast('Élève introuvable','error'); return; }
+  const cl = (DB.classes||[]).find(c=>c.id===s.cid);
+  const parent = (DB.users||[]).find(u=>u.id===s.pid);
+  const teacher = cl ? (DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)) : null;
   const schoolName = DB.settings?.school?.name||'École';
   const licenseKey = (DB.settings?.license_key||'').trim();
+  const cycleLabel = cl ? (cl.cycle==='humanites'?'Humanités'+(cl.option?' '+cl.option:''):(cl.cycle||'')) : '';
+  const dirUser = (DB.users||[]).find(u=>u.role==='direction');
   if(!CENTRAL_URL||!CENTRAL_KEY){ toast('Configuration centrale manquante','error'); return; }
   try {
-    toast('⏳ Envoi de la commande...','info');
+    toast('⏳ Envoi de la demande...','info');
+    const payload = {
+      school_name: schoolName,
+      license_key: licenseKey,
+      student_name: s.name||'',
+      student_mat: s.mat||'',
+      student_dob: s.dob||'',
+      student_lieu_naissance: s.lieu_naissance||'',
+      student_num_inscription: s.num_inscription||'',
+      student_adresse: s.adresse||DB.settings?.school?.address||'',
+      student_class: cl?cl.name:'',
+      student_cycle: cycleLabel,
+      teacher_name: teacher?teacher.name:'',
+      parent_name: parent?parent.name:(s.nom_papa||s.nom_maman||''),
+      parent_phone: parent?(parent.phone||''):'',
+      school_phone: DB.settings?.school?.phone||'',
+      school_address: DB.settings?.school?.address||'',
+      school_dgep: DB.settings?.school?.dgep||'',
+      school_year: DB.settings?.year||'',
+      director_name: dirUser?dirUser.name:'',
+      status: 'pending'
+    };
     const resp = await fetch(CENTRAL_URL+'/rest/v1/card_orders', {
       method:'POST',
       headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({
-        school_name: schoolName,
-        quantity: students.length,
-        status: 'pending',
-        notes: 'Classe: '+className+' | Licence: '+licenseKey+(extraNotes?' | '+extraNotes:'')
-      })
+      body:JSON.stringify(payload)
     });
     if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'HTTP '+resp.status); }
     window._myCardOrders = null;
-    logAudit('card_order','Commande cartes: '+className+' ('+students.length+' élèves)');
+    logAudit('card_order','Demande carte: '+s.name+' — '+(cl?cl.name:''));
     const waNum = window._OPERATOR_WA||'243978444167';
-    const waMsg = encodeURIComponent('Bonjour, commande de '+students.length+' cartes ('+className+') — '+schoolName+'. Merci de traiter notre commande SchoolSafe.');
-    openM('✅ Commande envoyée',`<div style="text-align:center;padding:8px 0">
-      <div style="font-size:48px;margin-bottom:12px">✅</div>
-      <div style="font-weight:800;font-size:18px;margin-bottom:6px">${students.length} cartes commandées</div>
-      <div style="color:var(--text-secondary);font-size:13px;margin-bottom:20px">${esc(className)} · En attente de traitement</div>
+    const waMsg = encodeURIComponent(
+      'Bonjour, demande de carte SchoolSafe:\n'+
+      'Élève: '+s.name+'\nMatricule: '+(s.mat||'—')+'\nClasse: '+(cl?cl.name:'—')+' ('+cycleLabel+')\n'+
+      'École: '+schoolName+'\nLicence: '+licenseKey
+    );
+    openM('✅ Demande envoyée',`<div style="text-align:center;padding:8px 0">
+      <div style="font-size:48px;margin-bottom:12px">🪪</div>
+      <div style="font-weight:800;font-size:18px;margin-bottom:4px">${esc(s.name)}</div>
+      <div style="font-size:13px;color:#2f7bd6;font-weight:600;margin-bottom:4px">${esc(cl?cl.name:'—')} · ${esc(cycleLabel)}</div>
+      <div style="color:var(--text-secondary);font-size:12px;margin-bottom:20px">Identité complète envoyée à l'opérateur</div>
       <a href="https://wa.me/${waNum}?text=${waMsg}" target="_blank" class="btn btn-primary" style="display:block;width:100%;text-decoration:none;margin-bottom:10px;padding:14px">📱 Notifier l'opérateur par WhatsApp</a>
-    </div>`,`<button class="btn btn-outline" onclick="closeModal();render()">Fermer</button>`);
+    </div>`,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
   } catch(e) {
-    toast('Erreur commande: '+e.message,'error');
+    toast('Erreur: '+e.message,'error');
   }
 };
 
@@ -5024,6 +5092,10 @@ window.openStudentForm = (sid) => {
 <div class="form-row">
   <div class="form-group"><label class="form-label">Nom du père</label><input class="form-input" id="stu_papa" value="${s&&s.nom_papa?s.nom_papa:''}" placeholder="Nom père"></div>
   <div class="form-group"><label class="form-label">Nom de la mère</label><input class="form-input" id="stu_maman" value="${s&&s.nom_maman?s.nom_maman:''}" placeholder="Nom mère"></div>
+</div>
+<div class="form-row">
+  <div class="form-group"><label class="form-label">Lieu de naissance</label><input class="form-input" id="stu_lieu_naissance" value="${s&&s.lieu_naissance?esc(s.lieu_naissance):''}" placeholder="Ex: Kinshasa"></div>
+  <div class="form-group"><label class="form-label">N° d'inscription</label><input class="form-input" id="stu_num_inscription" value="${s&&s.num_inscription?esc(s.num_inscription):''}" style="font-family:monospace" placeholder="Ex: INS-2025-001"></div>
 </div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveStudent()">${s?'Mettre à jour':'Inscrire'}</button>`);
 };
@@ -5057,7 +5129,7 @@ window.saveStudent = () => {
   const mat=($('stu_mat').value||'').trim()||genMat();
   const sid=$('stu_id').value;
   const photo=$('stu_photo_data').value||null;
-  const data={name,mat,cid,pid:$('stu_pid').value||null,dob:$('stu_dob').value||null,adresse:($('stu_adresse').value||'').trim()||null,nom_papa:($('stu_papa').value||'').trim()||null,nom_maman:($('stu_maman').value||'').trim()||null,photo};
+  const data={name,mat,cid,pid:$('stu_pid').value||null,dob:$('stu_dob').value||null,adresse:($('stu_adresse').value||'').trim()||null,nom_papa:($('stu_papa').value||'').trim()||null,nom_maman:($('stu_maman').value||'').trim()||null,photo,lieu_naissance:($('stu_lieu_naissance').value||'').trim()||null,num_inscription:($('stu_num_inscription').value||'').trim()||null};
   if(sid){
     const s=DB.students.find(x=>x.id===sid); if(s) Object.assign(s,data);
     pushSync('students','upsert',{id:sid,...data});
@@ -5475,7 +5547,19 @@ window.openClassForm = (cid) => {
 <input type="hidden" id="cls_id" value="${c?c.id:''}">
 <div class="form-row">
   <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
-  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()"><option value="primaire" ${c?.cycle==='primaire'||!c?'selected':''}>Primaire</option><option value="maternelle" ${c?.cycle==='maternelle'?'selected':''}>Maternelle</option><option value="secondaire" ${c?.cycle==='secondaire'?'selected':''}>Secondaire</option></select></div>
+  <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()"><option value="primaire" ${c?.cycle==='primaire'||!c?'selected':''}>Primaire</option><option value="maternelle" ${c?.cycle==='maternelle'?'selected':''}>Maternelle</option><option value="humanites" ${c?.cycle==='humanites'?'selected':''}>Humanités</option><option value="secondaire" ${c?.cycle==='secondaire'?'selected':''}>Secondaire</option></select></div>
+</div>
+<div class="form-group" id="cls_option_group" style="display:${c?.cycle==='humanites'?'':'none'}">
+  <label class="form-label">Option / Orientation</label>
+  <select class="form-select" id="cls_option">
+    <option value="">— Choisir l'option —</option>
+    <option value="Générales" ${c?.option==='Générales'?'selected':''}>Générales</option>
+    <option value="Littéraires" ${c?.option==='Littéraires'?'selected':''}>Littéraires</option>
+    <option value="Scientifiques" ${c?.option==='Scientifiques'?'selected':''}>Scientifiques</option>
+    <option value="Commerciales &amp; Adm." ${c?.option==='Commerciales & Adm.'?'selected':''}>Commerciales &amp; Adm.</option>
+    <option value="Techniques" ${c?.option==='Techniques'?'selected':''}>Techniques</option>
+    <option value="Pédagogiques" ${c?.option==='Pédagogiques'?'selected':''}>Pédagogiques</option>
+  </select>
 </div>
 <div class="form-group" id="cls_tf_group" ${isMaternelle?'style="display:none"':''}><label class="form-label" id="cls_tf_label">${c?.cycle==='secondaire'?'🇫🇷 Professeur titulaire':'🇫🇷 Professeur Français'}</label><select class="form-select" id="cls_tf" onchange="updateTitulaireOpts()">${teacherOpts}</select></div>
 <div class="form-group"><label class="form-label" id="cls_te_label">${isMaternelle?'Enseignant (Anglais)':'🇬🇧 Professeur Anglais'}</label><select class="form-select" id="cls_te" onchange="updateTitulaireOpts()">${teacherEnOpts}</select></div>
@@ -5506,14 +5590,17 @@ window.updateClassCycleFields = () => {
   const cycle=$('cls_cycle').value;
   const isMat=cycle==='maternelle';
   const isSec=cycle==='secondaire';
+  const isHum=cycle==='humanites';
   const tfGroup=document.getElementById('cls_tf_group');
   const titGroup=document.getElementById('cls_titulaire_group');
+  const optGroup=document.getElementById('cls_option_group');
   const teLabel=document.getElementById('cls_te_label');
   if(tfGroup) tfGroup.style.display=isMat?'none':'';
   if(titGroup) titGroup.style.display=isMat?'none':'';
-  if(teLabel) teLabel.textContent=isMat?'Enseignant (Anglais)':isSec?'🇬🇧 Prof Anglais (optionnel)':'🇬🇧 Professeur Anglais';
+  if(optGroup) optGroup.style.display=isHum?'':'none';
+  if(teLabel) teLabel.textContent=isMat?'Enseignant (Anglais)':(isSec||isHum)?'🇬🇧 Prof Anglais (optionnel)':'🇬🇧 Professeur Anglais';
   const tfLabel=document.getElementById('cls_tf_label');
-  if(tfLabel) tfLabel.textContent=isSec?'🇫🇷 Professeur titulaire':'🇫🇷 Professeur Français';
+  if(tfLabel) tfLabel.textContent=(isSec||isHum)?'🇫🇷 Professeur titulaire':'🇫🇷 Professeur Français';
   if(isMat&&$('cls_tf')) $('cls_tf').value='';
 };
 
@@ -5526,7 +5613,8 @@ window.saveClass = () => {
   const tid_en=$('cls_te').value||null;
   const tid_fr=isMat?null:($('cls_tf').value||null);
   const titId=isMat?tid_en:($('cls_titulaire')?($('cls_titulaire').value||null):null);
-  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||null};
+  const option=cycle==='humanites'?(($('cls_option')?.value)||'').trim()||null:null;
+  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||null,option};
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
