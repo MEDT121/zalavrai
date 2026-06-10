@@ -7,222 +7,139 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif}
-
 .bg{position:fixed;inset:0;z-index:0;background:linear-gradient(135deg,#0f2027 0%,#203a43 50%,#2c5364 100%)}
 .bg-dots{position:fixed;inset:0;z-index:1;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:36px 36px;pointer-events:none}
 .bg-glow{position:fixed;bottom:-10%;left:-5%;width:55%;height:75%;z-index:1;background:radial-gradient(ellipse,rgba(79,172,254,.1) 0%,transparent 68%);pointer-events:none}
-
 #stage{position:fixed;inset:0;z-index:10;overflow:hidden}
 
-/* ── Girl puppet ── */
-#girlWrap{
-  position:absolute;bottom:0;left:0;
-  z-index:22;           /* ABOVE the card (card z-index=20) */
-  pointer-events:none;
-}
-#girlSVG{
-  position:absolute;bottom:0;left:0;
-  width:100%;height:100%;
-  overflow:visible;
-}
+/* Girl puppet */
+#girlWrap{position:absolute;bottom:0;left:0;z-index:22;pointer-events:none}
+#girlSVG{position:absolute;bottom:0;left:0;width:100%;height:100%;overflow:visible}
 
-/* CSS walk cycle keyframes */
-@keyframes legLswing{0%,100%{transform:rotate(22deg)}50%{transform:rotate(-22deg)}}
-@keyframes legRswing{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
-@keyframes armLswing{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
-@keyframes armRswing{0%,100%{transform:rotate(16deg)}50%{transform:rotate(-16deg)}}
-@keyframes bodyBob  {0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+/* Walk cycle */
+@keyframes legL{0%,100%{transform:rotate(24deg)}50%{transform:rotate(-24deg)}}
+@keyframes legR{0%,100%{transform:rotate(-24deg)}50%{transform:rotate(24deg)}}
+@keyframes armLw{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
+@keyframes armRw{0%,100%{transform:rotate(18deg)}50%{transform:rotate(-18deg)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+/* Wave */
+@keyframes wave{
+  0%  {transform:rotate(-10deg) translateX(0)}
+  20% {transform:rotate(-78deg) translateX(12px)}
+  40% {transform:rotate(-42deg) translateX(5px)}
+  60% {transform:rotate(-82deg) translateX(14px)}
+  80% {transform:rotate(-48deg) translateX(7px)}
+  100%{transform:rotate(-10deg) translateX(0)}
+}
 
 #gBody{transform-origin:100px 220px}
-#legL {transform-origin:86px 290px}
-#legR {transform-origin:114px 290px}
-#armL {transform-origin:68px 158px}
-#armR {transform-origin:132px 158px}
+#legLg{transform-origin:86px 290px}
+#legRg{transform-origin:114px 290px}
+#armLg{transform-origin:68px 158px}
+#armRg{transform-origin:132px 158px}
 
-.walking #gBody{animation:bodyBob .52s ease-in-out infinite}
-.walking #legL {animation:legLswing .52s ease-in-out infinite}
-.walking #legR {animation:legRswing .52s ease-in-out infinite}
-.walking #armL {animation:armLswing .52s ease-in-out infinite}
-.walking #armR {animation:armRswing .52s ease-in-out infinite}
+.walking #gBody{animation:bob .52s ease-in-out infinite}
+.walking #legLg{animation:legL .52s ease-in-out infinite}
+.walking #legRg{animation:legR .52s ease-in-out infinite}
+.walking #armLg{animation:armLw .52s ease-in-out infinite}
+.walking #armRg{animation:armRw .52s ease-in-out infinite}
 
-/* ── Login card ── */
+.waving #armRg{animation:wave .55s ease-in-out infinite !important;transform-origin:132px 158px}
+.waving #armLg,.waving #legLg,.waving #legRg,.waving #gBody{animation:none !important}
+
+/* Login card */
 #loginCard{
-  position:absolute;
-  z-index:20;
+  position:absolute;z-index:20;
   width:min(320px,80vw);
-  background:rgba(255,255,255,.08);
-  backdrop-filter:blur(24px);
-  -webkit-backdrop-filter:blur(24px);
-  border:1px solid rgba(255,255,255,.17);
-  border-radius:22px;
-  padding:28px 24px 24px;
-  box-shadow:0 24px 60px rgba(0,0,0,.4);
+  background:rgba(255,255,255,.09);
+  backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+  border:1px solid rgba(255,255,255,.18);border-radius:22px;
+  padding:28px 24px 24px;box-shadow:0 24px 60px rgba(0,0,0,.45);
 }
 .card-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px}
-.card-logo-icon{
-  width:48px;height:48px;border-radius:14px;
-  background:linear-gradient(135deg,#4facfe,#00f2fe);
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;font-weight:900;color:#fff;
-  box-shadow:0 6px 18px rgba(79,172,254,.4);flex-shrink:0;
-}
+.card-logo-icon{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4facfe,#00f2fe);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;box-shadow:0 6px 18px rgba(79,172,254,.4);flex-shrink:0}
 .card-title{color:#fff;font-size:20px;font-weight:700;letter-spacing:-.2px}
 .card-sub{text-align:center;color:rgba(255,255,255,.45);font-size:12px;margin-bottom:20px}
 .form-group{margin-bottom:12px}
 .form-label{display:block;color:rgba(255,255,255,.55);font-size:11px;font-weight:600;margin-bottom:5px;letter-spacing:.6px;text-transform:uppercase}
-.form-input{
-  width:100%;height:46px;
-  background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.12);
-  border-radius:11px;color:#fff;font-size:15px;padding:0 14px;outline:none;
-  transition:border-color .2s,background .2s;
-}
+.form-input{width:100%;height:46px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.12);border-radius:11px;color:#fff;font-size:15px;padding:0 14px;outline:none;transition:border-color .2s,background .2s}
 .form-input::placeholder{color:rgba(255,255,255,.22)}
 .form-input:focus{border-color:rgba(79,172,254,.7);background:rgba(255,255,255,.12)}
 .form-input.pin{letter-spacing:6px;font-size:18px;font-weight:700;text-align:center}
 .hint{min-height:16px;font-size:11px;text-align:center;color:rgba(255,100,100,.8);margin:3px 0 7px}
-.btn-login{
-  width:100%;height:48px;border:none;border-radius:13px;cursor:pointer;
-  background:linear-gradient(135deg,#4facfe,#00f2fe);
-  color:#fff;font-size:15px;font-weight:700;
-  box-shadow:0 6px 20px rgba(79,172,254,.4);
-  transition:transform .15s,box-shadow .15s;
-}
+.btn-login{width:100%;height:48px;border:none;border-radius:13px;cursor:pointer;background:linear-gradient(135deg,#4facfe,#00f2fe);color:#fff;font-size:15px;font-weight:700;box-shadow:0 6px 20px rgba(79,172,254,.4);transition:transform .15s,box-shadow .15s}
 .btn-login:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(79,172,254,.5)}
 .btn-login:active{transform:translateY(0)}
 .card-foot{margin-top:14px;text-align:center;color:rgba(255,255,255,.25);font-size:11px}
 </style>
 </head>
 <body>
-<div class="bg"></div>
-<div class="bg-dots"></div>
-<div class="bg-glow"></div>
+<div class="bg"></div><div class="bg-dots"></div><div class="bg-glow"></div>
 
 <div id="stage">
-
-  <!-- ── School girl puppet (pure SVG, no images) ── -->
   <div id="girlWrap">
   <svg id="girlSVG" viewBox="0 0 200 530" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="skinG" cx="50%" cy="40%" r="55%">
-        <stop offset="0%" stop-color="#a06840"/>
-        <stop offset="100%" stop-color="#7a4e28"/>
-      </radialGradient>
-      <radialGradient id="faceG" cx="50%" cy="35%" r="60%">
-        <stop offset="0%" stop-color="#b07848"/>
-        <stop offset="100%" stop-color="#8a5830"/>
-      </radialGradient>
+      <radialGradient id="sk" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#a06840"/><stop offset="100%" stop-color="#7a4e28"/></radialGradient>
+      <radialGradient id="fc" cx="50%" cy="35%" r="60%"><stop offset="0%" stop-color="#b07848"/><stop offset="100%" stop-color="#8a5830"/></radialGradient>
     </defs>
-
-    <!-- ══ BODY GROUP (bobs while walking) ══ -->
     <g id="gBody">
-
-      <!-- Left arm -->
-      <g id="armL">
-        <rect x="54" y="155" width="22" height="80" rx="11" fill="#6daeed"/>
-        <rect x="56" y="228" width="18" height="48" rx="9" fill="url(#skinG)"/>
-        <ellipse cx="65" cy="278" rx="11" ry="9" fill="url(#skinG)"/>
-      </g>
-
-      <!-- Right arm -->
-      <g id="armR">
-        <rect x="124" y="155" width="22" height="80" rx="11" fill="#6daeed"/>
-        <rect x="126" y="228" width="18" height="48" rx="9" fill="url(#skinG)"/>
-        <ellipse cx="135" cy="278" rx="11" ry="9" fill="url(#skinG)"/>
-      </g>
-
-      <!-- Shirt / torso -->
+      <g id="armLg"><rect x="54" y="155" width="22" height="80" rx="11" fill="#6daeed"/><rect x="56" y="228" width="18" height="48" rx="9" fill="url(#sk)"/><ellipse cx="65" cy="278" rx="11" ry="9" fill="url(#sk)"/></g>
+      <g id="armRg"><rect x="124" y="155" width="22" height="80" rx="11" fill="#6daeed"/><rect x="126" y="228" width="18" height="48" rx="9" fill="url(#sk)"/><ellipse cx="135" cy="278" rx="11" ry="9" fill="url(#sk)"/></g>
       <rect x="62" y="138" width="76" height="84" rx="10" fill="#6daeed"/>
-      <!-- Collar V -->
       <path d="M84 142 L100 160 L116 142" fill="none" stroke="white" stroke-width="2.5" stroke-linejoin="round"/>
-      <!-- Pocket -->
-      <rect x="68" y="156" width="18" height="14" rx="3" fill="rgba(255,255,255,.22)" stroke="rgba(255,255,255,.4)" stroke-width="1"/>
-      <!-- Buttons -->
+      <rect x="68" y="156" width="18" height="14" rx="3" fill="rgba(255,255,255,.22)" stroke="rgba(255,255,255,.35)" stroke-width="1"/>
       <circle cx="100" cy="160" r="2.5" fill="white" opacity=".8"/>
       <circle cx="100" cy="174" r="2.5" fill="white" opacity=".8"/>
       <circle cx="100" cy="188" r="2.5" fill="white" opacity=".8"/>
-
-      <!-- Neck -->
-      <rect x="90" y="108" width="20" height="34" rx="8" fill="url(#skinG)"/>
-
-      <!-- ── HEAD ── -->
-      <!-- Hair mass -->
+      <rect x="90" y="108" width="20" height="34" rx="8" fill="url(#sk)"/>
       <ellipse cx="100" cy="74" rx="48" ry="50" fill="#160800"/>
-      <!-- Afro puffs -->
-      <circle cx="55"  cy="50" r="24" fill="#1a0a00"/>
-      <circle cx="48"  cy="38" r="17" fill="#240e00"/>
-      <circle cx="145" cy="50" r="24" fill="#1a0a00"/>
-      <circle cx="152" cy="38" r="17" fill="#240e00"/>
-      <!-- Hair ties -->
-      <circle cx="55"  cy="36" r="5.5" fill="#9b30f0" opacity=".95"/>
+      <circle cx="55" cy="50" r="24" fill="#1a0a00"/><circle cx="48" cy="38" r="17" fill="#240e00"/>
+      <circle cx="145" cy="50" r="24" fill="#1a0a00"/><circle cx="152" cy="38" r="17" fill="#240e00"/>
+      <circle cx="55" cy="36" r="5.5" fill="#9b30f0" opacity=".95"/>
       <circle cx="145" cy="36" r="5.5" fill="#9b30f0" opacity=".95"/>
-      <!-- Face -->
-      <ellipse cx="100" cy="78" rx="34" ry="37" fill="url(#faceG)"/>
-      <!-- Eye whites -->
-      <ellipse cx="87" cy="73" rx="7.5" ry="8" fill="white"/>
-      <ellipse cx="113" cy="73" rx="7.5" ry="8" fill="white"/>
-      <!-- Irises -->
-      <circle cx="87"  cy="74" r="5.2" fill="#3a200a"/>
-      <circle cx="113" cy="74" r="5.2" fill="#3a200a"/>
-      <!-- Pupils -->
-      <circle cx="88"  cy="74" r="2.8" fill="#080300"/>
-      <circle cx="114" cy="74" r="2.8" fill="#080300"/>
-      <!-- Shine -->
-      <circle cx="89"  cy="72" r="1.4" fill="white"/>
-      <circle cx="115" cy="72" r="1.4" fill="white"/>
-      <!-- Eyebrows -->
+      <ellipse cx="100" cy="78" rx="34" ry="37" fill="url(#fc)"/>
+      <ellipse cx="87" cy="73" rx="7.5" ry="8" fill="white"/><ellipse cx="113" cy="73" rx="7.5" ry="8" fill="white"/>
+      <circle cx="87" cy="74" r="5.2" fill="#3a200a"/><circle cx="113" cy="74" r="5.2" fill="#3a200a"/>
+      <circle cx="88" cy="74" r="2.8" fill="#080300"/><circle cx="114" cy="74" r="2.8" fill="#080300"/>
+      <circle cx="89" cy="72" r="1.4" fill="white"/><circle cx="115" cy="72" r="1.4" fill="white"/>
       <path d="M80 63 Q87 59 94 63" stroke="#200800" stroke-width="2.8" fill="none" stroke-linecap="round"/>
       <path d="M106 63 Q113 59 120 63" stroke="#200800" stroke-width="2.8" fill="none" stroke-linecap="round"/>
-      <!-- Nose -->
       <ellipse cx="100" cy="84" rx="4" ry="3" fill="rgba(0,0,0,.1)"/>
-      <!-- Smile -->
       <path d="M88 93 Q100 104 112 93" stroke="#5a3018" stroke-width="2.5" fill="none" stroke-linecap="round"/>
       <path d="M91 96 Q100 102 109 96" stroke="white" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-      <!-- Blush -->
-      <ellipse cx="78"  cy="88" rx="8" ry="5" fill="rgba(210,110,70,.2)"/>
+      <ellipse cx="78" cy="88" rx="8" ry="5" fill="rgba(210,110,70,.2)"/>
       <ellipse cx="122" cy="88" rx="8" ry="5" fill="rgba(210,110,70,.2)"/>
-
-      <!-- Skirt waistband -->
       <rect x="60" y="218" width="80" height="14" rx="5" fill="#152040"/>
-      <!-- Skirt -->
       <path d="M56 230 L144 230 L153 316 L47 316 Z" fill="#1a3060"/>
-      <!-- Pleats -->
-      <line x1="73"  y1="230" x2="69"  y2="316" stroke="#2a4080" stroke-width="1.5"/>
-      <line x1="88"  y1="230" x2="86"  y2="316" stroke="#2a4080" stroke-width="1.5"/>
+      <line x1="73" y1="230" x2="69" y2="316" stroke="#2a4080" stroke-width="1.5"/>
+      <line x1="88" y1="230" x2="86" y2="316" stroke="#2a4080" stroke-width="1.5"/>
       <line x1="100" y1="230" x2="100" y2="316" stroke="#2a4080" stroke-width="1.5"/>
       <line x1="112" y1="230" x2="114" y2="316" stroke="#2a4080" stroke-width="1.5"/>
       <line x1="127" y1="230" x2="131" y2="316" stroke="#2a4080" stroke-width="1.5"/>
-      <!-- Hem -->
       <rect x="46" y="314" width="108" height="5" rx="2" fill="#152040"/>
-
-    </g><!-- /gBody -->
-
-    <!-- ── LEFT LEG ── -->
-    <g id="legL">
-      <rect x="72" y="290" width="22" height="108" rx="10" fill="url(#skinG)"/>
+    </g>
+    <g id="legLg">
+      <rect x="72" y="290" width="22" height="108" rx="10" fill="url(#sk)"/>
       <rect x="71" y="368" width="24" height="32" rx="8" fill="white"/>
       <line x1="71" y1="378" x2="95" y2="378" stroke="#ddd" stroke-width="1"/>
       <line x1="71" y1="384" x2="95" y2="384" stroke="#ddd" stroke-width="1"/>
       <ellipse cx="83" cy="402" rx="24" ry="10" fill="#111"/>
       <rect x="62" y="395" width="26" height="14" rx="7" fill="#222"/>
     </g>
-
-    <!-- ── RIGHT LEG ── -->
-    <g id="legR">
-      <rect x="106" y="290" width="22" height="108" rx="10" fill="url(#skinG)"/>
+    <g id="legRg">
+      <rect x="106" y="290" width="22" height="108" rx="10" fill="url(#sk)"/>
       <rect x="105" y="368" width="24" height="32" rx="8" fill="white"/>
       <line x1="105" y1="378" x2="129" y2="378" stroke="#ddd" stroke-width="1"/>
       <line x1="105" y1="384" x2="129" y2="384" stroke="#ddd" stroke-width="1"/>
       <ellipse cx="117" cy="402" rx="24" ry="10" fill="#111"/>
       <rect x="111" y="395" width="26" height="14" rx="7" fill="#222"/>
     </g>
-
-    <!-- Shadow -->
     <ellipse cx="100" cy="417" rx="56" ry="8" fill="rgba(0,0,0,.22)"/>
-
   </svg>
   </div>
 
-  <!-- ── Login card (z-index:20, arm is above it via girlWrap z-index:22) ── -->
   <div id="loginCard">
     <div class="card-logo">
       <div class="card-logo-icon">S</div>
@@ -243,144 +160,65 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-u
     </form>
     <div class="card-foot">SchoolSafe v3.0 · Le Sage / The Wise School</div>
   </div>
-
 </div>
 
 <script>
-// ────────────────────────────────────────────────────
-//  Offline-first mini tween engine
-// ────────────────────────────────────────────────────
 (function(){
+// Mini tween
 var tw=[],raf=null;
-var E={
-  lin:function(t){return t},
-  out2:function(t){return 1-Math.pow(1-t,3)},
-  out3:function(t){return 1-Math.pow(1-t,4)},
-  out4:function(t){return 1-Math.pow(1-t,5)},
-  sine:function(t){return -(Math.cos(Math.PI*t)-1)/2},
-  bnc:function(t){var n=7.5625,d=2.75;if(t<1/d)return n*t*t;if(t<2/d)return n*(t-=1.5/d)*t+.75;if(t<2.5/d)return n*(t-=2.25/d)*t+.9375;return n*(t-=2.625/d)*t+.984375},
-};
+var E={lin:function(t){return t},out:function(t){return 1-Math.pow(1-t,3)},out4:function(t){return 1-Math.pow(1-t,4)},in2:function(t){return t*t*t},sine:function(t){return -(Math.cos(Math.PI*t)-1)/2}};
 var st={};
-function gs(el){if(!el.__id)el.__id='i'+(Math.random()*1e9|0);if(!st[el.__id])st[el.__id]={x:0,y:0,r:0,op:1,sx:1,sy:1};return st[el.__id];}
-function ap(el,s){el.style.transform='translateX('+s.x+'px) translateY('+s.y+'px) rotate('+s.r+'deg) scaleX('+s.sx+') scaleY('+s.sy+')';el.style.opacity=s.op;}
-function tick(){
-  var now=performance.now(),live=[];
-  for(var i=0;i<tw.length;i++){
-    var t=tw[i];if(now<t.s){live.push(t);continue;}
-    var p=Math.min(1,(now-t.s)/t.d),ep=t.e(p);
-    var s=gs(t.el);for(var k in t.to)s[k]=t.f[k]+(t.to[k]-t.f[k])*ep;
-    ap(t.el,s);
-    if(p<1)live.push(t);else if(t.cb)t.cb();
-  }
-  tw=live;if(tw.length)raf=requestAnimationFrame(tick);else raf=null;
-}
-window.Tw={
-  set:function(el,p){var s=gs(el);for(var k in p)s[k]=p[k];ap(el,s);},
-  to:function(el,p,dur,e,delay,cb){
-    var s=gs(el),f={};for(var k in p)f[k]=s[k];
-    tw.push({el:el,to:p,f:f,d:dur*1000,e:E[e]||E.lin,s:performance.now()+(delay||0)*1000,cb:cb||null});
-    if(!raf)raf=requestAnimationFrame(tick);
-  }
-};
-})();
+function gs(el){if(!el.__id)el.__id='i'+(Math.random()*1e9|0);if(!st[el.__id])st[el.__id]={x:0,y:0,r:0,op:1};return st[el.__id];}
+function ap(el,s){el.style.transform='translateX('+s.x+'px) translateY('+s.y+'px) rotate('+s.r+'deg)';el.style.opacity=s.op;}
+function tick(){var now=performance.now(),live=[];for(var i=0;i<tw.length;i++){var t=tw[i];if(now<t.s){live.push(t);continue;}var p=Math.min(1,(now-t.s)/t.d),ep=t.e(p);var s=gs(t.el);for(var k in t.to)s[k]=t.f[k]+(t.to[k]-t.f[k])*ep;ap(t.el,s);if(p<1)live.push(t);else if(t.cb)t.cb();}tw=live;if(tw.length)raf=requestAnimationFrame(tick);else raf=null;}
+window.Tw={set:function(el,p){var s=gs(el);for(var k in p)s[k]=p[k];ap(el,s);},to:function(el,p,dur,e,delay,cb){var s=gs(el),f={};for(var k in p)f[k]=s[k];tw.push({el:el,to:p,f:f,d:dur*1000,e:E[e]||E.lin,s:performance.now()+(delay||0)*1000,cb:cb||null});if(!raf)raf=requestAnimationFrame(tick);}};
 
-// ────────────────────────────────────────────────────
-//  Animation controller
-// ────────────────────────────────────────────────────
-(function(){
-var wrap = document.getElementById('girlWrap');
-var armR = document.getElementById('armR');
-var card = document.getElementById('loginCard');
-
-var sw=window.innerWidth, sh=window.innerHeight;
-
-// Character height (tall & imposing)
-var GH   = Math.min(sh*0.92, 680);
-var GW   = Math.round(GH*(200/530));
-var GX0  = -(GW+40);           // start off left
-var GXEND= Math.max(12, Math.round(sw*0.04));  // final resting X
-
-// Card placement
-var CW   = Math.min(320, Math.round(sw*0.80));
-var CXPOS= GXEND + GW + 20;
-var CYPOS= Math.round(sh/2 - 185);
-
-wrap.style.width  = GW+'px';
-wrap.style.height = GH+'px';
-wrap.style.left   = GX0+'px';
-card.style.width  = CW+'px';
-card.style.left   = CXPOS+'px';
-card.style.top    = CYPOS+'px';
-
+// Loop controller
+var wrap=document.getElementById('girlWrap');
+var card=document.getElementById('loginCard');
+var sw=window.innerWidth,sh=window.innerHeight;
+var GH=Math.min(sh*0.90,660),GW=Math.round(GH*(200/530));
+var CW=Math.min(320,Math.round(sw*0.80));
+var CXPOS=Math.round(sw*0.52);
+if(CXPOS+CW>sw-8)CXPOS=sw-CW-8;
+card.style.width=CW+'px';card.style.left=CXPOS+'px';card.style.top=Math.round(sh/2-180)+'px';
+var OFF_L=-(GW+20),PAUSE_X=Math.round(CXPOS-GW-16),OFF_R=sw+20;
+wrap.style.width=GW+'px';wrap.style.height=GH+'px';wrap.style.left=OFF_L+'px';
 Tw.set(wrap,{x:0,y:0,r:0,op:1});
-Tw.set(armR,{x:0,y:0,r:0,op:1});
-Tw.set(card,{x:sw+60,y:0,r:0,op:1});
-
-function startW(){ wrap.querySelector('svg').parentElement.classList.add('walking'); }
-function stopW(){  wrap.querySelector('svg').parentElement.classList.remove('walking'); }
-
-function play(){
-  var travel = GXEND - GX0;
-
-  // Phase 0 — walk in
-  startW();
-  Tw.to(wrap,{x:travel},2.4,'out3',0);
-  for(var i=0;i<8;i++) Tw.to(wrap,{r:i%2===0?2:-2},0.28,'sine',i*0.30);
-
-  // Phase 1 — stop + joy jump (t=2.4)
-  setTimeout(function(){
-    stopW();
-    Tw.to(wrap,{r:0},0.2,'sine',0);
-    Tw.to(wrap,{y:-36},0.25,'out3',0.1);
-    Tw.to(wrap,{y:0},  0.22,'bnc', 0.35);
-    Tw.to(wrap,{y:-20},0.20,'out3',0.57);
-    Tw.to(wrap,{y:0},  0.20,'bnc', 0.77);
-  },2400);
-
-  // Phase 2 — reach arm (t=3.5)
-  setTimeout(function(){
-    Tw.to(armR,{r:-78,x:52,y:-8},0.65,'out2',0);
-    Tw.to(wrap,{r:-4},0.4,'out2',0);
-  },3500);
-
-  // Phase 3 — card slides in (t=3.7)
-  setTimeout(function(){
-    Tw.to(card,{x:0},0.9,'out4',0);
-  },3700);
-
-  // Phase 4 — settle & lean (t=4.8)
-  setTimeout(function(){
-    Tw.to(armR,{r:-22,x:5,y:8},0.5,'out2',0);
-    Tw.to(wrap,{r:3},0.35,'out2',0.1);
-  },4800);
+function cls(c){wrap.className=c;}
+function loop(){
+  cls('walking');
+  Tw.to(wrap,{x:PAUSE_X-OFF_L},2.2,'out',0,function(){
+    cls('waving');
+    Tw.to(wrap,{y:-14},0.22,'out',0);Tw.to(wrap,{y:0},0.20,'out',0.22);
+    setTimeout(function(){
+      cls('walking');
+      Tw.to(wrap,{x:OFF_R-OFF_L},1.8,'in2',0,function(){
+        Tw.set(wrap,{x:0,y:0,r:0,op:0});
+        Tw.to(wrap,{op:1},0.15,'lin',0.1);
+        setTimeout(loop,150);
+      });
+    },1900);
+  });
 }
-
-setTimeout(play, 150);
+setTimeout(loop,300);
 })();
 
-// ────────────────────────────────────────────────────
-//  Login form
-// ────────────────────────────────────────────────────
 function handleLogin(e){
   e.preventDefault();
   var name=document.getElementById('loginName').value.trim();
-  var pin =document.getElementById('loginPin').value.trim();
+  var pin=document.getElementById('loginPin').value.trim();
   var hint=document.getElementById('loginHint');
-  var btn =document.getElementById('loginBtn');
+  var btn=document.getElementById('loginBtn');
   if(!name){hint.textContent='Veuillez saisir votre identifiant';return;}
   if(!pin||pin.length<4){hint.textContent='Code PIN requis (4–8 chiffres)';return;}
   hint.textContent='';btn.textContent='Connexion…';btn.disabled=true;
   // TODO_LICENCE: retirer cette ligne quand la base de données centrale est configurée
   setTimeout(function(){
     if(name.toLowerCase()==='admin'&&pin==='6921056'){
-      hint.style.color='rgba(79,172,254,.9)';
-      hint.textContent='Bienvenue, Administrateur !';
-      btn.textContent='✓ Connecté';
-      // window.location.href='index.html';
+      hint.style.color='rgba(79,172,254,.9)';hint.textContent='Bienvenue, Administrateur !';btn.textContent='✓ Connecté';
     }else{
-      hint.style.color='rgba(255,100,100,.8)';
-      hint.textContent='Identifiant ou code PIN incorrect.';
-      btn.textContent='Se connecter';btn.disabled=false;
+      hint.style.color='rgba(255,100,100,.8)';hint.textContent='Identifiant ou code PIN incorrect.';btn.textContent='Se connecter';btn.disabled=false;
     }
   },900);
 }
