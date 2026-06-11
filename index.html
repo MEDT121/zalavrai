@@ -881,32 +881,10 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 </div>
 
 <!-- Écran activation (pas de clé / clé invalide) -->
-<div id="licenseActivate" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
-  <div style="font-size:52px;margin-bottom:12px">🔑</div>
-  <div style="font-size:20px;font-weight:800;color:#f1f5f9;margin-bottom:8px">Activation requise</div>
-  <div style="font-size:13px;color:#94a3b8;margin-bottom:24px;max-width:320px;line-height:1.6" id="la_msg">Entrez la clé de licence fournie par votre opérateur SchoolSafe pour activer l'application.</div>
-  <div style="width:100%;max-width:340px;margin-bottom:12px">
-    <input id="la_key_input" type="text" placeholder="SS-2026-XXXX-XXXX" style="width:100%;padding:14px 16px;border-radius:14px;border:2px solid #2f7bd6;background:#0f172a;color:#f1f5f9;font-size:16px;font-family:monospace;letter-spacing:2px;text-align:center;outline:none">
-  </div>
-  <div id="la_error" style="font-size:12px;color:#f87171;margin-bottom:12px;min-height:18px"></div>
-  <button onclick="activateLicense()" style="width:100%;max-width:340px;padding:14px;background:#2f7bd6;color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:20px">✅ Activer SchoolSafe</button>
-  <div style="background:#1e3a5f;border-radius:14px;padding:12px 20px;max-width:340px;width:100%">
-    <div style="font-size:11px;color:#64748b;margin-bottom:4px">Obtenir une clé — Support SchoolSafe</div>
-    <a id="la_wa" href="#" target="_blank" style="font-size:14px;font-weight:700;color:#25d366;text-decoration:none">📱 Contacter par WhatsApp</a>
-  </div>
-</div>
+<!-- licence-activate removed -->
 
 <!-- Écran blocage (suspendu / expiré) -->
-<div id="licenseBlock" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
-  <div style="font-size:56px;margin-bottom:16px">🔒</div>
-  <div style="font-size:22px;font-weight:800;color:#f1f5f9;margin-bottom:8px" id="lb_title">Accès suspendu</div>
-  <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;max-width:340px;line-height:1.6" id="lb_msg">Votre abonnement SchoolSafe a expiré ou a été suspendu. Veuillez contacter l'opérateur pour renouveler.</div>
-  <div style="background:#1e3a5f;border-radius:16px;padding:16px 24px;margin-bottom:20px">
-    <div style="font-size:12px;color:#64748b;margin-bottom:4px">Support SchoolSafe</div>
-    <a id="lb_wa" href="#" style="font-size:16px;font-weight:700;color:#25d366;text-decoration:none">📱 WhatsApp</a>
-  </div>
-  <div style="font-size:11px;color:#334155" id="lb_key"></div>
-</div>
+<!-- licence-block removed -->
 
 <!-- ── Écran configuration Supabase (premier lancement ou reconfiguration) ── -->
 <div id="supaSetup" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1e293b);z-index:10000;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto">
@@ -1110,7 +1088,7 @@ window.compressImage = (file, maxW, maxH, quality, cb) => {
   img.src = url;
 };
 // ── Central control (configure once per school fork) ──
-const CENTRAL_URL = 'https://vcifxatmlgzueavalfks.supabase.co';
+const CENTRAL_URL = ''; // serveur de licences supprimé
 const CENTRAL_KEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
 const LICENSE_GRACE_DAYS = 3;
 window.SCHOOL_LOGO = null;
@@ -1285,7 +1263,7 @@ window.syncQueue = {
 
 // Auto-sync quand la connexion revient
 window.addEventListener('online', async () => {
-  window.DB_ONLINE = true;
+  // window.DB_ONLINE = true; // Supabase supprimé
   updateSyncIndicator();
   if (syncQueue.count() > 0) {
     toast(`🔄 Synchronisation de ${syncQueue.count()} changements…`, 'info');
@@ -1539,21 +1517,14 @@ window._updateSupabase = (url, key) => {
   SUPA_URL = url.replace(/\/$/,''); SUPA_KEY = key;
   _H = {'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'return=minimal'};
 };
-window._supaConfigured = () => !!(SUPA_URL && SUPA_KEY);
-// Migration one-shot : si l'ancienne URL est dans le code, on la bascule en localStorage
-(function _migrate(){
-  if(!localStorage.getItem('_school_supa_url')){
-    const leg='https://zqgksxgozpnhqzvzxloa.supabase.co';
-    const legK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
-    localStorage.setItem('_school_supa_url',leg);
-    localStorage.setItem('_school_supa_key',legK);
-  }
-})();
-// Restaure la connexion sauvegardée au démarrage
-(function(){
-  const u=localStorage.getItem('_school_supa_url');
-  const k=localStorage.getItem('_school_supa_key');
-  if(u&&k) window._updateSupabase(u,k);
+window._supaConfigured = () => true; // Supabase supprimé — bypass setup screen
+// Supabase credentials removed — new DB system coming
+(function _clearOldSupaKeys(){
+  localStorage.removeItem('_school_supa_url');
+  localStorage.removeItem('_school_supa_key');
+  localStorage.removeItem('_active_license_key');
+  localStorage.removeItem('_license_last_check');
+  localStorage.removeItem('_license_cached');
 })();
 
 async function _get(t,p=''){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${p}`,{headers:{..._H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());return await r.json();}catch(e){console.warn('[SB]',t,e.message);return null;}}
@@ -1595,7 +1566,7 @@ window.loadFromSupabase = async () => {
     await window._syncServerClock();
     const ping = await _get('users','select=id&limit=1');
     if (!ping) throw new Error('no response');
-    window.DB_ONLINE = true;
+    // window.DB_ONLINE = true; // Supabase supprimé
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
@@ -1698,18 +1669,7 @@ window.loadFromSupabase = async () => {
 };
 
 // ── SYNC HELPER — pousse vers Supabase ou met en file d'attente ──
-window.pushSync = async (table, op, data, query='') => {
-  if (!DB_ONLINE) { syncQueue.add(table, op, query?{query,body:data}:data); updateSyncIndicator(); return; }
-  let ok = false;
-  try {
-    if (op==='upsert') ok = await _upsert(table, data);
-    else if (op==='post') ok = await _post(table, data);
-    else if (op==='patch') ok = await _patch(table, query, data);
-    else if (op==='delete') ok = await _del(table, query);
-  } catch(e) { ok=false; }
-  if (!ok) syncQueue.add(table, op, query?{query,body:data}:data);
-  updateSyncIndicator();
-};
+window.pushSync = async () => {}; // DB remplacée prochainement
 
 // ── SYNC MANUAL ──
 window.forceSyncNow = async () => {
@@ -2278,10 +2238,7 @@ window.loginAs = async user => {
   if(DB.settings?.school?.signature) window.SCHOOL_SIGNATURE = DB.settings.school.signature;
   const _sn = DB.settings?.school?.name; if(_sn) document.title = 'SchoolSafe — ' + _sn;
   const _sc = DB.settings?.school?.country; if(_sc){ const el=document.getElementById('splashCountry'); if(el) el.textContent=_sc; }
-  const lic = await checkLicense();
-  if(!lic.valid && (lic.reason==='suspended'||lic.reason==='expired')){ showLicenseBlock(lic.reason, lic.expiry); return; }
-  if(!lic.valid && (lic.reason==='no_key'||lic.reason==='invalid_key'||lic.reason==='offline')){ showLicenseActivate(lic.reason); return; }
-  if(lic.offline && lic.daysLeft <= 1) toast('⚠️ Licence: vérification impossible — '+lic.daysLeft+' jour(s) restant(s)','warning');
+
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); if(!window._iv_autosave) window._iv_autosave=setInterval(()=>{if(S.user&&(DB.users||[]).length>0)saveToCrypt();},30000); if(!window._iv_syncui) window._iv_syncui=setInterval(window.updateSyncIndicator,10000); if(!window._iv_heartbeat) window._iv_heartbeat=setInterval(()=>{if(S.user&&$('PC')&&!$('PC').innerHTML.trim()){toast('App rechargée automatiquement','info');render();}},15000); },450);
 };
 window.logout = () => {
@@ -3577,7 +3534,7 @@ schoolImg.src = window.SCHOOL_LOGO;
 
 // ── License ──
 // ── CONFIGURATION SUPABASE ──
-function showSupaSetup() {
+function showSupaSetup() { return; // Supabase supprimé
   const el = document.getElementById('supaSetup');
   if(!el) return;
   // Pré-remplir avec valeur existante si reconfiguration
@@ -3622,54 +3579,7 @@ window.connectSupabaseFromSetup = async () => {
   }
 };
 
-async function checkLicense() {
-  let key = (DB.settings?.license_key||'').trim();
-  // Restaure depuis localStorage si absente (ex: après changement d'école et rechargement)
-  if(!key) { key = localStorage.getItem('_active_license_key')||''; if(key){ if(!DB.settings)DB.settings={}; DB.settings.license_key=key; } }
-  if(!CENTRAL_URL||!CENTRAL_KEY) return {valid:true};
-  if(!key) return {valid:false, reason:'no_key'};
-  try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(()=>ctrl.abort(), 5000);
-    const r = await fetch(CENTRAL_URL+'/rest/v1/schools?license_key=eq.'+encodeURIComponent(key)+'&select=status,expiry_date,name,supabase_url,supabase_anon_key,features', {
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY},
-      signal: ctrl.signal
-    });
-    clearTimeout(tid);
-    if(!r.ok) throw new Error('http_'+r.status);
-    const data = await r.json();
-    if(!data||!data.length) {
-      localStorage.setItem('_lc_status','invalid');
-      localStorage.setItem('_lc_ts', Date.now());
-      return {valid:false, reason:'invalid_key'};
-    }
-    const sc = data[0];
-    localStorage.setItem('_lc_status', sc.status);
-    localStorage.setItem('_lc_ts', Date.now());
-    localStorage.setItem('_lc_expiry', sc.expiry_date||'');
-    if(sc.status==='active') {
-      // Applique le Supabase de l'école si fourni par l'opérateur
-      if(sc.supabase_url && sc.supabase_anon_key) {
-        window._updateSupabase(sc.supabase_url, sc.supabase_anon_key);
-        localStorage.setItem('_school_supa_url', sc.supabase_url);
-        localStorage.setItem('_school_supa_key', sc.supabase_anon_key);
-      }
-      window._schoolFeatures = sc.features || {};
-      localStorage.setItem('_school_features', JSON.stringify(sc.features||{}));
-      return {valid:true, supabaseUrl:sc.supabase_url, supabaseKey:sc.supabase_anon_key};
-    }
-    return {valid:false, reason:sc.status, expiry:sc.expiry_date};
-  } catch(e) {
-    const ts = parseInt(localStorage.getItem('_lc_ts')||'0');
-    const st = localStorage.getItem('_lc_status')||'';
-    const daysSince = ts ? (Date.now()-ts)/86400000 : 999;
-    if(daysSince <= LICENSE_GRACE_DAYS && st==='active') {
-      try { window._schoolFeatures = JSON.parse(localStorage.getItem('_school_features')||'{}'); } catch(e) { window._schoolFeatures={}; }
-      return {valid:true, offline:true, daysLeft:Math.ceil(LICENSE_GRACE_DAYS-daysSince)};
-    }
-    return {valid:false, reason:'offline'};
-  }
-}
+async function checkLicense() { return {valid:true}; }
 
 function showLicenseActivate(reason) {
   const el = document.getElementById('licenseActivate');

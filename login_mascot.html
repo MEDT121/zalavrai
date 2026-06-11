@@ -204,8 +204,7 @@ function loop(){
 setTimeout(loop,300);
 })();
 
-var SUPA='https://zqgksxgozpnhqzvzxloa.supabase.co';
-var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxZ2tzeGdvenBuaHF6dnp4bG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0OTEzNzEsImV4cCI6MjA5NTA2NzM3MX0.vb4_SdMR0ZM_oLKUe2K7zLAPF7S97ZB5n_Zo2HP8VE4';
+// DB remplacée prochainement — auth via DB locale uniquement
 function norm(s){return(s||'').toLowerCase().replace(/\s+/g,'');}
 function sha256(str){
   return crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)).then(function(buf){
@@ -213,9 +212,12 @@ function sha256(str){
   });
 }
 function loadUsers(){
-  return fetch(SUPA+'/rest/v1/users?select=*',{
-    headers:{'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'}
-  }).then(function(r){return r.json();});
+  // Lit le cache local chiffré (SchoolSafe_crypt) si disponible
+  try{
+    var raw=localStorage.getItem('SchoolSafe_crypt');
+    if(raw){var d=JSON.parse(raw);if(d&&d.users)return Promise.resolve(d.users);}
+  }catch(_){}
+  return Promise.resolve([]);
 }
 function handleLogin(e){
   e.preventDefault();
