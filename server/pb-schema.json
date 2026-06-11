@@ -1,0 +1,202 @@
+[
+  {
+    "name": "users",
+    "type": "auth",
+    "fields": [
+      {"name": "name",      "type": "text",   "required": true},
+      {"name": "role",      "type": "select",  "required": true,
+       "options": {"values": ["direction","direction2","direction3","enseignant","parent","gardien"]}},
+      {"name": "initials",  "type": "text"},
+      {"name": "phone",     "type": "text"},
+      {"name": "pin",       "type": "text"},
+      {"name": "pin_hashed","type": "bool",    "default": false},
+      {"name": "photo_url", "type": "url"},
+      {"name": "class_id",  "type": "text"},
+      {"name": "blocked",   "type": "bool",    "default": false},
+      {"name": "last_login","type": "date"}
+    ]
+  },
+  {
+    "name": "students",
+    "type": "base",
+    "fields": [
+      {"name": "name",     "type": "text",  "required": true},
+      {"name": "mat",      "type": "text"},
+      {"name": "cid",      "type": "text",  "required": true},
+      {"name": "pid",      "type": "text"},
+      {"name": "photo",    "type": "file",  "options": {"maxSize": 5242880, "mimeTypes": ["image/jpeg","image/png","image/webp"]}},
+      {"name": "blocked",  "type": "bool",  "default": false},
+      {"name": "genre",    "type": "select","options": {"values": ["M","F"]}},
+      {"name": "dob",      "type": "date"},
+      {"name": "address",  "type": "text"}
+    ]
+  },
+  {
+    "name": "classes",
+    "type": "base",
+    "fields": [
+      {"name": "name",           "type": "text", "required": true},
+      {"name": "cycle",          "type": "text"},
+      {"name": "teacher_id",     "type": "text"},
+      {"name": "teacher_id_en",  "type": "text"},
+      {"name": "titulaire_id",   "type": "text"},
+      {"name": "level",          "type": "number"}
+    ]
+  },
+  {
+    "name": "grades",
+    "type": "base",
+    "fields": [
+      {"name": "sid",       "type": "text",   "required": true},
+      {"name": "matiere",   "type": "text",   "required": true},
+      {"name": "note",      "type": "number", "required": true},
+      {"name": "type",      "type": "select", "options": {"values": ["DS","DEV","EXAM","RATTRAPAGE"]}},
+      {"name": "trimestre", "type": "select", "options": {"values": ["T1","T2","T3"]}},
+      {"name": "by",        "type": "text"},
+      {"name": "date",      "type": "date"}
+    ]
+  },
+  {
+    "name": "payments",
+    "type": "base",
+    "fields": [
+      {"name": "sid",    "type": "text",   "required": true},
+      {"name": "t",      "type": "select", "options": {"values": ["T1","T2","T3"]}},
+      {"name": "paid",   "type": "bool",   "default": false},
+      {"name": "amount", "type": "number"},
+      {"name": "date",   "type": "date"},
+      {"name": "by",     "type": "text"}
+    ]
+  },
+  {
+    "name": "attendance",
+    "type": "base",
+    "fields": [
+      {"name": "sid",      "type": "text", "required": true},
+      {"name": "cid",      "type": "text", "required": true},
+      {"name": "date",     "type": "date", "required": true},
+      {"name": "status",   "type": "select", "options": {"values": ["present","absent","late","excused"]}},
+      {"name": "arr_time", "type": "text"},
+      {"name": "note",     "type": "text"}
+    ]
+  },
+  {
+    "name": "scan_log",
+    "type": "base",
+    "fields": [
+      {"name": "sid",    "type": "text",   "required": true},
+      {"name": "type",   "type": "select", "options": {"values": ["entry","exit"]}},
+      {"name": "status", "type": "text"},
+      {"name": "date",   "type": "date"},
+      {"name": "time",   "type": "text"}
+    ]
+  },
+  {
+    "name": "devoirs",
+    "type": "base",
+    "fields": [
+      {"name": "cid",      "type": "text", "required": true},
+      {"name": "title",    "type": "text", "required": true},
+      {"name": "category", "type": "text"},
+      {"name": "due_date", "type": "date"},
+      {"name": "by",       "type": "text"},
+      {"name": "content",  "type": "text"}
+    ]
+  },
+  {
+    "name": "rattrapages",
+    "type": "base",
+    "fields": [
+      {"name": "sid",          "type": "text"},
+      {"name": "teacher_id",   "type": "text"},
+      {"name": "status",       "type": "select", "options": {"values": ["pending","validated","refused"]}},
+      {"name": "validated_by", "type": "text"},
+      {"name": "d2_validated", "type": "bool", "default": false},
+      {"name": "date",         "type": "date"},
+      {"name": "note",         "type": "text"}
+    ]
+  },
+  {
+    "name": "notifs",
+    "type": "base",
+    "fields": [
+      {"name": "uid",  "type": "text", "required": true},
+      {"name": "msg",  "type": "text", "required": true},
+      {"name": "date", "type": "date"},
+      {"name": "read", "type": "bool", "default": false},
+      {"name": "type", "type": "select", "options": {"values": ["info","success","warning","error"]}}
+    ]
+  },
+  {
+    "name": "aps",
+    "type": "base",
+    "fields": [
+      {"name": "sid",      "type": "text", "required": true},
+      {"name": "name",     "type": "text", "required": true},
+      {"name": "relation", "type": "text"},
+      {"name": "photo",    "type": "file"},
+      {"name": "active",   "type": "bool", "default": true},
+      {"name": "phone",    "type": "text"}
+    ]
+  },
+  {
+    "name": "settings",
+    "type": "base",
+    "fields": [
+      {"name": "key",   "type": "text", "required": true},
+      {"name": "value", "type": "json"}
+    ]
+  },
+  {
+    "name": "audit_log",
+    "type": "base",
+    "fields": [
+      {"name": "action", "type": "text", "required": true},
+      {"name": "detail", "type": "text"},
+      {"name": "by",     "type": "text"},
+      {"name": "date",   "type": "date"}
+    ]
+  },
+  {
+    "name": "conduct",
+    "type": "base",
+    "fields": [
+      {"name": "sid",   "type": "text", "required": true},
+      {"name": "score", "type": "select", "options": {"values": ["Excellent","Bien","Moyen","Mauvais"]}},
+      {"name": "note",  "type": "text"},
+      {"name": "date",  "type": "date"},
+      {"name": "by",    "type": "text"}
+    ]
+  },
+  {
+    "name": "daily_records",
+    "type": "base",
+    "fields": [
+      {"name": "date",   "type": "date",   "required": true},
+      {"name": "amount", "type": "number", "required": true},
+      {"name": "label",  "type": "text"},
+      {"name": "by",     "type": "text"}
+    ]
+  },
+  {
+    "name": "daily_expenses",
+    "type": "base",
+    "fields": [
+      {"name": "date",   "type": "date",   "required": true},
+      {"name": "amount", "type": "number", "required": true},
+      {"name": "label",  "type": "text",   "required": true},
+      {"name": "by",     "type": "text"}
+    ]
+  },
+  {
+    "name": "cahier_texte",
+    "type": "base",
+    "fields": [
+      {"name": "cid",     "type": "text", "required": true},
+      {"name": "date",    "type": "date"},
+      {"name": "matiere", "type": "text"},
+      {"name": "content", "type": "text"},
+      {"name": "by",      "type": "text"}
+    ]
+  }
+]

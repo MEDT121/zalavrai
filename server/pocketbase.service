@@ -1,0 +1,33 @@
+[Unit]
+Description=PocketBase — SchoolSafe Backend
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=__PB_USER__
+Group=__PB_USER__
+WorkingDirectory=__PB_DATA__
+ExecStart=__PB_DIR__/pocketbase serve \
+  --http="127.0.0.1:8090" \
+  --dir="__PB_DATA__" \
+  --publicDir="__PB_DATA__/public"
+Restart=on-failure
+RestartSec=5
+
+# Sécurité
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=__PB_DATA__
+ProtectHome=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Limites
+LimitNOFILE=65536
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
