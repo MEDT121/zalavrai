@@ -126,7 +126,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes loginShine{0%{left:-130%}55%{left:160%}100%{left:160%}}
 
 /* ── GUARDIAN SCREEN ── */
-#GUARDIAN{position:fixed;inset:0;z-index:950;background:#000;overflow:hidden;cursor:pointer;user-select:none;display:none}
+#GUARDIAN{position:fixed;inset:0;z-index:950;background:#000;overflow:hidden;cursor:pointer;user-select:none;visibility:hidden;pointer-events:none}
 #grd-girl{position:absolute;inset:0;width:100%;height:100%}
 #grd-girl video{width:100%;height:100%;object-fit:contain;display:block}
 
@@ -2164,10 +2164,11 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
     if(sp) sp.style.display = 'none';
     if(ls) ls.style.display = 'none';
-    g.style.display = 'block';
+    g.style.visibility = 'visible';
+    g.style.pointerEvents = 'auto';
     g.classList.add('visible');
     var vid = g.querySelector('video');
-    if(vid){ vid.load(); vid.play().catch(function(){}); }
+    if(vid){ vid.play().catch(function(){}); }
     // délai 600ms : évite que le ghost click du splash déclenche immédiatement le login
     setTimeout(function(){
       g.onclick    = function(){ window.showLoginFromGuardian(); };
@@ -2181,7 +2182,8 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     // retirer les handlers tout de suite pour éviter double-tap
     g.onclick    = null;
     g.ontouchend = null;
-    g.style.display = 'none';
+    g.style.visibility = 'hidden';
+    g.style.pointerEvents = 'none';
     g.classList.remove('visible');
     window.showLogin();
   };
