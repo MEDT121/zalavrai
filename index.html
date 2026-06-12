@@ -2165,8 +2165,23 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 // ── GUARDIAN SCREEN ──
 (function(){
   var _idleTimer = null;
-  var _IDLE_MS   = 20000;
-  window.showGuardian = function(){
+  var _IDLE_MS   = 15000;
+
+  function _switchVideo(vid){
+    var vids = window._GUARDIAN_VIDEOS || [];
+    if(vids.length < 2 || !vid) return;
+    var cur = window._GUARDIAN_VID;
+    var others = vids.filter(function(v){ return v !== cur; });
+    var next = others[Math.floor(Math.random() * others.length)];
+    window._GUARDIAN_VID = next;
+    var src = vid.querySelector('source');
+    if(src) src.src = next;
+    vid.muted = true;
+    vid.load();
+    vid.play().catch(function(){});
+  }
+
+  window.showGuardian = function(changeVideo){
     var g  = document.getElementById('GUARDIAN');
     var ls = document.getElementById('LS');
     var sp = document.getElementById('SPLASH');
@@ -2178,7 +2193,8 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     g.style.pointerEvents = 'auto';
     g.classList.add('visible');
     var vid = g.querySelector('video');
-    if(vid){ vid.play().catch(function(){}); }
+    if(changeVideo){ _switchVideo(vid); }
+    else if(vid){ vid.play().catch(function(){}); }
     // délai 600ms : évite que le ghost click du splash déclenche immédiatement le login
     setTimeout(function(){
       g.onclick    = function(){ window.showLoginFromGuardian(); };
@@ -2202,7 +2218,7 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     if(_idleTimer) clearTimeout(_idleTimer);
     _idleTimer = setTimeout(function(){
       var ls = document.getElementById('LS');
-      if(ls && ls.style.display !== 'none') window.showGuardian();
+      if(ls && ls.style.display !== 'none') window.showGuardian(true);
     }, _IDLE_MS);
   };
 
