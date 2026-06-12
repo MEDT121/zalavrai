@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json?v=5">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preload" as="video" href="girl.mp4" type="video/mp4">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 <title>SchoolSafe</title>
@@ -126,7 +127,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes loginShine{0%{left:-130%}55%{left:160%}100%{left:160%}}
 
 /* ── GUARDIAN SCREEN ── */
-#GUARDIAN{position:fixed;inset:0;z-index:950;background:linear-gradient(150deg,#c95228 0%,#e8713e 45%,#f5a06a 100%);overflow:hidden;cursor:pointer;user-select:none;visibility:hidden;pointer-events:none}
+#GUARDIAN{position:fixed;inset:0;z-index:950;background:linear-gradient(150deg,#c95228 0%,#e8713e 45%,#f5a06a 100%);overflow:hidden;cursor:pointer;user-select:none;opacity:0;pointer-events:none}
 #grd-girl{position:absolute;inset:0;width:100%;height:100%}
 #grd-girl video{width:100%;height:100%;object-fit:cover;display:block}
 
@@ -2164,7 +2165,7 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
     if(sp) sp.style.display = 'none';
     if(ls) ls.style.display = 'none';
-    g.style.visibility = 'visible';
+    g.style.opacity = '1';
     g.style.pointerEvents = 'auto';
     g.classList.add('visible');
     var vid = g.querySelector('video');
@@ -2182,7 +2183,7 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     // retirer les handlers tout de suite pour éviter double-tap
     g.onclick    = null;
     g.ontouchend = null;
-    g.style.visibility = 'hidden';
+    g.style.opacity = '0';
     g.style.pointerEvents = 'none';
     g.classList.remove('visible');
     window.showLogin();
