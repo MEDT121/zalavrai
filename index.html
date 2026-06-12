@@ -126,8 +126,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes loginShine{0%{left:-130%}55%{left:160%}100%{left:160%}}
 
 /* ── GUARDIAN SCREEN ── */
-#GUARDIAN{position:fixed;inset:0;z-index:950;background:radial-gradient(ellipse 60% 55% at 50% 95%,rgba(255,255,255,.98) 12%,rgba(210,230,255,.75) 35%,rgba(7,18,50,.9) 58%,transparent 76%),linear-gradient(165deg,#030819 0%,#071232 40%,#0a1a4a 70%,#0d2260 100%);overflow:hidden;cursor:pointer;user-select:none;transition:opacity .6s}
-#GUARDIAN.hidden{opacity:0;pointer-events:none;visibility:hidden}
+#GUARDIAN{position:fixed;inset:0;z-index:950;background:radial-gradient(ellipse 60% 55% at 50% 95%,rgba(255,255,255,.98) 12%,rgba(210,230,255,.75) 35%,rgba(7,18,50,.9) 58%,transparent 76%),linear-gradient(165deg,#030819 0%,#071232 40%,#0a1a4a 70%,#0d2260 100%);overflow:hidden;cursor:pointer;user-select:none;opacity:0;transition:opacity .6s;display:none}
+#GUARDIAN.visible{opacity:1;display:block}
 .grd-particle{position:absolute;bottom:-20px;border-radius:50%;background:radial-gradient(circle,#f7d44c 0%,#c9921a 100%);animation:grdFloat linear infinite;pointer-events:none;opacity:0}
 @keyframes grdFloat{0%{opacity:0;transform:translateY(0) scale(1)}8%{opacity:.9}85%{opacity:.4}100%{opacity:0;transform:translateY(-105vh) scale(.2)}}
 .grd-title{position:absolute;top:32px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap;z-index:2;pointer-events:none}
@@ -810,7 +810,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 </div>
 
 <!-- ── GUARDIAN SCREEN ── -->
-<div id="GUARDIAN" style="opacity:0;pointer-events:none;visibility:hidden">
+<div id="GUARDIAN">
   <div class="grd-stars" id="grd-stars"></div>
   <div id="grd-particles"></div>
 
@@ -2208,99 +2208,92 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 
 // ── GUARDIAN SCREEN ──
 (function(){
-  let _grdClockTick=null, _grdParticleLoop=null, _grdIdleTimer=null;
-  const IDLE_MS=20000;
+  var _idleTimer = null;
+  var _IDLE_MS   = 20000;
+  var _clockInt  = null;
 
-  function _grdClock(){
-    const el=document.getElementById('grd-clock'); if(!el) return;
-    const n=new Date();
-    const h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0');
-    el.textContent=h+':'+m;
+  function _clock(){
+    var el = document.getElementById('grd-clock');
+    if(!el) return;
+    var n = new Date();
+    el.textContent = String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
   }
 
-  function _grdMakeParticles(){
-    const c=document.getElementById('grd-particles'); if(!c) return;
-    c.innerHTML='';
-    for(let i=0;i<22;i++){
-      const d=document.createElement('div');
-      d.className='grd-particle';
-      const sz=Math.random()*6+3;
-      d.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+Math.random()*100+'%;animation-duration:'+(Math.random()*8+6)+'s;animation-delay:'+(Math.random()*8)+'s;opacity:0';
+  function _particles(){
+    var c = document.getElementById('grd-particles');
+    if(!c) return;
+    c.innerHTML = '';
+    for(var i=0;i<22;i++){
+      var d = document.createElement('div');
+      d.className = 'grd-particle';
+      var sz = Math.random()*6+3;
+      d.style.cssText = 'width:'+sz+'px;height:'+sz+'px;left:'+Math.random()*100+'%;animation-duration:'+(Math.random()*8+6)+'s;animation-delay:'+(Math.random()*8)+'s';
       c.appendChild(d);
     }
   }
 
-  function _grdMakeStars(){
-    const c=document.getElementById('grd-stars'); if(!c) return;
-    c.innerHTML='';
-    for(let i=0;i<55;i++){
-      const d=document.createElement('div');
-      d.className='grd-star';
-      const sz=Math.random()*2+1;
-      d.style.cssText='width:'+sz+'px;height:'+sz+'px;top:'+Math.random()*75+'%;left:'+Math.random()*100+'%;animation-duration:'+(Math.random()*3+2)+'s;animation-delay:'+(Math.random()*4)+'s';
-      c.appendChild(d);
-    }
-  }
-
-  function _grdUpdateBubbles(){
-    const eb=document.getElementById('grd-b-eleves');
-    const pb=document.getElementById('grd-b-presents');
-    if(eb && window.DB && DB.students) eb.textContent=(DB.students||[]).filter(s=>!s.blocked).length||'—';
-    if(pb && window.DB && DB.attendance){
-      const today=(new Date()).toISOString().slice(0,10);
-      const cnt=(DB.attendance||[]).filter(a=>a.date===today&&a.status==='present').length;
-      pb.textContent=cnt||'—';
-    }
+  function _bubbles(){
+    var eb = document.getElementById('grd-b-eleves');
+    if(eb && window.DB && DB.students) eb.textContent = (DB.students||[]).filter(function(s){return !s.blocked;}).length || '—';
   }
 
   window.showGuardian = function(){
-    const g=document.getElementById('GUARDIAN');
-    const ls=document.getElementById('LS');
-    const sp=document.getElementById('SPLASH');
+    var g  = document.getElementById('GUARDIAN');
+    var ls = document.getElementById('LS');
+    var sp = document.getElementById('SPLASH');
     if(!g) return;
-    // stop idle timer
-    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); _grdIdleTimer=null; }
-    // hide login + splash
-    if(ls){ ls.classList.add('hidden'); }
-    if(sp) sp.style.display='none';
-    // show guardian
-    g.style.visibility='visible';
-    g.style.pointerEvents='auto';
-    g.style.opacity='0';
-    setTimeout(()=>{ g.style.opacity='1'; },20);
-    g.classList.remove('hidden');
-    _grdMakeParticles();
-    _grdMakeStars();
-    _grdUpdateBubbles();
-    _grdClock();
-    // force video load+play (display:none bloque le chargement)
-    const _vid = g.querySelector('video');
-    if(_vid){ _vid.load(); _vid.play().catch(()=>{}); }
-    if(_grdClockTick) clearInterval(_grdClockTick);
-    _grdClockTick=setInterval(_grdClock,30000);
-    // click anywhere on guardian → showLogin
-    g.onclick=function(){ window.showLoginFromGuardian(); };
-    g.ontouchstart=function(e){ e.preventDefault(); window.showLoginFromGuardian(); };
+    if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
+    // cacher splash et login
+    if(sp) sp.style.display = 'none';
+    if(ls) ls.style.display = 'none';
+    // afficher gardien
+    g.style.display = 'block';
+    g.style.opacity = '0';
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        g.style.opacity = '1';
+        g.classList.add('visible');
+      });
+    });
+    // vidéo
+    var vid = g.querySelector('video');
+    if(vid){ vid.load(); vid.play().catch(function(){}); }
+    // particules + bulles + horloge
+    _particles();
+    _bubbles();
+    _clock();
+    if(_clockInt) clearInterval(_clockInt);
+    _clockInt = setInterval(_clock, 30000);
+    // tap → login
+    g.onclick     = function(){ window.showLoginFromGuardian(); };
+    g.ontouchend  = function(e){ e.preventDefault(); window.showLoginFromGuardian(); };
   };
 
   window.showLoginFromGuardian = function(){
-    const g=document.getElementById('GUARDIAN');
-    if(g){ g.classList.add('hidden'); setTimeout(()=>{ g.style.visibility='hidden'; g.style.pointerEvents='none'; g.onclick=null; g.ontouchstart=null; },550); }
-    if(_grdClockTick){ clearInterval(_grdClockTick); _grdClockTick=null; }
-    window.showLogin();
-    setTimeout(()=>{ window._startLoginIdleTimer && window._startLoginIdleTimer(); },200);
+    var g = document.getElementById('GUARDIAN');
+    if(!g) return;
+    // retirer les handlers tout de suite pour éviter double-tap
+    g.onclick    = null;
+    g.ontouchend = null;
+    g.style.opacity = '0';
+    if(_clockInt){ clearInterval(_clockInt); _clockInt=null; }
+    setTimeout(function(){
+      g.style.display = 'none';
+      g.classList.remove('visible');
+      window.showLogin();
+    }, 550);
   };
 
   window._startLoginIdleTimer = function(){
-    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); }
-    _grdIdleTimer=setTimeout(()=>{
-      const ls=document.getElementById('LS');
-      if(ls && ls.style.display!=='none') window.showGuardian();
-    }, IDLE_MS);
+    if(_idleTimer) clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(function(){
+      var ls = document.getElementById('LS');
+      if(ls && ls.style.display !== 'none') window.showGuardian();
+    }, _IDLE_MS);
   };
 
   window._resetLoginIdleTimer = function(){
-    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); _grdIdleTimer=null; }
+    if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
     window._startLoginIdleTimer();
   };
 })();
@@ -2309,15 +2302,20 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
   if(sp) sp.style.display='none';
-  if(ls){ ls.style.display=''; ls.style.opacity='1'; ls.classList.remove('hidden'); }
-  // wire idle timer on inputs
-  const ln=$('LN'), lp=$('LP');
+  if(ls){
+    ls.style.display='flex';
+    ls.style.opacity='1';
+    ls.classList.remove('hidden');
+  }
+  // timer d'inactivité → retour au gardien
+  const resetTimer = ()=>{ window._resetLoginIdleTimer && window._resetLoginIdleTimer(); };
+  const ln=$('LN'), lp=$('LP'), lsEl=$('LS');
   ['input','keydown','click','focus'].forEach(ev=>{
-    if(ln) ln.addEventListener(ev, ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
-    if(lp) lp.addEventListener(ev, ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
+    if(ln) ln.addEventListener(ev, resetTimer, {passive:true});
+    if(lp) lp.addEventListener(ev, resetTimer, {passive:true});
   });
-  const lsEl=$('LS');
-  if(lsEl) lsEl.addEventListener('touchstart', ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
+  if(lsEl) lsEl.addEventListener('touchstart', resetTimer, {passive:true});
+  window._startLoginIdleTimer && window._startLoginIdleTimer();
 };
 async function _hashPin(pin) {
   const enc = new TextEncoder().encode(pin);
