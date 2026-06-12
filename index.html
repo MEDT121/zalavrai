@@ -126,8 +126,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes loginShine{0%{left:-130%}55%{left:160%}100%{left:160%}}
 
 /* ── GUARDIAN SCREEN ── */
-#GUARDIAN{position:fixed;inset:0;z-index:950;background:#000;overflow:hidden;cursor:pointer;user-select:none;opacity:0;transition:opacity .6s;display:none}
-#GUARDIAN.visible{opacity:1;display:block}
+#GUARDIAN{position:fixed;inset:0;z-index:950;background:#000;overflow:hidden;cursor:pointer;user-select:none;display:none}
 #grd-girl{position:absolute;inset:0;width:100%;height:100%}
 #grd-girl video{width:100%;height:100%;object-fit:contain;display:block}
 
@@ -2166,17 +2165,14 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     if(sp) sp.style.display = 'none';
     if(ls) ls.style.display = 'none';
     g.style.display = 'block';
-    g.style.opacity = '0';
-    requestAnimationFrame(function(){
-      requestAnimationFrame(function(){
-        g.style.opacity = '1';
-        g.classList.add('visible');
-      });
-    });
+    g.classList.add('visible');
     var vid = g.querySelector('video');
     if(vid){ vid.load(); vid.play().catch(function(){}); }
-    g.onclick    = function(){ window.showLoginFromGuardian(); };
-    g.ontouchend = function(e){ e.preventDefault(); window.showLoginFromGuardian(); };
+    // délai 600ms : évite que le ghost click du splash déclenche immédiatement le login
+    setTimeout(function(){
+      g.onclick    = function(){ window.showLoginFromGuardian(); };
+      g.ontouchend = function(e){ e.preventDefault(); window.showLoginFromGuardian(); };
+    }, 600);
   };
 
   window.showLoginFromGuardian = function(){
@@ -2185,12 +2181,9 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     // retirer les handlers tout de suite pour éviter double-tap
     g.onclick    = null;
     g.ontouchend = null;
-    g.style.opacity = '0';
-    setTimeout(function(){
-      g.style.display = 'none';
-      g.classList.remove('visible');
-      window.showLogin();
-    }, 550);
+    g.style.display = 'none';
+    g.classList.remove('visible');
+    window.showLogin();
   };
 
   window._startLoginIdleTimer = function(){
