@@ -805,7 +805,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 <!-- ── GUARDIAN SCREEN ── -->
 <div id="GUARDIAN">
   <div id="grd-girl">
-    <video autoplay muted loop playsinline preload="auto">
+    <video autoplay muted playsinline preload="auto">
       <source src="" type="video/mp4">
     </video>
   </div>
@@ -2227,12 +2227,20 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     window._startLoginIdleTimer();
   };
 
-  // Injecter la vidéo choisie et démarrer immédiatement (invisible, déjà en lecture)
+  // Injecter la vidéo choisie, démarrer immédiatement, et changer à chaque fin de lecture
   document.addEventListener('DOMContentLoaded', function(){
     var vid = document.querySelector('#GUARDIAN video');
     var src = vid ? vid.querySelector('source') : null;
     if(src && window._GUARDIAN_VID) src.src = window._GUARDIAN_VID;
-    if(vid){ vid.muted = true; vid.load(); vid.play().catch(function(){}); }
+    if(vid){
+      vid.muted = true;
+      vid.load();
+      vid.play().catch(function(){});
+      // À la fin de chaque vidéo → changer pour la suivante automatiquement
+      vid.addEventListener('ended', function(){
+        _switchVideo(vid);
+      });
+    }
   });
 })();
 
