@@ -8,7 +8,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json?v=5">
 <link rel="apple-touch-icon" href="icon-180.png">
-<link rel="preload" as="video" href="girl.mp4" type="video/mp4">
+<script>
+// ── GUARDIAN VIDEOS — ajouter les nouveaux fichiers ici ──
+window._GUARDIAN_VIDEOS = [
+  'girl.mp4'
+];
+window._GUARDIAN_VID = window._GUARDIAN_VIDEOS[Math.floor(Math.random() * window._GUARDIAN_VIDEOS.length)];
+// Preload dynamique de la vidéo choisie dès le parsing du <head>
+(function(){ var l=document.createElement('link'); l.rel='preload'; l.as='video'; l.href=window._GUARDIAN_VID; l.type='video/mp4'; document.head.appendChild(l); })();
+</script>
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 <title>SchoolSafe</title>
@@ -797,7 +805,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 <div id="GUARDIAN">
   <div id="grd-girl">
     <video autoplay muted loop playsinline preload="auto">
-      <source src="girl.mp4" type="video/mp4">
+      <source src="" type="video/mp4">
     </video>
   </div>
 </div>
@@ -2202,11 +2210,12 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     window._startLoginIdleTimer();
   };
 
-  // Démarrer la vidéo dès le chargement de la page (invisible mais déjà en lecture)
-  // → quand guardian devient visible, la vidéo est déjà lancée, zéro délai
+  // Injecter la vidéo choisie et démarrer immédiatement (invisible, déjà en lecture)
   document.addEventListener('DOMContentLoaded', function(){
     var vid = document.querySelector('#GUARDIAN video');
-    if(vid){ vid.muted = true; vid.play().catch(function(){}); }
+    var src = vid ? vid.querySelector('source') : null;
+    if(src && window._GUARDIAN_VID) src.src = window._GUARDIAN_VID;
+    if(vid){ vid.muted = true; vid.load(); vid.play().catch(function(){}); }
   });
 })();
 
