@@ -138,6 +138,32 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .btn-login:active{transform:translateY(0)}
 .btn-login::after{content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transform:skewX(-18deg);animation:loginShine 3.4s ease-in-out infinite}
 @keyframes loginShine{0%{left:-130%}55%{left:160%}100%{left:160%}}
+
+/* ── GUARDIAN SCREEN ── */
+#GUARDIAN{position:fixed;inset:0;z-index:950;background:linear-gradient(165deg,#030819 0%,#071232 40%,#0a1a4a 70%,#0d2260 100%);overflow:hidden;cursor:pointer;user-select:none;transition:opacity .6s}
+#GUARDIAN.hidden{opacity:0;pointer-events:none}
+.grd-particle{position:absolute;bottom:-20px;border-radius:50%;background:radial-gradient(circle,#f7d44c 0%,#c9921a 100%);animation:grdFloat linear infinite;pointer-events:none;opacity:0}
+@keyframes grdFloat{0%{opacity:0;transform:translateY(0) scale(1)}8%{opacity:.9}85%{opacity:.4}100%{opacity:0;transform:translateY(-105vh) scale(.2)}}
+.grd-title{position:absolute;top:32px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap;z-index:2;pointer-events:none}
+.grd-logo-ring{width:68px;height:68px;border-radius:50%;border:2px solid rgba(245,200,66,.45);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;position:relative;animation:grdRingPulse 2.8s ease-in-out infinite}
+.grd-logo-ring::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(245,200,66,.2);animation:grdRingPulse 2.8s ease-in-out infinite .9s}
+@keyframes grdRingPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.4)}50%{box-shadow:0 0 0 14px rgba(245,200,66,0)}}
+.grd-school-name{font-size:20px;font-weight:800;color:#f7d44c;letter-spacing:2.5px;text-shadow:0 0 24px rgba(247,212,76,.55)}
+.grd-tagline{font-size:10px;color:rgba(247,212,76,.45);letter-spacing:4px;text-transform:uppercase;margin-top:5px}
+.grd-bubble{position:absolute;background:rgba(10,26,74,.7);border:1px solid rgba(245,200,66,.3);border-radius:14px;padding:9px 13px;backdrop-filter:blur(10px);display:flex;align-items:center;gap:9px;color:#f7d44c;font-size:11px;font-weight:700;animation:grdBubble 4s ease-in-out infinite;pointer-events:none;z-index:3}
+.grd-bubble .gb-label{font-size:9px;font-weight:400;color:rgba(247,212,76,.55);margin-top:1px}
+@keyframes grdBubble{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+#grd-girl{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);z-index:2;pointer-events:none;animation:grdGirlIdle 5s ease-in-out infinite}
+@keyframes grdGirlIdle{0%,100%{transform:translateX(-50%) rotate(-.8deg)}50%{transform:translateX(-50%) rotate(.8deg)}}
+.grd-girl-arm-r{animation:grdArmWave 3.5s ease-in-out infinite}
+@keyframes grdArmWave{0%,100%{transform-origin:80px 118px;transform:rotate(0deg)}40%{transform-origin:80px 118px;transform:rotate(-18deg)}70%{transform-origin:80px 118px;transform:rotate(-8deg)}}
+.grd-cta{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.4);border-radius:50px;padding:13px 30px;color:#f7d44c;font-size:13px;font-weight:700;letter-spacing:.06em;white-space:nowrap;animation:grdCtaGlow 2s ease-in-out infinite;backdrop-filter:blur(8px);pointer-events:none}
+@keyframes grdCtaGlow{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,.25);transform:translateX(-50%) scale(1)}50%{box-shadow:0 0 22px 6px rgba(245,200,66,.12);transform:translateX(-50%) scale(1.025)}}
+#grd-clock{position:absolute;bottom:82px;left:50%;transform:translateX(-50%);color:rgba(247,212,76,.28);font-size:11px;letter-spacing:3px;font-variant-numeric:tabular-nums;pointer-events:none}
+.grd-stars{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.grd-star{position:absolute;background:#fff;border-radius:50%;animation:grdStarTwinkle linear infinite}
+@keyframes grdStarTwinkle{0%,100%{opacity:0}50%{opacity:.8}}
+
 /* dashboard harmonised animations */
 .dp-stat-card{transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s}
 .dp-stat-card:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(150,95,40,.16)}
@@ -797,6 +823,122 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   <div class="splash-desc">Gestion scolaire intelligente — Présence par QR code, sécurité des enfants, suivi des résultats et communication parents-école en temps réel</div>
   <div class="splash-slogan">Chaque enfant protégé, chaque parent informé</div>
   <div class="splash-tap">Appuyez pour continuer</div>
+</div>
+
+<!-- ── GUARDIAN SCREEN ── -->
+<div id="GUARDIAN" style="display:none">
+  <div class="grd-stars" id="grd-stars"></div>
+  <div id="grd-particles"></div>
+
+  <!-- logo + title -->
+  <div class="grd-title">
+    <div class="grd-logo-ring">
+      <svg width="38" height="38" viewBox="0 0 40 40" fill="none"><path d="M20 3L5 9.5v11C5 29.3 11.5 37.6 20 40c8.5-2.4 15-10.7 15-19.5v-11L20 3z" fill="rgba(245,200,66,.18)" stroke="#f7d44c" stroke-width="1.5"/><text x="20" y="25" text-anchor="middle" font-size="11" font-weight="900" fill="#f7d44c" font-family="sans-serif">SS</text></svg>
+    </div>
+    <div class="grd-school-name">SchoolSafe</div>
+    <div class="grd-tagline">Le Gardien de l'École</div>
+  </div>
+
+  <!-- stat bubbles -->
+  <div class="grd-bubble" style="top:22%;left:4%;animation-delay:0s">
+    <span style="font-size:18px">📊</span>
+    <div><div id="grd-b-eleves">—</div><div class="gb-label">élèves</div></div>
+  </div>
+  <div class="grd-bubble" style="top:36%;right:4%;animation-delay:1.1s">
+    <span style="font-size:18px">🛡️</span>
+    <div><div>Actif</div><div class="gb-label">Sécurité</div></div>
+  </div>
+  <div class="grd-bubble" style="top:54%;left:4%;animation-delay:2.2s">
+    <span style="font-size:18px">📱</span>
+    <div><div>QR</div><div class="gb-label">Prêt</div></div>
+  </div>
+  <div class="grd-bubble" style="top:66%;right:4%;animation-delay:.6s">
+    <span style="font-size:18px">✅</span>
+    <div><div id="grd-b-presents">—</div><div class="gb-label">présents</div></div>
+  </div>
+
+  <!-- animated school girl -->
+  <div id="grd-girl">
+    <svg width="200" height="330" viewBox="0 0 200 330" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- floor shadow -->
+      <ellipse cx="100" cy="326" rx="52" ry="7" fill="rgba(0,0,0,.35)"/>
+      <!-- shoes -->
+      <ellipse cx="87" cy="317" rx="15" ry="7" fill="#1a1a2e"/>
+      <ellipse cx="113" cy="317" rx="15" ry="7" fill="#1a1a2e"/>
+      <!-- socks -->
+      <rect x="80" y="295" width="14" height="18" rx="4" fill="#e8e8e8"/>
+      <rect x="106" y="295" width="14" height="18" rx="4" fill="#e8e8e8"/>
+      <!-- legs -->
+      <rect x="80" y="235" width="14" height="65" rx="6" fill="#c9784a"/>
+      <rect x="106" y="235" width="14" height="65" rx="6" fill="#c9784a"/>
+      <!-- skirt (navy + gold trim) -->
+      <path d="M62 165 L138 165 L148 240 L52 240 Z" fill="#0f3460"/>
+      <path d="M62 165 L138 165" stroke="#f7d44c" stroke-width="1.5"/>
+      <path d="M52 240 Q100 245 148 240" stroke="#f7d44c" stroke-width="1.5" fill="none"/>
+      <!-- blouse body -->
+      <rect x="72" y="100" width="56" height="72" rx="9" fill="#eeeef0"/>
+      <!-- collar & tie -->
+      <path d="M100 104 L93 116 L100 122 L107 116 Z" fill="#f7d44c"/>
+      <!-- school badge -->
+      <rect x="86" y="118" width="14" height="10" rx="2.5" fill="rgba(245,200,66,.22)" stroke="#f7d44c" stroke-width=".8"/>
+      <text x="93" y="126" text-anchor="middle" font-size="5.5" fill="#f7d44c" font-weight="800" font-family="sans-serif">SS</text>
+      <!-- left arm (down) -->
+      <path d="M72 112 Q54 140 57 172" stroke="#c9784a" stroke-width="15" stroke-linecap="round" fill="none"/>
+      <ellipse cx="56" cy="175" rx="9" ry="9" fill="#c9784a"/>
+      <!-- right arm (waving) — animated -->
+      <g class="grd-girl-arm-r">
+        <path d="M128 112 Q148 95 155 70" stroke="#c9784a" stroke-width="15" stroke-linecap="round" fill="none"/>
+        <ellipse cx="156" cy="67" rx="9" ry="9" fill="#c9784a"/>
+        <!-- hand wave fingers -->
+        <path d="M152 62 Q148 55 150 50" stroke="#c9784a" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <path d="M157 60 Q155 52 157 47" stroke="#c9784a" stroke-width="5" stroke-linecap="round" fill="none"/>
+        <path d="M162 63 Q162 55 164 51" stroke="#c9784a" stroke-width="4" stroke-linecap="round" fill="none"/>
+      </g>
+      <!-- neck -->
+      <rect x="91" y="84" width="18" height="20" rx="7" fill="#c0643c"/>
+      <!-- head -->
+      <ellipse cx="100" cy="69" rx="31" ry="34" fill="#c9784a"/>
+      <!-- hair top -->
+      <ellipse cx="100" cy="40" rx="28" ry="17" fill="#1a0800"/>
+      <!-- hair puff left -->
+      <circle cx="72" cy="54" r="17" fill="#1a0800"/>
+      <!-- hair puff right -->
+      <circle cx="128" cy="54" r="17" fill="#1a0800"/>
+      <!-- gold hair beads -->
+      <circle cx="72" cy="37" r="3.5" fill="#f7d44c"/>
+      <circle cx="128" cy="37" r="3.5" fill="#f7d44c"/>
+      <!-- eyes whites -->
+      <ellipse cx="90" cy="68" rx="5.5" ry="6.5" fill="#fff"/>
+      <ellipse cx="110" cy="68" rx="5.5" ry="6.5" fill="#fff"/>
+      <!-- pupils -->
+      <circle cx="91.5" cy="69" r="4" fill="#1a0800"/>
+      <circle cx="111.5" cy="69" r="4" fill="#1a0800"/>
+      <!-- eye shine -->
+      <circle cx="93" cy="67.5" r="1.5" fill="#fff"/>
+      <circle cx="113" cy="67.5" r="1.5" fill="#fff"/>
+      <!-- eyebrows -->
+      <path d="M83 61 Q90 58 97 61" stroke="#1a0800" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M103 61 Q110 58 117 61" stroke="#1a0800" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <!-- nose -->
+      <path d="M97 76 Q100 80 103 76" stroke="#9c4a25" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <!-- smile -->
+      <path d="M88 84 Q100 93 112 84" stroke="#9c4a25" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <!-- cheeks -->
+      <circle cx="80" cy="79" r="9" fill="rgba(200,80,60,.15)"/>
+      <circle cx="120" cy="79" r="9" fill="rgba(200,80,60,.15)"/>
+      <!-- ear gold hoops -->
+      <circle cx="69" cy="72" r="4.5" fill="none" stroke="#f7d44c" stroke-width="1.8"/>
+      <circle cx="131" cy="72" r="4.5" fill="none" stroke="#f7d44c" stroke-width="1.8"/>
+      <!-- glow around girl -->
+      <ellipse cx="100" cy="165" rx="70" ry="140" fill="rgba(245,200,66,.03)"/>
+    </svg>
+  </div>
+
+  <!-- clock -->
+  <div id="grd-clock"></div>
+
+  <!-- CTA -->
+  <div class="grd-cta">✋ Toucher pour accéder</div>
 </div>
 
 <!-- ── LOGIN SCREEN ── -->
@@ -2151,11 +2293,114 @@ window.addEventListener('popstate', () => {
 window.toggleSidebar = () => { S.sbOpen=!S.sbOpen; $('SB').classList.toggle('open',S.sbOpen); $('SO').classList.toggle('show',S.sbOpen); };
 window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO').classList.remove('show'); };
 
+// ── GUARDIAN SCREEN ──
+(function(){
+  let _grdClockTick=null, _grdParticleLoop=null, _grdIdleTimer=null;
+  const IDLE_MS=20000;
+
+  function _grdClock(){
+    const el=document.getElementById('grd-clock'); if(!el) return;
+    const n=new Date();
+    const h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0');
+    el.textContent=h+':'+m;
+  }
+
+  function _grdMakeParticles(){
+    const c=document.getElementById('grd-particles'); if(!c) return;
+    c.innerHTML='';
+    for(let i=0;i<22;i++){
+      const d=document.createElement('div');
+      d.className='grd-particle';
+      const sz=Math.random()*6+3;
+      d.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+Math.random()*100+'%;animation-duration:'+(Math.random()*8+6)+'s;animation-delay:'+(Math.random()*8)+'s;opacity:0';
+      c.appendChild(d);
+    }
+  }
+
+  function _grdMakeStars(){
+    const c=document.getElementById('grd-stars'); if(!c) return;
+    c.innerHTML='';
+    for(let i=0;i<55;i++){
+      const d=document.createElement('div');
+      d.className='grd-star';
+      const sz=Math.random()*2+1;
+      d.style.cssText='width:'+sz+'px;height:'+sz+'px;top:'+Math.random()*75+'%;left:'+Math.random()*100+'%;animation-duration:'+(Math.random()*3+2)+'s;animation-delay:'+(Math.random()*4)+'s';
+      c.appendChild(d);
+    }
+  }
+
+  function _grdUpdateBubbles(){
+    const eb=document.getElementById('grd-b-eleves');
+    const pb=document.getElementById('grd-b-presents');
+    if(eb && window.DB && DB.students) eb.textContent=(DB.students||[]).filter(s=>!s.blocked).length||'—';
+    if(pb && window.DB && DB.attendance){
+      const today=(new Date()).toISOString().slice(0,10);
+      const cnt=(DB.attendance||[]).filter(a=>a.date===today&&a.status==='present').length;
+      pb.textContent=cnt||'—';
+    }
+  }
+
+  window.showGuardian = function(){
+    const g=document.getElementById('GUARDIAN');
+    const ls=document.getElementById('LS');
+    const sp=document.getElementById('SPLASH');
+    if(!g) return;
+    // stop idle timer
+    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); _grdIdleTimer=null; }
+    // hide login + splash
+    if(ls){ ls.classList.add('hidden'); setTimeout(()=>{ ls.style.display='none'; },550); }
+    if(sp) sp.style.display='none';
+    // show guardian
+    g.style.display='';
+    g.style.opacity='0';
+    setTimeout(()=>{ g.style.opacity='1'; },20);
+    g.classList.remove('hidden');
+    _grdMakeParticles();
+    _grdMakeStars();
+    _grdUpdateBubbles();
+    _grdClock();
+    if(_grdClockTick) clearInterval(_grdClockTick);
+    _grdClockTick=setInterval(_grdClock,30000);
+    // click anywhere on guardian → showLogin
+    g.onclick=function(){ window.showLoginFromGuardian(); };
+    g.ontouchstart=function(e){ e.preventDefault(); window.showLoginFromGuardian(); };
+  };
+
+  window.showLoginFromGuardian = function(){
+    const g=document.getElementById('GUARDIAN');
+    if(g){ g.classList.add('hidden'); setTimeout(()=>{ g.style.display='none'; g.onclick=null; g.ontouchstart=null; },550); }
+    if(_grdClockTick){ clearInterval(_grdClockTick); _grdClockTick=null; }
+    window.showLogin();
+    setTimeout(()=>{ window._startLoginIdleTimer && window._startLoginIdleTimer(); },200);
+  };
+
+  window._startLoginIdleTimer = function(){
+    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); }
+    _grdIdleTimer=setTimeout(()=>{
+      const ls=document.getElementById('LS');
+      if(ls && ls.style.display!=='none') window.showGuardian();
+    }, IDLE_MS);
+  };
+
+  window._resetLoginIdleTimer = function(){
+    if(_grdIdleTimer){ clearTimeout(_grdIdleTimer); _grdIdleTimer=null; }
+    window._startLoginIdleTimer();
+  };
+})();
+
 // ── LOGIN ──
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
   if(sp) sp.style.display='none';
   if(ls){ ls.style.display=''; ls.style.opacity='1'; ls.classList.remove('hidden'); }
+  // wire idle timer on inputs
+  const ln=$('LN'), lp=$('LP');
+  ['input','keydown','click','focus'].forEach(ev=>{
+    if(ln) ln.addEventListener(ev, ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
+    if(lp) lp.addEventListener(ev, ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
+  });
+  const lsEl=$('LS');
+  if(lsEl) lsEl.addEventListener('touchstart', ()=>window._resetLoginIdleTimer&&window._resetLoginIdleTimer(), {passive:true});
   setTimeout(()=>{ if(window.initLoginMascot) window.initLoginMascot(); }, 80);
 };
 async function _hashPin(pin) {
@@ -17143,7 +17388,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Splash — tap immédiat ou auto après 1.5s
   const splash=$('SPLASH');
   window._splashGone = false;
-  const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; if(!window._supaConfigured()){showSupaSetup();}else{showLogin();} };
+  const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; if(!window._supaConfigured()){showSupaSetup();}else{showGuardian();} };
   if(splash){
     splash.addEventListener('touchstart', goLogin, {passive:true});
     splash.addEventListener('click', goLogin);
