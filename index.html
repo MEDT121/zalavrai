@@ -2242,20 +2242,39 @@ window.toggleOfflineMode = function(){
 
 // ── GUARDIAN SCREEN ──
 (function(){
-  var _idleTimer = null;
-  var _IDLE_MS   = 5000;
+  var _idleTimer   = null;
+  var _cycleTimer  = null;
+  var _IDLE_MS     = 5000;
+
+  function _playVid(vid){
+    vid.muted = true;
+    // Attend que la vidéo soit prête avant de jouer
+    function onReady(){ vid.play().catch(function(){}); }
+    if(vid.readyState >= 3){
+      onReady();
+    } else {
+      vid.addEventListener('canplay', function h(){ vid.removeEventListener('canplay',h); onReady(); });
+    }
+  }
+
+  function _schedCycle(vid){
+    if(_cycleTimer) clearTimeout(_cycleTimer);
+    var dur = vid.duration;
+    if(!dur || !isFinite(dur)) dur = 5.5;
+    // Fallback : si ended ne se déclenche pas dans dur+2s, on force le switch
+    _cycleTimer = setTimeout(function(){
+      if(!vid.ended) _switchVideo(vid);
+    }, (dur + 2) * 1000);
+  }
 
   function _switchVideo(vid){
     if(!vid) return;
+    if(_cycleTimer){ clearTimeout(_cycleTimer); _cycleTimer = null; }
     var vids = window._GUARDIAN_VIDEOS || [];
-    if(vids.length < 2){
-      vid.currentTime = 0;
-      vid.play().catch(function(){});
-      return;
-    }
-    var cur = window._GUARDIAN_VID;
-    var others = vids.filter(function(v){ return v !== cur; });
-    var next = others[Math.floor(Math.random() * others.length)];
+    var cur  = window._GUARDIAN_VID;
+    // Passer à la vidéo suivante dans la liste (séquentiel, pas aléatoire)
+    var idx  = vids.indexOf(cur);
+    var next = vids[(idx + 1) % vids.length];
     window._GUARDIAN_VID = next;
     var src = vid.querySelector('source');
     if(src) src.src = next;
@@ -2263,6 +2282,7 @@ window.toggleOfflineMode = function(){
     vid.addEventListener('canplay', function handler(){
       vid.removeEventListener('canplay', handler);
       vid.play().catch(function(){});
+      _schedCycle(vid);
     });
     vid.load();
   }
@@ -2313,22 +2333,24 @@ window.toggleOfflineMode = function(){
     window._startLoginIdleTimer();
   };
 
-  // Injecter la vidéo choisie, démarrer immédiatement, et changer à chaque fin de lecture
+  // Injecter la vidéo choisie, démarrer immédiatement, cycle continu
   document.addEventListener('DOMContentLoaded', function(){
     var vid = document.querySelector('#GUARDIAN video');
     var src = vid ? vid.querySelector('source') : null;
     if(src && window._GUARDIAN_VID) src.src = window._GUARDIAN_VID;
     if(vid){
-      vid.muted = true;
-      vid.addEventListener('canplay', function handler(){
-        vid.removeEventListener('canplay', handler);
-        vid.play().catch(function(){});
+      // ended = switch vidéo suivante (déclencheur principal)
+      vid.addEventListener('ended', function(){ _switchVideo(vid); });
+      // error = on retente la même vidéo après 1s
+      vid.addEventListener('error', function(){
+        setTimeout(function(){ _playVid(vid); _schedCycle(vid); }, 1000);
+      });
+      _playVid(vid);
+      vid.addEventListener('canplay', function h(){
+        vid.removeEventListener('canplay', h);
+        _schedCycle(vid);
       });
       vid.load();
-      // À la fin de chaque vidéo → changer pour la suivante automatiquement
-      vid.addEventListener('ended', function(){
-        _switchVideo(vid);
-      });
     }
   });
 })();
