@@ -2242,11 +2242,16 @@ window.toggleOfflineMode = function(){
 // ── GUARDIAN SCREEN ──
 (function(){
   var _idleTimer = null;
-  var _IDLE_MS   = 15000;
+  var _IDLE_MS   = 5000;
 
   function _switchVideo(vid){
+    if(!vid) return;
     var vids = window._GUARDIAN_VIDEOS || [];
-    if(vids.length < 2 || !vid) return;
+    if(vids.length < 2){
+      vid.currentTime = 0;
+      vid.play().catch(function(){});
+      return;
+    }
     var cur = window._GUARDIAN_VID;
     var others = vids.filter(function(v){ return v !== cur; });
     var next = others[Math.floor(Math.random() * others.length)];
