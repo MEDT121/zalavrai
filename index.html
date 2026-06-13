@@ -4232,6 +4232,9 @@ window.submitCardOrder = async (sid) => {
     });
     if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'HTTP '+resp.status); }
     window._myCardOrders = null;
+    const _hist=document.getElementById('card-orders-history');
+    if(_hist) _hist.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">✅ Commande envoyée — actualisation de l\'historique...</div>';
+    setTimeout(()=>{ if(typeof window.loadMyCardOrders==='function') window.loadMyCardOrders(); }, 1500);
     logAudit('card_order','Commande APKart: '+s.name+' — '+(cl?cl.name:''));
     const waNum = window._OPERATOR_WA||'243978444167';
     const waMsg = encodeURIComponent('Bonjour, commande de carte APKart:\nÉlève: '+s.name+'\nMatricule: '+(s.mat||'—')+'\nClasse: '+(cl?cl.name:'—')+' ('+cycleLabel+')\nÉcole: '+schoolName+'\nLicence: '+licenseKey);
