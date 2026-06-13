@@ -750,6 +750,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .lockdown-wave-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation:ldTextPop .4s cubic-bezier(.34,1.56,.64,1) .08s both,ldTextFade .4s ease 1.9s both}
 @keyframes ldTextPop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes ldTextFade{to{opacity:0}}
+.notif-drop{animation:notifDrop .4s cubic-bezier(.34,1.2,.64,1) both}
+@keyframes notifDrop{from{transform:translateY(-22px) scale(.96);opacity:0}to{transform:none;opacity:1}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
 .sr-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sr-sub{font-size:14px;opacity:.9}
@@ -4396,7 +4398,7 @@ R.notifications = () => {
     </div>
   </div>
   <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
-  <div class="ww-item" ${!n.read?'data-unread="true"':''} style="animation-delay:${i*.03}s;${typeBorder[n.type]?'border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
+  <div class="ww-item notif-drop" ${!n.read?'data-unread="true"':''} style="animation-delay:${i*.04}s;${typeBorder[n.type]?'border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f6ede0'}">${typeIcon[n.type]||'●'}</div>
     <div class="ww-item-content">
       ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
