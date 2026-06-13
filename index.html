@@ -11,10 +11,9 @@
 <script>
 // ── GUARDIAN VIDEOS — ajouter les nouveaux fichiers ici ──
 window._GUARDIAN_VIDEOS = [
-  'girl1.mp4',
-  'girl2.mp4'
+  'girl1.mp4'
 ];
-window._GUARDIAN_VID = window._GUARDIAN_VIDEOS[Math.floor(Math.random() * window._GUARDIAN_VIDEOS.length)];
+window._GUARDIAN_VID = window._GUARDIAN_VIDEOS[0];
 // Preload dynamique de la vidéo choisie dès le parsing du <head>
 (function(){ var l=document.createElement('link'); l.rel='preload'; l.as='video'; l.href=window._GUARDIAN_VID; l.type='video/mp4'; document.head.appendChild(l); })();
 </script>
@@ -232,7 +231,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 }
 
 /* ── TOPBAR ── */
-.topbar{height:56px;background:var(--bg-card);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;box-shadow:0 1px 6px rgba(0,0,0,.05)}
+.topbar{height:56px;background:var(--bg-card);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;box-shadow:0 1px 6px rgba(0,0,0,.05);position:relative;z-index:150;overflow:visible}
 .topbar-menu-btn{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text);display:none;transition:transform .15s;min-width:32px;text-align:center}.topbar-menu-btn:active{transform:scale(.85)}
 .topbar-title{flex:1;font-size:17px;font-weight:700;color:var(--text)}
 .topbar-right{display:flex;align-items:center;gap:8px}
@@ -244,7 +243,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .dark-toggle:hover{background:var(--bg)}
 .dark-toggle svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* ── CUBE WIDGET TOPBAR ── */
-.cube-widget{position:relative;display:flex;align-items:center;flex-shrink:0}
+.cube-widget{position:relative;display:flex;align-items:center;flex-shrink:0;z-index:200;overflow:visible}
 .cube-btn{width:48px;height:48px;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;transition:background .2s;flex-shrink:0}
 .cube-btn:hover{background:rgba(0,0,0,.06)}
 .dark .cube-btn:hover{background:rgba(255,255,255,.08)}
@@ -265,11 +264,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .crad-btn[data-crad="2"]{background:#10b981}
 .crad-btn[data-crad="3"]{background:#8b5cf6}
 .crad-btn[data-crad="4"]{background:#f59e0b}
-.cube-widget.open .crad-btn{opacity:1;pointer-events:auto}
-.cube-widget.open .crad-btn[data-crad="1"]{transform:translate(70px,0px) scale(1);transition-delay:0ms}
-.cube-widget.open .crad-btn[data-crad="2"]{transform:translate(61px,38px) scale(1);transition-delay:45ms}
-.cube-widget.open .crad-btn[data-crad="3"]{transform:translate(35px,64px) scale(1);transition-delay:90ms}
-.cube-widget.open .crad-btn[data-crad="4"]{transform:translate(0px,72px) scale(1);transition-delay:135ms}
+.cube-widget.open .crad-btn{position:fixed;opacity:1;pointer-events:auto}
+.cube-widget.open .crad-btn[data-crad="1"]{transform:scale(1);transition-delay:0ms}
+.cube-widget.open .crad-btn[data-crad="2"]{transform:scale(1);transition-delay:45ms}
+.cube-widget.open .crad-btn[data-crad="3"]{transform:scale(1);transition-delay:90ms}
+.cube-widget.open .crad-btn[data-crad="4"]{transform:scale(1);transition-delay:135ms}
 .notif-badge{position:absolute;top:0;right:0;width:8px;height:8px;background:#ef5b5b;border-radius:50%}
 @media(max-width:768px){.topbar-menu-btn{display:block}}
 @media(min-width:769px){.topbar-date{display:block}}
@@ -2210,7 +2209,17 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 // ── CUBE WIDGET ──
 window.toggleCubePanel = function(){
   var w=document.getElementById('CUBE_WIDGET');
-  if(w) w.classList.toggle('open');
+  if(!w) return;
+  if(w.classList.contains('open')){w.classList.remove('open');return;}
+  // Calcule positions fixes depuis la position réelle du cube dans le viewport
+  var cubeBt=w.querySelector('.cube-btn');
+  var r=cubeBt?cubeBt.getBoundingClientRect():{left:16,top:7};
+  var cx=r.left, cy=r.top;
+  var offs=[[70,0],[61,38],[35,64],[0,72]];
+  w.querySelectorAll('.crad-btn').forEach(function(b,i){
+    if(offs[i]){b.style.left=(cx+offs[i][0])+'px';b.style.top=(cy+offs[i][1])+'px';}
+  });
+  w.classList.add('open');
 };
 document.addEventListener('click',function(e){
   var w=document.getElementById('CUBE_WIDGET');
