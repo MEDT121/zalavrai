@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v7';
+const CACHE = 'schoolsafe-v8';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -22,6 +22,9 @@ const BYPASS_HOSTS = [
   'fonts.gstatic.com',
   'cdnjs.cloudflare.com',
 ];
+
+// Extensions qui ne sont jamais mises en cache (toujours réseau)
+const BYPASS_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi'];
 
 // ── Installation ──────────────────────────────────────────────────────────────
 self.addEventListener('install', evt => {
@@ -57,6 +60,9 @@ self.addEventListener('fetch', evt => {
 
   // Bypass pour POST/PATCH/DELETE
   if (evt.request.method !== 'GET') return;
+
+  // Bypass pour les vidéos — toujours chargées du réseau, jamais cachées
+  if (BYPASS_EXTENSIONS.some(ext => url.pathname.endsWith(ext))) return;
 
   // Network-First pour index.html (toujours la version la plus récente)
   if (url.pathname.endsWith('/') || url.pathname.endsWith('index.html')) {
