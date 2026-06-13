@@ -750,6 +750,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .lockdown-wave-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;animation:ldTextPop .4s cubic-bezier(.34,1.56,.64,1) .08s both,ldTextFade .4s ease 1.9s both}
 @keyframes ldTextPop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes ldTextFade{to{opacity:0}}
+.conv-seal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:9999;pointer-events:none;animation:fadeIn .2s ease}
+.conv-seal-env{font-size:82px;display:block;line-height:1;font-family:system-ui,sans-serif;animation:convEnvPop .42s cubic-bezier(.34,1.56,.64,1) both,convEnvFly .55s cubic-bezier(.4,0,.2,1) 1.25s both}
+.conv-seal-txt{font-size:15px;font-weight:700;color:#fff;margin-top:16px;text-align:center;animation:fadeInUp .3s ease .35s both,ldTextFade .3s ease 1.15s both}
+@keyframes convEnvPop{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.18) rotate(3deg)}100%{transform:scale(1);opacity:1}}
+@keyframes convEnvFly{0%{transform:none;opacity:1}100%{transform:translateY(-190px) rotate(10deg) scale(.8);opacity:0}}
 .notif-drop{animation:notifDrop .4s cubic-bezier(.34,1.2,.64,1) both}
 @keyframes notifDrop{from{transform:translateY(-22px) scale(.96);opacity:0}to{transform:none;opacity:1}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
@@ -11746,6 +11751,16 @@ window.openConvocationM = () => {
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" onclick="saveConvocation()">📋 Créer la convocation</button>`);
 };
+window.showConvocationSeal = (name, reason) => {
+  const el=document.createElement('div');
+  el.className='conv-seal-overlay';
+  el.innerHTML=`<div style="text-align:center">
+    <span class="conv-seal-env">✉️</span>
+    <div class="conv-seal-txt">Convocation envoyée<br><span style="font-size:12px;opacity:.75;font-weight:400">${esc(name)} · ${esc(reason)}</span></div>
+  </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{render();el.remove();},1950);
+};
 window.saveConvocation = () => {
   const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
   if(!sid){toast('Sélectionner un élève','error');return;}
@@ -11760,7 +11775,9 @@ window.saveConvocation = () => {
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   }
   logAudit('convocation_create', `${DB.students.find(x=>x.id===sid)?.name||''} · ${reason}`, conv.id);
-  saveToCrypt(); toast('Convocation créée — parent notifié','success'); closeModal(); render();
+  saveToCrypt();
+  closeModal();
+  showConvocationSeal(DB.students.find(x=>x.id===sid)?.name||'', reason);
 };
 
 window.deleteConvocation = (id) => {
