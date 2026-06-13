@@ -737,6 +737,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes medalPop{0%{transform:scale(0) rotate(-20deg);opacity:0}70%{transform:scale(1.25) rotate(4deg)}100%{transform:scale(1) rotate(0);opacity:1}}
 .podium-avatar{animation:podiumAvatarDrop .35s ease both}
 @keyframes podiumAvatarDrop{0%{transform:translateY(-16px);opacity:0}100%{transform:none;opacity:1}}
+.pay-stamp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:9999;animation:fadeIn .2s ease}
+.pay-stamp-card{background:#fff;border-radius:18px;padding:28px 24px;text-align:center;max-width:300px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,.35)}
+.pay-stamp-seal{display:block;font-size:76px;margin:10px 0;animation:stampDrop .45s cubic-bezier(.3,-.4,.7,1.3) .2s both,stampVibrate .1s ease .68s 2;line-height:1;font-family:system-ui,sans-serif}
+@keyframes stampDrop{0%{transform:translateY(-90px) scale(1.5) rotate(-12deg);opacity:0}60%{transform:translateY(6px) scale(.93) rotate(2deg);opacity:1}80%{transform:translateY(-3px) scale(1.02)}100%{transform:none;opacity:1}}
+@keyframes stampVibrate{0%,100%{transform:none}33%{transform:rotate(-4deg) scale(1.06)}66%{transform:rotate(4deg) scale(1.06)}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
 .sr-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sr-sub{font-size:14px;opacity:.9}
@@ -10445,6 +10450,21 @@ window.caisseSelectStudent = (sid) => {
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Sélectionnez le type de paiement ci-dessous</div>`;
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
+window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
+  const el=document.createElement('div');
+  el.className='pay-stamp-overlay';
+  const tLabel=trimestre?' · '+trimestre:'';
+  el.innerHTML=`<div class="pay-stamp-card">
+    <div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Paiement enregistré</div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px;color:#1a1a1a">${esc(name)}</div>
+    <div style="font-size:28px;font-weight:900;color:#1f9d6b;margin:6px 0">$${amount}</div>
+    <div style="font-size:12px;color:#9b7b5c;margin-bottom:14px">${esc(typeLbl+tLabel)}</div>
+    <span class="pay-stamp-seal">✅</span>
+    <div style="font-size:11px;color:#9ca3af;margin-top:14px">Reçu envoyé au parent</div>
+  </div>`;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.transition='opacity .3s ease';el.style.opacity='0';setTimeout(()=>el.remove(),350);},2400);
+};
 window.caisseSavePaiement = async () => {
   const s=window._caisseStudent; if(!s){toast('Sélectionnez un élève','error');return;}
   const amount=parseFloat($('caisse_amount').value||'0');
@@ -10463,9 +10483,9 @@ window.caisseSavePaiement = async () => {
   DB.daily_records.push(rec);
   pushSync('daily_records','post',rec);
   if(s.pid) await sendCaisseReceipt(s, rec);
-  const tLabel=trimestre?` · ${trimestre}`:'';
-  toast(`✅ ${s.name} — ${typeLbl}${tLabel} $${amount} enregistré · Reçu envoyé au parent`,'success');
-  saveToCrypt(); caisseCancel(); render();
+  saveToCrypt();
+  showPaymentStamp(s.name, amount, typeLbl, trimestre);
+  setTimeout(()=>{caisseCancel();render();},2600);
 };
 
 window.sendCaisseReceipt = async (student, rec) => {
