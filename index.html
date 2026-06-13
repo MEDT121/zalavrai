@@ -757,6 +757,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 @keyframes convEnvFly{0%{transform:none;opacity:1}100%{transform:translateY(-190px) rotate(10deg) scale(.8);opacity:0}}
 .att-pill-pop{animation:attPillPop .45s cubic-bezier(.34,1.4,.64,1) both}
 @keyframes attPillPop{from{transform:scale(0) translateX(14px);opacity:0}to{transform:none;opacity:1}}
+.grade-ink{animation:gradeInkFlash .35s cubic-bezier(.34,1.5,.64,1) both}
+@keyframes gradeInkFlash{from{transform:scale(.88);box-shadow:0 0 0 0 rgba(47,123,214,.65)}to{transform:scale(1);box-shadow:0 0 0 7px rgba(47,123,214,0)}}
 .notif-drop{animation:notifDrop .4s cubic-bezier(.34,1.2,.64,1) both}
 @keyframes notifDrop{from{transform:translateY(-22px) scale(.96);opacity:0}to{transform:none;opacity:1}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
@@ -7935,9 +7937,16 @@ window.openGradePanel = cid => {
     </div>`).join('')}
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
-   <button class="btn btn-primary" onclick="saveGradePanel('${cid}')">${t('💾 Enregistrer','💾 Save')}</button>
+   <button class="btn btn-primary" id="gradeSaveBtn" onclick="saveGradePanel('${cid}')">${t('💾 Enregistrer','💾 Save')}</button>
    <button class="btn" style="background:#f59e0b;color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="closeModal();cloturerTrimestre('${cid}')">📊 ${t('Clôturer le trimestre','Close Term')}</button>`
   );
+  setTimeout(() => {
+    document.querySelectorAll('.grade-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        if(inp.value.trim()!==''){inp.classList.remove('grade-ink');void inp.offsetWidth;inp.classList.add('grade-ink');}
+      });
+    });
+  }, 0);
 };
 
 window.saveGradePanel = cid => {
@@ -7971,11 +7980,12 @@ window.saveGradePanel = cid => {
   });
 
   if(!saved){toast(t('Aucune note à enregistrer','No grades to save'),'error'); return;}
-  toast(t(`${saved} note${saved>1?'s':''} enregistrée${saved>1?'s':''} ✅`,`${saved} grade${saved>1?'s':''} saved ✅`), 'success');
   saveToCrypt();
   // Détection automatique des élèves sous le seuil de rattrapage
   setTimeout(() => { if(typeof window.checkRattrapageAuto === 'function') window.checkRattrapageAuto(cid); }, 300);
-  closeModal(); render();
+  const btn=$('gradeSaveBtn');
+  if(btn){btn.textContent='✅ '+saved+' note'+(saved>1?'s':'')+' ✓';btn.style.background='#1f9d6b';btn.style.animation='medalPop .35s ease both';btn.disabled=true;}
+  setTimeout(()=>{closeModal();render();},700);
 };
 
 // ── Single student grades detail — all individual evaluations ──
