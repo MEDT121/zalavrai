@@ -242,6 +242,29 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .dark-toggle{background:none;border:none;cursor:pointer;color:var(--text);padding:6px;border-radius:8px;transition:background .2s;display:flex;align-items:center;justify-content:center}
 .dark-toggle:hover{background:var(--bg)}
 .dark-toggle svg{width:20px;height:20px;stroke:var(--text);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* ── CUBE WIDGET TOPBAR ── */
+.cube-widget{position:relative;display:flex;align-items:center}
+.cube-btn{width:38px;height:38px;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;border-radius:10px;transition:background .2s}
+.cube-btn:hover{background:var(--bg)}
+.cube-wrap{width:28px;height:28px;perspective:100px;perspective-origin:50% 40%}
+.cube-3d{width:28px;height:28px;position:relative;transform-style:preserve-3d;animation:cbSpin 8s linear infinite}
+@keyframes cbSpin{0%{transform:rotateX(-20deg) rotateY(0deg)}100%{transform:rotateX(-20deg) rotateY(360deg)}}
+.cube-widget.open .cube-3d{animation-play-state:paused;transform:rotateX(-20deg) rotateY(45deg)}
+.cface{position:absolute;width:28px;height:28px;border-radius:5px;backface-visibility:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.22) inset}
+.cf-front{background:linear-gradient(135deg,#1c2e57,#2f7bd6);transform:translateZ(14px)}
+.cf-back{background:linear-gradient(135deg,#1c2e57,#32509a);transform:rotateY(180deg) translateZ(14px)}
+.cf-right{background:linear-gradient(135deg,#2f7bd6,#5b9de0);transform:rotateY(90deg) translateZ(14px)}
+.cf-left{background:linear-gradient(135deg,#32509a,#2f7bd6);transform:rotateY(-90deg) translateZ(14px)}
+.cf-top{background:linear-gradient(135deg,#2f7bd6,#80b5ea);transform:rotateX(90deg) translateZ(14px)}
+.cf-bottom{background:linear-gradient(135deg,#1c2e57,#1c2e57);transform:rotateX(-90deg) translateZ(14px)}
+.cube-panel{position:absolute;top:calc(100% + 10px);right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:18px;padding:6px;box-shadow:0 8px 32px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:2px;min-width:190px;opacity:0;transform:translateY(-8px) scale(.92);pointer-events:none;transition:opacity .18s,transform .22s cubic-bezier(.34,1.56,.64,1);transform-origin:top right;z-index:300}
+.cube-widget.open .cube-panel{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+.cp-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;background:none;border:none;cursor:pointer;color:var(--text);font-size:13px;font-weight:600;border-radius:12px;width:100%;text-align:left;transition:background .15s;font-family:inherit}
+.cp-btn:hover{background:var(--bg)}
+.cp-btn-icon{width:32px;height:32px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dark .cp-btn-icon{background:rgba(47,123,214,.18)}
+.cp-btn-icon svg{width:15px;height:15px;stroke:var(--primary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cp-divider{height:1px;background:var(--border);margin:2px 4px}
 .notif-badge{position:absolute;top:0;right:0;width:8px;height:8px;background:#ef5b5b;border-radius:50%}
 @media(max-width:768px){.topbar-menu-btn{display:block}}
 @media(min-width:769px){.topbar-date{display:block}}
@@ -876,8 +899,27 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       <button class="topbar-menu-btn" id="TOPBTN" onclick="toggleSidebar()" title="Menu">☰</button>
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
-        <button class="dark-toggle" onclick="toggleDark()" title="Mode sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
-        <button class="topbar-notif-btn" onclick="openGlobalSearch()" title="Recherche globale"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+        <!-- ── CUBE WIDGET ── -->
+        <div class="cube-widget" id="CUBE_WIDGET">
+          <button class="cube-btn" onclick="window.toggleCubePanel()" title="Menu rapide" aria-label="Menu rapide">
+            <div class="cube-wrap">
+              <div class="cube-3d">
+                <div class="cface cf-front"></div>
+                <div class="cface cf-back"></div>
+                <div class="cface cf-right"></div>
+                <div class="cface cf-left"></div>
+                <div class="cface cf-top"></div>
+                <div class="cface cf-bottom"></div>
+              </div>
+            </div>
+          </button>
+          <div class="cube-panel" id="CUBE_PANEL">
+            <button class="cp-btn" onclick="go('dashboard');window.toggleCubePanel()"><div class="cp-btn-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></div>Tableau de bord</button>
+            <button class="cp-btn" onclick="openGlobalSearch();window.toggleCubePanel()"><div class="cp-btn-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>Recherche</button>
+            <div class="cp-divider"></div>
+            <button class="cp-btn dark-toggle" id="DARK_BTN" onclick="toggleDark()"><div class="cp-btn-icon"><span id="DARK_MODE_ICON"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span></div><span id="DARK_MODE_LABEL">Mode nuit</span></button>
+          </div>
+        </div>
         <span class="topbar-date" id="TD"></span>
         <button id="SYNC_IND" onclick="forceSyncDB()" title="Cliquer pour forcer la synchronisation" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .3s;border:none;line-height:1.4"></button>
         <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
@@ -1927,7 +1969,10 @@ window.toggleDark = () => {
   document.body.classList.toggle('dark');
   const isDark = document.body.classList.contains('dark');
   localStorage.setItem('schoolsafe_dark', isDark?'1':'0');
-  document.querySelector('.dark-toggle').innerHTML = isDark?'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"5\"/><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"3\"/><line x1=\"12\" y1=\"21\" x2=\"12\" y2=\"23\"/><line x1=\"4.22\" y1=\"4.22\" x2=\"5.64\" y2=\"5.64\"/><line x1=\"18.36\" y1=\"18.36\" x2=\"19.78\" y2=\"19.78\"/><line x1=\"1\" y1=\"12\" x2=\"3\" y2=\"12\"/><line x1=\"21\" y1=\"12\" x2=\"23\" y2=\"12\"/><line x1=\"4.22\" y1=\"19.78\" x2=\"5.64\" y2=\"18.36\"/><line x1=\"18.36\" y1=\"5.64\" x2=\"19.78\" y2=\"4.22\"/></svg>':'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z\"/></svg>';
+  var _dmi=document.getElementById('DARK_MODE_ICON');
+  if(_dmi)_dmi.innerHTML=isDark?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var _dml=document.getElementById('DARK_MODE_LABEL');
+  if(_dml)_dml.textContent=isDark?'Mode jour':'Mode nuit';
 };
 if (localStorage.getItem('schoolsafe_dark')==='1') document.body.classList.add('dark');
 
@@ -2160,6 +2205,16 @@ window.addEventListener('popstate', () => {
 
 window.toggleSidebar = () => { S.sbOpen=!S.sbOpen; $('SB').classList.toggle('open',S.sbOpen); $('SO').classList.toggle('show',S.sbOpen); };
 window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO').classList.remove('show'); };
+
+// ── CUBE WIDGET ──
+window.toggleCubePanel = function(){
+  var w=document.getElementById('CUBE_WIDGET');
+  if(w) w.classList.toggle('open');
+};
+document.addEventListener('click',function(e){
+  var w=document.getElementById('CUBE_WIDGET');
+  if(w && w.classList.contains('open') && !w.contains(e.target)) w.classList.remove('open');
+},{passive:true});
 
 // ── GUARDIAN SCREEN ──
 (function(){
@@ -2494,7 +2549,10 @@ window.buildUI = () => {
   // Date
   $('TD').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   // Dark toggle
-  document.querySelector('.dark-toggle').innerHTML = document.body.classList.contains('dark')?'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"5\"/><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"3\"/><line x1=\"12\" y1=\"21\" x2=\"12\" y2=\"23\"/><line x1=\"4.22\" y1=\"4.22\" x2=\"5.64\" y2=\"5.64\"/><line x1=\"18.36\" y1=\"18.36\" x2=\"19.78\" y2=\"19.78\"/><line x1=\"1\" y1=\"12\" x2=\"3\" y2=\"12\"/><line x1=\"21\" y1=\"12\" x2=\"23\" y2=\"12\"/><line x1=\"4.22\" y1=\"19.78\" x2=\"5.64\" y2=\"18.36\"/><line x1=\"18.36\" y1=\"5.64\" x2=\"19.78\" y2=\"4.22\"/></svg>':'<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z\"/></svg>';
+  var _dmi2=document.getElementById('DARK_MODE_ICON'),_isDark2=document.body.classList.contains('dark');
+  if(_dmi2)_dmi2.innerHTML=_isDark2?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>':'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var _dml2=document.getElementById('DARK_MODE_LABEL');
+  if(_dml2)_dml2.textContent=_isDark2?'Mode jour':'Mode nuit';
   // User photo
   if (S.user.photo_url) { const safeUrl = /^(https?:|data:image\/)/.test(S.user.photo_url||'') ? S.user.photo_url : ''; if(safeUrl) $('SA').innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`; }
   // SchoolSafe brand always fixed — school logo only
@@ -17232,7 +17290,7 @@ window.printRapportSecope = () => {
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   // Dark mode
-  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');const b=document.querySelector('.dark-toggle');if(b)b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--text);stroke-width:2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';} } catch(e){}
+  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');var _dmi3=document.getElementById('DARK_MODE_ICON');if(_dmi3)_dmi3.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';var _dml3=document.getElementById('DARK_MODE_LABEL');if(_dml3)_dml3.textContent='Mode jour';} } catch(e){}
   initParticles();
 
   // Operator WA link
