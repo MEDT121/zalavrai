@@ -755,6 +755,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .conv-seal-txt{font-size:15px;font-weight:700;color:#fff;margin-top:16px;text-align:center;animation:fadeInUp .3s ease .35s both,ldTextFade .3s ease 1.15s both}
 @keyframes convEnvPop{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.18) rotate(3deg)}100%{transform:scale(1);opacity:1}}
 @keyframes convEnvFly{0%{transform:none;opacity:1}100%{transform:translateY(-190px) rotate(10deg) scale(.8);opacity:0}}
+.att-pill-pop{animation:attPillPop .45s cubic-bezier(.34,1.4,.64,1) both}
+@keyframes attPillPop{from{transform:scale(0) translateX(14px);opacity:0}to{transform:none;opacity:1}}
 .notif-drop{animation:notifDrop .4s cubic-bezier(.34,1.2,.64,1) both}
 @keyframes notifDrop{from{transform:translateY(-22px) scale(.96);opacity:0}to{transform:none;opacity:1}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
@@ -2157,6 +2159,28 @@ window.animateCounters = () => {
     el.style.animation = 'none';
     void el.offsetHeight;
     el.style.animation = 'ringDraw .9s cubic-bezier(.4,0,.2,1) both';
+  });
+  // attendanceSwipe — pill pop on status change
+  if (window._attJustMarked) {
+    const sid = window._attJustMarked;
+    window._attJustMarked = null;
+    const item = document.querySelector('.ww-item[data-sid="'+sid+'"]');
+    if (item) {
+      const pill = item.querySelector('.pill');
+      if (pill) pill.classList.add('att-pill-pop');
+      item.style.transition = 'background .3s ease';
+      item.style.background = 'rgba(47,191,143,.12)';
+      setTimeout(() => { if(item) item.style.background=''; }, 900);
+    }
+  }
+  // Fix hqa-scroll — prevents navigation on horizontal swipe-to-scroll
+  document.querySelectorAll('.hqa-scroll').forEach(el => {
+    if (el._hqaFixed) return;
+    el._hqaFixed = true;
+    let sx=0, moved=false;
+    el.addEventListener('touchstart', e => { sx=e.touches[0].clientX; moved=false; }, {passive:true});
+    el.addEventListener('touchmove', e => { if(Math.abs(e.touches[0].clientX-sx)>8) moved=true; }, {passive:true});
+    el.addEventListener('click', e => { if(moved){e.stopPropagation();moved=false;} }, true);
   });
   // cascade animation delays
   document.querySelectorAll('.ww-card').forEach((el, i) => el.style.setProperty('--i', i));
@@ -6334,7 +6358,7 @@ R.attendance = () => {
       const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
       const [cc,cbg]=clsColor(c?c.name:'');
       const st=a?(a.status==='ontime'?{b:'#d8f3e6',c:'#065f46',l:t("À l'heure",'On time'),i:''}:a.status==='late'?{b:'#fdeccd',c:'#92400e',l:t('Retard','Late'),i:''}:a.status==='excused'?{b:'#dbeafe',c:'#205fae',l:t('Justifié','Excused'),i:''}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:''}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:''}):{b:'#f6ede0',c:'#5c5346',l:t('Absent','Absent'),i:''};
-      return `<div class="ww-item" style="animation-delay:${i*.04}s">
+      return `<div class="ww-item" data-sid="${s.id}" style="animation-delay:${i*.04}s">
         <div style="width:40px;height:40px;border-radius:10px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
         <div class="ww-item-content"><div class="ww-item-title">${esc(s.name)}</div><div class="ww-item-sub">${scanEntry?'Scanné '+scanEntry.time:a?'Arrivé '+a.arr_time:'Non scanné aujourd\'hui'}</div></div>
         <span class="pill" style="background:${st.b};color:${st.c}">${st.l}</span>
@@ -6827,7 +6851,7 @@ window.markAttendance = (sid,status) => {
   const s=DB.students.find(x=>x.id===sid);
   const labels={excused:'Absent justifié',sick:'🤒 Sorti pour maladie',ontime:'À l\'heure',late:'⚠️ Retard'};
   toast(`${s?s.name:''} — ${labels[status]||status}`,'info');
-  saveToCrypt(); render();
+  window._attJustMarked=sid; saveToCrypt(); render();
 };
 
 // ── PALMARÈS AUTOMATIQUE ──
@@ -16365,7 +16389,7 @@ window.doManualPresent = async (sid) => {
   logAudit('attendance_manual',`${s.name} — ${time}${note?' — '+note:''}`,sid);
   closeModal();
   toast(`✅ ${s.name} marqué(e) présent(e) à ${time}`,'success');
-  saveToCrypt(); render();
+  window._attJustMarked=sid; saveToCrypt(); render();
 };
 
 // ═══════════════════════════════════════════
