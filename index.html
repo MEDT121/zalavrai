@@ -722,11 +722,15 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .scan-video-wrap video{width:100%;height:100%;object-fit:cover}
 .scan-line{position:absolute;top:0;left:0;right:0;height:3px;background:#22c55e;box-shadow:0 0 16px #22c55e;animation:scanAnim 1.8s ease-in-out infinite}
 .scan-corners{position:absolute;inset:8px;border:2.5px solid rgba(255,255,255,.3);border-radius:12px}
-.scan-result{border-radius:16px;padding:24px;text-align:center;color:#fff;width:100%;max-width:380px;animation:popIn .3s ease}
+.scan-result{border-radius:16px;padding:24px;text-align:center;color:#fff;width:100%;max-width:380px;animation:popIn .3s ease;position:relative;overflow:visible}
 .scan-result.green{background:linear-gradient(135deg,#1f9d6b,#2fbf8f)}
 .scan-result.orange{background:linear-gradient(135deg,#d98a2b,#f59e0b)}
 .scan-result.red{background:linear-gradient(135deg,#dc2626,#ef5b5b)}
 .scan-result.blue{background:linear-gradient(135deg,#2f7bd6,#2f7bd6)}
+.scan-result.shake{animation:popIn .3s ease,scanShake .35s ease .25s}
+.scan-shockwave{position:absolute;inset:-20px;border-radius:24px;border:3px solid currentColor;opacity:.7;animation:scanShockwave .55s cubic-bezier(.2,.6,.4,1) forwards;pointer-events:none}
+@keyframes scanShockwave{0%{transform:scale(.85);opacity:.7}100%{transform:scale(1.55);opacity:0}}
+@keyframes scanShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
 .sr-icon{font-size:52px;margin-bottom:8px;line-height:1;font-family:system-ui,sans-serif;font-weight:900}
 .sr-title{font-size:22px;font-weight:800;margin-bottom:4px}
 .sr-sub{font-size:14px;opacity:.9}
@@ -9308,7 +9312,16 @@ function getArrivalStatus(cycle) {
 
 function showScanResult(color,icon,title,name,sub,time) {
   const el=$('scanResult'); if(!el) return;
-  el.innerHTML=`<div class="scan-result ${color}"><div class="sr-icon">${icon}</div><div class="sr-title">${esc(title)}</div><div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div><div class="sr-sub">${esc(sub)}</div>${time?`<div class="sr-time">${esc(time)}</div>`:''}</div>`;
+  const shakeClass = color==='red' ? ' shake' : '';
+  const waveColor = color==='green'?'#2fbf8f':color==='orange'?'#f59e0b':'#ef5b5b';
+  el.innerHTML=`<div class="scan-result ${color}${shakeClass}" style="color:${waveColor}">
+    <div class="scan-shockwave"></div>
+    <div class="sr-icon">${icon}</div>
+    <div class="sr-title">${esc(title)}</div>
+    <div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div>
+    <div class="sr-sub">${esc(sub)}</div>
+    ${time?`<div class="sr-time">${esc(time)}</div>`:''}
+  </div>`;
   setTimeout(()=>{if(el) el.innerHTML='';},6000);
 }
 
