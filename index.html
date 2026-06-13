@@ -1368,6 +1368,7 @@ window.NAV = {
       {id:'primes',i:'💎',l:'Primes Enseignants'},
       {id:'attendance',i:'●',l:'Présences'},
       {id:'timetable',i:'●',l:'Emploi du temps'},
+      {id:'cards',i:'●',l:'Cartes d\'élèves'},
       {s:'Site internet'},
       {id:'mon_site',i:'🌐',l:'Mon site web'},
       {s:'Communication'},
@@ -1516,6 +1517,7 @@ window.NAV = {
       {id:'activites',i:'●',l:'Activités Extrascolaires'},
       {id:'attendance',i:'●',l:'Présences'},
       {id:'timetable',i:'●',l:'Emploi du temps'},
+      {id:'cards',i:'●',l:"Cartes d'élèves"},
       {s:'Communication'},
       {id:'messages',i:'●',l:'Messages'},
       {id:'cahier_texte',i:'●',l:'Cahier de texte'},
@@ -4065,13 +4067,174 @@ function applyCrop() {
 
 
 
-// ── CARDS COMMANDER (Direction) ──
-// R.cards supprimé — gestion des cartes dans une app HTML séparée
+// ── CARDS COMMANDER (Direction) — commande vers APKart ──
+R.cards = () => {
+  const allStudents = (DB.students||[]).filter(s=>!s.blocked);
+  const total = allStudents.length;
+  const withPhoto = allStudents.filter(s=>s.photo).length;
+  const complete = allStudents.filter(s=>s.photo&&s.name&&s.mat&&s.dob).length;
+  const pcPhoto = total ? Math.round(withPhoto/total*100) : 0;
+  const pcComplete = total ? Math.round(complete/total*100) : 0;
+  const ordersHtml = (window._myCardOrders||[]).length
+    ? (window._myCardOrders||[]).slice(0,8).map(o=>{
+        const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
+        return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+      }).join('')
+    : '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>';
+  setTimeout(()=>{ if(typeof window.loadMyCardOrders==="function") window.loadMyCardOrders(); }, 200);
 
-// ── LOCKDOWN (placeholder pour préserver la structure) ──
-R.cards = () => `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">🪪</div><div style="font-weight:700;color:var(--text)">Cartes gérées par l'app externe</div></div>`;
+  const classFilter = window._cardClassFilter||'';
+  const nameSearch = (window._cardNameSearch||'').toLowerCase();
+  let students = allStudents;
+  if(classFilter) students = students.filter(s=>s.cid===classFilter);
+  if(nameSearch) students = students.filter(s=>(s.name||'').toLowerCase().includes(nameSearch)||(s.mat||'').toLowerCase().includes(nameSearch));
 
-window.__cards_removed = true;
+  const cycleLabel = (cl) => {
+    if(!cl) return '';
+    if(cl.cycle==='humanites') return 'Humanités'+(cl.option?' · '+cl.option:'');
+    if(cl.cycle==='maternelle') return 'Maternelle';
+    if(cl.cycle==='primaire') return 'Primaire';
+    if(cl.cycle==='secondaire') return 'Secondaire';
+    return cl.cycle||'';
+  };
+
+  const cardHtml = students.map(s=>{
+    const cl = (DB.classes||[]).find(c=>c.id===s.cid);
+    const parent = (DB.users||[]).find(u=>u.id===s.pid);
+    const teacher = cl ? (DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)) : null;
+    const parentName = parent ? parent.name : (s.nom_papa||s.nom_maman||'—');
+    const parentPhone = parent ? (parent.phone||'—') : '—';
+    const isComplete = s.photo&&s.name&&s.mat&&s.dob;
+    return `<div style="background:var(--bg-card,#fff);border-radius:14px;border:1.5px solid ${isComplete?'var(--border-light,#efe3d3)':'#f59e0b'};padding:14px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:52px;height:62px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#efe3d3;display:flex;align-items:center;justify-content:center;font-size:20px;border:1.5px solid var(--border-light,#efe3d3)">
+          ${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover">`:'👤'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-top:1px">${esc(s.mat||'—')}</div>
+          <div style="font-size:11px;color:#2f7bd6;font-weight:600;margin-top:3px">${cl?esc(cl.name):'—'}</div>
+          <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${esc(cycleLabel(cl))}</div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border-light,#f0e8df);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;font-size:11px">
+        <div><span style="color:var(--text-muted)">Né(e) le:</span> <span style="color:var(--text-primary)">${s.dob||'—'}</span></div>
+        <div><span style="color:var(--text-muted)">Lieu:</span> <span style="color:var(--text-primary)">${esc(s.lieu_naissance||'—')}</span></div>
+        <div><span style="color:var(--text-muted)">N° inscr.:</span> <span style="color:var(--text-primary);font-family:monospace">${esc(s.num_inscription||'—')}</span></div>
+        <div><span style="color:var(--text-muted)">Parent:</span> <span style="color:var(--text-primary)">${esc(parentName)}</span></div>
+        <div><span style="color:var(--text-muted)">Tél. parent:</span> <span style="color:var(--text-primary)">${esc(parentPhone)}</span></div>
+        <div><span style="color:var(--text-muted)">Prof.:</span> <span style="color:var(--text-primary)">${esc(teacher?teacher.name:'—')}</span></div>
+      </div>
+      ${!isComplete?`<div style="background:#fff3cd;border-radius:8px;padding:6px 8px;font-size:10px;color:#92400e">⚠️ Dossier incomplet — complétez avant de commander</div>`:''}
+      <button class="btn btn-primary btn-sm" style="width:100%;font-weight:700" onclick="submitCardOrder('${s.id}')" ${!isComplete?'disabled':''}>🪪 Commander cette carte</button>
+    </div>`;
+  }).join('');
+
+  return `
+<div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">📊 État des dossiers élèves</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:var(--text-primary)">${total}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Élèves actifs</div>
+    </div>
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:${pcPhoto>=80?'#1f9d6b':'#d98a2b'}">${withPhoto}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Avec photo (${pcPhoto}%)</div>
+    </div>
+    <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:${pcComplete>=80?'#1f9d6b':'#dc2626'}">${complete}</div>
+      <div style="font-size:11px;color:var(--text-secondary)">Dossiers complets (${pcComplete}%)</div>
+    </div>
+  </div>
+  ${complete < total ? `<div style="background:#fff3cd;border:1px solid #d98a2b;border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e">⚠️ ${total-complete} élève${total-complete>1?'s':''} avec dossier incomplet. Ajoutez la photo, la date de naissance ou le matricule manquant.</div>` : ''}
+</div>
+<div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
+  <div class="premium-section-title">🪪 Identités élèves — Commander une carte</div>
+  <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Vérifiez l'identité complète de chaque élève, puis envoyez la demande à APKart.</div>
+  <div class="ww-toolbar" style="margin-bottom:12px">
+    <input class="ww-search" placeholder="Rechercher élève ou matricule…" oninput="window._cardNameSearch=this.value;render()" value="${esc(window._cardNameSearch||'')}">
+    <select class="form-select" style="flex-shrink:0;width:auto;min-width:120px;font-size:13px" onchange="window._cardClassFilter=this.value;render()">
+      <option value="">Toutes les classes</option>
+      ${(DB.classes||[]).map(cl=>`<option value="${cl.id}" ${classFilter===cl.id?'selected':''}>${esc(cl.name)}</option>`).join('')}
+    </select>
+  </div>
+  ${students.length
+    ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">${cardHtml}</div>`
+    : `<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Aucun élève trouvé</div>`
+  }
+</div>
+<div class="premium-section" style="border-left:4px solid #6b7280">
+  <div class="premium-section-title">📋 Historique des commandes APKart</div>
+  <div id="card-orders-history">${ordersHtml}</div>
+</div>
+`;
+};
+
+window.loadMyCardOrders = async () => {
+  const sName = (DB.settings?.school?.name||'').trim();
+  if(!sName||!CENTRAL_URL||!CENTRAL_KEY) return;
+  try {
+    const r = await fetch(CENTRAL_URL+'/rest/v1/card_orders?school_name=eq.'+encodeURIComponent(sName)+'&order=ordered_at.desc&limit=10', {
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY}
+    });
+    if(!r.ok) return;
+    window._myCardOrders = await r.json();
+    const el = document.getElementById('card-orders-history');
+    if(!el) return;
+    if(!(window._myCardOrders||[]).length) { el.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>'; return; }
+    el.innerHTML = (window._myCardOrders||[]).slice(0,8).map(o=>{
+      const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
+      return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+    }).join('');
+  } catch(e) { /* offline */ }
+};
+
+window.submitCardOrder = async (sid) => {
+  const s = (DB.students||[]).find(x=>x.id===sid);
+  if(!s){ toast('Élève introuvable','error'); return; }
+  const cl = (DB.classes||[]).find(c=>c.id===s.cid);
+  const parent = (DB.users||[]).find(u=>u.id===s.pid);
+  const teacher = cl ? (DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)) : null;
+  const schoolName = DB.settings?.school?.name||'École';
+  const licenseKey = (DB.settings?.license_key||'').trim();
+  const cycleLabel = cl ? (cl.cycle==='humanites'?'Humanités'+(cl.option?' '+cl.option:''):(cl.cycle||'')) : '';
+  const dirUser = (DB.users||[]).find(u=>u.role==='direction');
+  if(!CENTRAL_URL||!CENTRAL_KEY){ toast('Configuration centrale manquante','error'); return; }
+  try {
+    toast('⏳ Envoi vers APKart...','info');
+    const payload = {
+      school_name: schoolName, license_key: licenseKey,
+      student_name: s.name||'', student_mat: s.mat||'', student_dob: s.dob||'',
+      student_lieu_naissance: s.lieu_naissance||'', student_num_inscription: s.num_inscription||'',
+      student_adresse: s.adresse||DB.settings?.school?.address||'',
+      student_class: cl?cl.name:'', student_cycle: cycleLabel,
+      teacher_name: teacher?teacher.name:'',
+      parent_name: parent?parent.name:(s.nom_papa||s.nom_maman||''),
+      parent_phone: parent?(parent.phone||''):'',
+      school_phone: DB.settings?.school?.phone||'', school_address: DB.settings?.school?.address||'',
+      school_dgep: DB.settings?.school?.dgep||'', school_year: DB.settings?.year||'',
+      director_name: dirUser?dirUser.name:'', status: 'pending'
+    };
+    const resp = await fetch(CENTRAL_URL+'/rest/v1/card_orders', {
+      method:'POST',
+      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify(payload)
+    });
+    if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'HTTP '+resp.status); }
+    window._myCardOrders = null;
+    logAudit('card_order','Commande APKart: '+s.name+' — '+(cl?cl.name:''));
+    const waNum = window._OPERATOR_WA||'243978444167';
+    const waMsg = encodeURIComponent('Bonjour, commande de carte APKart:\nÉlève: '+s.name+'\nMatricule: '+(s.mat||'—')+'\nClasse: '+(cl?cl.name:'—')+' ('+cycleLabel+')\nÉcole: '+schoolName+'\nLicence: '+licenseKey);
+    openM('✅ Commande envoyée à APKart',`<div style="text-align:center;padding:8px 0">
+      <div style="font-size:48px;margin-bottom:12px">🪪</div>
+      <div style="font-weight:800;font-size:18px;margin-bottom:4px">${esc(s.name)}</div>
+      <div style="font-size:13px;color:#2f7bd6;font-weight:600;margin-bottom:4px">${esc(cl?cl.name:'—')} · ${esc(cycleLabel)}</div>
+      <div style="color:var(--text-secondary);font-size:12px;margin-bottom:20px">Données envoyées — APKart va générer la carte</div>
+      <a href="https://wa.me/${waNum}?text=${waMsg}" target="_blank" class="btn btn-primary" style="display:block;width:100%;text-decoration:none;margin-bottom:10px;padding:14px">📱 Notifier l'opérateur</a>
+    </div>`,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+  } catch(e) { toast('Erreur: '+e.message,'error'); }
+};
 
 
 // ── LOCKDOWN ──
@@ -13223,6 +13386,15 @@ R.settings = () => {
     <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="forceSyncNow()">🔄 Forcer la synchronisation complète</button>
   </div>
 
+  <!-- ══ APKart ══ -->
+  <div class="premium-section">
+    <div class="premium-section-title">🪪 Cartes élèves — APKart</div>
+    <div class="premium-item" onclick="go('cards')" style="cursor:pointer">
+      <div class="pi-icon" style="background:#dbeafe">🪪</div>
+      <div style="flex:1"><div class="pi-title">Commander des cartes</div><div class="pi-sub">Les commandes sont traitées par APKart</div></div>
+      <span class="premium-badge" style="background:#dbeafe;color:#205fae">Ouvrir →</span>
+    </div>
+  </div>
   <div class="premium-section">
     <div class="premium-section-title">ℹ️ À propos</div>
     <div class="premium-item">
