@@ -2115,14 +2115,20 @@ window.animateCounters = () => {
   // cascade animation delays
   document.querySelectorAll('.ww-card').forEach((el, i) => el.style.setProperty('--i', i));
   document.querySelectorAll('.ww-item').forEach((el, i) => el.style.setProperty('--i', i));
-  // scroll reveal — observe les sections qui entrent dans le viewport
+  // scroll reveal — observateur unique réutilisé, pas de flash sur éléments déjà visibles
   if ('IntersectionObserver' in window) {
-    const _srObs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); _srObs.unobserve(e.target); } });
-    }, { threshold: 0.08 });
-    document.querySelectorAll('.premium-section:not(.visible), .dp-stat-card:not(.visible), .ww-section:not(.visible)').forEach(el => {
+    if (!window._srObserver) {
+      window._srObserver = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); window._srObserver.unobserve(e.target); } });
+      }, { threshold: 0.08 });
+    }
+    document.querySelectorAll('.premium-section, .dp-stat-card, .ww-section').forEach(el => {
+      if (el.classList.contains('visible')) return;
+      const r = el.getBoundingClientRect();
+      const inView = r.top < window.innerHeight && r.bottom > 0;
+      if (inView) { el.classList.add('visible'); return; }
       el.classList.add('sr');
-      _srObs.observe(el);
+      window._srObserver.observe(el);
     });
   }
 };
