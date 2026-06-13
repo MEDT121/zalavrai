@@ -2259,8 +2259,11 @@ window.toggleOfflineMode = function(){
     var src = vid.querySelector('source');
     if(src) src.src = next;
     vid.muted = true;
+    vid.addEventListener('canplay', function handler(){
+      vid.removeEventListener('canplay', handler);
+      vid.play().catch(function(){});
+    });
     vid.load();
-    vid.play().catch(function(){});
   }
 
   window.showGuardian = function(changeVideo){
@@ -2316,8 +2319,11 @@ window.toggleOfflineMode = function(){
     if(src && window._GUARDIAN_VID) src.src = window._GUARDIAN_VID;
     if(vid){
       vid.muted = true;
+      vid.addEventListener('canplay', function handler(){
+        vid.removeEventListener('canplay', handler);
+        vid.play().catch(function(){});
+      });
       vid.load();
-      vid.play().catch(function(){});
       // À la fin de chaque vidéo → changer pour la suivante automatiquement
       vid.addEventListener('ended', function(){
         _switchVideo(vid);
