@@ -2088,7 +2088,7 @@ window.ph = p => `
 </div>`;
 
 window.animateCounters = () => {
-  document.querySelectorAll('.ww-stat-val').forEach(el => {
+  document.querySelectorAll('.ww-stat-val, .dp-stat-num').forEach(el => {
     const raw = el.textContent.trim();
     const prefix = raw.match(/^[^0-9]*/)[0];
     const numStr = raw.replace(/[^0-9]/g, '');
@@ -2493,6 +2493,7 @@ window.logout = () => {
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
   window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=window._iv_autoreport=null;
   S.user=null; S.page='dashboard'; S._history=[];
+  document.body.removeAttribute('data-role');
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
   $('APP').classList.remove('active');
   closeSB();
