@@ -2129,6 +2129,22 @@ window.animateCounters = () => {
     };
     requestAnimationFrame(step);
   });
+  // animate circular attendance gauges
+  document.querySelectorAll('.hgauge[data-pct]').forEach(el => {
+    if (el._gAnim) return;
+    el._gAnim = true;
+    const target = parseFloat(el.dataset.pct) || 0;
+    const dur = 950, st = Date.now();
+    const step = () => {
+      const t = Math.min((Date.now()-st)/dur, 1);
+      const ease = 1 - Math.pow(1-t, 3);
+      const pct = target * ease;
+      el.style.background = `conic-gradient(#2fbf8f 0 ${pct}%, rgba(255,255,255,.13) ${pct}% 100%)`;
+      if (t < 1) requestAnimationFrame(step);
+      else el.style.background = `conic-gradient(#2fbf8f 0 ${target}%, rgba(255,255,255,.13) ${target}% 100%)`;
+    };
+    requestAnimationFrame(step);
+  });
   // animate SVG payment rings
   document.querySelectorAll('.pay-ring-circle').forEach(el => {
     const d = parseFloat(el.dataset.dash || 0);
@@ -2987,7 +3003,7 @@ function dashboardDirection() {
   <!-- KPI stats grid — SVG icons, fixed data -->
   <div class="hbento" role="region" aria-label="Indicateurs clés">
     <div class="htile h-pres" onclick="go('attendance')" role="button" tabindex="0">
-      <div class="hgauge" style="background:conic-gradient(#2fbf8f 0 ${pctPres}%, rgba(255,255,255,.13) ${pctPres}% 100%)">
+      <div class="hgauge" data-pct="${pctPres}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
         <div class="gv"><b>${pctPres}%</b><div class="em">${pctPres>=80?'😄':pctPres>=50?'🙂':pctPres>=30?'😐':'😟'}</div></div>
       </div>
       <div style="flex:1;min-width:0">
@@ -3232,7 +3248,7 @@ function dashboardEnseignant() {
 
   <div class="hbento" style="animation:fadeInUp .35s .08s ease both">
     <div class="htile h-pres" onclick="go('attendance')" role="button" tabindex="0">
-      <div class="hgauge" style="background:conic-gradient(#2fbf8f 0 ${students.length?Math.round((present+late)/students.length*100):0}%, rgba(255,255,255,.13) 0 100%)">
+      <div class="hgauge" data-pct="${students.length?Math.round((present+late)/students.length*100):0}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
         <div class="gv"><b style="font-size:21px">${students.length?Math.round((present+late)/students.length*100):0}%</b><div class="em">${students.length&&(present+late)===students.length?'😄':'🕓'}</div></div>
       </div>
       <div style="flex:1;min-width:0">
@@ -3766,7 +3782,7 @@ function dashboardParent() {
 
   <div class="hbento" style="margin-bottom:16px">
     <div class="htile h-pres" onclick="go('children')" role="button" tabindex="0">
-      <div class="hgauge" style="background:conic-gradient(#2fbf8f 0 ${kids.length?Math.round(kidStatus.filter(k=>k.statClr==='var(--green)'||k.statClr==='var(--gold)').length/kids.length*100):0}%, rgba(255,255,255,.13) 0 100%)">
+      <div class="hgauge" data-pct="${kids.length?Math.round(kidStatus.filter(k=>k.statClr==='var(--green)'||k.statClr==='var(--gold)').length/kids.length*100):0}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
         <div class="gv"><b style="font-size:20px">${kidStatus.filter(k=>k.statClr==='var(--green)'||k.statClr==='var(--gold)').length}/${kids.length}</b><div class="em">${kids.length&&kidStatus.filter(k=>k.statClr==='var(--green)'||k.statClr==='var(--gold)').length===kids.length?'😄':'🕓'}</div></div>
       </div>
       <div style="flex:1;min-width:0">
@@ -5658,7 +5674,7 @@ R.payments = () => {
   return `
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile h-pres" style="cursor:default">
-      <div class="hgauge" style="background:conic-gradient(#2fbf8f 0 ${pct}%, rgba(255,255,255,.13) 0 100%)">
+      <div class="hgauge" data-pct="${pct}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
         <div class="gv"><b style="font-size:20px">${pct}%</b><div class="em">${pct>=80?'💰':pct>=50?'🙂':'😟'}</div></div>
       </div>
       <div style="flex:1;min-width:0">
@@ -6283,7 +6299,7 @@ R.attendance = () => {
   ${(()=>{const tot=students.length;const pct=tot?Math.round(present.length/tot*100):0;return `
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile h-pres" style="cursor:default">
-      <div class="hgauge" style="background:conic-gradient(#2fbf8f 0 ${pct}%, rgba(255,255,255,.13) 0 100%)">
+      <div class="hgauge" data-pct="${pct}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
         <div class="gv"><b style="font-size:21px">${pct}%</b><div class="em">${pct>=80?'😄':pct>=50?'🙂':pct>=30?'😐':'😟'}</div></div>
       </div>
       <div style="flex:1;min-width:0">
