@@ -2652,7 +2652,10 @@ window.toggleOfflineMode = function(){
     if(_idleTimer) clearTimeout(_idleTimer);
     _idleTimer = setTimeout(function(){
       var ls = document.getElementById('LS');
-      if(ls && ls.style.display !== 'none') window.showGuardian(true);
+      if(ls && ls.style.display !== 'none'){
+        // Retour au cube si la fonction est définie (écran connexion actif)
+        if(window._returnToCube) window._returnToCube();
+      }
     }, _IDLE_MS);
   };
 
@@ -2899,6 +2902,36 @@ window.showLogin = () => {
   // Démarrer la rotation du cube
   window._lcStop && window._lcStop();
   window._lcStart && window._lcStart();
+
+  // Retour au cube après inactivité (5s sans frappe sur le formulaire)
+  window._returnToCube = function(){
+    window._lcStop && window._lcStop();
+    // Nettoyer les éclats orphelins
+    if(ls) ls.querySelectorAll('.lc-shard').forEach(function(s){s.remove();});
+    // Restaurer les éléments du cube (inline styles effacés par le shatter)
+    var cube=document.getElementById('lc-cube');
+    if(cube){ cube.style.cssText=''; }
+    var wrap=document.getElementById('lc-wrap');
+    if(wrap){
+      ['lc-halo','lc-shadow'].forEach(function(c){var el=wrap.querySelector('.'+c);if(el)el.style.cssText='';});
+      var brand=wrap.querySelector('.lc-brand');if(brand)brand.style.cssText='';
+    }
+    // Montrer cube, cacher formulaire
+    if(anim){ anim.style.display='block'; anim.style.opacity='1'; }
+    if(form){ form.style.display='none'; }
+    // Relancer le cube
+    window._lcStart && window._lcStart();
+    // Hint caché → visible après 1.5s + tap réactivé
+    var th=anim?anim.querySelector('.la-tap'):null;
+    if(th){ th.style.opacity='0'; th.style.transition='none'; }
+    setTimeout(function(){
+      if(th){ th.style.transition='opacity 0.7s'; th.style.opacity='1'; }
+      if(anim){
+        anim.addEventListener('click',_activateForm,{once:true});
+        anim.addEventListener('touchend',function(e){e.preventDefault();_activateForm();},{once:true,passive:false});
+      }
+    },1500);
+  };
 
   // Tap/click → cube se brise, formulaire s'assemble
   function _activateForm(e){
