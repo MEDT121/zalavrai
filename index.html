@@ -113,10 +113,65 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .splash-tap{position:absolute;bottom:30px;font-size:13px;color:rgba(255,255,255,.45);animation:pulse 2s ease-in-out infinite;letter-spacing:1px}
 
 /* ── LOGIN ── */
-.login-screen{position:fixed;inset:0;z-index:900;background:#0d1a3a;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:opacity .45s;padding:20px 0 40px}
+.login-screen{position:fixed;inset:0;z-index:900;background:#03040a;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:opacity .45s;padding:20px 0 40px}
 .login-screen.hidden{opacity:0;pointer-events:none}
-.login-bg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none}
 .login-container{background:rgba(255,255,255,.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:28px 24px;width:100%;max-width:400px;margin:auto 16px;position:relative;z-index:1}
+/* ── CUBE LOGIN ANIMATION ── */
+:root{--lcs:min(56vmin,260px);--lhalf:calc(var(--lcs)/2)}
+#login-anim{position:absolute;inset:0;z-index:2;cursor:pointer;overflow:hidden;
+  background:radial-gradient(circle at 50% 35%,#12163a 0%,#05071b 34%,#03040a 72%,#000 100%);
+  transition:opacity .5s}
+#login-anim::before{content:"";position:absolute;inset:-25%;pointer-events:none;
+  background:radial-gradient(circle at 20% 30%,rgba(0,255,255,.16),transparent 23%),
+             radial-gradient(circle at 80% 62%,rgba(255,0,160,.18),transparent 28%),
+             radial-gradient(circle at 51% 70%,rgba(255,200,0,.08),transparent 25%);
+  filter:blur(4px);animation:laAurora 12s linear infinite alternate}
+#login-anim::after{content:"";position:absolute;inset:-25%;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:44px 44px;opacity:.14;animation:laGrid 11s linear infinite}
+@keyframes laAurora{from{transform:translate3d(-2%,-1%,0) rotate(0deg) scale(1)}to{transform:translate3d(2%,1%,0) rotate(8deg) scale(1.04)}}
+@keyframes laGrid{from{background-position:0 0,0 0}to{background-position:44px 88px,88px 44px}}
+.la-wrap{position:relative;z-index:1;width:100%;height:100%;display:grid;place-items:center;perspective:1100px;perspective-origin:50% 42%}
+.la-halo{position:absolute;width:calc(var(--lcs)*1.6);height:calc(var(--lcs)*1.6);border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.18),rgba(0,255,255,.13) 20%,rgba(255,0,160,.16) 42%,transparent 68%);
+  filter:blur(26px);opacity:.75;animation:laPulse 3s ease-in-out infinite alternate}
+@keyframes laPulse{from{transform:scale(.92);opacity:.55}to{transform:scale(1.06);opacity:.9}}
+.la-stage{position:relative;width:var(--lcs);height:var(--lcs);transform-style:preserve-3d;animation:laFloat 4.6s ease-in-out infinite alternate}
+@keyframes laFloat{from{transform:translateY(10px)}to{transform:translateY(-10px)}}
+.la-cube{position:absolute;inset:0;transform-style:preserve-3d;animation:laSpin 10s cubic-bezier(.45,.02,.22,1) infinite;will-change:transform;transition:opacity .35s}
+@keyframes laSpin{0%{transform:rotateX(-18deg) rotateY(0deg)}16%{transform:rotateX(-18deg) rotateY(90deg)}33%{transform:rotateX(-18deg) rotateY(180deg)}50%{transform:rotateX(-18deg) rotateY(270deg)}66%{transform:rotateX(72deg) rotateY(360deg)}83%{transform:rotateX(-108deg) rotateY(360deg)}100%{transform:rotateX(-18deg) rotateY(720deg)}}
+.la-face{position:absolute;width:var(--lcs);height:var(--lcs);overflow:hidden;border-radius:14px;backface-visibility:hidden;
+  background:#1e3a8a center/80% no-repeat;
+  box-shadow:0 0 0 2px rgba(255,255,255,.12) inset,0 0 24px rgba(0,255,255,.16) inset,0 0 36px rgba(255,0,120,.45)}
+.la-face::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(rgba(255,255,255,.14) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.14) 2px,transparent 2px);
+  background-size:calc(var(--lcs)/3) calc(var(--lcs)/3);mix-blend-mode:screen;opacity:.42;pointer-events:none}
+.la-face::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.22),transparent 28%,transparent 62%,rgba(0,0,0,.35));
+  mix-blend-mode:screen;opacity:.44;pointer-events:none}
+.la-front {transform:translateZ(var(--lhalf))}
+.la-back  {transform:rotateY(180deg) translateZ(var(--lhalf))}
+.la-right {transform:rotateY(90deg)  translateZ(var(--lhalf))}
+.la-left  {transform:rotateY(-90deg) translateZ(var(--lhalf))}
+.la-top   {transform:rotateX(90deg)  translateZ(var(--lhalf))}
+.la-bottom{transform:rotateX(-90deg) translateZ(var(--lhalf))}
+.la-shadow{position:absolute;top:calc(50% + var(--lcs)*.56);left:50%;
+  width:calc(var(--lcs)*1.05);height:calc(var(--lcs)*.18);
+  transform:translateX(-50%) rotateX(74deg);border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(0,255,255,.28),rgba(255,0,160,.18) 45%,transparent 75%);
+  filter:blur(14px);opacity:.7}
+.la-tap{position:absolute;bottom:clamp(28px,6vh,70px);left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.65);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  font-family:sans-serif;animation:laTap 2s ease-in-out infinite;white-space:nowrap;text-align:center;pointer-events:none}
+@keyframes laTap{0%,100%{opacity:.3}50%{opacity:.95}}
+.la-title{position:absolute;top:clamp(28px,6vh,70px);left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.85);font-size:22px;font-weight:800;letter-spacing:.2em;
+  text-transform:uppercase;font-family:sans-serif;white-space:nowrap;text-align:center;
+  text-shadow:0 0 30px rgba(0,255,255,.5);pointer-events:none}
+.la-mini{position:absolute;width:26px;height:26px;border-radius:5px;
+  border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 0 10px rgba(0,255,255,.4);pointer-events:none}
 .login-title{font-size:24px;font-weight:800;text-align:center;color:#fff;letter-spacing:2px}
 .login-rainbow-bar{height:3px;width:80px;background:var(--rainbow);background-size:200%;border-radius:2px;margin:10px auto 8px;animation:rainbowShimmer 2s linear infinite}
 .login-subtitle{text-align:center;color:rgba(255,255,255,.55);font-size:13px;margin-bottom:16px;letter-spacing:1px}
@@ -888,10 +943,27 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 <!-- ── LOGIN SCREEN ── -->
 <div class="login-screen" id="LS" style="display:none">
-  <video class="login-bg-video" autoplay muted loop playsinline preload="auto">
-    <source src="login-bg.mp4" type="video/mp4">
-  </video>
-  <div class="login-container">
+  <!-- Cube 3D animation (affiché en premier, disparaît au tap) -->
+  <div id="login-anim">
+    <div class="la-wrap" id="la-wrap">
+      <div class="la-title">SchoolSafe</div>
+      <div class="la-halo"></div>
+      <div class="la-stage">
+        <div class="la-cube" id="la-cube">
+          <div class="la-face la-front"></div>
+          <div class="la-face la-back"></div>
+          <div class="la-face la-right"></div>
+          <div class="la-face la-left"></div>
+          <div class="la-face la-top"></div>
+          <div class="la-face la-bottom"></div>
+        </div>
+      </div>
+      <div class="la-shadow"></div>
+    </div>
+    <div class="la-tap">✨ Appuyez pour vous connecter</div>
+  </div>
+  <!-- Formulaire de connexion (caché jusqu'au tap) -->
+  <div class="login-container" id="login-form" style="display:none">
     <div class="login-logo-wrap"><span class="lring"></span><span class="lring r2"></span>
     <img src="data:image/png;base64,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" alt="SchoolSafe" style="width:60px;height:60px;display:block;margin:0 auto 8px;animation:logoRainbow 8s linear infinite">
     </div>
@@ -2461,24 +2533,123 @@ window.toggleOfflineMode = function(){
   });
 })();
 
+// ── CUBE LOGIN ANIMATION ──
+(function(){
+  var _laT1=null, _laT2=null;
+
+  // Applique le logo sur les 6 faces du cube
+  function _laSetLogo(){
+    var logo = window.SCHOOL_LOGO||'';
+    if(!logo) return;
+    document.querySelectorAll('.la-face').forEach(function(f){
+      f.style.backgroundImage='url('+logo+')';
+    });
+  }
+
+  // Explosion en mini-cubes puis reconstruction
+  function _laShatter(){
+    var cube=document.getElementById('la-cube');
+    var wrap=document.getElementById('la-wrap');
+    if(!cube||!wrap||wrap._shattering) return;
+    wrap._shattering=true;
+    cube.style.opacity='0';
+    var N=28, minis=[];
+    var W=wrap.offsetWidth, H=wrap.offsetHeight;
+    var cx=W/2, cy=H/2;
+    var colors=['#1e3a8a','#243a6b','#2f7bd6','#4a90d9','#1c5aab','#0d2561','#3a70e0'];
+    for(var i=0;i<N;i++){
+      var mc=document.createElement('div');
+      mc.className='la-mini';
+      mc.style.left=(cx-13)+'px';
+      mc.style.top=(cy-13)+'px';
+      mc.style.background='linear-gradient(135deg,'+colors[i%7]+','+colors[(i+3)%7]+')';
+      mc.style.transform='translate(0,0) rotate(0deg)';
+      wrap.appendChild(mc); minis.push(mc);
+    }
+    setTimeout(function(){
+      minis.forEach(function(mc,i){
+        var angle=(i/N)*Math.PI*2+(Math.random()-.5)*.9;
+        var dist=90+Math.random()*180;
+        var tx=Math.cos(angle)*dist, ty=Math.sin(angle)*dist;
+        var rot=(Math.random()-.5)*600;
+        mc.style.transition='transform 1.1s cubic-bezier(.25,.1,.25,1)';
+        mc.style.transform='translate('+tx+'px,'+ty+'px) rotate('+rot+'deg)';
+      });
+    },30);
+    setTimeout(function(){
+      minis.forEach(function(mc){
+        mc.style.transition='transform 1.4s cubic-bezier(.34,1.56,.64,1)';
+        mc.style.transform='translate(0,0) rotate(0deg)';
+      });
+    },1700);
+    setTimeout(function(){
+      minis.forEach(function(mc){mc.remove();});
+      if(cube) cube.style.opacity='1';
+      wrap._shattering=false;
+    },3200);
+  }
+
+  // Démarre le cycle : 1ère explosion à 3s puis toutes les 8s
+  window._laStart=function(){
+    _laSetLogo();
+    _laT1=setTimeout(function(){
+      _laShatter();
+      _laT2=setInterval(_laShatter,8000);
+    },3000);
+  };
+
+  window._laStop=function(){
+    if(_laT1){clearTimeout(_laT1);_laT1=null;}
+    if(_laT2){clearInterval(_laT2);_laT2=null;}
+  };
+})();
+
 // ── LOGIN ──
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
+  const anim=$('login-anim'), form=$('login-form');
   if(sp) sp.style.display='none';
   if(ls){
     ls.style.display='flex';
     ls.style.opacity='1';
     ls.classList.remove('hidden');
   }
-  // timer d'inactivité → retour au gardien
-  const resetTimer = ()=>{ window._resetLoginIdleTimer && window._resetLoginIdleTimer(); };
+  // Montrer animation cube d'abord, formulaire caché
+  if(anim){ anim.style.display='block'; anim.style.opacity='1'; }
+  if(form){ form.style.display='none'; }
+
+  // Démarrer le cycle de shatter
+  window._laStop && window._laStop();
+  window._laStart && window._laStart();
+
+  // Tap/click → arrêter animation, afficher formulaire
+  function _activateForm(e){
+    if(!anim||anim.style.display==='none') return;
+    window._laStop && window._laStop();
+    anim.style.opacity='0';
+    setTimeout(function(){
+      anim.style.display='none';
+      if(form){
+        form.style.display='block';
+        form.style.animation='loginCardIn .5s cubic-bezier(.16,.84,.44,1) both';
+      }
+      const ln=$('LN'); if(ln) ln.focus();
+    },480);
+  }
+  if(anim){
+    anim.addEventListener('click', _activateForm, {once:true});
+    anim.addEventListener('touchend', function(e){ e.preventDefault(); _activateForm(); }, {once:true,passive:false});
+  }
+
+  // Timer d'inactivité (sur le formulaire uniquement)
+  const resetTimer=()=>{ window._resetLoginIdleTimer&&window._resetLoginIdleTimer(); };
   const ln=$('LN'), lp=$('LP'), lsEl=$('LS');
   ['input','keydown','click','focus'].forEach(ev=>{
-    if(ln) ln.addEventListener(ev, resetTimer, {passive:true});
-    if(lp) lp.addEventListener(ev, resetTimer, {passive:true});
+    if(ln) ln.addEventListener(ev,resetTimer,{passive:true});
+    if(lp) lp.addEventListener(ev,resetTimer,{passive:true});
   });
-  if(lsEl) lsEl.addEventListener('touchstart', resetTimer, {passive:true});
-  window._startLoginIdleTimer && window._startLoginIdleTimer();
+  if(lsEl) lsEl.addEventListener('touchstart',resetTimer,{passive:true});
+  window._startLoginIdleTimer&&window._startLoginIdleTimer();
 };
 async function _hashPin(pin) {
   const enc = new TextEncoder().encode(pin);
