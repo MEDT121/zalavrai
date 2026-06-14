@@ -1118,6 +1118,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   <!-- Intro vidéo (alternative aléatoire au cube CSS) -->
   <div id="lc-video-intro">
     <video id="lc-video" src="schoolsafe-intro.mp4" loop muted playsinline preload="auto"></video>
+    <video id="lc-video2" src="schoolsafe-intro2.mp4" loop muted playsinline preload="auto" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;"></video>
     <div id="lc-vid-overlay"></div>
     <div id="lc-vid-slogan">Un enfant protégé &nbsp;·&nbsp; Un parent informé</div>
     <div class="la-tap" style="opacity:0">✨ Appuyez pour vous connecter</div>
@@ -2817,7 +2818,7 @@ window.toggleOfflineMode = function(){
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
   const anim=$('login-anim'), form=$('login-form');
-  const vIntro=$('lc-video-intro'), vEl=$('lc-video');
+  const vIntro=$('lc-video-intro'), vEl=$('lc-video'), vEl2=$('lc-video2');
 
   // Splash disparaît instantanément
   if(sp){ sp.style.transition='none'; sp.style.opacity='0'; sp.style.pointerEvents='none'; setTimeout(()=>{ if(sp) sp.style.display='none'; },80); }
@@ -2825,14 +2826,15 @@ window.showLogin = () => {
   if(ls){ ls.style.transition='none'; ls.style.display='flex'; ls.style.opacity='1'; ls.style.pointerEvents=''; ls.classList.remove('hidden'); }
   if(form){ form.style.display='none'; }
 
-  // Choisir le prochain mode (alterne cube ↔ vidéo à chaque fois)
-  function _nextIsVideo(){
+  // Cycle cube → video1 → video2 → cube → ...
+  function _getNextMode(){
+    var order=['cube','video1','video2'];
     var last=localStorage.getItem('_lc_mode')||'cube';
-    var next=last==='cube'?'video':'cube';
-    // Si fichier vidéo indisponible → forcer cube
-    if(next==='video'&&(!vEl||!vEl.src||!vEl.canPlayType('video/mp4'))) next='cube';
+    var idx=order.indexOf(last); if(idx<0) idx=0;
+    var next=order[(idx+1)%order.length];
+    if((next==='video1'||next==='video2')&&(!vEl||!vEl.canPlayType('video/mp4'))) next='cube';
     localStorage.setItem('_lc_mode',next);
-    return next==='video';
+    return next; // 'cube' | 'video1' | 'video2'
   }
 
   // Activer formulaire depuis le cube
@@ -2843,33 +2845,39 @@ window.showLogin = () => {
     else{ anim.style.opacity='0'; setTimeout(function(){anim.style.display='none';if(form)form.style.display='block';},480); }
   }
 
-  // Activer formulaire depuis la vidéo
-  function _activateVideo(){
+  // Activer formulaire depuis la vidéo (activeVid = l'élément video actif)
+  function _activateVideo(activeVid){
     if(!vIntro||vIntro.style.display==='none') return;
-    if(window._lcShatterVideo) window._lcShatterVideo(vEl,vIntro,form);
+    if(window._lcShatterVideo) window._lcShatterVideo(activeVid||vEl,vIntro,form);
     else{ vIntro.style.display='none'; if(form) form.style.display='block'; }
   }
 
-  // Lancer un mode (isVideo = true → vidéo, false → cube)
-  function _launch(isVideo){
+  // Lancer un mode : 'cube' | 'video1' | 'video2'
+  function _launch(mode){
     window._lcStop&&window._lcStop();
-    if(isVideo){
+    if(mode==='video1'||mode==='video2'){
       // ── MODE VIDÉO ──
+      var av=mode==='video2'?vEl2:vEl;
+      var iv=mode==='video2'?vEl:vEl2;
       if(anim) anim.style.display='none';
       if(vIntro){ vIntro.style.display='block'; vIntro.style.opacity='1'; }
-      if(vEl){ vEl.currentTime=0; vEl.play().catch(function(){}); }
+      if(av){ av.style.display='block'; av.currentTime=0; av.play().catch(function(){}); }
+      if(iv){ iv.style.display='none'; try{iv.pause();}catch(e){} }
       var vHint=vIntro?vIntro.querySelector('.la-tap'):null;
       if(vHint){ vHint.style.opacity='0'; vHint.style.transition='none'; }
       setTimeout(function(){
         if(vHint){ vHint.style.transition='opacity 0.7s'; vHint.style.opacity='1'; }
         if(vIntro){
-          vIntro.addEventListener('click',_activateVideo,{once:true});
-          vIntro.addEventListener('touchend',function(e){e.preventDefault();_activateVideo();},{once:true,passive:false});
+          var cap=av;
+          vIntro.addEventListener('click',function(){_activateVideo(cap);},{once:true});
+          vIntro.addEventListener('touchend',function(e){e.preventDefault();_activateVideo(cap);},{once:true,passive:false});
         }
       },1500);
     } else {
       // ── MODE CUBE ──
-      if(vIntro){ vIntro.style.display='none'; if(vEl) vEl.pause(); }
+      if(vIntro){ vIntro.style.display='none'; }
+      try{if(vEl)vEl.pause();}catch(e){}
+      try{if(vEl2)vEl2.pause();}catch(e){}
       if(anim){ anim.style.display='block'; anim.style.opacity='1'; }
       window._lcStart&&window._lcStart();
       var cHint=anim?anim.querySelector('.la-tap'):null;
@@ -2896,14 +2904,13 @@ window.showLogin = () => {
     }
     var brand=document.querySelector('#login-anim .lc-brand');
     if(brand) brand.style.cssText='';
-    // Restaurer vidéo
     if(vIntro){ vIntro.style.opacity='1'; }
     if(form) form.style.display='none';
-    _launch(_nextIsVideo());
+    _launch(_getNextMode());
   };
 
   // Premier lancement
-  _launch(_nextIsVideo());
+  _launch(_getNextMode());
 
   // Timer d'inactivité (sur le formulaire)
   const resetTimer=()=>{ window._resetLoginIdleTimer&&window._resetLoginIdleTimer(); };
@@ -17969,6 +17976,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Précharger la vidéo intro dès le démarrage (même quand display:none)
   var _preVid=document.getElementById('lc-video');
   if(_preVid){ _preVid.preload='auto'; _preVid.load(); }
+  var _preVid2=document.getElementById('lc-video2');
+  if(_preVid2){ _preVid2.preload='auto'; _preVid2.load(); }
   // Supabase charge en arrière-plan — n'est plus bloquant
   const ind=$('LOAD_IND');
   if(ind) ind.style.display='';
