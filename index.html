@@ -118,12 +118,12 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .login-container{background:rgba(255,255,255,.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:28px 24px;width:100%;max-width:400px;margin:auto 16px;position:relative;z-index:1}
 /* ── CUBE LOGIN ANIMATION ── */
 #login-anim{
-  --cube-size:min(48vmin,240px);
+  --cube-size:min(62vmin,300px);
   --half:calc(var(--cube-size)/2);
   --speed:18s;
   --glow:rgba(255,0,120,.45);
   background:radial-gradient(circle at 50% 35%,#12163a 0%,#05071b 34%,#03040a 72%,#000 100%);
-  position:absolute;inset:0;z-index:2;cursor:pointer;overflow:hidden;transition:opacity .5s
+  position:absolute;inset:0;z-index:2;overflow:hidden;transition:opacity .5s
 }
 @keyframes aurora{
       from{ transform: translate3d(-2%, -1%, 0) rotate(0deg) scale(1); }
@@ -144,10 +144,10 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: clamp(14px,3.5vh,28px);
-      padding-bottom: clamp(60px,10vh,110px);
-      perspective: 1100px;
-      perspective-origin: 50% 40%;
+      gap: 0;
+      padding-bottom: clamp(70px,11vh,120px);
+      perspective: 1200px;
+      perspective-origin: 50% 42%;
     }
 
     .lc-halo{
@@ -283,7 +283,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 }
 .lc-brand{
   text-align:center;pointer-events:none;flex-shrink:0;
-  margin-top:clamp(18px,5vh,40px);
+  margin-top:clamp(22px,5.5vh,44px);
 }
 .lc-brand-name{
   font-size:clamp(28px,7vw,40px);font-weight:900;
@@ -2750,8 +2750,7 @@ window.toggleOfflineMode = function(){
     if(!_wrap) return;
     _phase='spin';
     if(_timer){clearTimeout(_timer);_timer=null;}
-    _timer=setTimeout(_shatter,SPIN_MS);
-    // Pointer parallax
+    // Pas de boucle auto-shatter : le cube tourne en continu jusqu'au tap
     _wrap.addEventListener('pointermove',function(e){
       var px=(e.clientX/window.innerWidth-.5)*8;
       var py=(e.clientY/window.innerHeight-.5)*-8;
@@ -2891,11 +2890,15 @@ window.showLogin = () => {
     ls.style.opacity='1';
     ls.classList.remove('hidden');
   }
-  // Montrer animation cube d'abord, formulaire caché
+  // Montrer animation cube, formulaire caché
   if(anim){ anim.style.display='block'; anim.style.opacity='1'; }
   if(form){ form.style.display='none'; }
 
-  // Démarrer le cycle de shatter
+  // Masquer le hint "Appuyez" — il apparaît après 1.5s
+  var tapHint=anim?anim.querySelector('.la-tap'):null;
+  if(tapHint){ tapHint.style.opacity='0'; tapHint.style.transition='none'; }
+
+  // Démarrer la rotation du cube
   window._lcStop && window._lcStop();
   window._lcStart && window._lcStart();
 
@@ -2914,10 +2917,15 @@ window.showLogin = () => {
       },480);
     }
   }
-  if(anim){
-    anim.addEventListener('click', _activateForm, {once:true});
-    anim.addEventListener('touchend', function(e){ e.preventDefault(); _activateForm(); }, {once:true,passive:false});
-  }
+
+  // Délai 1.5s : l'utilisateur voit le cube tourner, PUIS le hint apparaît et le tap devient actif
+  setTimeout(function(){
+    if(tapHint){ tapHint.style.transition='opacity 0.7s'; tapHint.style.opacity='1'; }
+    if(anim){
+      anim.addEventListener('click', _activateForm, {once:true});
+      anim.addEventListener('touchend', function(e){ e.preventDefault(); _activateForm(); }, {once:true,passive:false});
+    }
+  }, 1500);
 
   // Timer d'inactivité (sur le formulaire uniquement)
   const resetTimer=()=>{ window._resetLoginIdleTimer&&window._resetLoginIdleTimer(); };
@@ -17973,8 +17981,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window._splashGone = false;
   const goLogin=()=>{ if(window._splashGone) return; window._splashGone=true; if(!window._supaConfigured()){showSupaSetup();}else{showLogin();} };
   if(splash){
-    splash.addEventListener('touchstart', goLogin, {passive:true});
-    splash.addEventListener('click', goLogin);
+    // touchend + preventDefault évite que le geste continue vers l'écran suivant
+    splash.addEventListener('touchend', function(e){ e.preventDefault(); goLogin(); }, {once:true, passive:false});
+    splash.addEventListener('click', goLogin, {once:true});
     document.addEventListener('keydown', e=>{ if(e.key==='Enter') goLogin(); });
   }
   // Supabase charge en arrière-plan — n'est plus bloquant
