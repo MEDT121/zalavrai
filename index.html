@@ -116,62 +116,17 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .login-screen{position:fixed;inset:0;z-index:900;background:#03040a;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;transition:opacity .45s;padding:20px 0 40px}
 .login-screen.hidden{opacity:0;pointer-events:none}
 .login-container{background:rgba(255,255,255,.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:28px 24px;width:100%;max-width:400px;margin:auto 16px;position:relative;z-index:1}
-/* ── CUBE LOGIN ANIMATION ── */
-:root{--lcs:min(56vmin,260px);--lhalf:calc(var(--lcs)/2)}
+/* ── SHATTER LOGIN ANIMATION ── */
 #login-anim{position:absolute;inset:0;z-index:2;cursor:pointer;overflow:hidden;
-  background:radial-gradient(circle at 50% 35%,#12163a 0%,#05071b 34%,#03040a 72%,#000 100%);
-  transition:opacity .5s}
-#login-anim::before{content:"";position:absolute;inset:-25%;pointer-events:none;
-  background:radial-gradient(circle at 20% 30%,rgba(0,255,255,.16),transparent 23%),
-             radial-gradient(circle at 80% 62%,rgba(255,0,160,.18),transparent 28%),
-             radial-gradient(circle at 51% 70%,rgba(255,200,0,.08),transparent 25%);
-  filter:blur(4px);animation:laAurora 12s linear infinite alternate}
-#login-anim::after{content:"";position:absolute;inset:-25%;pointer-events:none;
-  background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
-  background-size:44px 44px;opacity:.14;animation:laGrid 11s linear infinite}
-@keyframes laAurora{from{transform:translate3d(-2%,-1%,0) rotate(0deg) scale(1)}to{transform:translate3d(2%,1%,0) rotate(8deg) scale(1.04)}}
-@keyframes laGrid{from{background-position:0 0,0 0}to{background-position:44px 88px,88px 44px}}
-.la-wrap{position:relative;z-index:1;width:100%;height:100%;display:grid;place-items:center;perspective:1100px;perspective-origin:50% 42%}
-.la-halo{position:absolute;width:calc(var(--lcs)*1.6);height:calc(var(--lcs)*1.6);border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.18),rgba(0,255,255,.13) 20%,rgba(255,0,160,.16) 42%,transparent 68%);
-  filter:blur(26px);opacity:.75;animation:laPulse 3s ease-in-out infinite alternate}
-@keyframes laPulse{from{transform:scale(.92);opacity:.55}to{transform:scale(1.06);opacity:.9}}
-.la-stage{position:relative;width:var(--lcs);height:var(--lcs);transform-style:preserve-3d;animation:laFloat 4.6s ease-in-out infinite alternate}
-@keyframes laFloat{from{transform:translateY(10px)}to{transform:translateY(-10px)}}
-.la-cube{position:absolute;inset:0;transform-style:preserve-3d;animation:laSpin 10s cubic-bezier(.45,.02,.22,1) infinite;will-change:transform;transition:opacity .35s}
-@keyframes laSpin{0%{transform:rotateX(-18deg) rotateY(0deg)}16%{transform:rotateX(-18deg) rotateY(90deg)}33%{transform:rotateX(-18deg) rotateY(180deg)}50%{transform:rotateX(-18deg) rotateY(270deg)}66%{transform:rotateX(72deg) rotateY(360deg)}83%{transform:rotateX(-108deg) rotateY(360deg)}100%{transform:rotateX(-18deg) rotateY(720deg)}}
-.la-face{position:absolute;width:var(--lcs);height:var(--lcs);overflow:hidden;border-radius:14px;backface-visibility:hidden;
-  background:#1e3a8a center/80% no-repeat;
-  box-shadow:0 0 0 2px rgba(255,255,255,.12) inset,0 0 24px rgba(0,255,255,.16) inset,0 0 36px rgba(255,0,120,.45)}
-.la-face::before{content:"";position:absolute;inset:0;
-  background:linear-gradient(rgba(255,255,255,.14) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.14) 2px,transparent 2px);
-  background-size:calc(var(--lcs)/3) calc(var(--lcs)/3);mix-blend-mode:screen;opacity:.42;pointer-events:none}
-.la-face::after{content:"";position:absolute;inset:0;
-  background:linear-gradient(135deg,rgba(255,255,255,.22),transparent 28%,transparent 62%,rgba(0,0,0,.35));
-  mix-blend-mode:screen;opacity:.44;pointer-events:none}
-.la-front {transform:translateZ(var(--lhalf))}
-.la-back  {transform:rotateY(180deg) translateZ(var(--lhalf))}
-.la-right {transform:rotateY(90deg)  translateZ(var(--lhalf))}
-.la-left  {transform:rotateY(-90deg) translateZ(var(--lhalf))}
-.la-top   {transform:rotateX(90deg)  translateZ(var(--lhalf))}
-.la-bottom{transform:rotateX(-90deg) translateZ(var(--lhalf))}
-.la-shadow{position:absolute;top:calc(50% + var(--lcs)*.56);left:50%;
-  width:calc(var(--lcs)*1.05);height:calc(var(--lcs)*.18);
-  transform:translateX(-50%) rotateX(74deg);border-radius:50%;
-  background:radial-gradient(ellipse at center,rgba(0,255,255,.28),rgba(255,0,160,.18) 45%,transparent 75%);
-  filter:blur(14px);opacity:.7}
+  background:#03040a;transition:opacity .5s}
+#la-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .la-tap{position:absolute;bottom:clamp(28px,6vh,70px);left:50%;transform:translateX(-50%);
-  color:rgba(255,255,255,.65);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
-  font-family:sans-serif;animation:laTap 2s ease-in-out infinite;white-space:nowrap;text-align:center;pointer-events:none}
-@keyframes laTap{0%,100%{opacity:.3}50%{opacity:.95}}
-.la-title{position:absolute;top:clamp(28px,6vh,70px);left:50%;transform:translateX(-50%);
-  color:rgba(255,255,255,.85);font-size:22px;font-weight:800;letter-spacing:.2em;
-  text-transform:uppercase;font-family:sans-serif;white-space:nowrap;text-align:center;
-  text-shadow:0 0 30px rgba(0,255,255,.5);pointer-events:none}
-.la-mini{position:absolute;width:26px;height:26px;border-radius:5px;
-  border:1px solid rgba(255,255,255,.35);
-  box-shadow:0 0 10px rgba(0,255,255,.4);pointer-events:none}
+  color:rgba(255,255,255,.7);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+  font-family:sans-serif;animation:laTap 2s ease-in-out infinite;white-space:nowrap;
+  text-align:center;pointer-events:none;
+  background:rgba(0,0,0,.4);backdrop-filter:blur(8px);
+  padding:10px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.15)}
+@keyframes laTap{0%,100%{opacity:.35}50%{opacity:1}}
 .login-title{font-size:24px;font-weight:800;text-align:center;color:#fff;letter-spacing:2px}
 .login-rainbow-bar{height:3px;width:80px;background:var(--rainbow);background-size:200%;border-radius:2px;margin:10px auto 8px;animation:rainbowShimmer 2s linear infinite}
 .login-subtitle{text-align:center;color:rgba(255,255,255,.55);font-size:13px;margin-bottom:16px;letter-spacing:1px}
@@ -943,23 +898,9 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 
 <!-- ── LOGIN SCREEN ── -->
 <div class="login-screen" id="LS" style="display:none">
-  <!-- Cube 3D animation (affiché en premier, disparaît au tap) -->
+  <!-- Shatter animation (affiché en premier, disparaît au tap) -->
   <div id="login-anim">
-    <div class="la-wrap" id="la-wrap">
-      <div class="la-title">SchoolSafe</div>
-      <div class="la-halo"></div>
-      <div class="la-stage">
-        <div class="la-cube" id="la-cube">
-          <div class="la-face la-front"></div>
-          <div class="la-face la-back"></div>
-          <div class="la-face la-right"></div>
-          <div class="la-face la-left"></div>
-          <div class="la-face la-top"></div>
-          <div class="la-face la-bottom"></div>
-        </div>
-      </div>
-      <div class="la-shadow"></div>
-    </div>
+    <canvas id="la-canvas"></canvas>
     <div class="la-tap">✨ Appuyez pour vous connecter</div>
   </div>
   <!-- Formulaire de connexion (caché jusqu'au tap) -->
@@ -2533,74 +2474,128 @@ window.toggleOfflineMode = function(){
   });
 })();
 
-// ── CUBE LOGIN ANIMATION ──
+// ── SHATTER LOGIN ANIMATION (canvas) ──
 (function(){
-  var _laT1=null, _laT2=null;
+  var _cvs=null,_ctx=null,_img=null;
+  var _W=0,_H=0,_NC=28,_NR=28;
+  var _pieces=[],_phase='idle',_raf=null,_t0=0;
+  var _T_EXP=1300,_T_SCA=700,_T_ASM=1900;
+  var _t1=null,_iv=null;
 
-  // Applique le logo sur les 6 faces du cube
-  function _laSetLogo(){
-    var logo = window.SCHOOL_LOGO||'';
-    if(!logo) return;
-    document.querySelectorAll('.la-face').forEach(function(f){
-      f.style.backgroundImage='url('+logo+')';
+  function _eOut(t){return 1-Math.pow(1-t,3);}
+  function _eBack(t){var c=1.70158;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);}
+  function _eIO(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+
+  function _imgRect(){
+    if(!_img||!_img.naturalWidth) return {x:0,y:0,w:_W,h:_H,sw:_img&&_img.naturalWidth||_W,sh:_img&&_img.naturalHeight||_H};
+    var s=Math.max(_W/_img.naturalWidth,_H/_img.naturalHeight);
+    var w=_img.naturalWidth*s,h=_img.naturalHeight*s;
+    return {x:(_W-w)/2,y:(_H-h)/2,w:w,h:h,sw:_img.naturalWidth,sh:_img.naturalHeight};
+  }
+
+  function _drawFull(){
+    if(!_ctx||!_img) return;
+    var r=_imgRect();
+    _ctx.clearRect(0,0,_W,_H);
+    _ctx.drawImage(_img,r.x,r.y,r.w,r.h);
+  }
+
+  function _makePieces(){
+    _pieces=[];
+    var pw=_W/_NC,ph=_H/_NR,cx=_W/2,cy=_H/2;
+    for(var row=0;row<_NR;row++){
+      for(var col=0;col<_NC;col++){
+        var hx=col*pw,hy=row*ph;
+        var pcx=hx+pw/2,pcy=hy+ph/2;
+        var ang=Math.atan2(pcy-cy,pcx-cx);
+        var spd=180+Math.random()*320;
+        _pieces.push({
+          hx:hx,hy:hy,pw:pw,ph:ph,
+          ox:Math.cos(ang)*spd,oy:Math.sin(ang)*spd,
+          vr:(Math.random()-.5)*480,
+          cx:hx,cy:hy,cr:0
+        });
+      }
+    }
+  }
+
+  function _drawPieces(){
+    if(!_ctx||!_img) return;
+    var r=_imgRect();
+    _ctx.clearRect(0,0,_W,_H);
+    var scaleX=r.sw/r.w, scaleY=r.sh/r.h;
+    _pieces.forEach(function(p){
+      var sx=(p.hx-r.x)*scaleX, sy=(p.hy-r.y)*scaleY;
+      var sw=p.pw*scaleX, sh=p.ph*scaleY;
+      if(sx<0||sy<0||sw<=0||sh<=0) return;
+      _ctx.save();
+      _ctx.translate(p.cx+p.pw/2,p.cy+p.ph/2);
+      _ctx.rotate(p.cr*Math.PI/180);
+      _ctx.drawImage(_img,sx,sy,sw,sh,-p.pw/2,-p.ph/2,p.pw,p.ph);
+      _ctx.restore();
     });
   }
 
-  // Explosion en mini-cubes puis reconstruction
-  function _laShatter(){
-    var cube=document.getElementById('la-cube');
-    var wrap=document.getElementById('la-wrap');
-    if(!cube||!wrap||wrap._shattering) return;
-    wrap._shattering=true;
-    cube.style.opacity='0';
-    var N=28, minis=[];
-    var W=wrap.offsetWidth, H=wrap.offsetHeight;
-    var cx=W/2, cy=H/2;
-    var colors=['#1e3a8a','#243a6b','#2f7bd6','#4a90d9','#1c5aab','#0d2561','#3a70e0'];
-    for(var i=0;i<N;i++){
-      var mc=document.createElement('div');
-      mc.className='la-mini';
-      mc.style.left=(cx-13)+'px';
-      mc.style.top=(cy-13)+'px';
-      mc.style.background='linear-gradient(135deg,'+colors[i%7]+','+colors[(i+3)%7]+')';
-      mc.style.transform='translate(0,0) rotate(0deg)';
-      wrap.appendChild(mc); minis.push(mc);
+  function _tick(now){
+    var dt=now-_t0;
+    if(_phase==='exploding'){
+      var t=Math.min(dt/_T_EXP,1),e=_eOut(t);
+      _pieces.forEach(function(p){p.cx=p.hx+p.ox*e;p.cy=p.hy+p.oy*e;p.cr=p.vr*e;});
+      _drawPieces();
+      if(t>=1){_phase='scattered';_t0=now;}
+    } else if(_phase==='scattered'){
+      if(dt>=_T_SCA){_phase='assembling';_t0=now;}
+    } else if(_phase==='assembling'){
+      var t=Math.min(dt/_T_ASM,1),e=_eIO(t);
+      _pieces.forEach(function(p){p.cx=p.hx+p.ox*(1-e);p.cy=p.hy+p.oy*(1-e);p.cr=p.vr*(1-e);});
+      _drawPieces();
+      if(t>=1){_phase='idle';_drawFull();return;}
     }
-    setTimeout(function(){
-      minis.forEach(function(mc,i){
-        var angle=(i/N)*Math.PI*2+(Math.random()-.5)*.9;
-        var dist=90+Math.random()*180;
-        var tx=Math.cos(angle)*dist, ty=Math.sin(angle)*dist;
-        var rot=(Math.random()-.5)*600;
-        mc.style.transition='transform 1.1s cubic-bezier(.25,.1,.25,1)';
-        mc.style.transform='translate('+tx+'px,'+ty+'px) rotate('+rot+'deg)';
-      });
-    },30);
-    setTimeout(function(){
-      minis.forEach(function(mc){
-        mc.style.transition='transform 1.4s cubic-bezier(.34,1.56,.64,1)';
-        mc.style.transform='translate(0,0) rotate(0deg)';
-      });
-    },1700);
-    setTimeout(function(){
-      minis.forEach(function(mc){mc.remove();});
-      if(cube) cube.style.opacity='1';
-      wrap._shattering=false;
-    },3200);
+    _raf=requestAnimationFrame(_tick);
   }
 
-  // Démarre le cycle : 1ère explosion à 3s puis toutes les 8s
+  function _shatter(){
+    if(_phase!=='idle') return;
+    _phase='exploding';_t0=performance.now();
+    if(_raf) cancelAnimationFrame(_raf);
+    _raf=requestAnimationFrame(_tick);
+  }
+
+  function _resize(){
+    if(!_cvs) return;
+    _W=_cvs.width=_cvs.offsetWidth||_cvs.parentElement.offsetWidth||390;
+    _H=_cvs.height=_cvs.offsetHeight||_cvs.parentElement.offsetHeight||844;
+    _makePieces();
+    if(_phase==='idle') _drawFull();
+  }
+
+  function _load(){
+    _img=new Image();
+    _img.crossOrigin='anonymous';
+    _img.onload=function(){
+      _makePieces();
+      _drawFull();
+      _t1=setTimeout(function(){
+        _shatter();
+        _iv=setInterval(_shatter,8500);
+      },2500);
+    };
+    _img.src='schoolsafe-hero.png';
+  }
+
   window._laStart=function(){
-    _laSetLogo();
-    _laT1=setTimeout(function(){
-      _laShatter();
-      _laT2=setInterval(_laShatter,8000);
-    },3000);
+    _cvs=document.getElementById('la-canvas');
+    if(!_cvs) return;
+    _ctx=_cvs.getContext('2d');
+    _resize();
+    _load();
   };
 
   window._laStop=function(){
-    if(_laT1){clearTimeout(_laT1);_laT1=null;}
-    if(_laT2){clearInterval(_laT2);_laT2=null;}
+    if(_t1){clearTimeout(_t1);_t1=null;}
+    if(_iv){clearInterval(_iv);_iv=null;}
+    if(_raf){cancelAnimationFrame(_raf);_raf=null;}
+    _phase='idle';
   };
 })();
 
