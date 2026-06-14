@@ -140,12 +140,9 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
       z-index: 1;
       width: 100%;
       height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      padding-bottom: clamp(70px,11vh,120px);
+      display: grid;
+      place-items: center;
+      padding-bottom: clamp(160px,22vh,220px);
       perspective: 1200px;
       perspective-origin: 50% 42%;
     }
@@ -282,33 +279,35 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   background-repeat:no-repeat;
 }
 .lc-brand{
-  text-align:center;pointer-events:none;flex-shrink:0;
-  margin-top:clamp(22px,5.5vh,44px);
+  position:absolute;
+  bottom:clamp(88px,14vh,140px);
+  left:50%;transform:translateX(-50%);
+  text-align:center;pointer-events:none;white-space:nowrap;z-index:4;
 }
 .lc-brand-name{
-  font-size:clamp(36px,9vw,54px);font-weight:900;
-  letter-spacing:.16em;font-family:system-ui,-apple-system,sans-serif;
-  background:linear-gradient(90deg,
-    #1a88ff 0%,#00c2ff 15%,#00ffb3 30%,
-    #ffe600 45%,#ff8800 60%,#ff006e 75%,
-    #b300ff 90%,#1a88ff 100%);
-  background-size:400% 100%;
-  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  animation:lcRainbow 7s linear infinite;
-  filter:drop-shadow(0 0 14px rgba(0,194,255,.38));
-  display:inline-block;
+  font-size:clamp(38px,10vw,56px);font-weight:900;
+  letter-spacing:.12em;font-family:system-ui,-apple-system,sans-serif;
+  color:#00c2ff;
+  animation:lcColorCycle 5s ease-in-out infinite;
+  text-shadow:0 0 22px currentColor,0 2px 8px rgba(0,0,0,.5);
+  display:block;
 }
-/* Chaque lettre flotte légèrement de façon indépendante */
 .lc-brand-name span{
   display:inline-block;
   animation:lcFloat var(--dur,3.2s) ease-in-out infinite alternate;
   animation-delay:var(--dly,0s);
 }
-@keyframes lcRainbow{0%{background-position:0% 0%}100%{background-position:400% 0%}}
-@keyframes lcFloat{0%{transform:translateY(0px)}100%{transform:translateY(-4px)}}
+@keyframes lcColorCycle{
+  0%,100%{color:#00c2ff;text-shadow:0 0 22px #00c2ff,0 2px 8px rgba(0,0,0,.5)}
+  20%    {color:#ff006e;text-shadow:0 0 22px #ff006e,0 2px 8px rgba(0,0,0,.5)}
+  40%    {color:#ffe600;text-shadow:0 0 22px #ffe600,0 2px 8px rgba(0,0,0,.5)}
+  60%    {color:#00ff99;text-shadow:0 0 22px #00ff99,0 2px 8px rgba(0,0,0,.5)}
+  80%    {color:#a855f7;text-shadow:0 0 22px #a855f7,0 2px 8px rgba(0,0,0,.5)}
+}
+@keyframes lcFloat{0%{transform:translateY(0)}100%{transform:translateY(-5px)}}
 .lc-brand-sub{
-  font-size:clamp(10px,2.6vw,13px);color:rgba(255,255,255,.55);
-  letter-spacing:.1em;margin-top:7px;
+  font-size:clamp(11px,2.8vw,14px);color:rgba(255,255,255,.65);
+  letter-spacing:.09em;margin-top:8px;
   font-family:system-ui,-apple-system,sans-serif;
   text-transform:uppercase;
 }
@@ -1105,11 +1104,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
     </div>
   </div>
   <div class="lc-shadow"></div>
-  <div class="lc-brand">
-    <div class="lc-brand-name"><span style="--dur:3.4s;--dly:0s">S</span><span style="--dur:2.9s;--dly:.18s">c</span><span style="--dur:3.7s;--dly:.34s">h</span><span style="--dur:3.1s;--dly:.5s">o</span><span style="--dur:4.0s;--dly:.08s">o</span><span style="--dur:3.3s;--dly:.42s">l</span><span style="--dur:2.7s;--dly:.25s">S</span><span style="--dur:3.6s;--dly:.60s">a</span><span style="--dur:3.0s;--dly:.15s">f</span><span style="--dur:4.2s;--dly:.38s">e</span></div>
-    <div class="lc-brand-sub">Un enfant protégé &nbsp;·&nbsp; Un parent informé</div>
-  </div>
 </main>
+<div class="lc-brand">
+  <div class="lc-brand-name"><span style="--dur:3.4s;--dly:0s">S</span><span style="--dur:2.9s;--dly:.18s">c</span><span style="--dur:3.7s;--dly:.34s">h</span><span style="--dur:3.1s;--dly:.5s">o</span><span style="--dur:4.0s;--dly:.08s">o</span><span style="--dur:3.3s;--dly:.42s">l</span><span style="--dur:2.7s;--dly:.25s">S</span><span style="--dur:3.6s;--dly:.60s">a</span><span style="--dur:3.0s;--dly:.15s">f</span><span style="--dur:4.2s;--dly:.38s">e</span></div>
+  <div class="lc-brand-sub">Un enfant protégé &nbsp;·&nbsp; Un parent informé</div>
+</div>
 <div class="la-tap">✨ Appuyez pour vous connecter</div>
   </div>
   <!-- Formulaire de connexion (caché jusqu'au tap) -->
@@ -2796,7 +2795,7 @@ window.toggleOfflineMode = function(){
       var el=_wrap.querySelector('.'+cls);
       if(el){el.style.transition='opacity 0.2s';el.style.opacity='0';}
     });
-    var brand=_wrap.querySelector('.lc-brand');
+    var brand=document.querySelector('#login-anim .lc-brand');
     if(brand){brand.style.transition='opacity 0.3s';brand.style.opacity='0';}
     // Fond animation disparaît
     if(animEl){animEl.style.transition='opacity 0.8s 0.5s';animEl.style.opacity='0';}
@@ -2914,7 +2913,7 @@ window.showLogin = () => {
     var wrap=document.getElementById('lc-wrap');
     if(wrap){
       ['lc-halo','lc-shadow'].forEach(function(c){var el=wrap.querySelector('.'+c);if(el)el.style.cssText='';});
-      var brand=wrap.querySelector('.lc-brand');if(brand)brand.style.cssText='';
+      var brand=document.querySelector('#login-anim .lc-brand');if(brand)brand.style.cssText='';
     }
     // Montrer cube, cacher formulaire
     if(anim){ anim.style.display='block'; anim.style.opacity='1'; }
