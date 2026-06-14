@@ -275,22 +275,40 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   transition:transform 0.85s cubic-bezier(.2,.8,.2,1),opacity 0.85s ease;
   pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.5);
 }
+.lc-shard{
+  position:absolute;left:0;top:0;z-index:3;
+  border-radius:2px;will-change:transform,opacity;pointer-events:none;
+  box-shadow:0 2px 12px rgba(0,0,0,0.85);
+  background-repeat:no-repeat;
+}
 .lc-brand{
   text-align:center;pointer-events:none;flex-shrink:0;
+  margin-top:clamp(18px,5vh,40px);
 }
 .lc-brand-name{
-  font-size:clamp(26px,6.5vw,38px);font-weight:900;
-  letter-spacing:.14em;font-family:system-ui,-apple-system,sans-serif;
-  background:linear-gradient(90deg,#00c2ff 0%,#ff006e 18%,#ffe600 36%,#00ff99 54%,#7e00ff 72%,#ff4500 90%,#00c2ff 100%);
-  background-size:300% 100%;
+  font-size:clamp(28px,7vw,40px);font-weight:900;
+  letter-spacing:.16em;font-family:system-ui,-apple-system,sans-serif;
+  background:linear-gradient(90deg,
+    #1a88ff 0%,#00c2ff 15%,#00ffb3 30%,
+    #ffe600 45%,#ff8800 60%,#ff006e 75%,
+    #b300ff 90%,#1a88ff 100%);
+  background-size:400% 100%;
   -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  animation:lcRainbow 2.8s linear infinite;
-  text-shadow:none;filter:drop-shadow(0 0 18px rgba(0,194,255,.45));
+  animation:lcRainbow 7s linear infinite;
+  filter:drop-shadow(0 0 14px rgba(0,194,255,.38));
+  display:inline-block;
 }
-@keyframes lcRainbow{0%{background-position:0% 0%}100%{background-position:300% 0%}}
+/* Chaque lettre flotte légèrement de façon indépendante */
+.lc-brand-name span{
+  display:inline-block;
+  animation:lcFloat var(--dur,3.2s) ease-in-out infinite alternate;
+  animation-delay:var(--dly,0s);
+}
+@keyframes lcRainbow{0%{background-position:0% 0%}100%{background-position:400% 0%}}
+@keyframes lcFloat{0%{transform:translateY(0px)}100%{transform:translateY(-4px)}}
 .lc-brand-sub{
-  font-size:clamp(10px,2.6vw,13px);color:rgba(255,255,255,.58);
-  letter-spacing:.09em;margin-top:5px;
+  font-size:clamp(10px,2.6vw,13px);color:rgba(255,255,255,.55);
+  letter-spacing:.1em;margin-top:7px;
   font-family:system-ui,-apple-system,sans-serif;
   text-transform:uppercase;
 }
@@ -1088,7 +1106,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   </div>
   <div class="lc-shadow"></div>
   <div class="lc-brand">
-    <div class="lc-brand-name">SchoolSafe</div>
+    <div class="lc-brand-name"><span style="--dur:3.4s;--dly:0s">S</span><span style="--dur:2.9s;--dly:.18s">c</span><span style="--dur:3.7s;--dly:.34s">h</span><span style="--dur:3.1s;--dly:.5s">o</span><span style="--dur:4.0s;--dly:.08s">o</span><span style="--dur:3.3s;--dly:.42s">l</span><span style="--dur:2.7s;--dly:.25s">S</span><span style="--dur:3.6s;--dly:.60s">a</span><span style="--dur:3.0s;--dly:.15s">f</span><span style="--dur:4.2s;--dly:.38s">e</span></div>
     <div class="lc-brand-sub">Un enfant protégé &nbsp;·&nbsp; Un parent informé</div>
   </div>
 </main>
@@ -2744,9 +2762,122 @@ window.toggleOfflineMode = function(){
 
   window._lcStop=function(){
     if(_timer){clearTimeout(_timer);_timer=null;}
-    _frags.forEach(function(f){f.el.remove();});
+    _frags.forEach(function(f){try{f.el.remove();}catch(e){}});
     _frags=[];
     _phase='spin';
+  };
+
+  // ── Tap shatter : cube faces → shards en physique, puis formulaire s'assemble ──
+  window._lcShatterTap=function(animEl,formEl,lsEl){
+    if(_timer){clearTimeout(_timer);_timer=null;}
+    _frags.forEach(function(f){try{f.el.remove();}catch(e){}});
+    _frags=[];
+    if(!_wrap||!_cube||!lsEl) return;
+
+    // Coordonnées du cube dans #LS
+    var lsRect=lsEl.getBoundingClientRect();
+    var cubeRect=_cube.getBoundingClientRect();
+    var ox=cubeRect.left-lsRect.left;
+    var oy=cubeRect.top-lsRect.top;
+    var cw=cubeRect.width, ch=cubeRect.height;
+    if(cw<=0||ch<=0) return;
+
+    // Images des faces
+    var faceImgs=[];
+    _cube.querySelectorAll('.lc-face').forEach(function(f){faceImgs.push(f.style.backgroundImage);});
+    if(!faceImgs.length) return;
+
+    // Masquer le cube + halo + shadow + brand
+    _cube.style.transition='opacity 0.15s';
+    _cube.style.opacity='0';
+    ['lc-halo','lc-shadow'].forEach(function(cls){
+      var el=_wrap.querySelector('.'+cls);
+      if(el){el.style.transition='opacity 0.2s';el.style.opacity='0';}
+    });
+    var brand=_wrap.querySelector('.lc-brand');
+    if(brand){brand.style.transition='opacity 0.3s';brand.style.opacity='0';}
+    // Fond animation disparaît
+    if(animEl){animEl.style.transition='opacity 0.8s 0.5s';animEl.style.opacity='0';}
+
+    // Créer les éclats dans #LS (z-index:3, au-dessus du formulaire)
+    var COLS=8,ROWS=8;
+    var sw=cw/COLS, sh=ch/ROWS;
+    var shards=[];
+    var ww=lsEl.offsetWidth||390, wh=lsEl.offsetHeight||844;
+
+    for(var r=0;r<ROWS;r++){
+      for(var c=0;c<COLS;c++){
+        var el=document.createElement('div');
+        el.className='lc-shard';
+        // Face: front (idx 0) pour centre, autres faces pour bords (simulation 3D)
+        var isEdge=(r===0||r===ROWS-1||c===0||c===COLS-1);
+        var fi=isEdge?(1+(r*COLS+c)%(faceImgs.length>1?faceImgs.length-1:1)):0;
+        var bgImg=faceImgs[Math.min(fi,faceImgs.length-1)]||faceImgs[0];
+        var bpx=-(c/COLS*cw), bpy=-(r/ROWS*ch);
+        var sx=ox+c*sw, sy=oy+r*sh;
+        el.style.cssText='width:'+sw+'px;height:'+sh+'px;'+
+          'background-image:'+bgImg+';'+
+          'background-size:'+cw+'px '+ch+'px;'+
+          'background-position:'+bpx+'px '+bpy+'px;'+
+          'transform:translate('+sx+'px,'+sy+'px);';
+        lsEl.appendChild(el);
+
+        // Physique : vecteur vitesse selon la position relative
+        var relX=(c/(COLS-1))-0.5, relY=(r/(ROWS-1))-0.5;
+        var angle=Math.atan2(relY,relX)+(Math.random()-0.5)*0.7;
+        var speed=5+Math.random()*9;
+        var vx=Math.cos(angle)*speed;
+        var vy=Math.sin(angle)*speed;
+        // Bas : poussée vers le bas
+        if(relY>0) vy+=3+Math.random()*5;
+        // Côtés : poussée latérale
+        if(Math.abs(relX)>0.3) vx*=1.6;
+        // Centre : direction aléatoire
+        if(Math.abs(relX)<0.15&&Math.abs(relY)<0.15){
+          var a2=Math.random()*Math.PI*2;
+          vx=Math.cos(a2)*speed; vy=Math.sin(a2)*speed;
+        }
+        shards.push({el:el,x:sx,y:sy,vx:vx,vy:vy,vr:(Math.random()-0.5)*22,rot:0,alive:true});
+      }
+    }
+
+    // Boucle physique RAF
+    var gravity=0.42, friction=0.987, alive=shards.length;
+    function tick(){
+      if(alive<=0){shards.forEach(function(s){try{s.el.remove();}catch(e){}});if(animEl)animEl.style.display='none';return;}
+      shards.forEach(function(s){
+        if(!s.alive) return;
+        s.vy+=gravity; s.vx*=friction;
+        s.x+=s.vx; s.y+=s.vy; s.rot+=s.vr;
+        if(s.y>wh+80||s.x<-100||s.x>ww+100||s.y<-(ch+50)){
+          s.alive=false;s.el.remove();alive--;return;
+        }
+        var fadeY=wh-110;
+        var op=s.y>fadeY?Math.max(0,1-(s.y-fadeY)/110):1;
+        s.el.style.transform='translate('+s.x+'px,'+s.y+'px) rotate('+s.rot+'deg)';
+        s.el.style.opacity=String(op);
+      });
+      if(alive>0) requestAnimationFrame(tick);
+      else{shards.forEach(function(s){try{s.el.remove();}catch(e){}});if(animEl)animEl.style.display='none';}
+    }
+    requestAnimationFrame(tick);
+
+    // Après 350ms : formulaire s'assemble pièce par pièce
+    setTimeout(function(){
+      if(!formEl) return;
+      formEl.style.cssText='display:block;position:relative;z-index:2;opacity:0;transition:opacity 0.15s;';
+      var kids=Array.from(formEl.children);
+      kids.forEach(function(k){k.style.opacity='0';k.style.transform='translateY(26px) scale(0.95)';k.style.transition='none';});
+      requestAnimationFrame(function(){requestAnimationFrame(function(){
+        formEl.style.opacity='1';
+        kids.forEach(function(k,i){
+          var d=(i*0.11).toFixed(2)+'s';
+          k.style.transition='opacity 0.42s ease '+d+',transform 0.42s cubic-bezier(.16,.84,.44,1) '+d;
+          k.style.opacity='1'; k.style.transform='none';
+        });
+        setTimeout(function(){var ln=document.getElementById('LN');if(ln)ln.focus();},kids.length*110+460);
+      });});
+    },350);
   };
 })();
 
@@ -2768,19 +2899,20 @@ window.showLogin = () => {
   window._lcStop && window._lcStop();
   window._lcStart && window._lcStart();
 
-  // Tap/click → arrêter animation, afficher formulaire
+  // Tap/click → cube se brise, formulaire s'assemble
   function _activateForm(e){
     if(!anim||anim.style.display==='none') return;
     window._lcStop && window._lcStop();
-    anim.style.opacity='0';
-    setTimeout(function(){
-      anim.style.display='none';
-      if(form){
-        form.style.display='block';
-        form.style.animation='loginCardIn .5s cubic-bezier(.16,.84,.44,1) both';
-      }
-      const ln=$('LN'); if(ln) ln.focus();
-    },480);
+    if(window._lcShatterTap){
+      window._lcShatterTap(anim,form,ls);
+    } else {
+      anim.style.opacity='0';
+      setTimeout(function(){
+        anim.style.display='none';
+        if(form){form.style.display='block';form.style.animation='loginCardIn .5s cubic-bezier(.16,.84,.44,1) both';}
+        const ln=$('LN'); if(ln) ln.focus();
+      },480);
+    }
   }
   if(anim){
     anim.addEventListener('click', _activateForm, {once:true});
