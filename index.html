@@ -272,14 +272,6 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   transition:transform 0.85s cubic-bezier(.2,.8,.2,1),opacity 0.85s ease;
   pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.5);
 }
-/* Conteneur du mini-cube 3D (animé par JS) */
-.lc-shard{position:absolute;left:0;top:0;z-index:3;will-change:transform,opacity;pointer-events:none;transform-style:preserve-3d;}
-/* Face avant (image) */
-.lc-shard-front{position:absolute;inset:0;backface-visibility:hidden;border-radius:2px;}
-/* Face droite */
-.lc-shard-right{position:absolute;top:0;backface-visibility:hidden;background:rgba(6,10,30,.92);border-radius:0 2px 2px 0;}
-/* Face du dessus */
-.lc-shard-top{position:absolute;left:0;backface-visibility:hidden;background:rgba(15,25,60,.78);border-radius:2px 2px 0 0;}
 .lc-brand{
   position:absolute;
   bottom:clamp(88px,14vh,140px);
@@ -2787,197 +2779,37 @@ window.toggleOfflineMode = function(){
     _phase='spin';
   };
 
-  // ── Helper : lance la physique des mini-cubes 3D ──
-  function _runCubePhysics(shards,layer,formEl,onHide){
-    var ww=window.innerWidth, wh=window.innerHeight;
-    var gravity=0.055, friction=0.995, frame=0;
-    function tick(){
-      frame++;
-      var any=false;
-      for(var i=0;i<shards.length;i++){
-        var s=shards[i];
-        if(!s.alive) continue;
-        if(frame<s.sf){any=true;continue;} // lancement décalé
-        s.vy+=gravity; s.vx*=friction;
-        s.x+=s.vx; s.y+=s.vy; s.rx+=s.vrx; s.ry+=s.vry;
-        if(s.y>wh+180||s.x<-200||s.x>ww+200){s.alive=false;try{s.el.remove();}catch(e){}continue;}
-        any=true;
-        var fadeY=wh-160;
-        var op=s.y>fadeY?Math.max(0,1-(s.y-fadeY)/160):1;
-        s.el.style.transform='translate('+s.x+'px,'+s.y+'px) rotateX('+s.rx+'deg) rotateY('+s.ry+'deg)';
-        s.el.style.opacity=String(op);
-      }
-      if(any){requestAnimationFrame(tick);}
-      else{
-        shards.forEach(function(s){try{s.el.remove();}catch(e){}});
-        try{layer.remove();}catch(e){}
-        if(window._lcShardLayer===layer) window._lcShardLayer=null;
-        if(onHide) onHide();
-      }
-    }
-    requestAnimationFrame(tick);
-  }
-
-  // ── Helper : créer un mini-cube 3D ──
-  function _mkCube(sw,sh,bgImg,bW,bH,bpx,bpy,sx,sy,relX,relY){
-    var d=Math.round(Math.min(sw,sh)*0.36);
-    var el=document.createElement('div');
-    el.className='lc-shard';
-    el.style.cssText='width:'+sw+'px;height:'+sh+'px;transform:translate('+sx+'px,'+sy+'px) rotateX(-10deg) rotateY(10deg);';
-    var ff=document.createElement('div');
-    ff.className='lc-shard-front';
-    ff.style.cssText='background-image:'+bgImg+';background-size:'+bW+'px '+bH+'px;background-position:'+bpx+'px '+bpy+'px;';
-    var rf=document.createElement('div');
-    rf.className='lc-shard-right';
-    rf.style.cssText='width:'+d+'px;height:100%;left:'+sw+'px;top:0;transform-origin:0 50%;transform:rotateY(90deg);';
-    var tf=document.createElement('div');
-    tf.className='lc-shard-top';
-    tf.style.cssText='width:100%;height:'+d+'px;left:0;top:-'+d+'px;transform-origin:50% 100%;transform:rotateX(-90deg);';
-    el.appendChild(ff);el.appendChild(rf);el.appendChild(tf);
-    var dist=Math.sqrt(relX*relX+relY*relY);
-    var angle=Math.atan2(relY,relX)+(Math.random()-0.5)*0.6;
-    var speed=0.9+Math.random()*2.2;
-    var vx=Math.cos(angle)*speed, vy=Math.sin(angle)*speed;
-    if(relY>0.1) vy+=0.5+Math.random()*1.0;
-    if(Math.abs(relX)>0.3) vx*=1.2;
-    return {
-      el:el,x:sx,y:sy,vx:vx,vy:vy,
-      vrx:(Math.random()-0.5)*6,vry:(Math.random()-0.5)*5,
-      rx:-10,ry:10,alive:true,
-      sf:Math.round(dist*16) // lancement décalé depuis le centre
-    };
-  }
-
-  // ── Tap shatter : cube CSS → mini-cubes 3D, formulaire s'assemble ──
-  window._lcShatterTap=function(animEl,formEl,lsEl){
+  // ── Tap : cube → formulaire (fondu direct) ──
+  window._lcShatterTap=function(animEl,formEl){
     if(_timer){clearTimeout(_timer);_timer=null;}
     _frags.forEach(function(f){try{f.el.remove();}catch(e){}});
     _frags=[];
-    if(!_wrap||!_cube) return;
-
-    // Coordonnées viewport-relatives (layer est fixed)
-    var cubeRect=_cube.getBoundingClientRect();
-    var ox=cubeRect.left, oy=cubeRect.top;
-    var cw=cubeRect.width, ch=cubeRect.height;
-    if(cw<=0||ch<=0) return;
-
-    var faceImgs=[];
-    _cube.querySelectorAll('.lc-face').forEach(function(f){faceImgs.push(f.style.backgroundImage);});
-    if(!faceImgs.length) return;
-
-    // Masquer cube + éléments déco
-    _cube.style.transition='opacity 0.15s'; _cube.style.opacity='0';
-    ['lc-halo','lc-shadow'].forEach(function(cls){
-      var e=_wrap.querySelector('.'+cls);if(e){e.style.transition='opacity 0.2s';e.style.opacity='0';}
-    });
-    var brand=document.querySelector('#login-anim .lc-brand');
-    if(brand){brand.style.transition='opacity 0.3s';brand.style.opacity='0';}
-    if(animEl){animEl.style.transition='opacity 0.8s 0.5s';animEl.style.opacity='0';}
-
-    // Couche fixe sur body — pas d'overflow → preserve-3d fonctionne
-    var layer=document.createElement('div');
-    layer.style.cssText='position:fixed;inset:0;z-index:1200;pointer-events:none;';
-    document.body.appendChild(layer);
-    window._lcShardLayer=layer;
-
-    var COLS=7,ROWS=7;
-    var sw=cw/COLS, sh=ch/ROWS;
-    var shards=[];
-    for(var r=0;r<ROWS;r++){
-      for(var c=0;c<COLS;c++){
-        var isEdge=(r===0||r===ROWS-1||c===0||c===COLS-1);
-        var fi=isEdge?(1+(r*COLS+c)%(faceImgs.length>1?faceImgs.length-1:1)):0;
-        var bgImg=faceImgs[Math.min(fi,faceImgs.length-1)]||faceImgs[0];
-        var bpx=-(c/COLS*cw), bpy=-(r/ROWS*ch);
-        var sx=ox+c*sw, sy=oy+r*sh;
-        var relX=(c/(COLS-1))-0.5, relY=(r/(ROWS-1))-0.5;
-        var s=_mkCube(sw,sh,bgImg,cw,ch,bpx,bpy,sx,sy,relX,relY);
-        layer.appendChild(s.el);
-        shards.push(s);
-      }
-    }
-
-    _runCubePhysics(shards,layer,formEl,function(){if(animEl)animEl.style.display='none';});
-
+    window._lcStop&&window._lcStop();
+    if(animEl){animEl.style.transition='opacity 0.22s';animEl.style.opacity='0';}
     setTimeout(function(){
+      if(animEl) animEl.style.display='none';
       if(!formEl) return;
-      formEl.style.cssText='display:block;position:relative;z-index:2;opacity:0;transition:opacity 0.15s;';
-      var kids=Array.from(formEl.children);
-      kids.forEach(function(k){k.style.opacity='0';k.style.transform='translateY(26px) scale(0.95)';k.style.transition='none';});
-      requestAnimationFrame(function(){requestAnimationFrame(function(){
+      formEl.style.cssText='display:block;opacity:0;transition:opacity 0.28s;';
+      requestAnimationFrame(function(){
         formEl.style.opacity='1';
-        kids.forEach(function(k,i){
-          var d=(i*0.18).toFixed(2)+'s';
-          k.style.transition='opacity 0.6s ease '+d+',transform 0.6s cubic-bezier(.16,.84,.44,1) '+d;
-          k.style.opacity='1'; k.style.transform='none';
-        });
-        setTimeout(function(){var ln=document.getElementById('LN');if(ln)ln.focus();},kids.length*180+620);
-      });});
-    },350);
+        setTimeout(function(){var ln=document.getElementById('LN');if(ln)ln.focus();},320);
+      });
+    },220);
   };
 
-  // ── Brisement de la VIDÉO en mini-cubes 3D plein écran ──
+  // ── Tap : vidéo → formulaire (fondu direct) ──
   window._lcShatterVideo=function(videoEl,introEl,formEl){
     if(videoEl) try{videoEl.pause();}catch(e){}
-    var cW=window.innerWidth||390, cH=window.innerHeight||844;
-
-    // Capturer le frame visible (object-fit:cover)
-    var imgUrl='';
-    if(videoEl&&videoEl.videoWidth){
-      var cv=document.createElement('canvas');
-      cv.width=cW; cv.height=cH;
-      var ctx=cv.getContext('2d');
-      var vW=videoEl.videoWidth, vH=videoEl.videoHeight;
-      var sc=Math.max(cW/vW,cH/vH);
-      var rW=vW*sc, rH=vH*sc;
-      var srcX=(rW-cW)/2/sc, srcY=(rH-cH)/2/sc;
-      var srcW=cW/sc, srcH=cH/sc;
-      try{ctx.drawImage(videoEl,srcX,srcY,srcW,srcH,0,0,cW,cH);imgUrl=cv.toDataURL('image/jpeg',0.82);}catch(e){}
-    }
-    var bgImg=imgUrl?'url('+imgUrl+')':'none';
-
-    // Masquer l'intro vidéo
-    if(introEl){introEl.style.transition='opacity 0.12s';introEl.style.opacity='0';}
-
-    // Couche fixe sur body — pas d'overflow → preserve-3d fonctionne
-    var layer=document.createElement('div');
-    layer.style.cssText='position:fixed;inset:0;z-index:1200;pointer-events:none;';
-    document.body.appendChild(layer);
-    window._lcShardLayer=layer;
-
-    // 8×14 mini-cubes 3D plein écran (pièces ~49×60px)
-    var COLS=8,ROWS=14;
-    var sw=cW/COLS, sh=cH/ROWS;
-    var shards=[];
-    for(var r=0;r<ROWS;r++){
-      for(var c=0;c<COLS;c++){
-        var sx=c*sw, sy=r*sh;
-        var bpx=-(c*sw), bpy=-(r*sh);
-        var relX=(c/(COLS-1))-0.5, relY=(r/(ROWS-1))-0.5;
-        var s=_mkCube(sw,sh,bgImg,cW,cH,bpx,bpy,sx,sy,relX,relY);
-        layer.appendChild(s.el);
-        shards.push(s);
-      }
-    }
-
-    _runCubePhysics(shards,layer,formEl,function(){if(introEl)introEl.style.display='none';});
-
-    // Formulaire s'assemble après 350ms
+    if(introEl){introEl.style.transition='opacity 0.22s';introEl.style.opacity='0';}
     setTimeout(function(){
+      if(introEl) introEl.style.display='none';
       if(!formEl) return;
-      formEl.style.cssText='display:block;position:relative;z-index:2;opacity:0;transition:opacity 0.15s;';
-      var kids=Array.from(formEl.children);
-      kids.forEach(function(k){k.style.opacity='0';k.style.transform='translateY(26px) scale(0.95)';k.style.transition='none';});
-      requestAnimationFrame(function(){requestAnimationFrame(function(){
+      formEl.style.cssText='display:block;opacity:0;transition:opacity 0.28s;';
+      requestAnimationFrame(function(){
         formEl.style.opacity='1';
-        kids.forEach(function(k,i){
-          var d=(i*0.18).toFixed(2)+'s';
-          k.style.transition='opacity 0.6s ease '+d+',transform 0.6s cubic-bezier(.16,.84,.44,1) '+d;
-          k.style.opacity='1'; k.style.transform='none';
-        });
-        setTimeout(function(){var ln=document.getElementById('LN');if(ln)ln.focus();},kids.length*180+620);
-      });});
-    },350);
+        setTimeout(function(){var ln=document.getElementById('LN');if(ln)ln.focus();},320);
+      });
+    },220);
   };
 })();
 
@@ -3055,11 +2887,6 @@ window.showLogin = () => {
   // Retour à l'intro (appelé par le timer d'inactivité)
   window._returnToCube = function(){
     window._lcStop&&window._lcStop();
-    // Nettoyer couche fixe body (shards vidéo ou cube)
-    if(window._lcShardLayer){try{window._lcShardLayer.remove();}catch(e){}window._lcShardLayer=null;}
-    document.body.querySelectorAll('.lc-shard').forEach(function(s){try{s.remove();}catch(e){}});
-    // Nettoyer éclats orphelins dans #LS
-    if(ls) ls.querySelectorAll('.lc-shard').forEach(function(s){s.remove();});
     // Restaurer éléments cube
     var cube=document.getElementById('lc-cube');
     if(cube) cube.style.cssText='';
