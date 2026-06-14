@@ -1,15 +1,18 @@
+import React from 'react';
 import {Composition} from 'remotion';
-import {MyComposition} from './Composition';
+import {LoginAnimation} from './LoginAnimation';
 
 export const RemotionRoot: React.FC = () => {
   return (
-    <Composition
-      id="MyComposition"
-      component={MyComposition}
-      durationInFrames={150}
-      fps={30}
-      width={1080}
-      height={1920}
-    />
+    <>
+      <Composition
+        id="LoginAnimation"
+        component={LoginAnimation}
+        durationInFrames={300}
+        fps={30}
+        width={390}
+        height={844}
+      />
+    </>
   );
 };
