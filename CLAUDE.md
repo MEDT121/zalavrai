@@ -259,3 +259,51 @@ window.NAV = {
 .ww-toolbar .ww-search    barre de recherche/filtre
 .scan-result .green .orange .red .blue   résultat scan
 ```
+
+---
+
+## Workflow Claude Code (Boris Cherny tips)
+
+### 1. Paralléliser les sessions
+- Lancer 3–5 sessions Claude simultanément, une par tâche
+- Utiliser `git worktree` pour que chaque session ait son propre répertoire isolé
+- Garder un worktree dédié à l'analyse de logs / débogage
+
+### 2. Plan d'abord pour les tâches complexes
+- Toujours démarrer en **Plan mode** (Shift+Tab deux fois) pour les changements non-triviaux
+- Une session rédige le plan → une autre session le review comme "staff engineer"
+- Si ça part en vrille, repasser en plan mode et re-planifier avec des étapes de vérification
+
+### 3. CLAUDE.md vivant
+- Après chaque correction, demander à Claude de **mettre à jour CLAUDE.md** pour éviter la répétition
+- Maintenir un dossier `notes/` par tâche mis à jour après chaque PR
+- Itérer sans pitié sur ce fichier jusqu'à ce que le taux d'erreurs chute
+
+### 4. Skills et commandes réutilisables
+- Toute action répétée plus d'une fois par jour → transformer en skill ou slash command
+- Committer les skills dans git pour les partager
+
+### 5. Fix end-to-end
+- Donner à Claude le contexte complet (logs Docker, threads, CI) et le laisser déboguer en autonomie
+- Ne pas micro-manager la méthode : "Fixe les tests CI qui échouent" plutôt que step-by-step
+- Pour SchoolSafe : pointer Claude vers les logs Supabase + messages d'erreur console
+
+### 6. Prompting de qualité
+- Challenger Claude : lui faire **justifier** ses changements avant d'appliquer
+- Si la correction est médiocre : "Recommence et implémente la solution élégante"
+- Écrire des specs détaillées sans ambiguïté avant de déléguer
+
+### 7. Sous-agents
+- Pour plus de "compute" sur une tâche, demander explicitement d'utiliser des sous-agents
+- Déléguer les sous-tâches pour garder le contexte du main agent propre et focalisé
+- Router les vérifications sensibles de permissions vers un modèle plus fort via hooks
+
+### 8. Environnement terminal
+- Utiliser `/statusline` pour voir l'usage de contexte et la branche git courante
+- Nommer/colorer les onglets (un onglet par tâche/worktree)
+- Dicter les prompts longs à la voix pour aller plus vite
+
+### 9. Mode apprentissage
+- Demander des explications : "Explique-moi pourquoi cette approche"
+- Demander des diagrammes ASCII ou présentations HTML pour comprendre l'architecture
+- Utiliser les sous-agents pour l'analyse sans polluer le contexte principal
