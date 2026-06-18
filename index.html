@@ -2456,7 +2456,17 @@ window.toggleOfflineMode = function(){
     {src:'login-kid-1.jpg', pos:['40% 8%','65% 8%']},
     {src:'login-kid-2.jpg', pos:['25% 8%','55% 8%']},
     {src:'login-kid-3.jpg', pos:['30% 8%','60% 8%']},
-    {src:'login-kid-4.jpg', pos:['25% 5%','45% 5%']}
+    {src:'login-kid-4.jpg', pos:['25% 5%','45% 5%']},
+    {src:'login-kid-5.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-6.jpg', pos:['30% 70%','55% 70%']},
+    {src:'login-kid-7.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-8.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-9.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-10.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-11.jpg', pos:['30% 70%','55% 70%']},
+    {src:'login-kid-12.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-13.jpg', pos:['35% 70%','60% 70%']},
+    {src:'login-kid-14.jpg', pos:['30% 70%','55% 70%']}
   ];
   var _lhIdx = 0, _lhSideIdx = 1, _lhFront = 'A';
   window._startLoginHeroRotation = function(){
@@ -2464,8 +2474,12 @@ window.toggleOfflineMode = function(){
     window._loginHeroTimer = setInterval(function(){
       var a = document.getElementById('LH_IMG_A'), b = document.getElementById('LH_IMG_B');
       if(!a || !b) return;
-      _lhIdx = (_lhIdx + 1) % _LH_PHOTOS.length;
-      _lhSideIdx = (_lhSideIdx + 1) % 2;
+      var nextIdx = _lhIdx;
+      if(_LH_PHOTOS.length > 1){
+        while(nextIdx === _lhIdx) nextIdx = Math.floor(Math.random() * _LH_PHOTOS.length);
+      }
+      _lhIdx = nextIdx;
+      _lhSideIdx = Math.floor(Math.random() * 2);
       var photo = _LH_PHOTOS[_lhIdx];
       var showing = _lhFront === 'A' ? a : b;
       var hidden  = _lhFront === 'A' ? b : a;
@@ -2476,7 +2490,7 @@ window.toggleOfflineMode = function(){
         showing.style.opacity = '0';
       });
       _lhFront = _lhFront === 'A' ? 'B' : 'A';
-    }, 5000);
+    }, 7000);
   };
   window._stopLoginHeroRotation = function(){
     if(window._loginHeroTimer){ clearInterval(window._loginHeroTimer); window._loginHeroTimer=null; }
