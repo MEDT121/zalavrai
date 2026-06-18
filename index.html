@@ -482,10 +482,11 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
 .dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:#fff;line-height:1;letter-spacing:-.03em}
 .dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
-/* Photo de fond pleine page, continue, non recadrée — derrière toutes les cartes du tableau de bord */
-.app-photo-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#0a1130}
+/* Photo de fond pleine page, continue, non recadrée, sans voile — derrière toutes les cartes
+   du tableau de bord. Élément persistant (hors du conteneur #PC qui défile) pour rester
+   parfaitement immobile au scroll ; affiché/masqué par render() selon S.page. */
+.app-photo-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#0a1130;display:none}
 .app-photo-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transition:opacity 1.8s ease}
-.app-photo-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,32,.35) 0%,rgba(8,14,32,.55) 45%,rgba(8,14,32,.8) 100%)}
 /* Habillage permanent sombre — pages "Personnes" (Élèves, Classes, Profs, Gardiens, Parents, Autorisés) */
 .role-dark-page{margin:-20px -16px -90px;padding:20px 16px 90px;background:var(--bg)}
 /* Section */
@@ -975,6 +976,7 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 
 <!-- ── APP SHELL ── -->
 <div class="app" id="APP">
+  <div class="app-photo-bg" id="APP_PHOTO_BG"><img id="ABP_IMG_A" src="" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
   <div class="sidebar-overlay" id="SO" onclick="toggleSidebar()"></div>
   <aside class="sidebar" id="SB">
     <div class="sidebar-header">
@@ -2242,6 +2244,7 @@ window.animateCounters = () => {
 
 window.render = () => {
   const _tt=$('TT'); if(_tt) _tt.textContent = PT[S.page] || 'SchoolSafe';
+  const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? '' : 'none';
   const fn = R[S.page];
   try {
     const _pc=$('PC');
@@ -2674,6 +2677,7 @@ window.loginAs = async user => {
   $('LS').classList.add('hidden');
   window._stopLoginHeroRotation&&window._stopLoginHeroRotation();
   window._startAppBgRotation&&window._startAppBgRotation();
+  if(window._getAppBgPhoto){ const _abp0=window._getAppBgPhoto(); const _a0=document.getElementById('ABP_IMG_A'); if(_a0){ _a0.src=_abp0.src; _a0.style.opacity='1'; } }
   if(DB.settings?.school?.logo){
     window.SCHOOL_LOGO=DB.settings.school.logo;
     const _slEl=document.getElementById('sidebarLogo');
@@ -2989,7 +2993,6 @@ function dashboardDirection() {
   const hr     = new Date().getHours();
   const greet  = hr < 5 ? 'Bonne nuit' : hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
   const fName  = esc(u.name?.split(' ')[0] || 'Directeur');
-  const _abp   = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
 
   // Lockdown banner
   const ldBanner = S.lockdown ? `
@@ -3108,7 +3111,7 @@ function dashboardDirection() {
       </div>`;
   }).join('');
 
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
+  return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
   <!-- Hero clair — bande photo continue + avatar/salutation, fondu blanc -->
@@ -3367,8 +3370,7 @@ function dashboardEnseignant() {
       }).join('')}
     </div>` : '';
 
-  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
+  return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
@@ -3529,8 +3531,7 @@ function dashboardDirection2() {
     </div>`;
   }).join('');
 
-  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
+  return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
@@ -3656,8 +3657,7 @@ function dashboardDirection3() {
   const timeMsg = now < rapport16h ? `Rapport dans ${minsLeft} min` : 'Rapport soumis aujourd\'hui';
   const pendingReport = (DB.daily_reports||[]).some(r=>r.date===d&&r.status==='pending');
 
-  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
+  return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
@@ -3754,8 +3754,7 @@ function dashboardGardien() {
   const refusedG = entries.filter(l=>l.status==='refused').length;
   const fc = DB.settings?.feesControl||{};
 
-  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
+  return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
@@ -3843,7 +3842,6 @@ function dashboardParent() {
   const unreadMsgs = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
   const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
   const d = today();
-  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
 
   const kidStatus = kids.map(k=>{
     const att = (DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
@@ -3938,7 +3936,7 @@ function dashboardParent() {
       ${myNotifs.length>4?`<div class="dp-list-item" onclick="go('notifications')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir tout (${myNotifs.length}) →</div>`:''}
     </div>` : '';
 
-  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
+  return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
