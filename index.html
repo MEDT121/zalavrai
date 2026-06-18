@@ -474,6 +474,17 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   font-size:var(--text-xs);color:rgba(255,255,255,.5);
   letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
 }
+/* Hero clair "Tableau de bord" — bande photo continue (écran de connexion) qui
+   s'estompe en blanc ; permanent, aucun bouton jour/nuit. */
+.dash-hero-light{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:var(--sp-4);background:var(--bg-card);box-shadow:0 4px 24px rgba(20,30,60,.07)}
+.dash-hero-light .dhl-photo{position:relative;height:138px;overflow:hidden}
+.dash-hero-light .dhl-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.6s ease;filter:saturate(.92)}
+.dash-hero-light .dhl-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,32,.5) 0%,rgba(8,14,32,.2) 48%,var(--bg-card) 96%)}
+.dash-hero-light .dhl-photo-row{position:absolute;left:0;right:0;bottom:14px;z-index:1;display:flex;align-items:center;gap:14px;padding:0 var(--sp-5)}
+.dash-hero-light .dhl-body{position:relative;z-index:1;padding:0 var(--sp-5) var(--sp-4);margin-top:-4px}
+.dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border-light)}
+.dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em}
+.dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
 /* Section */
 .dp-section {
   background:var(--bg-card);
@@ -996,7 +1007,6 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
         <!-- Emojis en arc de cercle -->
         <button class="crad-btn" data-crad="1" onclick="toggleSidebar();window.toggleCubePanel()" title="Menu">☰</button>
         <button class="crad-btn" data-crad="2" onclick="openGlobalSearch();window.toggleCubePanel()" title="Recherche">🔍</button>
-        <button class="crad-btn dark-toggle" data-crad="3" id="DARK_BTN" onclick="toggleDark()" title="Mode nuit"><span id="DARK_MODE_ICON">🌙</span></button>
         <button class="crad-btn" data-crad="4" id="OFFLINE_BTN" onclick="window.toggleOfflineMode();window.toggleCubePanel()" title="Hors-ligne"><span id="OFFLINE_ICON">📶</span></button>
       </div>
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
@@ -2046,15 +2056,6 @@ window.closeModal = () => {
   window._gradeType = null;
 };
 
-window.toggleDark = () => {
-  document.body.classList.toggle('dark');
-  const isDark = document.body.classList.contains('dark');
-  localStorage.setItem('schoolsafe_dark', isDark?'1':'0');
-  var _dmi=document.getElementById('DARK_MODE_ICON');
-  if(_dmi)_dmi.textContent=isDark?'☀️':'🌙';
-};
-if (localStorage.getItem('schoolsafe_dark')==='1') document.body.classList.add('dark');
-
 window.launchConfetti = (count=50) => {
   const colors = ['#ef5b5b','#ff7a4d','#eab308','#2fbf8f','#2f7bd6','#9b6fd4','#ec4899'];
   for (let i=0;i<count;i++) {
@@ -2517,6 +2518,43 @@ window.toggleOfflineMode = function(){
     if(window._loginHeroTimer){ clearInterval(window._loginHeroTimer); window._loginHeroTimer=null; }
   };
 
+  // Rotation des mêmes photos en arrière-plan des tableaux de bord (app connectée) —
+  // démarrée à la connexion, arrêtée à la déconnexion ; survit aux render() car elle
+  // relit les éléments #ABP_IMG_A/#ABP_IMG_B par id à chaque tick (no-op si absents).
+  var _abpIdx = Math.floor(Math.random()*_LH_PHOTOS.length), _abpSideIdx = Math.floor(Math.random()*2), _abpFront = 'A';
+  window._getAppBgPhoto = function(){
+    _abpFront = 'A';
+    var photo = _LH_PHOTOS[_abpIdx];
+    return {src:photo.src, pos:photo.pos[_abpSideIdx]};
+  };
+  window._startAppBgRotation = function(){
+    if(window._appBgTimer) return;
+    window._appBgTimer = setInterval(function(){
+      var a = document.getElementById('ABP_IMG_A'), b = document.getElementById('ABP_IMG_B');
+      if(!a || !b) return;
+      var nextIdx = _abpIdx;
+      if(_LH_PHOTOS.length > 1){
+        while(nextIdx === _abpIdx) nextIdx = Math.floor(Math.random() * _LH_PHOTOS.length);
+      }
+      _abpIdx = nextIdx;
+      _abpSideIdx = Math.floor(Math.random() * 2);
+      var photo = _LH_PHOTOS[_abpIdx];
+      var showing = _abpFront === 'A' ? a : b;
+      var hidden  = _abpFront === 'A' ? b : a;
+      hidden.style.objectPosition = photo.pos[_abpSideIdx];
+      hidden.style.objectFit = photo.legacy ? 'cover' : '';
+      hidden.src = photo.src;
+      requestAnimationFrame(function(){
+        hidden.style.opacity = '1';
+        showing.style.opacity = '0';
+      });
+      _abpFront = _abpFront === 'A' ? 'B' : 'A';
+    }, 7000);
+  };
+  window._stopAppBgRotation = function(){
+    if(window._appBgTimer){ clearInterval(window._appBgTimer); window._appBgTimer=null; }
+  };
+
   // Injecter la vidéo choisie, démarrer immédiatement, cycle continu
   document.addEventListener('DOMContentLoaded', function(){
     var vid = document.querySelector('#grd-girl video');
@@ -2634,6 +2672,7 @@ window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
   window._stopLoginHeroRotation&&window._stopLoginHeroRotation();
+  window._startAppBgRotation&&window._startAppBgRotation();
   if(DB.settings?.school?.logo){
     window.SCHOOL_LOGO=DB.settings.school.logo;
     const _slEl=document.getElementById('sidebarLogo');
@@ -2646,6 +2685,7 @@ window.loginAs = async user => {
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); if(!window._iv_autosave) window._iv_autosave=setInterval(()=>{if(S.user&&(DB.users||[]).length>0)saveToCrypt();},30000); if(!window._iv_syncui) window._iv_syncui=setInterval(window.updateSyncIndicator,10000); if(!window._iv_heartbeat) window._iv_heartbeat=setInterval(()=>{if(S.user&&$('PC')&&!$('PC').innerHTML.trim()){toast('App rechargée automatiquement','info');render();}},15000); },450);
 };
 window.logout = () => {
+  window._stopAppBgRotation&&window._stopAppBgRotation();
   try { stopScan(); } catch(e) {}
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
@@ -2795,9 +2835,6 @@ window.buildUI = () => {
   });
   // Date
   $('TD').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  // Dark toggle
-  var _dmi2=document.getElementById('DARK_MODE_ICON'),_isDark2=document.body.classList.contains('dark');
-  if(_dmi2)_dmi2.textContent=_isDark2?'☀️':'🌙';
   // User photo
   if (S.user.photo_url) { const safeUrl = /^(https?:|data:image\/)/.test(S.user.photo_url||'') ? S.user.photo_url : ''; if(safeUrl) $('SA').innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`; }
   // SchoolSafe brand always fixed — school logo only
@@ -2951,6 +2988,7 @@ function dashboardDirection() {
   const hr     = new Date().getHours();
   const greet  = hr < 5 ? 'Bonne nuit' : hr < 12 ? 'Bonjour' : hr < 18 ? 'Bon après-midi' : 'Bonsoir';
   const fName  = esc(u.name?.split(' ')[0] || 'Directeur');
+  const _abp   = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
 
   // Lockdown banner
   const ldBanner = S.lockdown ? `
@@ -3072,42 +3110,42 @@ function dashboardDirection() {
   return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
-  <!-- Hero — floating avatar + time-aware greeting -->
-  <div class="dp-hero" style="background:linear-gradient(135deg,#243a6b 0%,#205fae 100%);animation:fadeInUp .35s ease both;overflow:hidden;position:relative" role="banner" aria-label="Tableau de bord Direction">
-    <div style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none">
-      <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 88% -10%, rgba(217,164,58,.32), transparent 55%)"></div>
-      <div style="position:absolute;top:-25px;right:-20px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.06);animation:floatA 7s ease-in-out infinite"></div>
-      <div style="position:absolute;bottom:-20px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.045);animation:floatB 9s ease-in-out infinite"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmerSlide 3s linear infinite"></div>
+  <!-- Hero clair — bande photo continue + avatar/salutation, fondu blanc -->
+  <div class="dash-hero-light" role="banner" aria-label="Tableau de bord Direction" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
     </div>
-    <div style="display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4);position:relative">
-      <div style="position:relative;width:60px;height:60px;flex-shrink:0">
-        <span style="position:absolute;inset:-3px;border-radius:18px;border:2px solid rgba(217,164,58,.62);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));border:2px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.28)" aria-hidden="true">${ini(u.name||'D')}</div>
-        <span style="position:absolute;right:-2px;bottom:-2px;width:15px;height:15px;border-radius:50%;background:#2fbf8f;border:2.5px solid #243a6b;box-shadow:0 0 0 2px rgba(47,191,143,.4)"></span>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(217,164,58,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff" aria-hidden="true">${ini(u.name||'D')}</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
-        <div class="dp-hero-eyebrow" style="color:#f0c560">Direction Générale · SchoolSafe</div>
-        <div class="dp-hero-name">${greet}, ${fName}</div>
-        <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#f0c560;text-shadow:0 1px 4px rgba(0,0,0,.3)">Direction Générale · SchoolSafe</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">${greet}, ${fName}</div>
       </div>
     </div>
-    <div class="dp-hero-stats" role="group" aria-label="Vue d'ensemble">
-      <div class="dp-hs" onclick="go('students')" style="cursor:pointer" role="button" tabindex="0">
-        <div class="dp-hs-n">${students.length}</div>
-        <div class="dp-hs-l">Élèves</div>
-      </div>
-      <div class="dp-hs" onclick="go('teachers')" style="cursor:pointer" role="button" tabindex="0">
-        <div class="dp-hs-n">${teachers.length}</div>
-        <div class="dp-hs-l">Enseignants</div>
-      </div>
-      <div class="dp-hs" onclick="go('attendance')" style="cursor:pointer" role="button" tabindex="0">
-        <div class="dp-hs-n">${present}</div>
-        <div class="dp-hs-l">Présents</div>
-      </div>
-      <div class="dp-hs" onclick="go('scan_log')" style="cursor:pointer" role="button" tabindex="0">
-        <div class="dp-hs-n">${entries}</div>
-        <div class="dp-hs-l">Entrées</div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      <div class="dhl-stats" role="group" aria-label="Vue d'ensemble">
+        <div onclick="go('students')" style="cursor:pointer" role="button" tabindex="0">
+          <div class="dhl-stat-n">${students.length}</div>
+          <div class="dhl-stat-l">Élèves</div>
+        </div>
+        <div onclick="go('teachers')" style="cursor:pointer" role="button" tabindex="0">
+          <div class="dhl-stat-n">${teachers.length}</div>
+          <div class="dhl-stat-l">Enseignants</div>
+        </div>
+        <div onclick="go('attendance')" style="cursor:pointer" role="button" tabindex="0">
+          <div class="dhl-stat-n">${present}</div>
+          <div class="dhl-stat-l">Présents</div>
+        </div>
+        <div onclick="go('scan_log')" style="cursor:pointer" role="button" tabindex="0">
+          <div class="dhl-stat-n">${entries}</div>
+          <div class="dhl-stat-l">Entrées</div>
+        </div>
       </div>
     </div>
   </div>
@@ -3773,6 +3811,7 @@ function dashboardParent() {
   const unreadMsgs = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
   const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
   const d = today();
+  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
 
   const kidStatus = kids.map(k=>{
     const att = (DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
@@ -3870,28 +3909,29 @@ function dashboardParent() {
   return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
-  <div class="dp-hero" style="background:linear-gradient(135deg,#6d3aa0,#9b6fd4 55%,#ff7a4d);animation:fadeInUp .35s ease both;overflow:hidden;position:relative">
-    <div style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none">
-      <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 90% -10%,rgba(255,210,120,.3),transparent 55%)"></div>
-      <div style="position:absolute;top:-25px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmerSlide 3s linear infinite"></div>
+  <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
     </div>
-    <div style="display:flex;align-items:center;gap:14px;position:relative;margin-bottom:var(--sp-4)">
-      <div style="position:relative;width:58px;height:58px;flex-shrink:0">
-        <span style="position:absolute;inset:-3px;border-radius:18px;border:2px solid rgba(255,210,120,.6);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));border:2px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
-        <span style="position:absolute;right:-2px;bottom:-2px;width:15px;height:15px;border-radius:50%;background:#2fbf8f;border:2.5px solid #6d3aa0"></span>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
-        <div class="dp-hero-eyebrow" style="color:#ffd27a">Espace Parent · SchoolSafe</div>
-        <div class="dp-hero-name">Bonjour, ${esc(u.name?.split(' ')[0]||'')} 👋</div>
-        <div class="dp-hero-sub">${kids.length} enfant${kids.length!==1?'s':''} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#ffd27a;text-shadow:0 1px 4px rgba(0,0,0,.3)">Espace Parent · SchoolSafe</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">Bonjour, ${esc(u.name?.split(' ')[0]||'')} 👋</div>
       </div>
     </div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs"><div class="dp-hs-n">${kids.length}</div><div class="dp-hs-l">Enfants</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${myNotifs.length}</div><div class="dp-hs-l">Notifs</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${unreadMsgs}</div><div class="dp-hs-l">Messages</div></div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${kids.length} enfant${kids.length!==1?'s':''} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      <div class="dhl-stats">
+        <div><div class="dhl-stat-n">${kids.length}</div><div class="dhl-stat-l">Enfants</div></div>
+        <div><div class="dhl-stat-n">${myNotifs.length}</div><div class="dhl-stat-l">Notifs</div></div>
+        <div><div class="dhl-stat-n">${unreadMsgs}</div><div class="dhl-stat-l">Messages</div></div>
+      </div>
     </div>
   </div>
 
@@ -17599,8 +17639,6 @@ window.printRapportSecope = () => {
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
-  // Dark mode
-  try { if(localStorage.getItem('schoolsafe_dark')==='1'){document.body.classList.add('dark');var _dmi3=document.getElementById('DARK_MODE_ICON');if(_dmi3)_dmi3.textContent='☀️';} } catch(e){}
   initParticles();
 
   // Operator WA link
