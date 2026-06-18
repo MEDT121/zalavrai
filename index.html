@@ -485,6 +485,8 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border-light);flex-wrap:wrap}
 .dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em}
 .dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+/* Habillage permanent sombre — pages "Personnes" (Élèves, Classes, Profs, Gardiens, Parents, Autorisés) */
+.role-dark-page{margin:-20px -16px -90px;padding:20px 16px 90px;background:var(--bg)}
 /* Section */
 .dp-section {
   background:var(--bg-card);
@@ -1972,6 +1974,8 @@ if(!window._iv_autosave) window._iv_autosave = setInterval(() => { if (S.user &&
 
 // ── UI HELPERS ──
 function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+// Habillage permanent sombre pour une page entière (section "Personnes") — sans bouton bascule
+function _wrapDark(html){ return `<div class="dark role-dark-page" style="animation:fadeInUp .3s ease both">${html}</div>`; }
 // Toast avec file d'attente — max 3 visibles simultanément
 (()=>{
   const MAX=3, DURATION=3200, icons={success:'',error:'',info:'',warning:''};
@@ -4808,7 +4812,7 @@ R.students = () => {
   const _nClasses=DB.classes.length;
   const _withParent=DB.students.filter(s=>s.pid).length;
   const _newStu=DB.students.filter(s=>{const d=parseInt((s.id||'').replace(/\D/g,'').slice(0,13));return d&&(Date.now()-d)<7*864e5;}).length;
-  return `
+  return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px" onclick="window._studentCF='';render()" role="button" tabindex="0">
       <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:24px">${_totalStu}</div><div class="hsub">élèves</div>
@@ -4867,7 +4871,7 @@ R.students = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`}`;
+  </div>`}`);
 };
 
 window.openStudentForm = (sid) => {
@@ -4987,7 +4991,7 @@ window._simpleList = (role, icon, gradient) => {
   const _withPhone=users.filter(u=>u.phone).length;
   const _assigned=role==='enseignant'?DB.classes.filter(c=>c.teacher_id||c.teacher_id_en).length:null;
   const _g1=gradient.replace('linear-gradient(90deg,','linear-gradient(135deg,');
-  return `
+  return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(${role==='enseignant'?3:2},1fr);margin-bottom:14px">
     <div class="htile" style="background:${_g1};color:#fff;padding:13px 8px"><div style="font-size:19px">${meta.icon}</div><div class="hbig" style="font-size:23px">${users.length}</div><div class="hsub">${meta.label.toLowerCase()}s</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">📞</div><div class="hbig" style="font-size:23px">${_withPhone}</div><div class="hsub">avec tél.</div></div>
@@ -5019,7 +5023,7 @@ window._simpleList = (role, icon, gradient) => {
         </div>
       </div>
     </div>`).join('')}
-  </div>`}`;
+  </div>`}`);
 };
 
 window.openUserForm = (role, uid) => {
@@ -5183,7 +5187,7 @@ R.parents = () => {
   const list = q ? parents.filter(u=>(u.name||'').toLowerCase().includes(q)||(u.phone&&u.phone.includes(q))) : parents;
   const _withKids = parents.filter(p=>DB.students.some(s=>s.pid===p.id)).length;
   const _withPhone = parents.filter(p=>p.phone).length;
-  return `
+  return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 10px">
       <div style="font-size:19px">👪</div><div class="hbig" style="font-size:24px">${parents.length}</div><div class="hsub">parents</div>
@@ -5289,7 +5293,7 @@ R.parents = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`}`;
+  </div>`}`);
 };
 window._parQ = '';
 
@@ -5300,7 +5304,7 @@ R.classes = () => {
   const _nSec=DB.classes.filter(c=>c.cycle==='secondaire').length;
   const _nStu=DB.students.length;
   const _noTeach=DB.classes.filter(c=>!c.teacher_id&&!c.teacher_id_en).length;
-  return `
+  return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(${_nSec?5:4},1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🏫</div><div class="hbig" style="font-size:23px">${DB.classes.length}</div><div class="hsub">classes</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ff9c6e);color:#fff;padding:13px 8px"><div style="font-size:19px">🧸</div><div class="hbig" style="font-size:23px">${_nMat}</div><div class="hsub">maternelle</div></div>
@@ -5341,7 +5345,7 @@ R.classes = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`;
+  </div>`);
 };
 
 window.openClassForm = (cid) => {
@@ -10045,7 +10049,7 @@ R.authorized = () => {
     const _wParent=DB.students.filter(s=>s.pid).length;
     const _tuts=(DB.aps||[]).length;
     const _noParent=DB.students.length-_wParent;
-    return `
+    return _wrapDark(`
     <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
       <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🎓</div><div class="hbig" style="font-size:23px">${DB.students.length}</div><div class="hsub">élèves</div></div>
       <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👑</div><div class="hbig" style="font-size:23px">${_wParent}</div><div class="hsub">avec parent</div></div>
@@ -10102,14 +10106,14 @@ R.authorized = () => {
           </div>`:`<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:8px">Aucune tutelle secondaire — cliquez ➕ pour en ajouter</div>`}
         </div>`;
       }).join('')}
-    </div>`;
+    </div>`);
   }
 
   // ── PARENT : vue avec ajout + toggle ──
   if (role === 'parent') {
     const myKids = DB.students.filter(s=>s.pid===S.user.id);
-    if (!myKids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔑</div>Aucun enfant lié à ce compte</div>`;
-    return `
+    if (!myKids.length) return _wrapDark(`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">🔑</div>Aucun enfant lié à ce compte</div>`);
+    return _wrapDark(`
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;padding:12px 14px;background:#dbeafe;border-radius:10px;border-left:3px solid #2f7bd6">
       🔑 Vous pouvez ajouter jusqu'à <strong>3 tutelles</strong> par enfant et activer/désactiver leur autorisation de récupérer votre enfant.
     </div>
@@ -10182,13 +10186,13 @@ R.authorized = () => {
               }).join('')}
         </div>
       </div>`;
-    }).join('')}`;
+    }).join('')}`);
   }
 
   // ── GARDIEN : vue lecture seule avec recherche ──
   const qG = (window._apQG||'').toLowerCase();
   const studsToShow = qG ? DB.students.filter(s=>(s.name||'').toLowerCase().includes(qG)||(s.mat||'').toLowerCase().includes(qG)) : DB.students;
-  return `
+  return _wrapDark(`
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
       <input placeholder="Rechercher un élève..." oninput="window._apQG=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._apQG||''}">
@@ -10233,7 +10237,7 @@ R.authorized = () => {
         ${totalAps===0?`<div style="font-size:12px;color:#dc2626;padding:12px;background:#fee2e2;border-radius:10px;width:100%">⚠️ Aucune personne autorisée enregistrée</div>`:''}
       </div>
     </div>`;
-  }).join('')}`;
+  }).join('')}`);
 };
 window._apQG = '';
 
@@ -16182,36 +16186,36 @@ R.acces_parents = () => {
   const accessCount=DB.students.filter(s=>s.access_parent).length;
   const noParentCount=DB.students.filter(s=>!s.pid||!DB.users.find(u=>u.id===s.pid)).length;
   const mkGlobalToggle=(key,active,icon,label,desc)=>`
-    <div onclick="saveSettingsToggle('${key}',${!active})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:${active?'#f0fdf4':'#fff5ea'};border:2px solid ${active?'#22c55e':'#efe3d3'};cursor:pointer;flex:1;min-width:200px;transition:all .2s">
-      <div style="width:44px;height:24px;border-radius:12px;background:${active?'#22c55e':'#ddd0bf'};position:relative;flex-shrink:0;transition:background .2s">
+    <div onclick="saveSettingsToggle('${key}',${!active})" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:${active?'rgba(34,197,94,.16)':'rgba(255,255,255,.04)'};border:2px solid ${active?'#22c55e':'rgba(255,255,255,.12)'};cursor:pointer;flex:1;min-width:200px;transition:all .2s">
+      <div style="width:44px;height:24px;border-radius:12px;background:${active?'#22c55e':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;transition:background .2s">
         <div style="position:absolute;top:3px;left:${active?'20px':'3px'};width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 2px 4px rgba(0,0,0,.2)"></div>
       </div>
       <div>
-        <div style="font-size:14px;font-weight:800;color:${active?'#065f46':'#374151'}">${icon} ${label}</div>
-        <div style="font-size:11px;color:${active?'#1f9d6b':'#a89c8b'};margin-top:2px">${desc}</div>
+        <div style="font-size:14px;font-weight:800;color:${active?'#34d399':'var(--text)'}">${icon} ${label}</div>
+        <div style="font-size:11px;color:${active?'#34d399':'var(--text-muted)'};margin-top:2px">${desc}</div>
       </div>
-      <div style="margin-left:auto;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;background:${active?'#22c55e':'#a89c8b'};color:#fff">${active?'ACTIF':'INACTIF'}</div>
+      <div style="margin-left:auto;font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;background:${active?'#22c55e':'rgba(255,255,255,.15)'};color:#fff">${active?'ACTIF':'INACTIF'}</div>
     </div>`;
   const mkStudentToggle=(sid,active)=>`
-    <div onclick="toggleParentAccess('${sid}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 12px;border-radius:10px;background:${active?'#f0fdf4':'#fff5ea'};border:1.5px solid ${active?'#95ddbb':'#efe3d3'};transition:all .15s">
-      <div style="width:38px;height:22px;border-radius:11px;background:${active?'#22c55e':'#ddd0bf'};position:relative;flex-shrink:0;transition:background .15s">
+    <div onclick="toggleParentAccess('${sid}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 12px;border-radius:10px;background:${active?'rgba(34,197,94,.16)':'rgba(255,255,255,.04)'};border:1.5px solid ${active?'rgba(34,197,94,.4)':'rgba(255,255,255,.12)'};transition:all .15s">
+      <div style="width:38px;height:22px;border-radius:11px;background:${active?'#22c55e':'rgba(255,255,255,.15)'};position:relative;flex-shrink:0;transition:background .15s">
         <div style="position:absolute;top:3px;left:${active?'17px':'3px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div>
       </div>
       <div>
-        <div style="font-size:12px;font-weight:800;color:${active?'#065f46':'#6f6557'}">Accès parent ${active?'activé':'désactivé'}</div>
-        <div style="font-size:10px;color:${active?'#1f9d6b':'#a89c8b'}">${active?'Voit ce que l\'école publie':'Aucune vue parent disponible'}</div>
+        <div style="font-size:12px;font-weight:800;color:${active?'#34d399':'var(--text)'}">Accès parent ${active?'activé':'désactivé'}</div>
+        <div style="font-size:10px;color:${active?'#34d399':'var(--text-muted)'}">${active?'Voit ce que l\'école publie':'Aucune vue parent disponible'}</div>
       </div>
     </div>`;
   const filterLabels={tous:'Tous',complets:'Payés',partiels:'⚠️ Partiels',impayés:'❌ Impayés'};
-  return `
+  return _wrapDark(`
   <!-- Zone 1 : Ce que l'école publie -->
-  <div class="premium-section" style="border-left:4px solid #243a6b;margin-bottom:16px">
-    <div style="font-size:13px;font-weight:800;color:#243a6b;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">⚙️ Ce que l'école publie en ce moment</div>
+  <div class="premium-section" style="border-left:4px solid #93c5fd;margin-bottom:16px">
+    <div style="font-size:13px;font-weight:800;color:#93c5fd;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">⚙️ Ce que l'école publie en ce moment</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       ${mkGlobalToggle('bulletin',bOn,'📋','Bulletins & Palmarès','Les parents voient les notes et le classement')}
       ${mkGlobalToggle('corrections',cOn,'📊','Corrections & Côtes','Les parents voient les résultats des devoirs')}
     </div>
-    ${!bOn&&!cOn?`<div style="margin-top:10px;padding:10px 14px;background:#fef9c3;border-radius:10px;font-size:12px;color:#92400e;border:1px solid #fde047">⚠️ Aucun contenu publié — les parents ne voient rien, même s'ils ont l'accès.</div>`:''}
+    ${!bOn&&!cOn?`<div style="margin-top:10px;padding:10px 14px;background:rgba(217,158,11,.18);border-radius:10px;font-size:12px;color:#fbbf24;border:1px solid rgba(217,158,11,.4)">⚠️ Aucun contenu publié — les parents ne voient rien, même s'ils ont l'accès.</div>`:''}
   </div>
 
   <!-- Zone 2 : Stats rapides -->
@@ -16232,7 +16236,7 @@ R.acces_parents = () => {
     <div class="ww-search" style="flex:1">
       <input placeholder="Nom élève ou parent..." oninput="window._accParQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)" value="${window._accParQ||''}">
     </div>
-    <button onclick="autoActivatePaid()" style="background:#243a6b;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚡ Auto payés</button>
+    <button onclick="autoActivatePaid()" style="background:#3b6ef0;color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">⚡ Auto payés</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     ${Object.entries(filterLabels).map(([f,l])=>`
@@ -16246,13 +16250,13 @@ R.acces_parents = () => {
       const par=DB.users.find(u=>u.id===s.pid);
       const cl=DB.classes.find(c=>c.id===s.cid);
       const {paid:pPaid,total:pTotal,pct,allPaid,anyPaid}=getPayInfo(s.id);
-      const [cc,cbg]=cl?clsColor(cl.name):['#6f6557','#f6ede0'];
-      const fc=allPaid?'#22c55e':anyPaid?'#f59e0b':'#ef5b5b';
-      const fb=allPaid?'#d8f3e6':anyPaid?'#fdeccd':'#fee2e2';
+      const [cc,cbg]=cl?clsColor(cl.name):['#aab3d6','rgba(255,255,255,.08)'];
+      const fc=allPaid?'#34d399':anyPaid?'#fbbf24':'#f87171';
+      const fb=allPaid?'rgba(34,197,94,.18)':anyPaid?'rgba(245,158,11,.18)':'rgba(239,91,91,.18)';
       const fl=pTotal===0?'—':allPaid?'Complets':anyPaid?`⚠️ ${pct}% (${pPaid}/${pTotal})`:'❌ Impayé';
       const acc=!!s.access_parent;
       return `
-      <div class="premium-section" style="margin-bottom:0;border-left:4px solid ${acc?fc:'#efe3d3'}">
+      <div class="premium-section" style="margin-bottom:0;border-left:4px solid ${acc?fc:'rgba(255,255,255,.12)'}">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:46px;height:46px;border-radius:12px;background:${cbg};color:${cc};overflow:hidden;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;min-width:0">
@@ -16264,22 +16268,22 @@ R.acces_parents = () => {
         ${par?`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px;margin-bottom:8px">
           <span style="font-size:11px;color:var(--text-muted)">👨‍👩‍👧</span>
           <span style="font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(par.name)}</span>
-          ${par.pin&&!par.pin_hashed?`<span style="font-family:monospace;font-size:12px;font-weight:700;padding:2px 8px;background:#dbeafe;color:#205fae;border-radius:8px;flex-shrink:0">PIN: ${par.pin}</span>`:''}
+          ${par.pin&&!par.pin_hashed?`<span style="font-family:monospace;font-size:12px;font-weight:700;padding:2px 8px;background:rgba(59,110,240,.2);color:#93c5fd;border-radius:8px;flex-shrink:0">PIN: ${par.pin}</span>`:''}
           ${par.phone?waBtn(par.phone,par.name):''}
-          <button onclick="resetParentPin('${par.id}')" style="background:#f6ede0;border:1px solid #efe3d3;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;color:#6f6557" title="Réinitialiser le PIN">🔑</button>
-        </div>`:`<div style="font-size:12px;color:#f59e0b;margin-bottom:8px;padding:6px 10px;background:#fef9c3;border-radius:8px">⚠️ Aucun compte parent lié</div>`}
+          <button onclick="resetParentPin('${par.id}')" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;color:var(--text)" title="Réinitialiser le PIN">🔑</button>
+        </div>`:`<div style="font-size:12px;color:#fbbf24;margin-bottom:8px;padding:6px 10px;background:rgba(217,158,11,.18);border-radius:8px">⚠️ Aucun compte parent lié</div>`}
         ${pTotal>0?`<div style="margin-bottom:8px">
-          <div style="height:6px;border-radius:4px;background:#efe3d3;overflow:hidden">
+          <div style="height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${fc};border-radius:4px"></div>
           </div>
         </div>`:''}
         ${mkStudentToggle(s.id,acc)}
-        ${acc&&(bOn||cOn)?`<div style="margin-top:6px;font-size:10px;color:#1f9d6b;padding:4px 8px;background:#f0fdf4;border-radius:6px">
+        ${acc&&(bOn||cOn)?`<div style="margin-top:6px;font-size:10px;color:#34d399;padding:4px 8px;background:rgba(34,197,94,.16);border-radius:6px">
           ✅ Voit : ${[bOn?'Bulletins':'',cOn?'📊 Corrections':''].filter(Boolean).join(' · ')}
         </div>`:''}
       </div>`;
     }).join('')}
-  </div>`}`;
+  </div>`}`);
 };
 
 window.toggleParentAccess = (sid) => {
