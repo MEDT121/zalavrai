@@ -26,7 +26,7 @@ window._GUARDIAN_VID = null;
 :root {
   --primary:#3b6ef0;--primary-dark:#2952c8;--primary-light:#e8edfd;
   --accent-orange:#ff9143;--accent-green:#22c58b;--accent-red:#f0455c;--accent-purple:#8b5cf6;
-  --bg:#f2f5fc;--bg-card:#ffffff;--bg-card-2:#f7f9ff;
+  --bg:#f2f5fc;--bg-card:#ffffff;--bg-card-2:#f7f9ff;--bg-secondary:#f8fafc;
   --border:#e6ebf7;--border-light:#eef1fa;
   --text:#1a2138;--text-secondary:#5b6478;--text-muted:#97a0b5;
   --shadow-sm:0 2px 8px rgba(30,45,90,.06);--shadow-md:0 8px 26px rgba(30,45,90,.10);--shadow-lg:0 16px 44px rgba(30,45,90,.14);
@@ -51,7 +51,7 @@ window._GUARDIAN_VID = null;
   --ease-out:cubic-bezier(0,0,.2,1);--ease-spring:cubic-bezier(.34,1.56,.64,1);
 }
 .dark {
-  --bg:#0a1130;--bg-card:rgba(28,40,82,.55);--bg-card-2:rgba(22,32,68,.55);
+  --bg:#0a1130;--bg-card:rgba(28,40,82,.55);--bg-card-2:rgba(22,32,68,.55);--bg-secondary:rgba(22,32,68,.55);
   --border:rgba(255,255,255,.1);--border-light:rgba(255,255,255,.06);
   --text:#f2f5ff;--text-secondary:#aab3d6;--text-muted:#717ca3;
   --shadow-sm:0 2px 8px rgba(0,0,0,.35);--shadow-md:0 4px 24px rgba(0,0,0,.5);
@@ -13024,10 +13024,10 @@ R.mon_site = () => {
   if (!window._siteDataReady && !window._siteDataLoading) {
     window._siteDataLoading = true;
     window._loadSiteDataForPage().then(() => { window._siteDataLoading = false; render(); });
-    return `<div style="text-align:center;padding:80px 20px;color:var(--text-secondary)">
+    return _wrapDark(`<div style="text-align:center;padding:80px 20px;color:var(--text-secondary)">
       <div style="font-size:40px;margin-bottom:14px">🌐</div>
       <div style="font-size:15px;font-weight:600">Chargement des données du site…</div>
-    </div>`;
+    </div>`);
   }
 
   const d   = window._siteData || {};
@@ -13052,7 +13052,7 @@ R.mon_site = () => {
     {c:'#1e40af',l:'Marine'},{c:'#065f46',l:'Émeraude'},{c:'#92400e',l:'Marron'},
   ];
 
-  return `
+  return _wrapDark(`
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🌐 Mon site web</span>
     <div style="display:flex;gap:8px">
@@ -13219,7 +13219,7 @@ R.mon_site = () => {
     <button class="btn btn-outline" style="width:100%" onclick="publishAnnFromApp()">📢 Publier l'actualité</button>
   </div>
 
-  <button class="btn btn-primary" style="width:100%;margin-bottom:40px;font-size:15px;padding:14px" onclick="saveSiteData()">💾 Enregistrer toutes les modifications</button>`;
+  <button class="btn btn-primary" style="width:100%;margin-bottom:40px;font-size:15px;padding:14px" onclick="saveSiteData()">💾 Enregistrer toutes les modifications</button>`);
 };
 
 window.addSiteGalleryPhoto = () => {
