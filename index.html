@@ -140,11 +140,10 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .login-badges{display:flex;gap:6px;justify-content:space-between;margin:28px 0 0}
 .login-badges span{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10px;font-weight:600;color:rgba(255,255,255,.55);text-align:center}
 .login-badges span .lbi{font-size:18px}
-.login-hero{position:relative;width:100%;height:200px;border-radius:26px;overflow:hidden;margin-bottom:16px;background:linear-gradient(160deg,#16224f,#0b1338)}
-.login-hero-img{position:absolute;top:0;height:100%;width:62%;object-fit:cover;object-position:center;opacity:0;transition:opacity 1.1s ease;will-change:opacity}
-.login-hero-img.side-left{left:0;-webkit-mask-image:linear-gradient(to right,#000 62%,transparent 100%);mask-image:linear-gradient(to right,#000 62%,transparent 100%)}
-.login-hero-img.side-right{right:0;-webkit-mask-image:linear-gradient(to left,#000 62%,transparent 100%);mask-image:linear-gradient(to left,#000 62%,transparent 100%)}
-.login-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,transparent 52%,rgba(7,11,31,.88) 100%);pointer-events:none}
+.login-bg{position:absolute;inset:0;overflow:hidden;z-index:0}
+.login-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:40% 8%;opacity:0;transition:opacity 1.4s ease;will-change:opacity}
+.login-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(10,17,48,.18) 0%,rgba(13,21,56,.42) 38%,rgba(9,14,40,.78) 62%,#070b1f 88%,#03050f 100%);pointer-events:none}
+.login-container .login-title,.login-container .login-subtitle,.login-badges span{text-shadow:0 2px 10px rgba(0,0,0,.55)}
 
 /* ── GUARDIAN SCREEN ── */
 #GUARDIAN{position:fixed;inset:0;z-index:950;overflow:hidden;cursor:pointer;user-select:none;opacity:0;pointer-events:none;background:#0a0e27}
@@ -894,11 +893,11 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 
 <!-- ── LOGIN SCREEN ── -->
 <div class="login-screen" id="LS" style="opacity:0;pointer-events:none">
+  <div class="login-bg" id="LH">
+    <img class="login-bg-img" id="LH_IMG_A" src="login-kid-1.jpg" alt="" style="opacity:1;object-position:40% 8%">
+    <img class="login-bg-img" id="LH_IMG_B" src="login-kid-2.jpg" alt="" style="object-position:25% 8%">
+  </div>
   <div class="login-container" id="login-form">
-    <div class="login-hero" id="LH">
-      <img class="login-hero-img side-left" id="LH_IMG_A" src="login-kid-1.jpg" alt="" style="opacity:1">
-      <img class="login-hero-img side-right" id="LH_IMG_B" src="login-kid-2.jpg" alt="">
-    </div>
     <div class="login-logo-wrap"><span class="lring"></span><span class="lring r2"></span>
       <img src="logo-schoolsafe.png" alt="SchoolSafe" style="width:60px;height:60px;display:block;margin:0 auto 8px;animation:logoRainbow 8s linear infinite">
     </div>
@@ -2452,9 +2451,14 @@ window.toggleOfflineMode = function(){
   };
 
   // Rotation des photos d'élèves en arrière-plan de l'écran de connexion
-  var _LH_PHOTOS = ['login-kid-1.jpg','login-kid-2.jpg','login-kid-3.jpg','login-kid-4.jpg'];
-  var _LH_SIDES = ['side-left','side-right'];
-  var _lhIdx = 0, _lhSideIdx = 0, _lhFront = 'A';
+  // pos: [cadrage "gauche", cadrage "droite"] calibrés par photo (object-position)
+  var _LH_PHOTOS = [
+    {src:'login-kid-1.jpg', pos:['40% 8%','65% 8%']},
+    {src:'login-kid-2.jpg', pos:['25% 8%','55% 8%']},
+    {src:'login-kid-3.jpg', pos:['30% 8%','60% 8%']},
+    {src:'login-kid-4.jpg', pos:['25% 5%','45% 5%']}
+  ];
+  var _lhIdx = 0, _lhSideIdx = 1, _lhFront = 'A';
   window._startLoginHeroRotation = function(){
     if(window._loginHeroTimer) clearInterval(window._loginHeroTimer);
     window._loginHeroTimer = setInterval(function(){
@@ -2462,12 +2466,11 @@ window.toggleOfflineMode = function(){
       if(!a || !b) return;
       _lhIdx = (_lhIdx + 1) % _LH_PHOTOS.length;
       _lhSideIdx = (_lhSideIdx + 1) % 2;
-      var nextSide = _LH_SIDES[_lhSideIdx];
+      var photo = _LH_PHOTOS[_lhIdx];
       var showing = _lhFront === 'A' ? a : b;
       var hidden  = _lhFront === 'A' ? b : a;
-      hidden.classList.remove('side-left','side-right');
-      hidden.classList.add(nextSide);
-      hidden.src = _LH_PHOTOS[_lhIdx];
+      hidden.style.objectPosition = photo.pos[_lhSideIdx];
+      hidden.src = photo.src;
       requestAnimationFrame(function(){
         hidden.style.opacity = '1';
         showing.style.opacity = '0';
