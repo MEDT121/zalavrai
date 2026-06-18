@@ -463,19 +463,13 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   font-size:var(--text-xs);color:rgba(255,255,255,.5);
   letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
 }
-/* Hero clair "Tableau de bord" — carte vitrée flottant sur la photo de fond
-   pleine page (.app-photo-bg) ; permanent, aucun bouton jour/nuit. */
+/* Hero clair "Tableau de bord" — carte vitrée dégradée ; permanent, aucun bouton jour/nuit. */
 .dash-hero-light{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:var(--sp-4);background:rgba(10,17,48,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 34px rgba(8,14,32,.25);--text:#fff;--text-secondary:rgba(255,255,255,.7);--text-muted:rgba(255,255,255,.5);--border-light:rgba(255,255,255,.12)}
 .dash-hero-light .dhl-photo-row{position:relative;display:flex;align-items:center;gap:14px;padding:var(--sp-4) var(--sp-5) var(--sp-3)}
 .dash-hero-light .dhl-body{position:relative;padding:0 var(--sp-5) var(--sp-4)}
 .dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
 .dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:#fff;line-height:1;letter-spacing:-.03em}
 .dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
-/* Photo de fond pleine page, continue, non recadrée, sans voile — derrière toutes les cartes
-   du tableau de bord. Élément persistant (hors du conteneur #PC qui défile) pour rester
-   parfaitement immobile au scroll ; affiché/masqué par render() selon S.page. */
-.app-photo-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#0a1130;display:none}
-.app-photo-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transition:opacity 1.8s ease}
 /* Habillage permanent sombre — pages "Personnes" (Élèves, Classes, Profs, Gardiens, Parents, Autorisés) */
 .role-dark-page{margin:-20px -16px -90px;padding:20px 16px 90px;background:var(--bg)}
 /* Section */
@@ -965,7 +959,6 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 
 <!-- ── APP SHELL ── -->
 <div class="app" id="APP">
-  <div class="app-photo-bg" id="APP_PHOTO_BG"><img id="ABP_IMG_A" src="" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
   <div class="sidebar-overlay" id="SO" onclick="toggleSidebar()"></div>
   <aside class="sidebar" id="SB">
     <div class="sidebar-header">
@@ -2248,7 +2241,6 @@ window.animateCounters = () => {
 
 window.render = () => {
   const _tt=$('TT'); if(_tt) _tt.textContent = PT[S.page] || 'SchoolSafe';
-  const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? 'block' : 'none';
   const fn = R[S.page];
   try {
     const _pc=$('PC');
@@ -2498,39 +2490,6 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
     if(window._loginHeroTimer){ clearInterval(window._loginHeroTimer); window._loginHeroTimer=null; }
   };
 
-  // Rotation des mêmes photos en arrière-plan des tableaux de bord (app connectée) —
-  // démarrée à la connexion, arrêtée à la déconnexion ; survit aux render() car elle
-  // relit les éléments #ABP_IMG_A/#ABP_IMG_B par id à chaque tick (no-op si absents).
-  var _abpIdx = Math.floor(Math.random()*_LH_PHOTOS.length), _abpFront = 'A';
-  window._getAppBgPhoto = function(){
-    _abpFront = 'A';
-    return {src:_LH_PHOTOS[_abpIdx].src};
-  };
-  window._startAppBgRotation = function(){
-    if(window._appBgTimer) return;
-    window._appBgTimer = setInterval(function(){
-      var a = document.getElementById('ABP_IMG_A'), b = document.getElementById('ABP_IMG_B');
-      if(!a || !b) return;
-      var nextIdx = _abpIdx;
-      if(_LH_PHOTOS.length > 1){
-        while(nextIdx === _abpIdx) nextIdx = Math.floor(Math.random() * _LH_PHOTOS.length);
-      }
-      _abpIdx = nextIdx;
-      var photo = _LH_PHOTOS[_abpIdx];
-      var showing = _abpFront === 'A' ? a : b;
-      var hidden  = _abpFront === 'A' ? b : a;
-      hidden.src = photo.src;
-      requestAnimationFrame(function(){
-        hidden.style.opacity = '1';
-        showing.style.opacity = '0';
-      });
-      _abpFront = _abpFront === 'A' ? 'B' : 'A';
-    }, 10000);
-  };
-  window._stopAppBgRotation = function(){
-    if(window._appBgTimer){ clearInterval(window._appBgTimer); window._appBgTimer=null; }
-  };
-
   // Injecter la vidéo choisie, démarrer immédiatement, cycle continu
   document.addEventListener('DOMContentLoaded', function(){
     var vid = document.querySelector('#grd-girl video');
@@ -2648,8 +2607,6 @@ window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
   $('LS').classList.add('hidden');
   window._stopLoginHeroRotation&&window._stopLoginHeroRotation();
-  window._startAppBgRotation&&window._startAppBgRotation();
-  if(window._getAppBgPhoto){ const _abp0=window._getAppBgPhoto(); const _a0=document.getElementById('ABP_IMG_A'); if(_a0){ _a0.src=_abp0.src; _a0.style.opacity='1'; } }
   if(DB.settings?.school?.logo){
     window.SCHOOL_LOGO=DB.settings.school.logo;
     const _slEl=document.getElementById('sidebarLogo');
@@ -2662,7 +2619,6 @@ window.loginAs = async user => {
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); if(!window._iv_autosave) window._iv_autosave=setInterval(()=>{if(S.user&&(DB.users||[]).length>0)saveToCrypt();},30000); if(!window._iv_syncui) window._iv_syncui=setInterval(window.updateSyncIndicator,10000); if(!window._iv_heartbeat) window._iv_heartbeat=setInterval(()=>{if(S.user&&$('PC')&&!$('PC').innerHTML.trim()){toast('App rechargée automatiquement','info');render();}},15000); },450);
 };
 window.logout = () => {
-  window._stopAppBgRotation&&window._stopAppBgRotation();
   try { stopScan(); } catch(e) {}
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
@@ -3095,7 +3051,7 @@ function dashboardDirection() {
   return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
-  <!-- Hero clair — bande photo continue + avatar/salutation, fondu blanc -->
+  <!-- Hero clair — avatar/salutation -->
   <div class="dash-hero-light" role="banner" aria-label="Tableau de bord Direction" style="animation:fadeInUp .35s ease both">
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
