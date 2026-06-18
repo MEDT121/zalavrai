@@ -278,6 +278,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 /* Tableau de bord avec photo plein écran : topbar/bottom-nav deviennent translucides pour
    que la photo continue derrière elles, sans ligne de séparation visible. */
 body.pbg-active .topbar{background:rgba(10,17,48,.4);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);--text:#fff;--text-muted:rgba(255,255,255,.6)}
+body.pbg-active .topbar-notif-btn:hover,body.pbg-active .cube-btn:hover{background:rgba(255,255,255,.12)}
 /* ── CUBE WIDGET TOPBAR ── */
 .cube-widget{position:relative;display:flex;align-items:center;flex-shrink:0;z-index:200;overflow:visible}
 .cube-btn{width:48px;height:48px;background:none;border:none;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;border-radius:12px;transition:background .2s;flex-shrink:0}
@@ -319,6 +320,9 @@ body.pbg-active .topbar{background:rgba(10,17,48,.4);backdrop-filter:blur(14px);
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(255,247,238,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.07);box-shadow:0 -4px 24px rgba(0,0,0,.08);display:none;overflow:visible}
 .dark .bottom-nav{background:rgba(15,23,42,.97);border-top:1px solid rgba(255,255,255,.08)}
 body.pbg-active .bottom-nav{background:rgba(10,17,48,.45);border-top:none;box-shadow:none}
+body.pbg-active .bottom-nav-item .bnav-icon svg{stroke:#4b6280}
+body.pbg-active .bnav-label{color:#8098b8}
+body.pbg-active .bottom-nav-item.active::before{background:rgba(15,23,42,.97)}
 .bottom-nav-inner{display:flex;padding-bottom:env(safe-area-inset-bottom,0px);position:relative;overflow:visible}
 
 /* Indicateur bulle coulissante */
@@ -2248,7 +2252,7 @@ window.animateCounters = () => {
 
 window.render = () => {
   const _tt=$('TT'); if(_tt) _tt.textContent = PT[S.page] || 'SchoolSafe';
-  const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? '' : 'none';
+  const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? 'block' : 'none';
   document.body.classList.toggle('pbg-active', S.page === 'dashboard');
   const fn = R[S.page];
   try {
