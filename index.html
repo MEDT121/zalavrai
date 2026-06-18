@@ -474,17 +474,18 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
   font-size:var(--text-xs);color:rgba(255,255,255,.5);
   letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
 }
-/* Hero clair "Tableau de bord" — bande photo continue (écran de connexion) qui
-   s'estompe en blanc ; permanent, aucun bouton jour/nuit. */
-.dash-hero-light{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:var(--sp-4);background:var(--bg-card);box-shadow:0 4px 24px rgba(20,30,60,.07)}
-.dash-hero-light .dhl-photo{position:relative;height:138px;overflow:hidden}
-.dash-hero-light .dhl-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.6s ease;filter:saturate(.92)}
-.dash-hero-light .dhl-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,32,.5) 0%,rgba(8,14,32,.2) 48%,var(--bg-card) 96%)}
-.dash-hero-light .dhl-photo-row{position:absolute;left:0;right:0;bottom:14px;z-index:1;display:flex;align-items:center;gap:14px;padding:0 var(--sp-5)}
-.dash-hero-light .dhl-body{position:relative;z-index:1;padding:0 var(--sp-5) var(--sp-4);margin-top:-4px}
-.dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border-light);flex-wrap:wrap}
-.dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em}
-.dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+/* Hero clair "Tableau de bord" — carte vitrée flottant sur la photo de fond
+   pleine page (.app-photo-bg) ; permanent, aucun bouton jour/nuit. */
+.dash-hero-light{position:relative;overflow:hidden;border-radius:var(--radius);margin-bottom:var(--sp-4);background:rgba(10,17,48,.5);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 34px rgba(8,14,32,.25);--text:#fff;--text-secondary:rgba(255,255,255,.7);--text-muted:rgba(255,255,255,.5);--border-light:rgba(255,255,255,.12)}
+.dash-hero-light .dhl-photo-row{position:relative;display:flex;align-items:center;gap:14px;padding:var(--sp-4) var(--sp-5) var(--sp-3)}
+.dash-hero-light .dhl-body{position:relative;padding:0 var(--sp-5) var(--sp-4)}
+.dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap}
+.dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:#fff;line-height:1;letter-spacing:-.03em}
+.dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
+/* Photo de fond pleine page, continue, non recadrée — derrière toutes les cartes du tableau de bord */
+.app-photo-bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:#0a1130}
+.app-photo-bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transition:opacity 1.8s ease}
+.app-photo-bg::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,32,.35) 0%,rgba(8,14,32,.55) 45%,rgba(8,14,32,.8) 100%)}
 /* Habillage permanent sombre — pages "Personnes" (Élèves, Classes, Profs, Gardiens, Parents, Autorisés) */
 .role-dark-page{margin:-20px -16px -90px;padding:20px 16px 90px;background:var(--bg)}
 /* Section */
@@ -2525,11 +2526,10 @@ window.toggleOfflineMode = function(){
   // Rotation des mêmes photos en arrière-plan des tableaux de bord (app connectée) —
   // démarrée à la connexion, arrêtée à la déconnexion ; survit aux render() car elle
   // relit les éléments #ABP_IMG_A/#ABP_IMG_B par id à chaque tick (no-op si absents).
-  var _abpIdx = Math.floor(Math.random()*_LH_PHOTOS.length), _abpSideIdx = Math.floor(Math.random()*2), _abpFront = 'A';
+  var _abpIdx = Math.floor(Math.random()*_LH_PHOTOS.length), _abpFront = 'A';
   window._getAppBgPhoto = function(){
     _abpFront = 'A';
-    var photo = _LH_PHOTOS[_abpIdx];
-    return {src:photo.src, pos:photo.pos[_abpSideIdx]};
+    return {src:_LH_PHOTOS[_abpIdx].src};
   };
   window._startAppBgRotation = function(){
     if(window._appBgTimer) return;
@@ -2541,19 +2541,16 @@ window.toggleOfflineMode = function(){
         while(nextIdx === _abpIdx) nextIdx = Math.floor(Math.random() * _LH_PHOTOS.length);
       }
       _abpIdx = nextIdx;
-      _abpSideIdx = Math.floor(Math.random() * 2);
       var photo = _LH_PHOTOS[_abpIdx];
       var showing = _abpFront === 'A' ? a : b;
       var hidden  = _abpFront === 'A' ? b : a;
-      hidden.style.objectPosition = photo.pos[_abpSideIdx];
-      hidden.style.objectFit = photo.legacy ? 'cover' : '';
       hidden.src = photo.src;
       requestAnimationFrame(function(){
         hidden.style.opacity = '1';
         showing.style.opacity = '0';
       });
       _abpFront = _abpFront === 'A' ? 'B' : 'A';
-    }, 7000);
+    }, 10000);
   };
   window._stopAppBgRotation = function(){
     if(window._appBgTimer){ clearInterval(window._appBgTimer); window._appBgTimer=null; }
@@ -3111,15 +3108,11 @@ function dashboardDirection() {
       </div>`;
   }).join('');
 
-  return `
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
   <!-- Hero clair — bande photo continue + avatar/salutation, fondu blanc -->
   <div class="dash-hero-light" role="banner" aria-label="Tableau de bord Direction" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(217,164,58,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
@@ -3375,14 +3368,10 @@ function dashboardEnseignant() {
     </div>` : '';
 
   const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `${_weekendBanner(false)}
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
@@ -3541,14 +3530,10 @@ function dashboardDirection2() {
   }).join('');
 
   const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(180,160,255,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
@@ -3672,14 +3657,10 @@ function dashboardDirection3() {
   const pendingReport = (DB.daily_reports||[]).some(r=>r.date===d&&r.status==='pending');
 
   const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(110,225,180,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
@@ -3774,14 +3755,10 @@ function dashboardGardien() {
   const fc = DB.settings?.feesControl||{};
 
   const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
-  return `${_weekendBanner(false)}
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,170,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
@@ -3961,14 +3938,10 @@ function dashboardParent() {
       ${myNotifs.length>4?`<div class="dp-list-item" onclick="go('notifications')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir tout (${myNotifs.length}) →</div>`:''}
     </div>` : '';
 
-  return `${_weekendBanner(false)}
+  return `<div class="app-photo-bg"><img id="ABP_IMG_A" src="${_abp.src}" style="opacity:1"><img id="ABP_IMG_B" src="" style="opacity:0"></div>${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
   <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
-    <div class="dhl-photo">
-      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
-      <img id="ABP_IMG_B" src="" style="opacity:0">
-    </div>
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
