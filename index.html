@@ -4554,7 +4554,7 @@ window.toggleFeesControl = () => {
 // ── ALERT URGENT (Gardien) ──
 R.alert_urgent = () => {
   const recent = DB.notifs.filter(n=>n.type==='urgent'&&n.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,5);
-  return `
+  return _wrapDark(`
 <div class="premium-section" style="border-left:4px solid #dc2626">
   <div style="text-align:center;padding:20px 0 12px">
     <div style="font-size:72px;margin-bottom:10px;animation:breathe 2s ease-in-out infinite">🚨</div>
@@ -4581,8 +4581,8 @@ R.alert_urgent = () => {
 ${recent.length?`
 <div class="premium-section">
   <div class="premium-section-title">🕐 Mes alertes récentes</div>
-  ${recent.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title" style="font-size:12px">${esc(n.msg.replace(/^🚨 ALERTE PORTAIL — [^—]+— /,''))}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
-</div>`:''}`;
+  ${recent.map(n=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title" style="font-size:12px">${esc(n.msg.replace(/^🚨 ALERTE PORTAIL — [^—]+— /,''))}</div><div class="pi-sub">${n.date} ${n.time}</div></div></div>`).join('')}
+</div>`:''}`);
 };
 window.sendUrgentAlert = () => {
   const type = document.getElementById('alertType')?.value || 'Situation anormale';
@@ -9992,7 +9992,7 @@ R.scan_log = () => {
   const typeIcon={entry:'📥',exit:'🚪'};
   const datePicker=isDir?`<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;render()" style="flex:1;max-width:180px"><span style="font-size:13px;color:var(--text-muted)">${selDate===today()?'Aujourd\'hui':new Date(selDate).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>`:''
   const incidents=logs.filter(l=>l.status==='unauthorized'||l.status==='refused');
-  return `
+  return _wrapDark(`
   ${datePicker}
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">🟢</div><div class="hbig">${ontime}</div><div class="hsub">à l'heure</div></div>
@@ -10002,7 +10002,7 @@ R.scan_log = () => {
   </div>
   ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
   ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité aujourd'hui (${incidents.length})</div>
-    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">🚨</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.label||l.status} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#dc2626">${l.time}</span></div>`).join('')}
+    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.label||l.status} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#f87171">${l.time}</span></div>`).join('')}
   </div>`:''}
   ${logs.length?`
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} scan${logs.length>1?'s':''} aujourd'hui</div>
@@ -10011,12 +10011,12 @@ R.scan_log = () => {
       const byUser=l.by_uid?(DB.users||[]).find(u=>u.id===l.by_uid):null;
       const byLabel=l.by_name||(byUser?byUser.name:null);
       return `<div class="ww-item" style="animation-delay:${i*.03}s">
-        <div class="ww-item-icon" style="background:${l.status==='ontime'?'#d8f3e6':l.status==='late'?'#fdeccd':l.status==='refused'||l.status==='unauthorized'?'#fee2e2':'#dbeafe'}">${typeIcon[l.type]||'📋'}</div>
+        <div class="ww-item-icon" style="background:${l.status==='ontime'?'rgba(5,150,105,.22)':l.status==='late'?'rgba(217,119,6,.22)':l.status==='refused'||l.status==='unauthorized'?'rgba(220,38,38,.22)':'rgba(37,99,235,.22)'}">${typeIcon[l.type]||'📋'}</div>
         <div class="ww-item-content">
           <div class="ww-item-title">${esc(l.name)}</div>
           <div class="ww-item-sub">${l.type==='entry'?'Entrée':'Sortie'}${l.label?' — '+esc(l.label):''}</div>
-          ${byLabel?`<div style="font-size:11px;color:${l.by_role==='enseignant'?'#1f9d6b':l.by_role==='direction'||l.by_role==='direction2'?'#205fae':'#9b6fd4'};margin-top:2px;display:flex;align-items:center;gap:4px">
-            <span style="width:18px;height:18px;border-radius:50%;background:${l.by_role==='enseignant'?'#d8f3e6':l.by_role==='direction'||l.by_role==='direction2'?'#dbeafe':'#f0e9fa'};display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">${ini(byLabel)}</span>
+          ${byLabel?`<div style="font-size:11px;color:${l.by_role==='enseignant'?'#34d399':l.by_role==='direction'||l.by_role==='direction2'?'#93c5fd':'#d0c2f2'};margin-top:2px;display:flex;align-items:center;gap:4px">
+            <span style="width:18px;height:18px;border-radius:50%;background:${l.by_role==='enseignant'?'rgba(5,150,105,.22)':l.by_role==='direction'||l.by_role==='direction2'?'rgba(37,99,235,.22)':'rgba(139,92,246,.22)'};display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">${ini(byLabel)}</span>
             <span>${l.type==='exit'?'Autorisé par':'Scanné par'} ${esc(byLabel)} <span style="opacity:.6;font-size:10px">(${l.by_role==='enseignant'?'Prof':l.by_role==='gardien'?'Gardien':'Direction'})</span></span>
           </div>`:''}
         </div>
@@ -10024,7 +10024,7 @@ R.scan_log = () => {
         <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
       </div>`;}).join('')}
   </div>`:
-  '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>Aucun scan aujourd\'hui</div>'}`;
+  '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>Aucun scan aujourd\'hui</div>'}`);
 };
 
 window.sendAttendanceList = async () => {
