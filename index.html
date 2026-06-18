@@ -482,7 +482,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .dash-hero-light .dhl-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,14,32,.5) 0%,rgba(8,14,32,.2) 48%,var(--bg-card) 96%)}
 .dash-hero-light .dhl-photo-row{position:absolute;left:0;right:0;bottom:14px;z-index:1;display:flex;align-items:center;gap:14px;padding:0 var(--sp-5)}
 .dash-hero-light .dhl-body{position:relative;z-index:1;padding:0 var(--sp-5) var(--sp-4);margin-top:-4px}
-.dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border-light)}
+.dash-hero-light .dhl-stats{display:flex;gap:var(--sp-5);padding-top:var(--sp-3);border-top:1px solid var(--border-light);flex-wrap:wrap}
 .dash-hero-light .dhl-stat-n{font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,3.5vw,22px);font-weight:800;color:var(--text);line-height:1;letter-spacing:-.03em}
 .dash-hero-light .dhl-stat-l{font-size:var(--text-xs);color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;margin-top:2px}
 /* Section */
@@ -3370,30 +3370,33 @@ function dashboardEnseignant() {
       }).join('')}
     </div>` : '';
 
+  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
   return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
-  <div class="dp-hero" style="background:linear-gradient(135deg,#16307a,#2f7bd6 60%,#2f8fa6);animation:fadeInUp .35s ease both;overflow:hidden;position:relative">
-    <div style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none">
-      <div style="position:absolute;top:-25px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
-      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmerSlide 3s linear infinite"></div>
+  <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
     </div>
-    <div style="display:flex;align-items:center;gap:14px;position:relative;margin-bottom:var(--sp-4)">
-      <div style="position:relative;width:58px;height:58px;flex-shrink:0">
-        <span style="position:absolute;inset:-3px;border-radius:18px;border:2px solid rgba(255,210,120,.6);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:58px;height:58px;border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.1));border:2px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
-        <span style="position:absolute;right:-2px;bottom:-2px;width:15px;height:15px;border-radius:50%;background:#2fbf8f;border:2.5px solid #16307a"></span>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
-        <div class="dp-hero-eyebrow" style="color:#ffd27a">Enseignant · SchoolSafe</div>
-        <div class="dp-hero-name">${cl?esc(cl.name):'Ma Classe'}</div>
-        <div class="dp-hero-sub">${esc(u.name)}${lang?' — Prof '+lang:''}${isTit?' · Titulaire':''} · ${students.length} élève${students.length!==1?'s':''}</div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#ffd27a;text-shadow:0 1px 4px rgba(0,0,0,.3)">Enseignant · SchoolSafe</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">${cl?esc(cl.name):'Ma Classe'}</div>
       </div>
     </div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs"><div class="dp-hs-n">${students.length}</div><div class="dp-hs-l">Total</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${scannedToday.length}</div><div class="dp-hs-l">Scannés</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${unreadMsgs}</div><div class="dp-hs-l">Messages</div></div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${esc(u.name)}${lang?' — Prof '+lang:''}${isTit?' · Titulaire':''} · ${students.length} élève${students.length!==1?'s':''}</div>
+      <div class="dhl-stats">
+        <div><div class="dhl-stat-n">${students.length}</div><div class="dhl-stat-l">Total</div></div>
+        <div><div class="dhl-stat-n">${scannedToday.length}</div><div class="dhl-stat-l">Scannés</div></div>
+        <div><div class="dhl-stat-n">${unreadMsgs}</div><div class="dhl-stat-l">Messages</div></div>
+      </div>
     </div>
   </div>
 
@@ -3533,17 +3536,33 @@ function dashboardDirection2() {
     </div>`;
   }).join('');
 
+  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
   return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
-  <div class="dp-hero" style="background:linear-gradient(135deg,#2e1065,#5b6fd6);animation:fadeInUp .35s ease both">
-    <div class="dp-hero-eyebrow">Direction Pédagogique · SchoolSafe</div>
-    <div class="dp-hero-name">Bj, ${esc(u.name?.split(' ')[0]||'Dir. 2')} 👋</div>
-    <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs"><div class="dp-hs-n">${students.length}</div><div class="dp-hs-l">Élèves</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${teachers.length}</div><div class="dp-hs-l">Profs</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${presencePct}%</div><div class="dp-hs-l">Présence</div></div>
+  <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
+    </div>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(180,160,255,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'D')}</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#c9b6ff;text-shadow:0 1px 4px rgba(0,0,0,.3)">Direction Pédagogique · SchoolSafe</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">Bj, ${esc(u.name?.split(' ')[0]||'Dir. 2')} 👋</div>
+      </div>
+    </div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      <div class="dhl-stats">
+        <div><div class="dhl-stat-n">${students.length}</div><div class="dhl-stat-l">Élèves</div></div>
+        <div><div class="dhl-stat-n">${teachers.length}</div><div class="dhl-stat-l">Profs</div></div>
+        <div><div class="dhl-stat-n">${presencePct}%</div><div class="dhl-stat-l">Présence</div></div>
+      </div>
     </div>
   </div>
 
@@ -3648,17 +3667,33 @@ function dashboardDirection3() {
   const timeMsg = now < rapport16h ? `Rapport dans ${minsLeft} min` : 'Rapport soumis aujourd\'hui';
   const pendingReport = (DB.daily_reports||[]).some(r=>r.date===d&&r.status==='pending');
 
+  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
   return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
-  <div class="dp-hero" style="background:linear-gradient(135deg,#064e3b,#1f9d6b);animation:fadeInUp .35s ease both">
-    <div class="dp-hero-eyebrow">Direction Financière · Caisse</div>
-    <div class="dp-hero-name">Caisse du jour</div>
-    <div class="dp-hero-sub">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs"><div class="dp-hs-n">$${totalIn}</div><div class="dp-hs-l">Encaissé</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">$${totalOut}</div><div class="dp-hs-l">Dépensé</div></div>
-      <div class="dp-hs"><div class="dp-hs-n" style="color:${net>=0?'#95ddbb':'#fca5a5'}">${net>=0?'+':''}$${net}</div><div class="dp-hs-l">Solde</div></div>
+  <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
+    </div>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(110,225,180,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:22px">💰</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#9bdfc0;text-shadow:0 1px 4px rgba(0,0,0,.3)">Direction Financière · Caisse</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">Caisse du jour</div>
+      </div>
+    </div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      <div class="dhl-stats">
+        <div><div class="dhl-stat-n">$${totalIn}</div><div class="dhl-stat-l">Encaissé</div></div>
+        <div><div class="dhl-stat-n">$${totalOut}</div><div class="dhl-stat-l">Dépensé</div></div>
+        <div><div class="dhl-stat-n" style="color:${net>=0?'var(--green)':'var(--pink)'}">${net>=0?'+':''}$${net}</div><div class="dhl-stat-l">Solde</div></div>
+      </div>
     </div>
   </div>
 
@@ -3734,18 +3769,34 @@ function dashboardGardien() {
   const refusedG = entries.filter(l=>l.status==='refused').length;
   const fc = DB.settings?.feesControl||{};
 
+  const _abp = window._getAppBgPhoto ? window._getAppBgPhoto() : {src:'login-kid-5.jpg',pos:'35% 70%'};
   return `${_weekendBanner(false)}
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto">
 
-  <div class="dp-hero" style="background:linear-gradient(135deg,#7c2d12,#ff7a4d);animation:fadeInUp .35s ease both">
-    <div class="dp-hero-eyebrow">Portail · Sécurité</div>
-    <div class="dp-hero-name">${S.lockdown?'🔴 CONFINEMENT':'Portail · Sécurité'}</div>
-    <div class="dp-hero-sub">${esc(S.user.name)} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
-    <div class="dp-hero-stats">
-      <div class="dp-hs"><div class="dp-hs-n">${ontime}</div><div class="dp-hs-l">À l'heure</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${lateG}</div><div class="dp-hs-l">Retards</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${refusedG}</div><div class="dp-hs-l">Refusés</div></div>
-      <div class="dp-hs"><div class="dp-hs-n">${exits.length}</div><div class="dp-hs-l">Sorties</div></div>
+  <div class="dash-hero-light" style="animation:fadeInUp .35s ease both">
+    <div class="dhl-photo">
+      <img id="ABP_IMG_A" src="${_abp.src}" style="object-position:${_abp.pos};opacity:1">
+      <img id="ABP_IMG_B" src="" style="opacity:0">
+    </div>
+    <div class="dhl-photo-row">
+      <div style="position:relative;width:54px;height:54px;flex-shrink:0">
+        <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,170,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(S.user.name||'G')}</div>
+        <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:${S.lockdown?'#f87171':'#2fbf8f'};border:2.5px solid rgba(8,14,32,.55)"></span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#ffc299;text-shadow:0 1px 4px rgba(0,0,0,.3)">Portail · Sécurité</div>
+        <div style="font-family:'Outfit','Space Grotesk',sans-serif;font-size:clamp(18px,4vw,23px);font-weight:800;color:#fff;letter-spacing:-.02em;text-shadow:0 1px 6px rgba(0,0,0,.3)">${S.lockdown?'🔴 CONFINEMENT':'Portail · Sécurité'}</div>
+      </div>
+    </div>
+    <div class="dhl-body">
+      <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${esc(S.user.name)} · ${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
+      <div class="dhl-stats">
+        <div><div class="dhl-stat-n">${ontime}</div><div class="dhl-stat-l">À l'heure</div></div>
+        <div><div class="dhl-stat-n">${lateG}</div><div class="dhl-stat-l">Retards</div></div>
+        <div><div class="dhl-stat-n">${refusedG}</div><div class="dhl-stat-l">Refusés</div></div>
+        <div><div class="dhl-stat-n">${exits.length}</div><div class="dhl-stat-l">Sorties</div></div>
+      </div>
     </div>
   </div>
 
