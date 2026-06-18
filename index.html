@@ -2220,14 +2220,19 @@ window.animateCounters = () => {
       setTimeout(() => { if(item) item.style.background=''; }, 900);
     }
   }
-  // Fix hqa-scroll — prevents navigation on horizontal swipe-to-scroll
+  // Fix hqa-scroll — empêche la navigation accidentelle quand le doigt glisse
+  // (horizontalement sur le carrousel OU verticalement pour faire défiler la page)
   document.querySelectorAll('.hqa-scroll').forEach(el => {
     if (el._hqaFixed) return;
     el._hqaFixed = true;
-    let sx=0, moved=false;
-    el.addEventListener('touchstart', e => { sx=e.touches[0].clientX; moved=false; }, {passive:true});
-    el.addEventListener('touchmove', e => { if(Math.abs(e.touches[0].clientX-sx)>8) moved=true; }, {passive:true});
-    el.addEventListener('click', e => { if(moved){e.stopPropagation();moved=false;} }, true);
+    let sx=0, sy=0, moved=false;
+    el.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
+    el.addEventListener('touchmove', e => {
+      const dx = Math.abs(e.touches[0].clientX-sx), dy = Math.abs(e.touches[0].clientY-sy);
+      if (dx>8 || dy>8) moved=true;
+    }, {passive:true});
+    el.addEventListener('touchcancel', () => { moved=false; }, {passive:true});
+    el.addEventListener('click', e => { if(moved){e.stopPropagation();e.preventDefault();moved=false;} }, true);
   });
   // cascade animation delays
   document.querySelectorAll('.ww-card').forEach((el, i) => el.style.setProperty('--i', i));
@@ -3128,7 +3133,7 @@ function dashboardDirection() {
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(217,164,58,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff" aria-hidden="true">${ini(u.name||'D')}</div>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;overflow:hidden" aria-hidden="true">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(u.name||'D')}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -3386,7 +3391,7 @@ function dashboardEnseignant() {
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;overflow:hidden">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(u.name||'P')}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -3547,7 +3552,7 @@ function dashboardDirection2() {
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(180,160,255,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'D')}</div>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;overflow:hidden">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(u.name||'D')}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -3770,7 +3775,7 @@ function dashboardGardien() {
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,170,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(S.user.name||'G')}</div>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;overflow:hidden">${S.user.photo_url?`<img src="${S.user.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(S.user.name||'G')}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:${S.lockdown?'#f87171':'#2fbf8f'};border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
@@ -3952,7 +3957,7 @@ function dashboardParent() {
     <div class="dhl-photo-row">
       <div style="position:relative;width:54px;height:54px;flex-shrink:0">
         <span style="position:absolute;inset:-3px;border-radius:17px;border:2px solid rgba(255,210,120,.7);animation:loginPulseRing 2.8s ease-out infinite"></span>
-        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff">${ini(u.name||'P')}</div>
+        <div style="width:54px;height:54px;border-radius:17px;background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.12));border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:900;color:#fff;overflow:hidden">${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(u.name||'P')}</div>
         <span style="position:absolute;right:-2px;bottom:-2px;width:14px;height:14px;border-radius:50%;background:#2fbf8f;border:2.5px solid rgba(8,14,32,.55)"></span>
       </div>
       <div style="flex:1;min-width:0">
