@@ -900,8 +900,8 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 <!-- ── LOGIN SCREEN ── -->
 <div class="login-screen" id="LS" style="opacity:0;pointer-events:none">
   <div class="login-bg" id="LH">
-    <img class="login-bg-img" id="LH_IMG_A" src="login-kid-1.jpg" alt="" style="opacity:1;object-position:40% 8%">
-    <img class="login-bg-img" id="LH_IMG_B" src="login-kid-2.jpg" alt="" style="object-position:25% 8%">
+    <img class="login-bg-img" id="LH_IMG_A" src="login-kid-1.jpg" alt="" style="opacity:1;object-position:40% 8%;object-fit:cover">
+    <img class="login-bg-img" id="LH_IMG_B" src="login-kid-2.jpg" alt="" style="object-position:25% 8%;object-fit:cover">
   </div>
   <div class="login-container" id="login-form">
     <div class="login-logo-wrap"><span class="lring"></span><span class="lring r2"></span>
@@ -2459,10 +2459,10 @@ window.toggleOfflineMode = function(){
   // Rotation des photos d'élèves en arrière-plan de l'écran de connexion
   // pos: [cadrage "gauche", cadrage "droite"] calibrés par photo (object-position)
   var _LH_PHOTOS = [
-    {src:'login-kid-1.jpg', pos:['40% 8%','65% 8%']},
-    {src:'login-kid-2.jpg', pos:['25% 8%','55% 8%']},
-    {src:'login-kid-3.jpg', pos:['30% 8%','60% 8%']},
-    {src:'login-kid-4.jpg', pos:['25% 5%','45% 5%']},
+    {src:'login-kid-1.jpg', pos:['40% 8%','65% 8%'], legacy:true},
+    {src:'login-kid-2.jpg', pos:['25% 8%','55% 8%'], legacy:true},
+    {src:'login-kid-3.jpg', pos:['30% 8%','60% 8%'], legacy:true},
+    {src:'login-kid-4.jpg', pos:['25% 5%','45% 5%'], legacy:true},
     {src:'login-kid-5.jpg', pos:['35% 70%','60% 70%']},
     {src:'login-kid-6.jpg', pos:['30% 70%','55% 70%']},
     {src:'login-kid-7.jpg', pos:['35% 70%','60% 70%']},
@@ -2490,6 +2490,7 @@ window.toggleOfflineMode = function(){
       var showing = _lhFront === 'A' ? a : b;
       var hidden  = _lhFront === 'A' ? b : a;
       hidden.style.objectPosition = photo.pos[_lhSideIdx];
+      hidden.style.objectFit = photo.legacy ? 'cover' : '';
       hidden.src = photo.src;
       requestAnimationFrame(function(){
         hidden.style.opacity = '1';
