@@ -251,6 +251,12 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .nav-item{display:flex;align-items:center;gap:12px;padding:10px 18px;color:rgba(255,255,255,.6);font-size:13.5px;font-weight:500;cursor:pointer;transition:all .2s;border-right:3px solid transparent}
 .nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
 .nav-item.active{background:rgba(37,99,235,.35);color:#fff;border-right-color:#2f7bd6}
+.nav-section{margin:0}
+.nav-section-light{background:rgba(255,255,255,.96);margin:6px 10px 14px;border-radius:14px;padding:2px 0 8px;box-shadow:0 6px 16px rgba(0,0,0,.18)}
+.nav-section-light .nav-section-label{color:rgba(15,23,42,.4)}
+.nav-section-light .nav-item{color:#475569}
+.nav-section-light .nav-item:hover{background:rgba(15,23,42,.06);color:#0f172a}
+.nav-section-light .nav-item.active{background:rgba(37,99,235,.12);color:#1d4ed8;border-right-color:#2563eb}
 .nav-icon{font-size:17px;width:22px;text-align:center}
 .nav-badge{margin-left:auto;background:#ef5b5b;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;min-width:18px;text-align:center}
 .sidebar-footer{padding:16px;border-top:1px solid rgba(255,255,255,.08)}
@@ -2805,15 +2811,22 @@ window.buildUI = () => {
   // Topbar avatar button
   const ta=$('TOPAVATAR'); if(ta) ta.textContent=S.user.initials||ini(S.user.name);
   // Sidebar nav
-  const sn = $('SN'); sn.innerHTML = '';
+  const sn = $('SN');
   const pending = getPendingCount();
+  let navHtml = '', secOpen = false, secIdx = -1;
   c.nav.forEach(x => {
-    if (x.s) { sn.innerHTML += `<div class="nav-section-label">${gl(x.s)}</div>`; }
-    else {
+    if (x.s) {
+      if (secOpen) navHtml += '</div>';
+      secIdx++;
+      navHtml += `<div class="nav-section nav-section-${secIdx % 2 === 0 ? 'dark' : 'light'}"><div class="nav-section-label">${gl(x.s)}</div>`;
+      secOpen = true;
+    } else {
       const badge = x.badge && pending > 0 ? `<span class="nav-badge">${pending}</span>` : '';
-      sn.innerHTML += `<div class="nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="nav-icon">${x.i}</span>${gl(x.l)}${badge}</div>`;
+      navHtml += `<div class="nav-item${x.id===S.page?' active':''}" data-p="${x.id}" onclick="go('${x.id}')"><span class="nav-icon">${x.i}</span>${gl(x.l)}${badge}</div>`;
     }
   });
+  if (secOpen) navHtml += '</div>';
+  sn.innerHTML = navHtml;
   // Bottom nav — chaque bouton reçoit sa propre couleur futuriste (--nc plein, --ncg glow)
   // pour s'allumer distinctement à l'appui malgré la transparence de la barre.
   const bn = $('BN'); bn.innerHTML = '';
