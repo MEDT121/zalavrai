@@ -2211,19 +2211,27 @@ window.animateCounters = () => {
     el.addEventListener('click', e => { if(moved){e.stopPropagation();e.preventDefault();moved=false;} }, true);
   });
   // Fix dp-quick-btn — même problème que hqa-scroll : un doigt qui glisse pour
-  // faire défiler la page sur une grille de raccourcis ne doit pas valider le bouton
-  document.querySelectorAll('.dp-quick-btn').forEach(el => {
-    if (el._hqaFixed) return;
-    el._hqaFixed = true;
+  // faire défiler la page sur une grille de raccourcis ne doit pas valider le bouton.
+  // Délégué sur document (ancêtre réel) au lieu du bouton lui-même : un listener
+  // posé sur le même élément que l'attribut onclick s'exécute dans l'ordre
+  // d'ajout (onclick gagne toujours), pas selon la phase capture/bubble.
+  if (!window._dpQuickFixed) {
+    window._dpQuickFixed = true;
     let sx=0, sy=0, moved=false;
-    el.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
-    el.addEventListener('touchmove', e => {
+    document.addEventListener('touchstart', e => {
+      if (!e.target.closest('.dp-quick-btn')) return;
+      sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false;
+    }, {passive:true, capture:true});
+    document.addEventListener('touchmove', e => {
+      if (!moved && !e.target.closest('.dp-quick-btn')) return;
       const dx = Math.abs(e.touches[0].clientX-sx), dy = Math.abs(e.touches[0].clientY-sy);
       if (dx>8 || dy>8) moved=true;
-    }, {passive:true});
-    el.addEventListener('touchcancel', () => { moved=false; }, {passive:true});
-    el.addEventListener('click', e => { if(moved){e.stopPropagation();e.preventDefault();moved=false;} }, true);
-  });
+    }, {passive:true, capture:true});
+    document.addEventListener('touchcancel', () => { moved=false; }, {passive:true, capture:true});
+    document.addEventListener('click', e => {
+      if (moved && e.target.closest('.dp-quick-btn')) { e.stopPropagation(); e.preventDefault(); moved=false; }
+    }, true);
+  }
   // cascade animation delays
   document.querySelectorAll('.ww-card').forEach((el, i) => el.style.setProperty('--i', i));
   document.querySelectorAll('.ww-item').forEach((el, i) => el.style.setProperty('--i', i));
