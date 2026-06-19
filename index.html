@@ -14433,10 +14433,12 @@ R.profil_enseignant = () => {
   const [cc,cbg]=cl?clsColor(cl.name):['#205fae','#dbeafe'];
   const validTabs=['classe','profil','finances','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
+  const TAB_MODE={classe:'dark',profil:'light',finances:'light',securite:'dark'};
   const clr='#205fae';
   const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>(b.month||'').localeCompare(a.month||'')).slice(0,6);
   const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
   return `
+  <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="background:linear-gradient(135deg,${clr},#5b6fd6 60%,#2f8fa6);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 16px 44px rgba(29,78,216,.4)">
     <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 88% -10%,rgba(255,210,120,.3),transparent 55%);pointer-events:none"></div>
     <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
@@ -14461,13 +14463,13 @@ R.profil_enseignant = () => {
     </div>
   </div>
   <div style="padding:0 4px 4px">
-    <div style="display:flex;gap:2px;background:#f6ede0;border-radius:14px;padding:4px;margin-bottom:16px">
+    <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['classe',t('Ma classe','My class')],['profil',t('Modifier','Edit')],['finances',t('Finances','Finances')],['securite',t('Sécurité','Security')]].map(([id,label])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="${clr}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#6f6557'};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
-    <div data-ptab="classe" style="${tab==='classe'?'':'display:none'}">
+    <div data-ptab="classe" data-ptab-mode="dark" style="${tab==='classe'?'':'display:none'}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
         ${[[myDevoirs,t('Devoirs','Tasks'),'#2f7bd6','#5b9be8','📄','devoirs'],[myCahier,t('Cahier','Lesson log'),'#1f9d6b','#62d3a6','📓','cahier_texte'],[myNotes,t('Notes','Grades'),'#9b6fd4','#b591e0','📝','palmares'],[myRats,'Rattrapages','#ff7a4d','#ff9c6e','🔁','rattrapages']].map(([n,lbl,c1,c2,ic,pg])=>`
         <div class="htile" onclick="go('${pg}')" role="button" tabindex="0" style="background:linear-gradient(135deg,${c1},${c2});color:#fff">
@@ -14477,62 +14479,53 @@ R.profil_enseignant = () => {
         </div>`).join('')}
       </div>
       ${cl?`
-      <div style="background:#fff5ea;border-left:4px solid ${clr};border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(29,78,216,.06)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-          <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-          <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">${t("Aujourd'hui","Today")}</div>
-        </div>
+      <div class="pt-glass" style="padding:18px;margin-bottom:14px">
+        <div class="pt-glass-title" style="margin-bottom:14px">${t("Aujourd'hui","Today")}</div>
         <div style="display:flex;gap:10px">
-          <div style="flex:1;padding:12px;border-radius:14px;background:#d8f3e6;text-align:center"><div style="font-size:24px;font-weight:800;color:#1f9d6b">${attPresEns}</div><div style="font-size:11px;color:#065f46;font-weight:600">${t("À l'heure","On time")}</div></div>
-          <div style="flex:1;padding:12px;border-radius:14px;background:#fdeccd;text-align:center"><div style="font-size:24px;font-weight:800;color:#d98a2b">${attLateEns}</div><div style="font-size:11px;color:#92400e;font-weight:600">${t('Retards','Late')}</div></div>
-          <div style="flex:1;padding:12px;border-radius:14px;background:#fee2e2;text-align:center"><div style="font-size:24px;font-weight:800;color:#dc2626">${attAbsEns}</div><div style="font-size:11px;color:#991b1b;font-weight:600">${t('Absents','Absent')}</div></div>
+          <div style="flex:1;padding:12px;border-radius:14px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.18);text-align:center"><div style="font-size:24px;font-weight:800;color:#34d399">${attPresEns}</div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600">${t("À l'heure","On time")}</div></div>
+          <div style="flex:1;padding:12px;border-radius:14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.18);text-align:center"><div style="font-size:24px;font-weight:800;color:#fbbf24">${attLateEns}</div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600">${t('Retards','Late')}</div></div>
+          <div style="flex:1;padding:12px;border-radius:14px;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.18);text-align:center"><div style="font-size:24px;font-weight:800;color:#f87171">${attAbsEns}</div><div style="font-size:11px;color:rgba(255,255,255,.6);font-weight:600">${t('Absents','Absent')}</div></div>
         </div>
       </div>
-      <div style="background:#fff5ea;border-left:4px solid #9b6fd4;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(124,58,237,.06)">
+      <div class="pt-glass" style="padding:18px;margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div style="width:3px;height:14px;border-radius:2px;background:#9b6fd4"></div>
-            <div style="font-size:10px;font-weight:800;color:#9b6fd4;letter-spacing:1.5px;text-transform:uppercase">${t('Couverture notes','Grade coverage')}</div>
-          </div>
-          <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#1f9d6b':coveragePct>=40?'#d98a2b':'#dc2626'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
+          <div class="pt-glass-title">${t('Couverture notes','Grade coverage')}</div>
+          <span style="font-size:13px;font-weight:800;color:${coveragePct>=80?'#34d399':coveragePct>=40?'#fbbf24':'#f87171'}">${studentsWithGrade}/${students.length} (${coveragePct}%)</span>
         </div>
-        <div style="height:8px;border-radius:8px;background:#efe3d3;overflow:hidden;margin-bottom:12px">
-          <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#1f9d6b':coveragePct>=40?'#f59e0b':'#ef5b5b'};border-radius:8px;transition:width .4s"></div>
+        <div style="height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:12px">
+          <div style="height:100%;width:${coveragePct}%;background:${coveragePct>=80?'#10b981':coveragePct>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn btn-primary" style="font-size:12px;border-radius:12px" onclick="go('palmares')">${t('Palmarès','Rankings')}</button>
-          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('devoirs')">${t('Devoirs','Tasks')}</button>
-          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('cahier_texte')">${t('Cahier','Log')}</button>
-          <button class="btn btn-outline" style="font-size:12px;border-radius:12px" onclick="go('attendance')">${t('Présences','Attendance')}</button>
+          <button class="pt-btn-glow-blue" style="border:none;font-size:12px;font-weight:700;color:#fff;border-radius:12px;padding:9px;cursor:pointer" onclick="go('palmares')">${t('Palmarès','Rankings')}</button>
+          <button style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);font-size:12px;font-weight:700;color:#fff;border-radius:12px;padding:9px;cursor:pointer" onclick="go('devoirs')">${t('Devoirs','Tasks')}</button>
+          <button style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);font-size:12px;font-weight:700;color:#fff;border-radius:12px;padding:9px;cursor:pointer" onclick="go('cahier_texte')">${t('Cahier','Log')}</button>
+          <button style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);font-size:12px;font-weight:700;color:#fff;border-radius:12px;padding:9px;cursor:pointer" onclick="go('attendance')">${t('Présences','Attendance')}</button>
         </div>
       </div>
-      ${recentDevs.length?`<div style="background:#fff5ea;border-left:4px solid #d9a43a;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(201,160,48,.06)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
-          <div style="width:3px;height:14px;border-radius:2px;background:#d9a43a"></div>
-          <div style="font-size:10px;font-weight:800;color:#d9a43a;letter-spacing:1.5px;text-transform:uppercase">${t('Devoirs récents','Recent Tasks')}</div>
-        </div>
-        ${recentDevs.map((d,di)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${di<recentDevs.length-1?'border-bottom:1px solid #f6ede0':''}"><span style="font-size:13px;font-weight:600;color:#241f1a">${esc(d.title)}</span><span style="font-size:11px;background:#fdeccd;color:#92400e;border-radius:8px;padding:2px 8px;font-weight:600">${d.date||''}</span></div>`).join('')}
-      </div>`:''}`:`<div style="font-size:13px;color:#a89c8b;padding:24px;text-align:center;background:#fff5ea;border-radius:16px">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
-      <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+      ${recentDevs.length?`<div class="pt-glass" style="padding:18px;margin-bottom:14px">
+        <div class="pt-glass-title" style="margin-bottom:12px">${t('Devoirs récents','Recent Tasks')}</div>
+        ${recentDevs.map((d,di)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;${di<recentDevs.length-1?'border-bottom:1px solid rgba(255,255,255,.08)':''}"><span style="font-size:13px;font-weight:600;color:#fff">${esc(d.title)}</span><span style="font-size:11px;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:8px;padding:2px 8px;font-weight:600">${d.date||''}</span></div>`).join('')}
+      </div>`:''}`:`<div class="pt-glass" style="font-size:13px;color:rgba(255,255,255,.55);padding:24px;text-align:center">${t('Aucune classe assignée — contactez la Direction','No class assigned — contact Management')}</div>`}
+      <div class="pt-glass" style="margin-top:16px;padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-size:13px;font-weight:700;color:#1d4f93">🔄 Synchronisation</div>
-            <div style="font-size:11px;color:#6f6557;margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+            <div style="font-size:13px;font-weight:800;color:#fff">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
           </div>
-          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#2f7bd6,#205fae);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+          <button onclick="forceSyncDB()" class="pt-btn-glow-blue" style="padding:10px 18px;color:#fff;border:none;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${[[(DB.students||[]).length,'Élèves','#205fae'],[(DB.users||[]).length,'Comptes','#9b6fd4'],[(DB.classes||[]).length,'Classes','#1f9d6b']].map(([n,lb,clv])=>
-          `<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #fdeeda">
+        <div style="display:flex;gap:8px;margin-top:13px">
+          ${[[(DB.students||[]).length,'Élèves','#38bdf8'],[(DB.users||[]).length,'Comptes','#a855f7'],[(DB.classes||[]).length,'Classes','#34d399']].map(([n,lb,clv])=>
+          `<div style="flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:9px;text-align:center;border:1px solid rgba(255,255,255,.07)">
             <div style="font-size:17px;font-weight:900;color:${clv}">${n}</div>
-            <div style="font-size:9px;font-weight:700;color:#6f6557;margin-top:2px">${lb.toUpperCase()}</div>
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px">${lb.toUpperCase()}</div>
           </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+    <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
+      <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
           <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
           <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
@@ -14542,7 +14535,7 @@ R.profil_enseignant = () => {
         </div>
         <div class="form-group"><label class="form-label">${t('Photo de profil','Profile photo')}</label>
           <div style="display:flex;align-items:center;gap:14px">
-            <div id="tp_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+            <div id="tp_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #eef0f5;background:#f2f4f9;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#8a93a6">
               ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -14551,11 +14544,11 @@ R.profil_enseignant = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary" style="width:100%;border-radius:14px;padding:14px" onclick="saveTeacherProfile()">${t('Enregistrer','Save')}</button>
+        <button class="btn btn-primary" style="width:100%;background:${clr};border-radius:14px;padding:14px" onclick="saveTeacherProfile()">${t('Enregistrer','Save')}</button>
       </div>
     </div>
 
-    <div data-ptab="finances" style="${tab==='finances'?'':'display:none'}">
+    <div data-ptab="finances" data-ptab-mode="light" style="${tab==='finances'?'':'display:none'}">
       <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#78350f">
         ${t('Ces informations sont strictement confidentielles — visibles uniquement par vous et la Direction.','This information is strictly confidential — visible only to you and Management.')}
       </div>
@@ -14564,36 +14557,40 @@ R.profil_enseignant = () => {
         const advList=(DB.advances||[]).filter(a=>a.teacher_id===u.id&&a.month===sal.month);
         const [yr2,mo2]=sal.month.split('-');
         const ml=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][parseInt(mo2)-1]+' '+yr2;
-        return `<div style="background:#fff5ea;border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 3px 12px rgba(0,0,0,.05)">
+        return `<div class="pt-light-card" style="padding:16px;margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <span style="font-weight:700;font-size:14px;color:#241f1a">${ml}</span>
+            <span style="font-weight:700;font-size:14px;color:#1c2333">${ml}</span>
             <span class="pill ${sal.paid?'pill-green':'pill-orange'}">${sal.paid?'Payé':'En attente'}</span>
           </div>
           <div style="font-size:12px">
-            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f6ede0"><span style="color:#6f6557">Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
-            ${rp?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f6ede0;color:#9b6fd4"><span>Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
-            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f6ede0;color:#1f9d6b"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
-            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f6ede0;color:#dc2626"><span>Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
-            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f6ede0;color:#ff7a4d"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
-            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid #efe3d3;margin-top:4px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#1f9d6b':'#dc2626'}">$${sal.net||0}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5"><span style="color:#8a93a6">Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
+            ${rp?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#9b6fd4"><span>Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
+            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#1f9d6b"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
+            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#dc2626"><span>Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
+            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#ff7a4d"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid #eef0f5;margin-top:4px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#1f9d6b':'#dc2626'}">$${sal.net||0}</span></div>
           </div>
         </div>`;
-      }).join(''):`<div style="text-align:center;padding:40px;color:#a89c8b;background:#fff5ea;border-radius:18px">
-        <div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
-          <div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div>
+      }).join(''):`<div class="pt-light-card" style="text-align:center;padding:40px;color:#8a93a6">
+        <div style="width:48px;height:48px;border-radius:14px;background:#eef0f5;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
+          <div style="width:20px;height:20px;border-radius:50%;background:#8a93a6"></div>
         </div>
         ${t('Aucun salaire enregistré','No salary recorded')}
       </div>`}
     </div>
 
-    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
-      <div style="background:#fff5ea;border-left:4px solid #efe3d3;border-radius:20px;padding:18px;box-shadow:0 3px 12px rgba(0,0,0,.05)">
-        <div style="font-size:10px;font-weight:800;color:#a89c8b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">${t('Sécurité','Security')}</div>
-        <div style="font-size:13px;color:#6f6557;margin-bottom:16px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
-        <button class="btn btn-outline" style="width:100%;margin-bottom:10px;border-radius:12px;padding:12px" onclick="openProfile()">${t('Changer mon code PIN','Change my PIN')}</button>
-        <button class="btn btn-danger" style="width:100%;border-radius:12px;padding:12px" onclick="logout()">${t('Se déconnecter','Log Out')}</button>
+    <div data-ptab="securite" data-ptab-mode="dark" style="${tab==='securite'?'':'display:none'}">
+      <div class="pt-glass" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:15px">🔒</div>
+          <div class="pt-glass-title">${t('Sécurité','Security')}</div>
+        </div>
+        <div style="font-size:13px;color:rgba(255,255,255,.55);margin-bottom:16px">${t('Pour modifier votre affectation de classe, contactez la Direction.','To change your class assignment, contact Management.')}</div>
+        <button style="width:100%;margin-bottom:10px;padding:13px;border-radius:14px;border:1px solid rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13px;cursor:pointer;background:rgba(255,255,255,.04)" onclick="openProfile()">${t('Changer mon code PIN','Change my PIN')}</button>
+        <button class="pt-btn-glow-red" style="width:100%;padding:13px;border:none;border-radius:14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer" onclick="logout()">${t('Se déconnecter','Log Out')}</button>
       </div>
     </div>
+  </div>
   </div>`;
 };
 window.saveTeacherProfile = () => {
@@ -14666,6 +14663,7 @@ R.profil_parent = () => {
   const kids=DB.students.filter(s=>s.pid===u.id);
   const validTabs=['enfants','ecole','compte'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'enfants';
+  const TAB_MODE={enfants:'dark',ecole:'dark',compte:'light'};
   const clr='#8255c4'; const clr2='#5b6fd6';
   const fees=getFees();
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
@@ -14939,6 +14937,7 @@ R.profil_parent = () => {
   })();
 
   return `
+  <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="padding:0 0 8px">
     <!-- header gradient animé -->
     <div style="background:linear-gradient(135deg,#8255c4,#5b6fd6);border-radius:26px;padding:24px 20px 22px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .25s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
@@ -14961,24 +14960,24 @@ R.profil_parent = () => {
     </div>
 
     <!-- tabs glassmorphism -->
-    <div style="display:flex;gap:4px;background:rgba(241,245,249,.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:18px;padding:5px;margin-bottom:20px;box-shadow:0 2px 20px rgba(0,0,0,.08)">
+    <div class="pt-tabbar" style="display:flex;gap:4px;border-radius:18px;padding:5px;margin-bottom:20px">
       ${[['enfants','Mes enfants'],['ecole','École'],['compte','Mon compte']].map(([id,lbl])=>`
-      <button onclick="window._pTab='${id}';render()" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':'#a89c8b'};font-weight:${tab===id?700:500};font-size:12px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="linear-gradient(135deg,#8255c4,#5b6fd6)" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};font-weight:${tab===id?700:500};font-size:12px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
     </div>
 
     <!-- Mes enfants -->
-    <div style="${tab==='enfants'?'':'display:none'}">
+    <div data-ptab="enfants" data-ptab-mode="dark" style="${tab==='enfants'?'':'display:none'}">
       ${childSelector}
       ${kidContent}
     </div>
 
     <!-- École -->
-    <div style="${tab==='ecole'?'':'display:none'}">
+    <div data-ptab="ecole" data-ptab-mode="dark" style="${tab==='ecole'?'':'display:none'}">
       ${ecoleContent}
     </div>
 
     <!-- Mon compte -->
-    <div style="${tab==='compte'?'':'display:none'}">
+    <div data-ptab="compte" data-ptab-mode="light" style="${tab==='compte'?'':'display:none'}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;animation:fadeInUp .3s ease both">
         <div class="pp-bt" style="background:linear-gradient(135deg,#8255c4,#5b6fd6);color:#fff;box-shadow:0 6px 18px rgba(109,40,217,.4)">
           <div class="pp-bt-em">👨‍👩‍👧</div>
@@ -14991,8 +14990,8 @@ R.profil_parent = () => {
           <div class="pp-bt-l" style="color:rgba(255,255,255,.85)">Compte PIN</div>
         </div>
       </div>
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;margin-bottom:14px;border-left:4px solid ${clr};box-shadow:0 3px 14px rgba(109,40,217,.1);animation:fadeInUp .3s ease both">
-        ${SECTION('Mes informations', clr)}
+      <div class="pt-light-card" style="padding:18px;margin-bottom:14px">
+        <div class="pt-light-title" style="margin-bottom:12px">Mes informations</div>
         <div class="form-group"><label class="form-label">Nom affiché</label>
           <input class="form-input" id="pp_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo" style="font-size:15px;padding:14px;border-radius:12px">
         </div>
@@ -15004,7 +15003,7 @@ R.profil_parent = () => {
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
-            <div id="pp_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+            <div id="pp_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #eef0f5;background:#f2f4f9;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#8a93a6">
               ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -15018,6 +15017,7 @@ R.profil_parent = () => {
       ${OUTLINE_BTN(clr,clr,'🔑 Changer mon code PIN',"openProfile()")}
       ${OUTLINE_BTN('#dc2626','#dc2626','Se déconnecter',"logout()")}
     </div>
+  </div>
   </div>`;
 }
 
@@ -15271,9 +15271,11 @@ R.profil_gardien = () => {
   const totalAll=allScans.length;
   const validTabs=['activite','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'activite';
+  const TAB_MODE={activite:'dark',profil:'light',securite:'dark'};
   const clr='#ff7a4d';const clr2='#ea580c';
   const recentScans=[...allScans].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,5);
   return `
+  <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="background:linear-gradient(135deg,${clr},${clr2} 70%,#d9a43a);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 16px 44px rgba(249,115,22,.4)">
     <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 88% -10%,rgba(255,225,150,.32),transparent 55%);pointer-events:none"></div>
     <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
@@ -15300,13 +15302,13 @@ R.profil_gardien = () => {
     </div>
   </div>
   <div style="padding:0 2px 4px">
-    <div style="display:flex;gap:2px;background:#f6ede0;border-radius:14px;padding:4px;margin-bottom:16px">
+    <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['activite','Activité'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="${clr}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#6f6557'};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
-    <div data-ptab="activite" style="${tab==='activite'?'':'display:none'}">
+    <div data-ptab="activite" data-ptab-mode="dark" style="${tab==='activite'?'':'display:none'}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         ${[[entries,'Entrées auj.','#1f9d6b','#62d3a6','🟢','scanner'],[exits,'Sorties auj.','#ff7a4d','#ff9c6e','🔵','scanner_exit'],[refused,'Refusés auj.','#dc2626','#f2716b','⛔','scan_log'],[totalAll,'Total scans','#2f7bd6','#5b9be8','📊','scan_log']].map(([n,lbl,c1,c2,ic,pg])=>`
         <div class="htile" onclick="go('${pg}')" role="button" tabindex="0" style="background:linear-gradient(135deg,${c1},${c2});color:#fff">
@@ -15316,47 +15318,44 @@ R.profil_gardien = () => {
         </div>`).join('')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="btn btn-outline btn-sm pp-btn" style="flex:1" onclick="go('scanner')">Scanner Entrée</button>
-        <button class="btn btn-outline btn-sm pp-btn" style="flex:1" onclick="go('scanner_exit')">Scanner Sortie</button>
+        <button class="pt-btn-glow-blue" style="flex:1;border:none;border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:#fff;cursor:pointer" onclick="go('scanner')">Scanner Entrée</button>
+        <button style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:#fff;cursor:pointer" onclick="go('scanner_exit')">Scanner Sortie</button>
       </div>
       ${recentScans.length?`
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
-          <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-          <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Derniers scans</div>
-        </div>
+      <div class="pt-glass" style="padding:18px">
+        <div class="pt-glass-title" style="margin-bottom:12px">Derniers scans</div>
         ${recentScans.map((sc,i)=>{
           const st=(DB.students||[]).find(s=>s.id===sc.sid);
-          const typeClr=sc.type==='entry'?'#1f9d6b':sc.type==='exit'?'#ff7a4d':'#dc2626';
+          const typeClr=sc.type==='entry'?'#34d399':sc.type==='exit'?'#fb923c':'#f87171';
           const typeLabel=sc.type==='entry'?'Entrée':sc.type==='exit'?'Sortie':'Refusé';
-          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<recentScans.length-1?'border-bottom:1px solid #f6ede0':''}">
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;${i<recentScans.length-1?'border-bottom:1px solid rgba(255,255,255,.08)':''}">
             <div style="width:8px;height:8px;border-radius:50%;background:${typeClr};flex-shrink:0"></div>
-            <div style="flex:1;font-size:13px;font-weight:600;color:#241f1a">${st?esc(st.name):'—'}</div>
-            <span style="font-size:11px;font-weight:700;color:${typeClr};background:${typeClr}15;border-radius:8px;padding:2px 8px">${typeLabel}</span>
-            <span style="font-size:11px;color:#a89c8b">${sc.time||''}</span>
+            <div style="flex:1;font-size:13px;font-weight:600;color:#fff">${st?esc(st.name):'—'}</div>
+            <span style="font-size:11px;font-weight:700;color:${typeClr};background:${typeClr}22;border-radius:8px;padding:2px 8px">${typeLabel}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.5)">${sc.time||''}</span>
           </div>`;
         }).join('')}
       </div>`:''}
-      <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+      <div class="pt-glass" style="margin-top:16px;padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-size:13px;font-weight:700;color:#1d4f93">🔄 Synchronisation</div>
-            <div style="font-size:11px;color:#6f6557;margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+            <div style="font-size:13px;font-weight:800;color:#fff">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
           </div>
-          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#2f7bd6,#205fae);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+          <button onclick="forceSyncDB()" class="pt-btn-glow-blue" style="padding:10px 18px;color:#fff;border:none;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${[[(DB.students||[]).length,'Élèves','#205fae'],[(DB.users||[]).length,'Comptes','#9b6fd4'],[(DB.classes||[]).length,'Classes','#1f9d6b']].map(([n,lb,clv])=>
-          `<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #fdeeda">
+        <div style="display:flex;gap:8px;margin-top:13px">
+          ${[[(DB.students||[]).length,'Élèves','#38bdf8'],[(DB.users||[]).length,'Comptes','#a855f7'],[(DB.classes||[]).length,'Classes','#34d399']].map(([n,lb,clv])=>
+          `<div style="flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:9px;text-align:center;border:1px solid rgba(255,255,255,.07)">
             <div style="font-size:17px;font-weight:900;color:${clv}">${n}</div>
-            <div style="font-size:9px;font-weight:700;color:#6f6557;margin-top:2px">${lb.toUpperCase()}</div>
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px">${lb.toUpperCase()}</div>
           </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+    <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
+      <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
           <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
           <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
@@ -15366,7 +15365,7 @@ R.profil_gardien = () => {
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
-            <div id="gd_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+            <div id="gd_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #eef0f5;background:#f2f4f9;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#8a93a6">
               ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -15375,20 +15374,21 @@ R.profil_gardien = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveGardienProfile()">Enregistrer</button>
+        <button class="btn btn-primary pp-btn" style="width:100%;background:${clr}" onclick="saveGardienProfile()">Enregistrer</button>
       </div>
     </div>
 
-    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
-      <div style="background:#fff5ea;border-left:4px solid #efe3d3;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-          <div style="width:3px;height:14px;border-radius:2px;background:#6f6557"></div>
-          <div style="font-size:10px;font-weight:800;color:#6f6557;letter-spacing:1.5px;text-transform:uppercase">Sécurité</div>
+    <div data-ptab="securite" data-ptab-mode="dark" style="${tab==='securite'?'':'display:none'}">
+      <div class="pt-glass" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:15px">🔒</div>
+          <div class="pt-glass-title">Sécurité</div>
         </div>
-        <button class="btn btn-outline pp-btn" style="width:100%;margin-bottom:8px" onclick="openProfile()">Changer mon code PIN</button>
-        <button class="btn btn-danger pp-btn" style="width:100%" onclick="logout()">Se déconnecter</button>
+        <button style="width:100%;margin-bottom:10px;padding:13px;border-radius:14px;border:1px solid rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13px;cursor:pointer;background:rgba(255,255,255,.04)" onclick="openProfile()">Changer mon code PIN</button>
+        <button class="pt-btn-glow-red" style="width:100%;padding:13px;border:none;border-radius:14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer" onclick="logout()">Se déconnecter</button>
       </div>
     </div>
+  </div>
   </div>`;
 };
 window.saveGardienProfile = () => {
@@ -15424,8 +15424,10 @@ R.profil_caisse = () => {
   const maxBar=Math.max(1,...last7Data.map(d=>d.amt));
   const validTabs=['caisse','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'caisse';
+  const TAB_MODE={caisse:'dark',profil:'light',securite:'dark'};
   const clr='#1f9d6b';const clr2='#2fbf8f';
   return `
+  <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="background:linear-gradient(135deg,${clr},${clr2} 70%,#d9a43a);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 16px 44px rgba(5,150,105,.4)">
     <div style="position:absolute;inset:0;background:radial-gradient(120% 80% at 88% -10%,rgba(255,225,150,.3),transparent 55%);pointer-events:none"></div>
     <div style="position:absolute;top:-20px;right:-15px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
@@ -15452,13 +15454,13 @@ R.profil_caisse = () => {
     </div>
   </div>
   <div style="padding:0 2px 4px">
-    <div style="display:flex;gap:2px;background:#f6ede0;border-radius:14px;padding:4px;margin-bottom:16px">
+    <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['caisse','Caisse'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="${clr}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#6f6557'};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
-    <div data-ptab="caisse" style="${tab==='caisse'?'':'display:none'}">
+    <div data-ptab="caisse" data-ptab-mode="dark" style="${tab==='caisse'?'':'display:none'}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         ${[[fmt(totalRec),'Recettes auj.','#1f9d6b','#62d3a6','📈'],[fmt(totalExp),'Dépenses auj.','#dc2626','#f2716b','📉']].map(([n,lbl,c1,c2,ic])=>`
         <div class="htile" style="background:linear-gradient(135deg,${c1},${c2});color:#fff">
@@ -15467,52 +15469,49 @@ R.profil_caisse = () => {
           <div style="font-size:11px;font-weight:700;opacity:.92;margin-top:3px">${lbl}</div>
         </div>`).join('')}
       </div>
-      <div style="background:#fff5ea;border-left:4px solid ${clr};border-radius:20px;padding:16px 18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+      <div class="pt-glass" style="padding:16px 18px;margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-size:13px;font-weight:700;color:#241f1a">Total encaissé (global)</div>
-          <div style="font-size:16px;font-weight:900;color:${clr}">${fmt(totalAllRec)}</div>
+          <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.85)">Total encaissé (global)</div>
+          <div style="font-size:16px;font-weight:900;color:#34d399">${fmt(totalAllRec)}</div>
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="btn btn-outline btn-sm pp-btn" style="flex:1" onclick="go('recettes')">Recettes</button>
-        <button class="btn btn-outline btn-sm pp-btn" style="flex:1" onclick="go('depenses')">Dépenses</button>
+        <button style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:#fff;cursor:pointer" onclick="go('recettes')">Recettes</button>
+        <button style="flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;font-size:13px;font-weight:700;color:#fff;cursor:pointer" onclick="go('depenses')">Dépenses</button>
       </div>
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-          <div style="width:3px;height:14px;border-radius:2px;background:${clr}"></div>
-          <div style="font-size:10px;font-weight:800;color:${clr};letter-spacing:1.5px;text-transform:uppercase">Recettes — 7 derniers jours</div>
-        </div>
+      <div class="pt-glass" style="padding:18px">
+        <div class="pt-glass-title" style="margin-bottom:14px">Recettes — 7 derniers jours</div>
         <div style="display:flex;align-items:flex-end;gap:4px;height:72px">
           ${last7Data.map(d=>{
             const px=Math.max(Math.round(d.amt/maxBar*56),d.amt>0?3:1);
             const lbl=['Di','Lu','Ma','Me','Je','Ve','Sa'][new Date(d.date+'T12:00').getDay()];
             return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px">
-              <div title="${fmt(d.amt)}" style="width:90%;background:${clr};border-radius:4px 4px 0 0;height:${px}px;opacity:${d.amt?1:.25}"></div>
-              <div style="font-size:9px;color:#a89c8b;font-weight:600">${lbl}</div>
+              <div title="${fmt(d.amt)}" style="width:90%;background:#34d399;border-radius:4px 4px 0 0;height:${px}px;opacity:${d.amt?1:.25}"></div>
+              <div style="font-size:9px;color:rgba(255,255,255,.5);font-weight:600">${lbl}</div>
             </div>`;
           }).join('')}
         </div>
       </div>
-      <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+      <div class="pt-glass" style="margin-top:16px;padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-size:13px;font-weight:700;color:#1d4f93">🔄 Synchronisation</div>
-            <div style="font-size:11px;color:#6f6557;margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+            <div style="font-size:13px;font-weight:800;color:#fff">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
           </div>
-          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#2f7bd6,#205fae);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+          <button onclick="forceSyncDB()" class="pt-btn-glow-blue" style="padding:10px 18px;color:#fff;border:none;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${[[(DB.students||[]).length,'Élèves','#205fae'],[(DB.users||[]).length,'Comptes','#9b6fd4'],[(DB.classes||[]).length,'Classes','#1f9d6b']].map(([n,lb,clv])=>
-          `<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #fdeeda">
+        <div style="display:flex;gap:8px;margin-top:13px">
+          ${[[(DB.students||[]).length,'Élèves','#38bdf8'],[(DB.users||[]).length,'Comptes','#a855f7'],[(DB.classes||[]).length,'Classes','#34d399']].map(([n,lb,clv])=>
+          `<div style="flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:9px;text-align:center;border:1px solid rgba(255,255,255,.07)">
             <div style="font-size:17px;font-weight:900;color:${clv}">${n}</div>
-            <div style="font-size:9px;font-weight:700;color:#6f6557;margin-top:2px">${lb.toUpperCase()}</div>
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px">${lb.toUpperCase()}</div>
           </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+    <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
+      <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
           <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
           <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
@@ -15522,7 +15521,7 @@ R.profil_caisse = () => {
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
-            <div id="ca_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+            <div id="ca_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #eef0f5;background:#f2f4f9;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#8a93a6">
               ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -15531,20 +15530,21 @@ R.profil_caisse = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveCaisseProfile()">Enregistrer</button>
+        <button class="btn btn-primary pp-btn" style="width:100%;background:${clr}" onclick="saveCaisseProfile()">Enregistrer</button>
       </div>
     </div>
 
-    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
-      <div style="background:#fff5ea;border-left:4px solid #efe3d3;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-          <div style="width:3px;height:14px;border-radius:2px;background:#6f6557"></div>
-          <div style="font-size:10px;font-weight:800;color:#6f6557;letter-spacing:1.5px;text-transform:uppercase">Sécurité</div>
+    <div data-ptab="securite" data-ptab-mode="dark" style="${tab==='securite'?'':'display:none'}">
+      <div class="pt-glass" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:15px">🔒</div>
+          <div class="pt-glass-title">Sécurité</div>
         </div>
-        <button class="btn btn-outline pp-btn" style="width:100%;margin-bottom:8px" onclick="openProfile()">Changer mon code PIN</button>
-        <button class="btn btn-danger pp-btn" style="width:100%" onclick="logout()">Se déconnecter</button>
+        <button style="width:100%;margin-bottom:10px;padding:13px;border-radius:14px;border:1px solid rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13px;cursor:pointer;background:rgba(255,255,255,.04)" onclick="openProfile()">Changer mon code PIN</button>
+        <button class="pt-btn-glow-red" style="width:100%;padding:13px;border:none;border-radius:14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer" onclick="logout()">Se déconnecter</button>
       </div>
     </div>
+  </div>
   </div>`;
 };
 window.saveCaisseProfile = () => {
@@ -15793,8 +15793,10 @@ R.profil_direction2 = () => {
   const attPct2=totalStudents?Math.round((todayPresDir2+todayLateDir2)/totalStudents*100):0;
   const validTabs=['stats','profil','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'stats';
+  const TAB_MODE={stats:'dark',profil:'light',securite:'dark'};
   const clr='#4c1d95';const clr2='#6d28d9';
   return `
+  <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="background:linear-gradient(135deg,${clr},${clr2} 65%,#5b6fd6);border-radius:26px;padding:24px 20px 20px;margin-bottom:20px;position:relative;overflow:hidden;animation:fadeInUp .3s ease both;box-shadow:0 12px 40px rgba(109,40,217,.4)">
     <div style="position:absolute;top:-20px;right:-15px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.07);animation:floatA 7s ease-in-out infinite"></div>
     <div style="position:absolute;bottom:-25px;left:-10px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.05);animation:floatB 9s ease-in-out infinite"></div>
@@ -15821,13 +15823,13 @@ R.profil_direction2 = () => {
     </div>
   </div>
   <div style="padding:0 2px 4px">
-    <div style="display:flex;gap:2px;background:#f6ede0;border-radius:14px;padding:4px;margin-bottom:16px">
+    <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['stats','Stats'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="${clr}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':'#6f6557'};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
-    <div data-ptab="stats" style="${tab==='stats'?'':'display:none'}">
+    <div data-ptab="stats" data-ptab-mode="dark" style="${tab==='stats'?'':'display:none'}">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         ${[[totalStudents,'Élèves','#2f7bd6','#5b9be8','🎓','students'],[totalClasses,'Classes','#9b6fd4','#b591e0','🏫','classes'],[teachers,'Enseignants','#1f9d6b','#62d3a6','👨‍🏫','teachers'],[pendingRats,pendingRats>0?'Rattrapages':'À jour',pendingRats>0?'#dc2626':'#1f9d6b',pendingRats>0?'#f2716b':'#62d3a6','🔁','approbations']].map(([n,lbl,c1,c2,ic,pg])=>`
         <div class="htile" style="background:linear-gradient(135deg,${c1},${c2});color:#fff" onclick="go('${pg}')" role="button" tabindex="0">
@@ -15836,44 +15838,44 @@ R.profil_direction2 = () => {
           <div style="font-size:11px;font-weight:700;opacity:.92;margin-top:3px">${lbl}</div>
         </div>`).join('')}
       </div>
-      <div style="background:#fff5ea;border-left:4px solid ${clr};border-radius:20px;padding:16px 18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+      <div class="pt-glass" style="padding:16px 18px;margin-bottom:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:12px;font-weight:700;color:#241f1a">Présences aujourd'hui</div>
-          <span style="font-size:12px;font-weight:800;color:${attPct2>=80?'#1f9d6b':attPct2>=40?'#d98a2b':'#dc2626'}">${todayPresDir2+todayLateDir2}/${totalStudents} (${attPct2}%)</span>
+          <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,.85)">Présences aujourd'hui</div>
+          <span style="font-size:12px;font-weight:800;color:${attPct2>=80?'#34d399':attPct2>=40?'#fbbf24':'#f87171'}">${todayPresDir2+todayLateDir2}/${totalStudents} (${attPct2}%)</span>
         </div>
-        <div style="height:8px;border-radius:8px;background:#efe3d3;overflow:hidden">
-          <div style="height:100%;width:${attPct2}%;background:${attPct2>=80?'#1f9d6b':attPct2>=40?'#f59e0b':'#ef5b5b'};border-radius:8px;transition:width .4s"></div>
+        <div style="height:8px;border-radius:8px;background:rgba(255,255,255,.08);overflow:hidden">
+          <div style="height:100%;width:${attPct2}%;background:${attPct2>=80?'#10b981':attPct2>=40?'#f59e0b':'#ef4444'};border-radius:8px;transition:width .4s"></div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-        ${[['palmares','#d9a43a','Palmarès'],['attendance','#205fae','Présences'],['teachers','#1f9d6b','Enseignants'],['students','#9b6fd4','Élèves'],['approbations','#dc2626','Approuver'],['classes','#6f6557','Classes']]
-        .map(([p,c,lb])=>`<button class="pp-btn" onclick="go('${p}')" style="background:var(--bg-card-2);border:1px solid var(--border-light);border-radius:14px;padding:12px 4px;cursor:pointer;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.04)">
-          <div style="width:32px;height:32px;border-radius:10px;background:${c}18;display:flex;align-items:center;justify-content:center;margin:0 auto 6px">
-            <div style="width:12px;height:12px;border-radius:50%;background:${c}"></div>
+        ${[['palmares','#d9a43a','Palmarès'],['attendance','#205fae','Présences'],['teachers','#1f9d6b','Enseignants'],['students','#9b6fd4','Élèves'],['approbations','#dc2626','Approuver'],['classes','#9ca3af','Classes']]
+        .map(([p,c,lb])=>`<button class="pt-glass" onclick="go('${p}')" style="padding:13px 4px;cursor:pointer;text-align:center">
+          <div style="width:30px;height:30px;border-radius:9px;background:${c}22;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;box-shadow:0 0 10px ${c}33">
+            <div style="width:10px;height:10px;border-radius:50%;background:${c};box-shadow:0 0 8px ${c}"></div>
           </div>
-          <div style="font-size:10px;font-weight:700;color:#5c5346">${lb}</div>
+          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.75)">${lb}</div>
         </button>`).join('')}
       </div>
-      <div style="margin-top:16px;background:linear-gradient(135deg,#fff5ea,#fdeeda);border-radius:18px;padding:16px;border:1.5px solid #f4d9bd;box-shadow:0 3px 14px rgba(14,165,233,.1)">
+      <div class="pt-glass" style="margin-top:16px;padding:16px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
-            <div style="font-size:13px;font-weight:700;color:#1d4f93">🔄 Synchronisation</div>
-            <div style="font-size:11px;color:#6f6557;margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
+            <div style="font-size:13px;font-weight:800;color:#fff">🔄 Synchronisation</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px">${window._lastSyncTime?'Dernière sync : '+window._lastSyncTime:'Aucune sync depuis le démarrage'}</div>
           </div>
-          <button onclick="forceSyncDB()" style="padding:9px 18px;background:linear-gradient(135deg,#2f7bd6,#205fae);color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(14,165,233,.3);transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
+          <button onclick="forceSyncDB()" class="pt-btn-glow-blue" style="padding:10px 18px;color:#fff;border:none;border-radius:13px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;transition:transform .15s" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">Forcer la sync</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          ${[[(DB.students||[]).length,'Élèves','#205fae'],[(DB.users||[]).length,'Comptes','#9b6fd4'],[(DB.classes||[]).length,'Classes','#1f9d6b']].map(([n,lb,clv])=>
-          `<div style="flex:1;background:#fff;border-radius:10px;padding:8px;text-align:center;border:1px solid #fdeeda">
+        <div style="display:flex;gap:8px;margin-top:13px">
+          ${[[(DB.students||[]).length,'Élèves','#38bdf8'],[(DB.users||[]).length,'Comptes','#a855f7'],[(DB.classes||[]).length,'Classes','#34d399']].map(([n,lb,clv])=>
+          `<div style="flex:1;background:rgba(255,255,255,.05);border-radius:12px;padding:9px;text-align:center;border:1px solid rgba(255,255,255,.07)">
             <div style="font-size:17px;font-weight:900;color:${clv}">${n}</div>
-            <div style="font-size:9px;font-weight:700;color:#6f6557;margin-top:2px">${lb.toUpperCase()}</div>
+            <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);margin-top:2px">${lb.toUpperCase()}</div>
           </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <div data-ptab="profil" style="${tab==='profil'?'':'display:none'}">
-      <div style="background:#fff5ea;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
+    <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
+      <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
           <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir2_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
           <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir2_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
@@ -15883,7 +15885,7 @@ R.profil_direction2 = () => {
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
-            <div id="dir2_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #efe3d3;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#6f6557">
+            <div id="dir2_photo_prev" style="width:72px;height:72px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2.5px solid #eef0f5;background:#f2f4f9;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#8a93a6">
               ${u.photo_url?`<img src="${u.photo_url}" style="width:100%;height:100%;object-fit:cover">`:esc(u.initials||ini(u.name))}
             </div>
             <div style="display:flex;flex-direction:column;gap:6px">
@@ -15892,20 +15894,21 @@ R.profil_direction2 = () => {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary pp-btn" style="width:100%" onclick="saveDir2Profile()">Enregistrer</button>
+        <button class="btn btn-primary" style="width:100%;background:${clr};border-radius:14px" onclick="saveDir2Profile()">Enregistrer</button>
       </div>
     </div>
 
-    <div data-ptab="securite" style="${tab==='securite'?'':'display:none'}">
-      <div style="background:#fff5ea;border-left:4px solid #efe3d3;border-radius:20px;padding:18px;box-shadow:0 3px 14px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
-          <div style="width:3px;height:14px;border-radius:2px;background:#6f6557"></div>
-          <div style="font-size:10px;font-weight:800;color:#6f6557;letter-spacing:1.5px;text-transform:uppercase">Sécurité</div>
+    <div data-ptab="securite" data-ptab-mode="dark" style="${tab==='securite'?'':'display:none'}">
+      <div class="pt-glass" style="padding:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+          <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:15px">🔒</div>
+          <div class="pt-glass-title">Sécurité</div>
         </div>
-        <button class="btn btn-outline pp-btn" style="width:100%;margin-bottom:8px" onclick="openProfile()">Changer mon mot de passe</button>
-        <button class="btn btn-danger pp-btn" style="width:100%" onclick="logout()">Se déconnecter</button>
+        <button style="width:100%;margin-bottom:10px;padding:13px;border-radius:14px;border:1px solid rgba(255,255,255,.1);color:#fff;font-weight:700;font-size:13px;cursor:pointer;background:rgba(255,255,255,.04)" onclick="openProfile()">🔑 Changer mon mot de passe</button>
+        <button class="pt-btn-glow-red" style="width:100%;padding:13px;border:none;border-radius:14px;color:#fff;font-weight:800;font-size:13px;cursor:pointer" onclick="logout()">⎋ Se déconnecter</button>
       </div>
     </div>
+  </div>
   </div>`;
 };
 const _saveProfileCore = (prefix, phoneId) => {
