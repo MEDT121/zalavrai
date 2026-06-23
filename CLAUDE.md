@@ -91,22 +91,26 @@ gardien     → Gardien de sécurité
 | `dashboardGardien()` | 1934 | Gardien |
 | `dashboardParent()` | 1981 | Parent |
 
-### Profils (tous en onglets depuis mai 2026)
-| Renderer | Ligne | Onglets (défaut en gras) |
-|----------|-------|--------------------------|
-| `R.profil_direction` | 10190 | **stats** · profil · donnees · securite |
-| `R.profil_direction2` | 10289 | **stats** · profil · securite |
-| `R.profil_enseignant` | 9429 | **classe** · profil · securite |
-| `R.profil_parent` | 9573 | **enfants** · profil · honneur · securite |
-| `R.profil_gardien` | 9985 | **activite** · profil · securite |
-| `R.profil_caisse` | 10068 | **caisse** · profil · securite |
+### Profils (système pt-glass/pt-light-card, tous en onglets)
+Tous les profils partagent : header gradient animé · `.pt-tabbar` · `#profileScreenWrap.pt-mode-dark/light` (basculé par `_setProfileTab()` via `data-ptab-mode`) · onglets sombres en `.pt-glass` · onglets clairs en `.pt-light-card` · onglet Sécurité standard (PIN/mdp + déconnexion `.pt-btn-glow-red`).
+
+| Renderer | Ligne | Onglets (défaut en gras, mode entre parenthèses) |
+|----------|-------|---------------------------------------------------|
+| `R.profil_direction` | 15649 | **stats**(dark) · profil(light) · donnees(light) · securite(dark) |
+| `R.profil_direction2` | 15809 | **stats**(dark) · profil(light) · securite(dark) |
+| `R.profil_enseignant` | 14439 | **classe**(dark) · profil(light) · finances(light) · securite(dark) |
+| `R.profil_parent` | 14686 | **enfants**(dark) · ecole(dark) · compte(light) |
+| `R.profil_gardien` | 15289 | **activite**(dark) · profil(light) · securite(dark) |
+| `R.profil_caisse` | 15437 | **caisse**(dark) · profil(light) · securite(dark) |
+
+Profil Parent : couche additive de classes `pp-*` (`pp-bt`, `pp-card`, `pp-btn`, `kid-tile`, CSS lignes 206-213/851-853) pour les cartes enfant/podium/anneau de paiement — vient compléter, pas remplacer, le système pt-.
 
 Fonctions save profil :
-- `saveDirProfile('dir1_phone')` / `saveDirProfile('dir2_phone')` → ligne 10357
-- `saveTeacherProfile()` → ligne 9511
-- `saveParentProfile()` → ligne 9698
-- `saveGardienProfile()` → ligne 10053
-- `saveCaisseProfile()` → ligne 10139
+- `saveDir1Profile()` / `saveDir2Profile()` (+ wrapper `saveDirProfile(inputId)`) → ligne 15955
+- `saveTeacherProfile()` → ligne 14621
+- `saveParentProfile()` → ligne 15051
+- `saveGardienProfile()` → ligne 15419
+- `saveCaisseProfile()` → ligne 15575
 
 Onglets : `window._setProfileTab(id)` ligne ~7002 · état dans `window._pTab`
 
