@@ -1087,6 +1087,7 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 /* ═══════════════════════════════════════════
    SCHOOLSAFE v3.0 — CORE ENGINE
@@ -1983,6 +1984,20 @@ if(!window._iv_autosave) window._iv_autosave = setInterval(() => { if (S.user &&
 
 // ── UI HELPERS ──
 function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+// Génère et télécharge un PDF à partir d'un fragment ou document HTML complet
+function dlPDF(htmlStr, filename){
+  if(typeof html2pdf==='undefined'){ toast(t('Génération PDF indisponible (hors-ligne)','PDF generation unavailable (offline)'),'error'); return; }
+  const container=document.createElement('div');
+  container.style.position='fixed'; container.style.left='-9999px'; container.style.top='0';
+  container.innerHTML=htmlStr;
+  document.body.appendChild(container);
+  html2pdf().from(container).set({
+    filename: filename||'document.pdf',
+    margin: 8,
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).save().catch(()=>toast(t('Erreur lors de la génération du PDF','Error generating PDF'),'error')).finally(()=>container.remove());
+}
 // Habillage permanent sombre pour une page entière (section "Personnes") — sans bouton bascule
 function _wrapDark(html){ return `<div class="dark role-dark-page" style="animation:fadeInUp .3s ease both">${html}</div>`; }
 // Toast avec file d'attente — max 3 visibles simultanément
@@ -2690,6 +2705,7 @@ window.tryLogin = async () => {
 };
 window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
+  S.lockdown = !!DB.settings?.lockdown;
   $('LS').classList.add('hidden');
   window._stopLoginHeroRotation&&window._stopLoginHeroRotation();
   window._startAppBgRotation&&window._startAppBgRotation();
@@ -4332,6 +4348,7 @@ function applyCrop() {
 
 // ── CARDS COMMANDER (Direction) — commande vers APKart ──
 R.cards = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const allStudents = (DB.students||[]).filter(s=>!s.blocked);
   const total = allStudents.length;
   const withPhoto = allStudents.filter(s=>s.photo).length;
@@ -4454,6 +4471,7 @@ window.loadMyCardOrders = async () => {
 };
 
 window.submitCardOrder = async (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const s = (DB.students||[]).find(x=>x.id===sid);
   if(!s){ toast('Élève introuvable','error'); return; }
   const cl = (DB.classes||[]).find(c=>c.id===s.cid);
@@ -4504,7 +4522,7 @@ window.submitCardOrder = async (sid) => {
 
 
 // ── LOCKDOWN ──
-R.lockdown = () => `
+R.lockdown = () => { const _g=_requireRole('direction','direction2'); if(_g) return _g; return `
 <div style="text-align:center;padding:40px 20px">
   <div style="font-size:80px;margin-bottom:20px;animation:breathe 2s ease-in-out infinite">${S.lockdown?'🔴':'🟢'}</div>
   <h2 style="font-size:28px;margin-bottom:8px">${S.lockdown?'ÉCOLE VERROUILLÉE':'École Ouverte'}</h2>
@@ -4512,7 +4530,7 @@ R.lockdown = () => `
   <button class="btn ${S.lockdown?'btn-primary':'btn-danger'}" style="padding:18px 40px;font-size:18px;border-radius:16px;animation:glow 3s ease-in-out infinite" onclick="toggleLockdown()">
   ${S.lockdown?'🔓 DÉSACTIVER':'ACTIVER LE LOCKDOWN'}
   </button>
-</div>`;
+</div>`; };
 window.showLockdownWave = () => {
   const el=document.createElement('div');
   el.className='lockdown-wave-overlay';
@@ -4529,7 +4547,12 @@ window.showLockdownWave = () => {
   setTimeout(()=>el.remove(),2400);
 };
 window.toggleLockdown = () => {
+  if(!S.user || !['direction','direction2'].includes(S.user.role)) return;
   S.lockdown=!S.lockdown;
+  if(!DB.settings) DB.settings={};
+  DB.settings.lockdown=S.lockdown;
+  saveToCrypt();
+  pushSync('settings','patch',{lockdown:S.lockdown},'id=eq.main');
   logAudit('lockdown_toggle',S.lockdown?'LOCKDOWN activé':'LOCKDOWN désactivé');
   if(S.lockdown) showLockdownWave();
   else toast('🟢 LOCKDOWN désactivé','success');
@@ -4633,10 +4656,10 @@ R.notifications = () => {
       ${n.type==='urgent'?`<div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">⚠️ URGENT</div>`:''}
       <div class="ww-item-title" style="font-weight:${n.read?500:700};line-height:1.4;white-space:pre-line">${esc(n.msg)}</div>
       ${n.receipt?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px">
-        <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${n.receipt.num}</div>
-        <div style="font-size:12px;color:#374151"><strong>${n.receipt.student}</strong>${n.receipt.mat?' · '+n.receipt.mat:''}</div>
-        <div style="font-size:12px;color:#374151">${n.receipt.type_label}${n.receipt.trimestre?' · '+n.receipt.trimestre:''} · <strong style="color:#065f46">$${n.receipt.amount}</strong></div>
-        <div style="font-size:11px;color:#6b7280;margin-top:2px">Reçu par : ${n.receipt.by}</div>
+        <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${esc(n.receipt.num)}</div>
+        <div style="font-size:12px;color:#374151"><strong>${esc(n.receipt.student)}</strong>${n.receipt.mat?' · '+esc(n.receipt.mat):''}</div>
+        <div style="font-size:12px;color:#374151">${esc(n.receipt.type_label)}${n.receipt.trimestre?' · '+esc(n.receipt.trimestre):''} · <strong style="color:#065f46">$${n.receipt.amount}</strong></div>
+        <div style="font-size:11px;color:#6b7280;margin-top:2px">Reçu par : ${esc(n.receipt.by)}</div>
         <button onclick="viewReceipt('${n.id}')" style="margin-top:8px;width:100%;padding:8px;background:#243a6b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📄 Voir le bordereau</button>
       </div>`:''}
       <div class="ww-item-sub">${n.date||''} ${n.time||''}</div>
@@ -5460,6 +5483,7 @@ window.deleteClass = (cid) => {
 
 // ── APPROBATIONS ──
 R.approbations = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const isD2 = S.user.role==='direction2';
   const pabs = DB.absences.filter(a=>a.status==='pending');
   const apr = DB.approbations.filter(a=>a.status==='pending'&&a.type!=='cahier_texte');
@@ -5528,7 +5552,7 @@ R.approbations = () => {
   ${pendingRats.length?`<div class="premium-section" style="border-left:4px solid #f59e0b"><div class="premium-section-title">📚 Signalements de rattrapage (${pendingRats.length})</div>
     ${pendingRats.map(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
-      const t=gu(r.teacher_id);
+      const ratTeacher=gu(r.teacher_id);
       const cl=s?gc(s.cid):null;
       const scoreColor=r.score<30?'#dc2626':r.score<50?'#d98a2b':'#374151';
       const hasPaid=s&&DB.payments.some(p=>p.sid===s.id&&p.paid);
@@ -5550,7 +5574,7 @@ R.approbations = () => {
           ${r.weak_details?.length?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
             ${r.weak_details.map(w=>`<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:${w.avg<30?'#fee2e2':w.avg<40?'#ffedd5':'#fdeccd'};color:${w.avg<30?'#991b1b':w.avg<40?'#c2410c':'#92400e'};font-weight:700">${w.mat}: ${w.avg}%</span>`).join('')}
           </div>`:`<div class="pi-sub" style="margin-top:3px">${esc(r.motif?.split('\n')[0]||'')}</div>`}
-          <div style="font-size:11px;color:var(--text-muted)">${t?t.name:'?'} · ${r.date}${isD2?'':' · Frais: '+(hasPaid?'Payés':'Non payés')}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${ratTeacher?esc(ratTeacher.name):'?'} · ${r.date}${isD2?'':' · Frais: '+(hasPaid?'Payés':'Non payés')}</div>
         </div>
         ${isD2
           ? `<button class="btn btn-success btn-sm" onclick="validerRattrapage('${r.id}',true)">Approuver</button>`
@@ -5621,6 +5645,7 @@ R.approbations = () => {
   })()}`;
 };
 window.approveApr = (id, status) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const a = DB.approbations.find(x=>x.id===id); if(!a) return;
   a.status = status;
   pushSync('approbations','patch',{status},'id=eq.'+id);
@@ -5654,6 +5679,7 @@ window.approveApr = (id, status) => {
 };
 
 window.validateAbs = (id, status) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const a = DB.absences.find(x=>x.id===id); if (!a) return;
   a.status = status;
   pushSync('absences','patch',{status},'id=eq.'+id);
@@ -5715,6 +5741,7 @@ window.approveDevoir = (did, status) => {
 };
 
 window.validateDailyReport = (rid) => {
+  if(!S.user||S.user.role!=='direction') return;
   const rep = DB.daily_reports.find(r=>r.id===rid); if(!rep) return;
   if(rep.status==='validated'){toast('Rapport déjà validé','info');return;}
   rep.status = 'validated';
@@ -6451,17 +6478,20 @@ window.t = (fr, en) => getLang()==='en' ? en : fr;
 // ── Helper: get matières for a class ──
 window.getClassMatieres = (cid) => {
   const cl=gc(cid); if(!cl) return [];
-  // Check if custom matières exist
+  // Matières personnalisées approuvées pour cette classe
   const custom=DB.matieres.filter(m=>m.cid===cid&&m.active!==false);
-  if(custom.length) return custom;
-  // Otherwise return defaults
-  if(cl.cycle==='maternelle') return DEFAULT_MATIERES.maternelle.map((m,i)=>({id:'dm'+i,cid,name:m.name,lang:m.lang,coeff:m.coeff||1,active:true}));
-  if(cl.cycle==='secondaire') return DEFAULT_MATIERES.secondaire.map((m,i)=>({id:'ds'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
-  return [
+  const customLangs=new Set(custom.map(m=>m.lang));
+  // Matières par défaut selon le cycle (humanités traité comme secondaire, faute de référentiel dédié)
+  let defaults;
+  if(cl.cycle==='maternelle') defaults=DEFAULT_MATIERES.maternelle.map((m,i)=>({id:'dm'+i,cid,name:m.name,lang:m.lang,coeff:m.coeff||1,active:true}));
+  else if(cl.cycle==='secondaire'||cl.cycle==='humanites') defaults=DEFAULT_MATIERES.secondaire.map((m,i)=>({id:'ds'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
+  else defaults=[
     ...DEFAULT_MATIERES.primaire_fr.map((m,i)=>({id:'dfr'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true})),
     ...DEFAULT_MATIERES.primaire_en.map((m,i)=>({id:'den'+i,cid,name:m.name,lang:'en',coeff:m.coeff||1,active:true})),
     ...DEFAULT_MATIERES.commun.map((m,i)=>({id:'dc'+i,cid,name:m.name,lang:'commun',coeff:m.coeff||1,active:true})),
   ];
+  // Les matières personnalisées remplacent les défauts de leur propre langue uniquement — les autres langues restent
+  return [...custom, ...defaults.filter(d=>!customLangs.has(d.lang))];
 };
 
 // ── PRÉSENCES (enseignant: validation depuis scan automatique) ──
@@ -6610,24 +6640,25 @@ window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
     const grades = (DB.grades||[]).filter(g => g.sid === s.id && g.trimester === trim && matNames.includes(g.matiere));
     if(!grades.length) return;
 
+    const threshold = DB.settings.rattrapage_threshold != null ? DB.settings.rattrapage_threshold : 50;
     const matsList = [...new Set(grades.map(g => g.matiere))];
     const weakMats = matsList.map(mat => {
       const gs = grades.filter(g => g.matiere === mat);
       const avg = Math.round(gs.reduce((a, g) => a + gradePct(g), 0) / gs.length);
-      return avg < 50 ? {mat, avg} : null;
+      return avg < threshold ? {mat, avg} : null;
     }).filter(Boolean);
 
     if(weakMats.length < 2) return;
 
-    const alreadySignaled = (DB.rattrapages||[]).find(r =>
-      r.sid === s.id && r.teacher_id === teacherId && r.auto_triggered && r.trimestre === trim
-    );
-    if(alreadySignaled) return;
+    const newWeakMats = weakMats.filter(w => !(DB.rattrapages||[]).some(r =>
+      r.sid === s.id && r.matiere === w.mat && r.auto_triggered && r.trimestre === trim
+    ));
+    if(!newWeakMats.length) return;
 
     const globalAvg = Math.round(grades.reduce((a, g) => a + gradePct(g), 0) / grades.length);
     const weakStr = weakMats.map(w => `${w.mat} (${w.avg}%)`).join(', ');
 
-    weakMats.forEach(w => {
+    newWeakMats.forEach(w => {
       const rat = {
         id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
         sid: s.id, teacher_id: teacherId,
@@ -6696,16 +6727,17 @@ window.cloturerTrimestre = (cid) => {
     (DB.students||[]).some(s => s.cid === cid && s.id === r.sid)
   );
 
+  const threshold = DB.settings.rattrapage_threshold != null ? DB.settings.rattrapage_threshold : 50;
   const warn = alreadyDone ? `\n\n⚠️ Ce trimestre a déjà été clôturé. Les élèves déjà signalés ne seront pas doublés.` : '';
   showC(
     `📊 Clôturer le ${trim} — ${cl.name}`,
-    `Cette action va analyser les résultats de tous les élèves pour le ${trim}.\n\n• Seuls les élèves avec ≥ 2 matières < 50% seront signalés\n• La Direction et les parents concernés seront notifiés\n• Des convocations pré-rédigées seront créées automatiquement${warn}`,
+    `Cette action va analyser les résultats de tous les élèves pour le ${trim}.\n\n• Seuls les élèves avec ≥ 2 matières < ${threshold}% seront signalés\n• La Direction et les parents concernés seront notifiés\n• Des convocations pré-rédigées seront créées automatiquement${warn}`,
     () => {
       const count = analyserResultatsTrimestre(cid, trim, S.user.id, lang);
       saveToCrypt();
       logAudit('cloture_trimestre', `${cl.name} · ${trim} · ${count} élève(s) signalé(s)`, cid);
       if(count === 0) {
-        toast(`✅ ${trim} clôturé — Aucun élève en difficulté (≥ 2 matières < 50%)`, 'success');
+        toast(`✅ ${trim} clôturé — Aucun élève en difficulté (≥ 2 matières < ${threshold}%)`, 'success');
       } else {
         toast(`📊 ${trim} clôturé — ${count} élève${count>1?'s':''} en difficulté signalé${count>1?'s':''}`, 'warning');
       }
@@ -6805,6 +6837,7 @@ window.submitRattrapage = (sid) => {
 
 // Direction: valider rattrapage + fixer montant + notifier parent
 window.validerRattrapage = (rid, noPayment) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid);
   // Direction 2: approve academically without setting a fee
@@ -6834,6 +6867,7 @@ window.validerRattrapage = (rid, noPayment) => {
 };
 
 window.confirmerRattrapage = (rid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   const amount=parseFloat($('rat_amount').value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
@@ -7222,7 +7256,7 @@ R.palmares_parent = () => {
       return `<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:${bg}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-size:16px">${flag}</span>
-          <div><div style="font-weight:700;font-size:14px">${secLabel}</div>${profName?`<div style="font-size:11px;color:var(--text-secondary)">Prof: ${profName}</div>`:''}</div>
+          <div><div style="font-weight:700;font-size:14px">${secLabel}</div>${profName?`<div style="font-size:11px;color:var(--text-secondary)">Prof: ${esc(profName)}</div>`:''}</div>
           ${moy!==null?`<span class="pill" style="margin-left:auto;background:${bc2};color:#fff;font-size:13px;font-weight:800">${moy}%</span>`:''}
         </div>
         ${secMats.map(m=>{
@@ -8062,6 +8096,7 @@ window.setGradeType = tp => {
 
 window.openGradePanel = cid => {
   const cl = gc(cid); if(!cl) return;
+  if(!S.user||S.user.role!=='enseignant'||getMyClass().cl?.id!==cid) return;
   const mc = getMyClass();
   const matieres = getClassMatieres(cid).filter(m =>
     mc.lang === 'fr' ? (m.lang === 'fr' || m.lang === 'commun') :
@@ -8132,6 +8167,7 @@ window.openGradePanel = cid => {
 };
 
 window.saveGradePanel = cid => {
+  if(!S.user||S.user.role!=='enseignant'||getMyClass().cl?.id!==cid) return;
   const mat    = ($('gradeMatiere')?.value || '').trim();
   const coef   = parseFloat($('gradeCoef')?.value) || 1;
   const label  = ($('gradeLabel')?.value || '').trim();
@@ -8225,6 +8261,9 @@ window.openStudentGrades = (sid, cid) => {
 };
 
 window.deleteGrade = (gid, sid, cid) => {
+  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const s=DB.students.find(x=>x.id===g.sid);
+  if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
   showC('Supprimer cette note ?','Cette action est irréversible.',()=>{
     DB.grades = DB.grades.filter(x => x.id !== gid);
     pushSync('grades','delete',{},'id=eq.'+gid);
@@ -8263,7 +8302,7 @@ R.matieres = () => {
     ${myMat.map((m,i)=>`
     <div class="premium-item" style="animation-delay:${i*.04}s">
       <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d8f3e6':'#fdeccd'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
-      <div style="flex:1"><div class="pi-title">${m.name}</div><div class="pi-sub">${m.lang==='commun'?t('Matière commune','Common subject'):m.lang==='fr'?'Section française':'English section'}</div></div>
+      <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">${m.lang==='commun'?t('Matière commune','Common subject'):m.lang==='fr'?'Section française':'English section'}</div></div>
       <span class="pill" style="background:${(m.coeff||1)>=3?'#dbeafe':(m.coeff||1)>=2?'#fdeccd':'#f6ede0'};color:${(m.coeff||1)>=3?'#205fae':(m.coeff||1)>=2?'#92400e':'#5c5346'};font-weight:700">×${m.coeff||1}</span>
     </div>`).join('')}
   </div>
@@ -9584,7 +9623,7 @@ window.render = () => { stopScan(); _baseRender(); if(['scanner','scanner_exit']
 function getArrivalStatus(cycle) {
   const d=new Date(), mins=d.getHours()*60+d.getMinutes();
   const hr=DB.settings.horaires||{};
-  const h=hr[cycle]||hr.primaire||{ontime:455,late:480};
+  const h=hr[cycle]||(cycle==='humanites'?hr.secondaire:null)||hr.primaire||{ontime:455,late:480};
   if(mins<=h.ontime) return {status:'ontime', label:'À l\'heure', color:'green', level:1};
   if(mins<=h.late)   return {status:'late',   label:'Retard léger ⚠️', color:'orange', level:2};
   return                    {status:'refused', label:'Retard grave 🚫', color:'red', level:3};
@@ -10371,6 +10410,7 @@ window.signalerPaiementRattrapage = (rid) => {
 };
 
 window.planifierConvocation = (cid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
   const s=DB.students.find(x=>x.id===conv.sid);
   const parent=s?gu(s.pid):null;
@@ -10391,6 +10431,7 @@ window.planifierConvocation = (cid) => {
 };
 
 window.confirmerRDV = (cid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
   const rdv_date=$('rdv_date')?.value; if(!rdv_date){toast('Choisissez une date','error');return;}
   const note=$('rdv_note')?.value||'';
@@ -10410,6 +10451,7 @@ window.confirmerRDV = (cid) => {
 };
 
 window.cloturerConvocation = (cid, status) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
   conv.status=status;
   pushSync('convocations','patch',{status},'id=eq.'+cid);
@@ -11210,6 +11252,7 @@ window.replyToDirection = (mid) => {
    <button class="btn btn-primary" onclick="sendMsg('dir_send')">↩️ Envoyer</button>`);
 };
 window.approveMsg = (mid, status) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const m=DB.messages.find(x=>x.id===mid); if(!m) return;
   m.status=status;
   if(status==='approved'){
@@ -11986,6 +12029,7 @@ window.showConvocationSeal = (name, reason) => {
   setTimeout(()=>{render();el.remove();},1950);
 };
 window.saveConvocation = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
   if(!sid){toast('Sélectionner un élève','error');return;}
   const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id};
@@ -12005,6 +12049,7 @@ window.saveConvocation = () => {
 };
 
 window.deleteConvocation = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   showC('Supprimer cette convocation','Supprimer définitivement cette convocation ?',()=>{
     DB.convocations=(DB.convocations||[]).filter(x=>x.id!==id);
     pushSync('convocations','delete','','id=eq.'+id);
@@ -12026,6 +12071,7 @@ window.editConvocationM = (id) => {
    <button class="btn btn-primary" onclick="updateConvocation('${id}')">Enregistrer</button>`);
 };
 window.updateConvocation = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const conv=(DB.convocations||[]).find(x=>x.id===id); if(!conv) return;
   conv.reason=$('convEditReason')?.value||conv.reason;
   conv.note=($('convEditNote')?.value||'').trim()||null;
@@ -12188,19 +12234,35 @@ window.executePassage = () => {
 };
 
 window.confirmNewYear = () => {
+  const _g=_requireRole('direction'); if(_g) return;
   showC('📦 Archiver et nouvelle année ?',`Toutes les données de ${DB.settings.year} seront archivées. Les notes, présences et paiements seront réinitialisés. Cette action est irréversible.`,()=>{
     const yr=DB.settings.year;
     if(!DB.settings.archived_years) DB.settings.archived_years=[];
     try {
       const snapshot={year:yr,date:today(),students:DB.students.length,classes:DB.classes.length,grades:DB.grades,payments:DB.payments,attendance:DB.attendance,students_data:DB.students};
       localStorage.setItem('schoolsafe_archive_'+yr,JSON.stringify(snapshot));
-    } catch(e2) { console.warn('[ARCHIVE snapshot]', e2.message); }
+    } catch(e2) {
+      console.warn('[ARCHIVE snapshot]', e2.message);
+      toast('❌ Échec de la sauvegarde de secours — réinitialisation annulée pour éviter une perte de données','error');
+      return;
+    }
     DB.settings.archived_years.unshift({year:yr,students:DB.students.length,date:today(),grades:DB.grades.length,snapshot_key:'schoolsafe_archive_'+yr});
+    // Propager la suppression des données de l'année écoulée côté serveur, pour qu'elles ne reviennent pas au prochain sync
+    const _cut=today();
+    pushSync('grades','delete',{},'year=eq.'+yr);
+    pushSync('attendance','delete',{},'date=lte.'+_cut);
+    pushSync('absences','delete',{},'date=lte.'+_cut);
+    pushSync('devoirs','delete',{},'date=lte.'+_cut);
+    pushSync('cahier_texte','delete',{},'date=lte.'+_cut);
+    pushSync('daily_records','delete',{},'date=lte.'+_cut);
+    pushSync('daily_expenses','delete',{},'date=lte.'+_cut);
+    pushSync('daily_reports','delete',{},'date=lte.'+_cut);
     // Incrémenter année
     const parts=yr.split('-');
     const newYr=parts.length===2?`${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`:yr;
     DB.settings.year=newYr;
     DB.settings.trimLocks={T1:false,T2:false,T3:false};
+    pushSync('settings','upsert',DB.settings);
     // Reset données annuelles
     DB.grades=[];
     DB.attendance=[];
@@ -14272,6 +14334,7 @@ window._showCalDay = (dateStr) => {
   </div>`,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
 };
 window.prefillRDCHolidays = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const yr=new Date().getFullYear();
   const feries=[
     {d:`${yr}-01-01`,n:'Nouvel An'},{d:`${yr}-01-04`,n:'Journée des Martyrs'},
@@ -14303,8 +14366,10 @@ window.openCalM = () => openM('Ajouter un événement',`
 </select></div></div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCal()">Ajouter</button>`);
 window.saveCal = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const t=$('ft2').value.trim(),d=$('fd').value,ty=$('fty').value;
   if(!t||!d){toast('Remplir tous les champs','error');return;}
+  if(DB.events.some(e=>e.title===t&&e.date===d)){toast('Cet événement existe déjà à cette date','error');return;}
   const ev={id:'ev'+Date.now(),title:t,date:d,type:ty};
   DB.events.push(ev);
   DB.events.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -14313,6 +14378,7 @@ window.saveCal = () => {
   toast('Ajouté ✅','success'); closeModal(); render();
 };
 window.deleteEvent = (eid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   showC('Supprimer cet événement ?','Cette action est irréversible.',()=>{
     pushSync('events','delete',{},'id=eq.'+eid);
     DB.events=DB.events.filter(e=>e.id!==eid);
@@ -15275,10 +15341,10 @@ R.audit_log = () => {
       <div class="pi-icon" style="background:#f6ede0;font-size:16px">${actionIcon[e.action]||'•'}</div>
       <div style="flex:1;min-width:0">
         <div class="pi-title" style="font-size:13px">${actionLabel[e.action]||e.action}</div>
-        <div class="pi-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.detail||''}</div>
+        <div class="pi-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.detail||'')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:11px;font-weight:600;color:var(--text-secondary)">${e.by_name||'?'}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-secondary)">${esc(e.by_name||'?')}</div>
         <div style="font-size:10px;color:var(--text-muted)">${e.date} ${e.time}</div>
       </div>
     </div>`).join('')}
@@ -16368,6 +16434,8 @@ window.renderGSearch = () => {
 // ── CONVOCATION CONFIRMATION PARENT ──
 window.confirmConvocationParent = (cid) => {
   const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const _s=DB.students.find(x=>x.id===conv.sid);
+  if(!S.user||S.user.role!=='parent'||!_s||_s.pid!==S.user.id) return;
   showC('📬 Confirmer la réception ?','Vous confirmez avoir bien reçu et lu cette convocation.',()=>{
     conv.parent_confirmed=true; conv.parent_confirmed_at=today()+' '+nowTime();
     pushSync('convocations','patch',{parent_confirmed:true,parent_confirmed_at:conv.parent_confirmed_at},'id=eq.'+cid);
