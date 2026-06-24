@@ -1253,6 +1253,7 @@ window.SCHOOL_SIGNATURE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABBYAAAF
 
 
 window.runAutoCleanup = async (force=false) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)) return;
   const ret=DB.settings.retention||{};
   const cutoffFor=d=>{const dt=new Date();dt.setDate(dt.getDate()-d);return dt.toISOString().slice(0,10);};
   const c_scan=cutoffFor(ret.scan_log||90);
@@ -2986,6 +2987,7 @@ function _weekendBanner(isDir){
   </div>`;
 }
 window.toggleWeekendException = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   if(!DB.settings.toggles) DB.settings.toggles={};
   const newVal=!DB.settings.toggles.weekend_exception;
   DB.settings.toggles.weekend_exception=newVal;
@@ -4560,6 +4562,7 @@ window.toggleLockdown = () => {
 };
 
 window.toggleFeesControl = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   if(!DB.settings.feesControl) DB.settings.feesControl={active:false,trimestre:'T1'};
   const fc=DB.settings.feesControl;
   const trimEl=document.getElementById('fcTrim')||document.getElementById('fcTrim2');
@@ -4611,6 +4614,7 @@ ${recent.length?`
 </div>`:''}`);
 };
 window.sendUrgentAlert = () => {
+  if(!S.user||S.user.role!=='gardien'){toast('Accès non autorisé','error');return;}
   const type = document.getElementById('alertType')?.value || 'Situation anormale';
   const desc = document.getElementById('alertDesc')?.value.trim() || '';
   const msg = `🚨 ALERTE PORTAIL — ${S.user.name} · ${type}${desc?' · '+desc:''}`;
@@ -4693,6 +4697,7 @@ window.openBroadcastM = () => openM('📣 Envoyer une annonce',`
  <button class="btn btn-primary" onclick="sendBroadcast()">📣 Envoyer</button>`);
 
 window.sendBroadcast = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const target=($('bc_target')?.value||'').trim();
   const msg=($('bc_msg')?.value||'').trim();
   if(!msg){toast('Message requis','error');return;}
@@ -4763,6 +4768,7 @@ R.inscriptions = () => {
 };
 
 window.validerInscription = async (id) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const insc = (DB.inscriptions||[]).find(i => i.id === id);
   if (!insc) return;
   showC('Valider cette inscription ?',
@@ -4801,6 +4807,7 @@ window.refuserInscription = (id) => {
 };
 
 window.confirmerRefus = async (id) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const motif = ($('motifRefus')?.value || '');
   const detail = ($('motifDetail')?.value || '').trim();
   const motifFinal = detail ? motif + ' — ' + detail : motif;
@@ -4958,6 +4965,7 @@ window.stuPhotoChange = (input) => {
 };
 
 window.saveStudent = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const name=($('stu_name').value||'').trim();
   if(!name){markFieldError('stu_name','Nom complet requis');return;}
   const cid=$('stu_cid').value;
@@ -4988,6 +4996,7 @@ window.saveStudent = () => {
 };
 window.editStudent = (sid) => openStudentForm(sid);
 window.deleteStudent = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   showC(`Supprimer ${s.name} ?`,'Irréversible — paiements et présences liés seront aussi supprimés.',()=>{
     logAudit('student_delete',`${s.name} — ${s.mat}`,sid);
@@ -5097,6 +5106,7 @@ ${classOpts}`,
 };
 
 window.saveUser = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   // Read all form values safely
   const nameEl=$('usr_name'); const pinEl=$('usr_pin'); const idEl=$('usr_id'); const roleEl=$('usr_role');
   if(!nameEl||!pinEl||!idEl||!roleEl){toast('Erreur formulaire — réouvrez la fenêtre','error');return;}
@@ -5104,6 +5114,7 @@ window.saveUser = () => {
   if(!name){markFieldError('usr_name','Nom requis');return;}
   const uid=idEl.value;
   const role=roleEl.value;
+  if(S.user.role==='direction2' && ['direction','direction2','direction3'].includes(role)){toast('Accès non autorisé','error');return;}
   const isDir=_isDirRole(role);
   const pinRaw=(pinEl.value||'').trim();
   const pinInput=isDir?pinRaw:pinRaw.replace(/\D/g,'');
@@ -5186,6 +5197,8 @@ window.previewUserPhoto = input => {
 
 window.deleteUser = (uid) => {
   const u=DB.users.find(x=>x.id===uid); if(!u) return;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(S.user.role==='direction2' && ['direction','direction2','direction3'].includes(u.role)){toast('Accès non autorisé','error');return;}
   const linked=DB.students.filter(s=>s.pid===uid);
   showC(`Supprimer ${u.name} ?`,linked.length?`⚠️ ${linked.length} élève(s) lié(s) — le lien parent sera retiré.`:'Cette action est irréversible.',()=>{
     linked.forEach(s=>{s.pid=null;});
@@ -5441,6 +5454,7 @@ window.updateClassCycleFields = () => {
 };
 
 window.saveClass = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const name=($('cls_name').value||'').trim();
   if(!name){toast('Entrez le nom de la classe','error');return;}
   const cid=$('cls_id').value;
@@ -5469,6 +5483,7 @@ window.saveClass = () => {
 };
 
 window.deleteClass = (cid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const c=DB.classes.find(x=>x.id===cid); if(!c) return;
   const cnt=DB.students.filter(s=>s.cid===cid).length;
   if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
@@ -5990,6 +6005,7 @@ window._payFilterClass='';
 window._payFilterStatus='';
 
 window.togglePay = (sid, t) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=!p.paid;
   pushSync('payments','patch',{paid:p.paid},'sid=eq.'+sid+'&t=eq.'+t);
@@ -6016,6 +6032,7 @@ window.togglePay = (sid, t) => {
 };
 
 window.toggleStudentAccess = sid => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   s.access_blocked=!s.access_blocked;
   pushSync('students','patch',{access_blocked:s.access_blocked},'id=eq.'+sid);
@@ -6025,6 +6042,7 @@ window.toggleStudentAccess = sid => {
 };
 
 window.blockAllUnpaid = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const unpaid=DB.students.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>!p.paid)&&!s.access_blocked;});
   if(!unpaid.length){toast('Aucun nouvel élève à bloquer','info');return;}
   showC(`Bloquer ${unpaid.length} élève(s) non-payé(s) ?`,`Ces élèves ne pourront plus entrer à l'école jusqu'au règlement des frais.`,()=>{
@@ -6037,6 +6055,7 @@ window.blockAllUnpaid = () => {
 };
 
 window.unblockAll = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const blocked=DB.students.filter(s=>s.access_blocked);
   if(!blocked.length){toast('Aucun élève bloqué','info');return;}
   showC(`Débloquer ${blocked.length} élève(s) ?`,'Tous les élèves bloqués auront à nouveau accès à l\'école.',()=>{
@@ -6124,6 +6143,7 @@ window.openFeesConfig = () => {
 };
 
 window.saveFeesConfig = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.fees) DB.settings.fees={};
   DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
   DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
@@ -6610,6 +6630,7 @@ window.validateScanPresence = () => {
 
 window.signalAbsencesToDir = (cid) => {
   const cl=gc(cid); if(!cl) return;
+  if(!S.user||S.user.role!=='enseignant'||(cl.teacher_id!==S.user.id&&cl.teacher_id_en!==S.user.id)){toast('Accès non autorisé','error');return;}
   const students=DB.students.filter(s=>s.cid===cid);
   const scannedSids=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
   const absents=students.filter(s=>!scannedSids.includes(s.id));
@@ -6791,6 +6812,7 @@ window.openAppreciationM = (sid, cid) => {
 };
 
 window.saveAppreciation = (sid, cid, existingId) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   const text=($('appTxt')?.value||'').trim();
   if(!text){toast('Écrivez une appréciation','error');return;}
   if(!DB.appreciations) DB.appreciations=[];
@@ -6809,6 +6831,7 @@ window.saveAppreciation = (sid, cid, existingId) => {
 };
 
 window.deleteAppreciation = (appId) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   DB.appreciations=(DB.appreciations||[]).filter(x=>x.id!==appId);
   pushSync('appreciations','delete',{},'id=eq.'+appId);
   closeModal(); saveToCrypt(); render();
@@ -6816,6 +6839,7 @@ window.deleteAppreciation = (appId) => {
 };
 
 window.submitRattrapage = (sid) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const mat=($('rat_mat').value||'').trim();
   const motif=($('rat_motif').value||'').trim();
@@ -6889,6 +6913,7 @@ window.confirmerRattrapage = (rid) => {
 
 // Direction: marquer rattrapage comme payé + ajouter prime enseignant
 window.marquerRattrapage = (rid, paid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   r.status=paid?'paid':'pending'; r.paid=paid;
   if(paid){
@@ -6927,6 +6952,7 @@ window.planifierRattrapage = (rid) => {
 };
 
 window.savePlanRattrapage = (rid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   const d=($('sessDate')?.value||'').trim();
   if(!d){toast('Date obligatoire','error');return;}
@@ -6957,6 +6983,7 @@ window.marquerSeanceEffectuee = (rid) => {
 };
 
 window.saveSeanceEffectuee = (rid) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   const note=($('sessNote')?.value||'').trim();
   r.done=true; r.done_date=today(); r.done_note=note;
@@ -6974,6 +7001,7 @@ window.saveSeanceEffectuee = (rid) => {
 
 // Archiver un rattrapage terminé
 window.archiverRattrapage = (rid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
   r.archived=true;
   pushSync('rattrapages','patch',{archived:true},'id=eq.'+rid);
@@ -7808,6 +7836,7 @@ window.openCantinaMenu = (mid) => {
 };
 
 window.saveCantinaMenu = (mid) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const date=($('cmDate')?.value||'').trim();
   const plat=($('cmPlat')?.value||'').trim();
   if(!date||!plat){toast('Date et plat principal obligatoires','error');return;}
@@ -7855,6 +7884,7 @@ window.openInscrireEleve = () => {
 };
 
 window.saveInscrireEleve = () => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sid=$('caSid')?.value;
   const type=$('caType')?.value;
   const amount=parseFloat($('caAmount')?.value)||0;
@@ -7874,6 +7904,7 @@ window.saveInscrireEleve = () => {
 };
 
 window.desinscrireEleve = (sid) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid);
   showC(`Désinscrire ${s?s.name:'cet élève'} de la cantine ?`,'Cette action peut être annulée en le réinscrivant.',()=>{
     const ins=(DB.cantine||[]).find(c=>c.sid===sid&&c.active);
@@ -7890,6 +7921,7 @@ window.desinscrireEleve = (sid) => {
 };
 
 window.toggleCantinaPresence = (sid, isPresent) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.cantine_presence) DB.cantine_presence=[];
   const todayStr=today();
   const existing=DB.cantine_presence.find(p=>p.sid===sid&&p.date===todayStr);
@@ -8350,6 +8382,7 @@ window.openAddMatiere = cid => {
 };
 
 window.submitMatiere = cid => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   const name=($('matName')?.value||'').trim();
   const lang=$('matLang')?.value;
   const coeff=Number($('matCoeff')?.value||1);
@@ -8955,6 +8988,8 @@ window.saveDevoir = () => {
 };
 
 window.deleteDevoir = dvId => {
+  const _dv=DB.devoirs.find(x=>x.id===dvId);
+  if(!_dv||!S.user||(S.user.role==='enseignant'?_dv.teacher_id!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   showC('Supprimer ce devoir ?','Cette action est irréversible. Les parents ne verront plus ce devoir.',()=>{
     DB.devoirs=DB.devoirs.filter(x=>x.id!==dvId);
     pushSync('devoirs','delete',{},'id=eq.'+dvId);
@@ -9017,6 +9052,7 @@ window.openCorrecteurDevoir = dvId => {
 
 window.saveCorrecteurDevoir = dvId => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  if(!S.user||(S.user.role==='enseignant'?d.teacher_id!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   const trim=document.getElementById('gcTrim')?.value||window._gradeTrim||'T1';
   const max=parseFloat(document.getElementById('gcMax')?.value)||20;
   const coef=parseFloat(document.getElementById('gcCoef')?.value)||1;
@@ -9084,6 +9120,7 @@ window.saveCorrecteurDevoir = dvId => {
 window.confirmDevoir = (dvId, kidId) => {
   const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
   const kid=DB.students.find(s=>s.id===kidId);
+  if(!S.user||S.user.role!=='parent'||!kid||kid.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   if((d.sigs||[]).some(s=>s.kid_id===kidId&&s.uid===S.user.id)){toast('Vous avez déjà confirmé ce devoir','info');return;}
   const sig={uid:S.user.id,kid_id:kidId,date:today(),time:nowTime(),parent_name:S.user.name};
   if(!d.sigs) d.sigs=[];
@@ -9921,6 +9958,7 @@ window.zoomAuthPhoto = idx => {
 };
 
 window.confirmExitWith = async (sid,personIdx) => {
+  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
@@ -9933,6 +9971,7 @@ window.confirmExitWith = async (sid,personIdx) => {
 };
 
 window.confirmExitAlone = async sid => {
+  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
   const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
@@ -9970,6 +10009,7 @@ window.previewRefPhoto = (input) => {
   r.readAsDataURL(f);
 };
 window.doExitRefused = async (sid) => {
+  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const desc=(document.getElementById('refDesc')?.value||'').trim();
   if(!desc){toast('Décrivez la personne','error');return;}
@@ -10070,6 +10110,7 @@ R.scan_log = () => {
 };
 
 window.sendAttendanceList = async () => {
+  if(!S.user||S.user.role!=='gardien'){toast('Accès non autorisé','error');return;}
   const logs=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
   const ontime=logs.filter(l=>l.status==='ontime').length;
   const late=logs.filter(l=>l.status==='late').length;
@@ -10341,6 +10382,8 @@ window.tutPhotoChange = (input) => {
 window.saveTutelle = () => {
   const sid=$('tut_sid').value;
   const tid=$('tut_id').value;
+  const s=DB.students.find(x=>x.id===sid);
+  if(!s||(S.user.role==='parent'?s.pid!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   const name=($('tut_name').value||'').trim();
   if(!name){toast('Entrez le nom','error');return;}
   const relation=$('tut_relation').value;
@@ -10784,6 +10827,7 @@ window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   setTimeout(()=>{el.style.transition='opacity .3s ease';el.style.opacity='0';setTimeout(()=>el.remove(),350);},2400);
 };
 window.caisseSavePaiement = async () => {
+  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
   const s=window._caisseStudent; if(!s){toast('Sélectionnez un élève','error');return;}
   const amount=parseFloat($('caisse_amount').value||'0');
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
@@ -10807,6 +10851,7 @@ window.caisseSavePaiement = async () => {
 };
 
 window.sendCaisseReceipt = async (student, rec) => {
+  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
   const cl=gc(student.cid);
   const receiptNum='REC-'+Date.now().toString().slice(-6);
   const triLabel=rec.trimestre?` · ${rec.trimestre}`:'';
@@ -10868,6 +10913,7 @@ ${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).length?`
 </div>`:''}`;
 
 window.saveDepense = () => {
+  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
   const amount=parseFloat($('dep_amount').value||'0');
   const motif=($('dep_motif').value||'').trim();
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
@@ -11016,6 +11062,8 @@ R.messages = () => {
 window._msgTab = 'inbox';
 
 window.deleteMessage = (id) => {
+  const m=(DB.messages||[]).find(x=>x.id===id); if(!m) return;
+  if(!S.user||(m.from!==S.user.id&&!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   showC('Supprimer ce message','Supprimer définitivement ce message ?',()=>{
     DB.messages=(DB.messages||[]).filter(x=>x.id!==id);
     pushSync('messages','delete','','id=eq.'+id);
@@ -11151,6 +11199,7 @@ window.applyDirMsgTemplate = () => {
 };
 
 window.sendMsg = (mode) => {
+  if(!S.user||!['direction','direction2','enseignant','parent'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const subject=($('msg_subject')?.value||'').trim();
   const body=($('msg_body')?.value||'').trim();
   const msgType=($('msg_type')?.value||'normal');
@@ -11171,7 +11220,10 @@ window.sendMsg = (mode) => {
   } else if(mode==='dir_send'){
     const toVal=($('msg_to')?.value||'').trim();
     if(!toVal){toast('Sélectionnez un destinataire','error');return;}
-    if(toVal.startsWith('role:')){toRole=toVal.replace('role:','');targets=DB.users.filter(u=>u.role===toRole);}
+    if(toVal.startsWith('role:')){
+      if(!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+      toRole=toVal.replace('role:','');targets=DB.users.filter(u=>u.role===toRole);
+    }
     else {toId=toVal.replace('uid:','');targets=[DB.users.find(u=>u.id===toId)].filter(Boolean);}
     // Enseignant ne peut pas contacter un parent directement sans validation Direction
     if(S.user.role==='enseignant'){
@@ -11672,6 +11724,7 @@ window.openPrimeForm = () => {
    <button class="btn btn-primary" onclick="savePrime()">💎 Accorder</button>`);
 };
 window.savePrime = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const tid=($('pr_tid')?.value||'').trim();
   const amount=parseFloat($('pr_amount')?.value)||0;
   const motif=($('pr_motif')?.value||'').trim();
@@ -11688,6 +11741,7 @@ window.savePrime = () => {
   saveToCrypt();closeModal();render();toast(`Prime de $${amount} accordée à ${u2?.name||'?'}`,'success');
 };
 window.deletePrime = (id) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   showC('Supprimer','Supprimer cette prime ?',()=>{
     DB.direct_primes=(DB.direct_primes||[]).filter(x=>x.id!==id);
     pushSync('direct_primes','delete','','id=eq.'+id);
@@ -11718,6 +11772,7 @@ window.openConductM = (sid) => {
    <button class="btn btn-primary" onclick="saveConductEntry()">💾 ${t('Enregistrer','Save')}</button>`);
 };
 window.saveConductEntry = () => {
+  if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
   if(!sid||!score||!date){toast('Remplir tous les champs','error');return;}
   const entry={id:'cd'+Date.now(),sid,score,remark,date,by:S.user.id};
@@ -11727,6 +11782,7 @@ window.saveConductEntry = () => {
   saveToCrypt(); toast('📊 Note de conduite enregistrée','success'); closeModal(); render();
 };
 window.deleteConductEntry = (cid) => {
+  if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer cette note de conduite ?','',()=>{
     logAudit('conduct_delete', `Conduite supprimée`, cid);
     pushSync('conduct','delete',{},'id=eq.'+cid);
@@ -11957,6 +12013,7 @@ window.openCommuniqueM = () => {
    <button class="btn btn-primary" onclick="sendCommunique()">📣 Envoyer</button>`);
 };
 window.sendCommunique = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const target=$('cq_target')?.value||'all';
   const cid=target==='class'?($('cq_class')?.value||''):'';
   const subject=($('cq_subject')?.value||'').trim();
@@ -12150,6 +12207,7 @@ window.openYearConfig = () => {
 };
 
 window.saveYearConfig = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.toggles) DB.settings.toggles={};
   DB.settings.year = ($('yr_name').value||'').trim()||DB.settings.year;
   ['devoirs','cahier_texte','presences'].forEach(k=>{
@@ -12160,6 +12218,7 @@ window.saveYearConfig = () => {
 };
 
 window.toggleTrimLock = (t) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.trimLocks) DB.settings.trimLocks={T1:false,T2:false,T3:false};
   DB.settings.trimLocks[t] = !DB.settings.trimLocks[t];
   toast(`${DB.settings.trimLocks[t]?'🔒 Trimestre '+t+' verrouillé':'🔓 Trimestre '+t+' ouvert'}`, DB.settings.trimLocks[t]?'info':'success');
@@ -12167,6 +12226,7 @@ window.toggleTrimLock = (t) => {
 };
 
 window.setCurrentTrimestre = (t) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   DB.settings.currentTrimestre = t;
   window._gradeTrim = t;
   window._gradeTrimSet = true;
@@ -12534,6 +12594,8 @@ R.export = () => {
 };
 
 window.exportCSV = (type) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(['payments','caisse'].includes(type)&&S.user.role==='direction2'){toast('Accès non autorisé','error');return;}
   let rows=[], filename='';
   const esc=v=>'"'+(String(v||'').replace(/"/g,'""'))+'"';
   if(type==='students'){
@@ -12577,6 +12639,7 @@ window.exportCSV = (type) => {
 };
 
 window.exportBackupJSON = () => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const snap={
     exported_at:new Date().toISOString(),
     year:DB.settings.year,
@@ -12639,6 +12702,7 @@ window.openRetentionSettings = () => {
 };
 
 window.saveRetentionSettings = () => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const notifs=Math.max(7,parseInt($('ret_notifs')?.value)||30);
   const messages=Math.max(7,parseInt($('ret_msg')?.value)||30);
   const messages_unread=Math.max(30,parseInt($('ret_msg_unread')?.value)||60);
@@ -13086,6 +13150,7 @@ window._loadSiteDataForPage = async function() {
 };
 
 R.mon_site = () => {
+  const _g=_requireRole('direction'); if(_g) return _g;
   if (!window._siteDataReady && !window._siteDataLoading) {
     window._siteDataLoading = true;
     window._loadSiteDataForPage().then(() => { window._siteDataLoading = false; render(); });
@@ -13288,6 +13353,7 @@ R.mon_site = () => {
 };
 
 window.addSiteGalleryPhoto = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const i = window._siteGallery.length;
   window._siteGallery.push({url:'', caption:''});
   const list = document.getElementById('site-gallery-list');
@@ -13302,11 +13368,13 @@ window.addSiteGalleryPhoto = () => {
 };
 
 window.removeSiteGalleryPhoto = (i) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   window._siteGallery.splice(i, 1);
   render();
 };
 
 window.addSitePillar = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const i = window._sitePillars.length;
   window._sitePillars.push({title:'', desc:''});
   const list = document.getElementById('site-pillars-list');
@@ -13320,6 +13388,7 @@ window.addSitePillar = () => {
 };
 
 window.removeSitePillar = (i) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   window._sitePillars.splice(i, 1);
   render();
 };
@@ -13415,6 +13484,7 @@ window._processAndUploadSitePhoto = function(file, name) {
 };
 
 window.uploadSiteHeroPhoto = async function(file) {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if (!file) return;
   if ((window._siteHeroPhotos||[]).length >= 5) { toast('Maximum 5 photos hero','info'); return; }
   try {
@@ -13428,11 +13498,13 @@ window.uploadSiteHeroPhoto = async function(file) {
 };
 
 window.removeSiteHeroPhoto = (i) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   (window._siteHeroPhotos||[]).splice(i, 1);
   render();
 };
 
 window.addSiteGalleryPhotos = async function(files) {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if (!files || !files.length) return;
   toast('⏳ Traitement de '+files.length+' photo(s)…','info');
   let added = 0;
@@ -13449,6 +13521,7 @@ window.addSiteGalleryPhotos = async function(files) {
 };
 
 window.saveSiteData = async () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const key = (DB.settings?.license_key||'').trim();
   if (!key) { toast('Licence non configurée — allez dans Paramètres','error'); return; }
   if (!CENTRAL_URL || !CENTRAL_KEY) return;
@@ -13808,6 +13881,7 @@ R.settings = () => {
 };
 
 window.saveSettingsSchool = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.school) DB.settings.school={};
   const n=($('cfg_school_name')?.value||'').trim();
   if(!n){toast('Le nom de l\'école est requis','error');return;}
@@ -13839,6 +13913,7 @@ window.checkLicenseManual = async () => {
 };
 
 window.saveSettingsYear = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const y=($('cfg_year')?.value||'').trim();
   if(!y){toast('Entrez une année valide','error');return;}
   DB.settings.year=y;
@@ -13847,6 +13922,7 @@ window.saveSettingsYear = () => {
 };
 
 window.saveSettingsSchoolType = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const st=($('cfg_school_type')?.value)||'complet';
   if(!DB.settings) DB.settings={};
   DB.settings.school_type=st;
@@ -13858,6 +13934,7 @@ window.saveSettingsSchoolType = () => {
 };
 
 window.saveSettingsFees = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.fees) DB.settings.fees={};
   DB.settings.fees.T1=parseFloat($('cfg_fee_t1')?.value)||0;
   DB.settings.fees.T2=parseFloat($('cfg_fee_t2')?.value)||0;
@@ -13868,6 +13945,7 @@ window.saveSettingsFees = () => {
 };
 
 window.saveSettingsHoraires = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const timeToMins=t=>{const[h,m]=(t||'').split(':').map(Number);return(h||0)*60+(m||0);};
   if(!DB.settings.horaires) DB.settings.horaires={};
   DB.settings.horaires.primaire={
@@ -13887,6 +13965,7 @@ window.saveSettingsHoraires = () => {
 };
 
 window.saveSettingsRattrapage = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const v = parseInt($('cfg_rat_threshold')?.value);
   if(isNaN(v) || v < 1 || v > 100){toast('Seuil invalide (1–100)','error');return;}
   DB.settings.rattrapage_threshold = v;
@@ -13895,6 +13974,7 @@ window.saveSettingsRattrapage = () => {
 };
 
 window.saveSettingsToggle = (key, val) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.toggles) DB.settings.toggles={};
   DB.settings.toggles[key]=val;
   pushSync('settings','upsert',DB.settings);
@@ -13903,6 +13983,7 @@ window.saveSettingsToggle = (key, val) => {
   render();
 };
 window.saveSessionTimeout = (val) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   DB.settings.session_timeout_min=parseInt(val)||15;
   pushSync('settings','upsert',DB.settings);
   saveToCrypt();
@@ -14100,6 +14181,7 @@ window.editSanctionM = (id) => {
    <button class="btn btn-primary" onclick="updateSanction('${id}')">💾 Enregistrer</button>`);
 };
 window.updateSanction = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
   const sid=($('sanc_sid')?.value||'').trim();
   const type=($('sanc_type')?.value||'').trim();
@@ -14118,6 +14200,7 @@ window.updateSanction = (id) => {
 };
 
 window.saveSanction = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sid=(document.getElementById('sanc_sid')?.value||'').trim();
   const type=(document.getElementById('sanc_type')?.value||'').trim();
   const reason=(document.getElementById('sanc_reason')?.value||'').trim();
@@ -14140,6 +14223,7 @@ window.saveSanction = () => {
 };
 
 window.markSanctionParentNotified = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
   sanc.parent_notified=true;
   pushSync('sanctions','patch',{parent_notified:true},'id=eq.'+id);
@@ -14147,6 +14231,7 @@ window.markSanctionParentNotified = (id) => {
 };
 
 window.notifySanctionParent = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
   const s=DB.students.find(x=>x.id===sanc.sid);if(!s)return;
   const typeLabels={avertissement_oral:'Avertissement oral',avertissement_ecrit:'Avertissement écrit',blame:'Blâme',renvoi:'Renvoi temporaire',exclusion:'Exclusion définitive'};
@@ -14157,6 +14242,7 @@ window.notifySanctionParent = (id) => {
 };
 
 window.liftSanction = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sanc=(DB.sanctions||[]).find(x=>x.id===id);if(!sanc)return;
   showC('Lever la sanction','Confirmer la levée de cette sanction ?',()=>{
     sanc.lifted=true;
@@ -14166,6 +14252,7 @@ window.liftSanction = (id) => {
 };
 
 window.deleteSanction = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer','Supprimer définitivement cette sanction ?',()=>{
     DB.sanctions=(DB.sanctions||[]).filter(x=>x.id!==id);
     pushSync('sanctions','delete','','id=eq.'+id);
@@ -16023,6 +16110,7 @@ window.saveDir2Profile = () => _saveProfileCore('dir2_','dir2_phone');
 window.saveDirProfile  = (inputId) => inputId.startsWith('dir2_') ? saveDir2Profile() : saveDir1Profile();
 
 window.archiverAnnee = () => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const yr = DB.settings.year||'2025-2026';
   showC(
     `📦 Archiver l'année ${yr}`,
@@ -16055,6 +16143,7 @@ window.archiverAnnee = () => {
 };
 
 window.exportArchivePDF = () => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const yr = DB.settings.year||'2025-2026';
   const school = DB.settings.school?.name||'SchoolSafe';
   const schoolSub = DB.settings.school?.address||DB.settings.school?.sub||'';
@@ -16359,6 +16448,7 @@ R.acces_parents = () => {
 };
 
 window.toggleParentAccess = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   s.access_parent=!s.access_parent;
   pushSync('students','patch',{access_parent:s.access_parent},'id=eq.'+sid);
@@ -16367,6 +16457,7 @@ window.toggleParentAccess = (sid) => {
 };
 
 window.autoActivatePaid = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   let count=0;
   DB.students.forEach(s=>{
     const pays=DB.payments.filter(p=>p.sid===s.id);
@@ -16381,6 +16472,7 @@ window.autoActivatePaid = () => {
 };
 
 window.resetParentPin = (uid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const u=DB.users.find(x=>x.id===uid); if(!u||u.role!=='parent') return;
   const newPin=Math.floor(100000+Math.random()*900000).toString();
   u.pin=newPin; u.pin_hashed=false;
@@ -16470,6 +16562,9 @@ window.messageTeacher = (uid, kidId) => {
 };
 
 window.sendMessageToTeacher = async (uid, kidId) => {
+  if(!S.user||S.user.role!=='parent'){toast('Accès non autorisé','error');return;}
+  const kidCheck=kidId?DB.students.find(x=>x.id===kidId):null;
+  if(kidId&&(!kidCheck||kidCheck.pid!==S.user.id)){toast('Accès non autorisé','error');return;}
   const body=(document.getElementById('msgToTeacher')?.value||'').trim();
   if(!body){toast('Écrivez un message','error');return;}
   const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
@@ -16513,6 +16608,7 @@ window.lockdownEmergencyExit = (sid) => {
 };
 
 window.doEmergencyExit = async (sid) => {
+  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const motif=document.getElementById('emMotif')?.value||'Urgence';
   const note=(document.getElementById('emNote')?.value||'').trim();
@@ -16562,6 +16658,7 @@ window.declareTeacherAbsence = () => {
 };
 
 window.saveTeacherAbsence = async () => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
   const motif=(document.getElementById('absMotif')?.value||'').trim();
   if(!motif){toast('Indiquez le motif','error');return;}
   const date=document.getElementById('absDate')?.value||today();
@@ -16706,6 +16803,7 @@ window.parseAndPreviewCSV = (input) => {
   reader.readAsText(file,'UTF-8');
 };
 window.importCSVConfirm = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const data=window._csvData; if(!data||!data.length){toast('Aucune donnée à importer','error');return;}
   let added=0,skipped=0;
   data.forEach(r=>{
@@ -16769,6 +16867,7 @@ window.viewArchive = (year) => {
 //  FEATURE #7 — ENAFEP CM2
 // ═══════════════════════════════════════════
 R.tenafep = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const allCM2=(DB.students||[]).filter(s=>{const c=gc(s.cid);return c&&c.cycle!=='secondaire'&&c.name.toUpperCase().includes('CM2');});
   const enafepData=DB.tenafep||[];
   const year=DB.settings.year||'2025-2026';
@@ -16840,6 +16939,7 @@ window.openTenafepRecord = (sid) => {
    <button class="btn btn-primary" onclick="saveTenafepRecord('${sid}')">Enregistrer</button>`);
 };
 window.saveTenafepRecord = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.tenafep) DB.tenafep=[];
   const idx=DB.tenafep.findIndex(t=>t.sid===sid);
   const obj={id:idx>=0?DB.tenafep[idx].id:'ten'+Date.now(),sid,enafep_code:$('ten_code')?.value?.trim()||null,result:$('ten_result')?.value||'',score:$('ten_score')?.value?parseFloat($('ten_score').value):null,registration_num:$('ten_num')?.value||null,notes:$('ten_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
@@ -17001,6 +17101,7 @@ window.openMedicalDossier = (sid) => {
    <button class="btn btn-primary" onclick="saveMedicalRecord('${sid}')">Enregistrer</button>`);
 };
 window.addMedVisit = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const reason=$('mv_reason')?.value?.trim();
   const date=$('mv_date')?.value||today();
   const treatment=$('mv_treatment')?.value?.trim()||null;
@@ -17014,6 +17115,7 @@ window.addMedVisit = (sid) => {
   closeModal();openMedicalDossier(sid);
 };
 window.deleteMedVisit = (vid, sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.medical_visits)return;
   DB.medical_visits=DB.medical_visits.filter(v=>v.id!==vid);
   pushSync('medical_visits','delete',null,`id=eq.${vid}`);
@@ -17059,6 +17161,7 @@ window.printFicheSante = (sid) => {
   dlPDF(htmlStr,`FicheSante_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
 window.saveMedicalRecord = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.medical) DB.medical=[];
   const vaxChecked=[...document.querySelectorAll('input[name="vax"]:checked')].map(x=>x.value);
   const VAX=['BCG','Polio','DTP','RR (Rougeole-Rubéole)','Hépatite B','Fièvre jaune','COVID-19'];
@@ -17154,6 +17257,7 @@ window.openActiviteForm = (aid) => {
 };
 
 window.saveActivite = (aid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const name=($('aName')?.value||'').trim();
   if(!name){toast('Nom obligatoire','error');return;}
   if(!DB.activites) DB.activites=[];
@@ -17181,6 +17285,7 @@ window.saveActivite = (aid) => {
 };
 
 window.deleteActivite = (aid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer cette activité ?','Toutes les inscriptions seront perdues.',()=>{
     DB.activites=(DB.activites||[]).filter(x=>x.id!==aid);
     DB.activites_inscriptions=(DB.activites_inscriptions||[]).filter(x=>x.act_id!==aid);
@@ -17208,6 +17313,7 @@ window.openInscriptionActivite = (aid) => {
 };
 
 window.saveInscriptionActivite = (aid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
   const chks=document.querySelectorAll('.act-chk:checked');
   if(!chks.length){toast('Sélectionnez au moins un élève','error');return;}
@@ -17359,6 +17465,7 @@ window.evSelectScore = (criterion,score) => {
   });
 };
 window.saveEvalForm = (teacherId) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.evaluations) DB.evaluations=[];
   const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
   const scores=window._evScores||{};
@@ -17372,6 +17479,7 @@ window.saveEvalForm = (teacherId) => {
 };
 
 window.deleteEvaluation = (id) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer','Supprimer cette évaluation ?',()=>{
     DB.evaluations=(DB.evaluations||[]).filter(x=>x.id!==id);
     pushSync('evaluations','delete','','id=eq.'+id);
@@ -17406,6 +17514,7 @@ window.editEvalForm = (evalId) => {
   window._evScores={ponctualite:ev.ponctualite||0,pedagogie:ev.pedagogie||0,discipline:ev.discipline||0,communication:ev.communication||0,assiduite:ev.assiduite||0};
 };
 window.updateEvalForm = (evalId) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const ev=(DB.evaluations||[]).find(x=>x.id===evalId); if(!ev) return;
   const criteria=['ponctualite','pedagogie','discipline','communication','assiduite'];
   const scores=window._evScores||{};
@@ -17504,6 +17613,7 @@ window.openRatRateConfig = () => {
    <button class="btn btn-primary" onclick="saveRatRate()">Enregistrer</button>`);
 };
 window.saveRatRate = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   DB.settings.rattrapage_rate=parseFloat($('rat_rate')?.value)||0;
   pushSync('settings','upsert',DB.settings);saveToCrypt();
   toast(`✅ Taux rattrapage : $${DB.settings.rattrapage_rate} / cours`,'success');
@@ -17532,6 +17642,7 @@ window.openAvanceForm = (teacherId, month) => {
    <button class="btn btn-danger" onclick="saveAvance('${teacherId}','${month}')">💸 Accorder l'avance</button>`);
 };
 window.saveAvance = (teacherId, month) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const amount=parseFloat($('adv_amount')?.value)||0;
   if(amount<=0){toast('Entrez un montant valide','error');return;}
   if(!DB.advances) DB.advances=[];
@@ -17549,6 +17660,7 @@ window.saveAvance = (teacherId, month) => {
 };
 
 window.deleteAdvance = (id) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   showC('Supprimer cette avance','Supprimer définitivement cette avance ?',()=>{
     DB.advances=(DB.advances||[]).filter(x=>x.id!==id);
     pushSync('advances','delete','','id=eq.'+id);
@@ -17594,6 +17706,7 @@ window.openSalaireForm = (teacherId, month) => {
    <button class="btn btn-primary" onclick="saveSalaire('${teacherId}','${month}')">Enregistrer</button>`);
 };
 window.saveSalaire = (teacherId, month) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.salaries) DB.salaries=[];
   const amount=parseFloat($('sal_amount')?.value)||0;
   const bonus=parseFloat($('sal_bonus')?.value)||0;
@@ -17614,6 +17727,7 @@ window.saveSalaire = (teacherId, month) => {
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
 };
 window.deleteSalaire = (teacherId, month) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   showC('Supprimer ce salaire','Supprimer la fiche salariale de ce mois ?',()=>{
     const idx=(DB.salaries||[]).findIndex(s=>s.teacher_id===teacherId&&s.month===month);
     if(idx<0)return;
