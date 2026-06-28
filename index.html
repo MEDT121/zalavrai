@@ -1327,7 +1327,7 @@ window.DB = {
   salaries: [], advances: [],
   cantine: [], cantine_menus: [], cantine_presence: [],
   activites: [], activites_inscriptions: [], appreciations: [], medical_visits: [],
-  inscriptions: [],
+  inscriptions: [], cahier_prep: [], prevision_matiere: [],
   _sid: 1, _uid: 1, _apid: 1,
   settings: {
     id: 'main',
@@ -1460,6 +1460,8 @@ window.NAV = {
       {s:'Communication'},
       {id:'messages',i:'●',l:'Messages'},
       {id:'cahier_texte',i:'●',l:'Cahier de texte'},
+      {id:'cahier_prep',i:'📋',l:'Cahier de préparation'},
+      {id:'prevision_matiere',i:'●',l:'Prévision matière'},
       {id:'convocations',i:'●',l:'Convocations'},
       {id:'sanctions',i:'●',l:'Sanctions disciplinaires'},
       {id:'absences',i:'●',l:'Justifications'},
@@ -1502,6 +1504,8 @@ window.NAV = {
       {s:{fr:'Suivi',en:'Tracking'}},
       {id:'attendance',i:'●',l:{fr:'Présences',en:'Attendance'}},
       {id:'cahier_texte',i:'●',l:{fr:'Cahier de texte',en:'Lesson Book'}},
+      {id:'cahier_prep',i:'●',l:{fr:'Cahier de préparation',en:'Lesson Plan'}},
+      {id:'prevision_matiere',i:'●',l:{fr:'Prévision matière',en:'Subject Forecast'}},
       {id:'timetable',i:'●',l:{fr:'Emploi du temps',en:'Timetable'}},
       {id:'teacher_comm',i:'●',l:{fr:'Communication co-titulaire',en:'Co-teacher Chat'}},
       {s:{fr:'Portail scolaire',en:'School Gate'}},
@@ -1607,6 +1611,8 @@ window.NAV = {
       {s:'Communication'},
       {id:'messages',i:'●',l:'Messages'},
       {id:'cahier_texte',i:'●',l:'Cahier de texte'},
+      {id:'cahier_prep',i:'📋',l:'Cahier de préparation'},
+      {id:'prevision_matiere',i:'●',l:'Prévision matière'},
       {id:'convocations',i:'●',l:'Convocations'},
       {id:'sanctions',i:'●',l:'Sanctions disciplinaires'},
       {id:'absences',i:'●',l:'Justifications'},
@@ -1730,7 +1736,7 @@ window.loadFromSupabase = async () => {
            medical,tenafep,evaluations,salaries,advances,
            sanctions,cantine,cantine_menus,cantine_presence,
            activites,activites_inscriptions,appreciations,medical_visits,
-           inscriptions] = await Promise.all([
+           inscriptions,cahier_prep,prevision_matiere] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -1772,6 +1778,8 @@ window.loadFromSupabase = async () => {
       _get('appreciations','select=*'),
       _get('medical_visits','select=*&order=date.desc&limit=200'),
       _get('inscriptions','select=*&order=created_at.desc'),
+      _get('cahier_prep','select=*&order=date_prevue.desc&limit=500'),
+      _get('prevision_matiere','select=*'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -1798,6 +1806,8 @@ window.loadFromSupabase = async () => {
     DB.medical_visits=fd(medical_visits);
     DB.timetables=safe(timetables);
     DB.inscriptions=safe(inscriptions);
+    DB.cahier_prep=fd(cahier_prep);
+    DB.prevision_matiere=safe(prevision_matiere);
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
     DB.approbations=fd(approbations);
@@ -2137,6 +2147,7 @@ window.PT = {
   lockdown:'LOCKDOWN', settings:'Paramètres', cards:'Cartes',
   approbations:'Approbations', devoirs:'Devoirs', matieres:'Matières',
   cahier_texte:'Cahier de texte', teacher_comm:'Communication',
+  cahier_prep:'Cahier de préparation', prevision_matiere:'Prévision matière',
   teacher_activity:'Activité Profs', audit_log:'Historique des modifications', year_mgmt:'Année Scolaire',
   export:'Export', alert_urgent:'Alerte Urgence',
   devoirs_parent:'Devoirs', palmares_parent:'Palmarès', recus_parent:'Mes Reçus',
@@ -9487,6 +9498,222 @@ window.saveCahier = () => {
   saveToCrypt(); closeModal(); render();
 };
 
+// ── CAHIER DE PRÉPARATION (planification des leçons à venir) ──
+R.cahier_prep = () => {
+  const role=S.user.role;
+
+  // ── DIRECTION : suivi des préparations par classe ──────────────────────────
+  if(role==='direction'||role==='direction2') {
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📋 Suivi Cahier de préparation</span></div>`;
+    const all=DB.cahier_prep||[];
+    if(!all.length) return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucune préparation enregistrée</div>`;
+    DB.classes.forEach(cl=>{
+      const items=all.filter(e=>e.cid===cl.id).sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
+      if(!items.length) return;
+      const [cc]=clsColor(cl.name);
+      const done=items.filter(e=>e.status==='fait').length;
+      const late=items.filter(e=>e.status!=='fait'&&e.date_prevue<today()).length;
+      html+=`<div class="ww-section" style="margin-bottom:14px">
+        <div class="ww-section-header">
+          <span class="ww-section-title" style="color:${cc}">${esc(cl.name)}</span>
+          <span style="font-size:11px;color:var(--text-muted)">${done}/${items.length} fait${late?` · ⚠️ ${late} en retard`:''}</span>
+        </div>
+        ${items.map(e=>`<div class="ww-item">
+          <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':e.date_prevue<today()?'#fee2e2':'#fdeccd'}">${e.status==='fait'?'✅':e.date_prevue<today()?'⚠️':'📅'}</div>
+          <div class="ww-item-content">
+            <div class="ww-item-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span></div>
+            <div class="ww-item-sub" style="white-space:normal;line-height:1.5">${esc(e.content)}</div>
+          </div>
+        </div>`).join('')}
+      </div>`;
+    });
+    return html;
+  }
+
+  // ── ENSEIGNANT ───────────────────────────────────────────────────────────────
+  if(role==='enseignant') {
+    const mc=getMyClass();
+    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📋</div>Aucune classe assignée</div>`;
+    const items=(DB.cahier_prep||[]).filter(e=>e.cid===mc.cl.id&&e.by===S.user.id).sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
+    return `
+    <div class="ww-toolbar">
+      <span style="font-size:16px;font-weight:700">📋 ${t('Cahier de préparation','Lesson Plan')} — ${esc(mc.cl.name)}</span>
+      <button class="btn btn-primary" onclick="openCahierPrepM()">➕ ${t('Planifier','Plan')}</button>
+    </div>
+    ${items.length?items.map((e,i)=>{
+      const isLate=e.status!=='fait'&&e.date_prevue<today();
+      return `<div class="ww-item" style="animation-delay:${i*.04}s">
+        <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':isLate?'#fee2e2':'#fdeccd'}">${e.status==='fait'?'✅':isLate?'⚠️':'📅'}</div>
+        <div class="ww-item-content">
+          <div class="ww-item-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString(getLang()==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long'})}</span></div>
+          <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${esc(e.content)}</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            ${e.status!=='fait'?`<button class="btn btn-primary btn-sm" onclick="markCahierPrepDone('${e.id}')">✅ ${t('Marquer fait','Mark done')}</button>`:''}
+            <button class="btn btn-outline btn-sm" onclick="deleteCahierPrep('${e.id}')">🗑️</button>
+          </div>
+        </div>
+      </div>`;
+    }).join(''):`
+    <div style="text-align:center;padding:60px;color:var(--text-muted)">
+      <div style="font-size:60px;margin-bottom:16px">📋</div>${t('Aucune préparation planifiée','No planned lessons')}
+      <br><button class="btn btn-primary" style="margin-top:16px" onclick="openCahierPrepM()">➕ ${t('Première préparation','First lesson plan')}</button>
+    </div>`}`;
+  }
+
+  return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Accès non autorisé</div>`;
+};
+
+window.openCahierPrepM = () => {
+  const mc=getMyClass(); if(!mc.cl) return;
+  const matieres=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
+  openM(`📋 ${t('Cahier de préparation','Lesson Plan')}`,`
+  <div class="form-group"><label class="form-label">${t('Matière','Subject')}</label>
+    <select class="form-select" id="cpMatiere">
+      ${matieres.map(m=>`<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">${t('Date prévue','Planned date')}</label>
+    <input class="form-input" id="cpDate" type="date" value="${today()}">
+  </div>
+  <div class="form-group"><label class="form-label">${t('Ce qui sera enseigné','What will be taught')}</label>
+    <textarea class="form-input" id="cpContent" style="height:110px;resize:vertical" placeholder="${t('Ex: Introduction aux fractions — objectifs, déroulé, exercices prévus.','E.g. Introduction to fractions — objectives, lesson plan, planned exercises.')}"></textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+  <button class="btn btn-primary" onclick="saveCahierPrep()">📋 ${t('Planifier','Plan')}</button>`);
+};
+
+window.saveCahierPrep = () => {
+  const mc=getMyClass(); if(!mc.cl) return;
+  const matiere=$('cpMatiere')?.value;
+  const date_prevue=$('cpDate')?.value||today();
+  const content=($('cpContent')?.value||'').trim();
+  if(!content){toast('Contenu obligatoire','error');return;}
+  const entry={
+    id:'cp'+Date.now(), cid:mc.cl.id, matiere, content, lang:mc.lang,
+    date_prevue, by:S.user.id, status:'planifie'
+  };
+  DB.cahier_prep=DB.cahier_prep||[];
+  DB.cahier_prep.unshift(entry);
+  pushSync('cahier_prep','post',entry);
+  logAudit('cahier_prep_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
+  toast('Préparation enregistrée','success');
+  saveToCrypt(); closeModal(); render();
+};
+
+window.markCahierPrepDone = (id) => {
+  const prep=(DB.cahier_prep||[]).find(e=>e.id===id);
+  if(!prep||prep.by!==S.user.id) return;
+  const mc=getMyClass(); if(!mc.cl||mc.cl.id!==prep.cid) return;
+  prep.status='fait';
+  const ctEntry={
+    id:'ct'+Date.now(), cid:prep.cid, matiere:prep.matiere, content:prep.content, lang:prep.lang,
+    date:today(), by:S.user.id, status:'published'
+  };
+  DB.cahier_texte.unshift(ctEntry);
+  prep.ct_id=ctEntry.id;
+  pushSync('cahier_prep','patch',prep,'id=eq.'+prep.id);
+  pushSync('cahier_texte','post',ctEntry);
+  const kids=DB.students.filter(s=>s.cid===prep.cid&&s.pid);
+  const pids=[...new Set(kids.map(k=>k.pid))];
+  pids.forEach(pid=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:pid,
+      msg:`📖 Cahier de texte — ${mc.cl.name} · ${prep.matiere} : ${prep.content.slice(0,60)}${prep.content.length>60?'...':''}`,
+      time:nowTime(),date:today(),read:false,type:'academic'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
+  logAudit('cahier_prep_done', `${mc.cl.name} · ${prep.matiere}`, prep.id);
+  toast('Leçon publiée dans le cahier de texte','success');
+  saveToCrypt(); render();
+};
+
+window.deleteCahierPrep = (id) => {
+  const prep=(DB.cahier_prep||[]).find(e=>e.id===id);
+  if(!prep||prep.by!==S.user.id) return;
+  showC('Supprimer cette préparation ?','', () => {
+    DB.cahier_prep=DB.cahier_prep.filter(e=>e.id!==id);
+    pushSync('cahier_prep','delete',{},'id=eq.'+id);
+    logAudit('cahier_prep_del', prep.matiere, id);
+    toast('Préparation supprimée','success');
+    saveToCrypt(); render();
+  });
+};
+
+// ── PRÉVISION MATIÈRE (programme prévu vs % couvert, par trimestre) ──
+R.prevision_matiere = () => {
+  const role=S.user.role;
+  const trim=DB.settings?.currentTrimestre||'T1';
+
+  // ── ENSEIGNANT : édition de ses prévisions ─────────────────────────────────
+  if(role==='enseignant') {
+    const mc=getMyClass();
+    if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📊</div>Aucune classe assignée</div>`;
+    const matieres=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
+    return `
+    <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📊 ${t('Prévision matière','Subject Forecast')} — ${esc(mc.cl.name)} · ${trim}</span></div>
+    ${matieres.map(m=>{
+      const prev=(DB.prevision_matiere||[]).find(p=>p.cid===mc.cl.id&&p.matiere===m.name&&p.trimestre===trim);
+      const pct=prev?.pourcentage||0;
+      return `<div class="premium-section" style="margin-bottom:12px">
+        <div class="premium-section-title">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</div>
+        <div class="form-group"><label class="form-label">${t('Programme prévu','Planned curriculum')}</label>
+          <textarea class="form-input" id="pmProg_${m.name.replace(/[^a-zA-Z0-9]/g,'_')}" style="height:90px;resize:vertical" placeholder="${t('Ex: Chapitres 1 à 5 — fractions, géométrie, mesures...','E.g. Chapters 1 to 5 — fractions, geometry, measurements...')}">${esc(prev?.programme||'')}</textarea>
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px">
+          <label class="form-label" style="margin:0;flex-shrink:0">${t('% couvert','% covered')}</label>
+          <input class="form-input" type="number" min="0" max="100" id="pmPct_${m.name.replace(/[^a-zA-Z0-9]/g,'_')}" value="${pct}" style="width:90px">
+          <div style="flex:1;height:8px;border-radius:4px;background:var(--bg-card);overflow:hidden"><div style="height:100%;width:${pct}%;background:${pct>=80?'#1f9d6b':pct>=50?'#e0a020':'#dc2626'}"></div></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="savePrevisionMatiere('${esc(m.name)}')">💾 ${t('Enregistrer','Save')}</button>
+      </div>`;
+    }).join('')}`;
+  }
+
+  // ── DIRECTION : tableau d'ensemble par classe × matière ─────────────────────
+  if(role==='direction'||role==='direction2') {
+    const rows=(DB.prevision_matiere||[]).filter(p=>p.trimestre===trim);
+    let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📊 Prévision matière — ${trim}</span></div>`;
+    if(!rows.length) return html+`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📊</div>Aucune prévision enregistrée pour ce trimestre</div>`;
+    DB.classes.forEach(cl=>{
+      const items=rows.filter(p=>p.cid===cl.id);
+      if(!items.length) return;
+      const [cc]=clsColor(cl.name);
+      html+=`<div class="ww-section" style="margin-bottom:14px">
+        <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(cl.name)}</span></div>
+        ${items.map(p=>{
+          const pct=p.pourcentage||0;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13px">${esc(p.matiere)}</div>
+              <div style="height:7px;border-radius:4px;background:var(--bg-card);overflow:hidden;margin-top:5px"><div style="height:100%;width:${pct}%;background:${pct>=80?'#1f9d6b':pct>=50?'#e0a020':'#dc2626'}"></div></div>
+            </div>
+            <span style="font-weight:700;font-size:13px;flex-shrink:0;color:${pct>=80?'#1f9d6b':pct>=50?'#92400e':'#991b1b'}">${pct}%</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
+    return html;
+  }
+
+  return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Accès non autorisé</div>`;
+};
+
+window.savePrevisionMatiere = (matiere) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
+  const mc=getMyClass(); if(!mc.cl) return;
+  const safeId=matiere.replace(/[^a-zA-Z0-9]/g,'_');
+  const programme=($('pmProg_'+safeId)?.value||'').trim();
+  const pourcentage=Math.max(0,Math.min(100,parseInt($('pmPct_'+safeId)?.value)||0));
+  const trim=DB.settings?.currentTrimestre||'T1';
+  DB.prevision_matiere=DB.prevision_matiere||[];
+  let prev=DB.prevision_matiere.find(p=>p.cid===mc.cl.id&&p.matiere===matiere&&p.trimestre===trim);
+  if(prev){ prev.programme=programme; prev.pourcentage=pourcentage; prev.by=S.user.id; }
+  else { prev={id:'pm'+Date.now(), cid:mc.cl.id, matiere, lang:mc.lang, trimestre:trim, programme, pourcentage, by:S.user.id}; DB.prevision_matiere.unshift(prev); }
+  pushSync('prevision_matiere','upsert',prev);
+  logAudit('prevision_save', `${mc.cl.name} · ${matiere} · ${pourcentage}%`, prev.id);
+  toast('Prévision enregistrée','success');
+  saveToCrypt(); render();
+};
+
 // ── COMMUNICATION CO-TITULAIRE ──
 R.teacher_comm = () => {
   const mc=getMyClass();
@@ -12314,6 +12541,7 @@ window.confirmNewYear = () => {
     pushSync('absences','delete',{},'date=lte.'+_cut);
     pushSync('devoirs','delete',{},'date=lte.'+_cut);
     pushSync('cahier_texte','delete',{},'date=lte.'+_cut);
+    pushSync('cahier_prep','delete',{},'date_prevue=lte.'+_cut);
     pushSync('daily_records','delete',{},'date=lte.'+_cut);
     pushSync('daily_expenses','delete',{},'date=lte.'+_cut);
     pushSync('daily_reports','delete',{},'date=lte.'+_cut);
@@ -12329,6 +12557,8 @@ window.confirmNewYear = () => {
     DB.payments=DB.students.flatMap(s=>['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+s.id+t,sid:s.id,t,paid:false})));
     DB.devoirs=[];
     DB.cahier_texte=[];
+    DB.cahier_prep=[];
+    DB.prevision_matiere=[];
     DB.absences=[];
     DB.daily_records=[];
     DB.daily_expenses=[];
