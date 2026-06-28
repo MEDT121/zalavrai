@@ -32,6 +32,33 @@ window._GUARDIAN_VID = null;
 </script>
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
+<script>
+// Capture le prompt d'installation PWA dès que possible (Android/Desktop
+// Chrome/Edge — iOS Safari ne déclenche jamais cet événement, "Sur l'écran
+// d'accueil" via le partage Safari reste la seule voie sur iOS). Le bouton
+// #btnInstallApp (écran de connexion) reste caché tant que rien n'est capté.
+window._deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window._deferredInstallPrompt = e;
+  const btn = document.getElementById('btnInstallApp');
+  if (btn) btn.style.display = '';
+});
+window.addEventListener('appinstalled', () => {
+  window._deferredInstallPrompt = null;
+  const btn = document.getElementById('btnInstallApp');
+  if (btn) btn.style.display = 'none';
+});
+window._installApp = async () => {
+  const e = window._deferredInstallPrompt;
+  if (!e) return;
+  e.prompt();
+  await e.userChoice;
+  window._deferredInstallPrompt = null;
+  const btn = document.getElementById('btnInstallApp');
+  if (btn) btn.style.display = 'none';
+};
+</script>
 <title>SchoolSafe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -974,6 +1001,10 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       Visiter le site de l'école
     </a>
+    <button type="button" id="btnInstallApp" class="btn-outline-login" style="display:none" onclick="_installApp()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+      Installer l'application
+    </button>
     <div id="LOAD_IND" style="display:none;margin-top:14px;text-align:center;font-size:12px;color:rgba(255,255,255,.5);animation:pulse 1.5s ease-in-out infinite">⏳ Synchronisation en cours…</div>
     <div class="login-badges">
       <span><span class="lbi">🛡️</span>Sécurité</span>

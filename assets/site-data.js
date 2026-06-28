@@ -5,6 +5,19 @@ const SITE_LICENSE_KEY = '__SCHOOL_KEY__';
 const _SS_CENTRAL = 'https://vcifxatmlgzueavalfks.supabase.co';
 const _SS_CKEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
 
+// Fait de chaque lien "Espace App" le point d'entrée qui porte le contexte
+// école jusqu'à l'app (index.html lit ?school=... et le retient en
+// localStorage — voir _resolveSchoolContext dans index.html). Synchrone,
+// ne dépend pas du fetch school_sites : tourne dès que SITE_LICENSE_KEY
+// est connu (toujours, sauf placeholder pas remplacé).
+function _ssPatchAppLinks() {
+  if (!SITE_LICENSE_KEY || SITE_LICENSE_KEY === '__SCHOOL_KEY__') return;
+  document.querySelectorAll('a[href="index.html"]').forEach(a => {
+    a.href = 'index.html?school=' + encodeURIComponent(SITE_LICENSE_KEY);
+  });
+}
+_ssPatchAppLinks();
+
 function _ssHex(hex, f) {
   const n = parseInt((hex||'#000').slice(1), 16);
   return '#' + [16,8,0].map(ch => {
