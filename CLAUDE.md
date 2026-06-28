@@ -250,6 +250,21 @@ window.NAV = {
 
 ---
 
+## Multi-tenant central (PRODELI)
+
+- `SCHOOL_KEY` (index.html, ~ligne 1274) = `license_key` de l'école, lu depuis `?school=...` à l'arrivée puis mémorisé dans `localStorage._active_school_key` — permet à UNE app centrale de servir plusieurs écoles via le lien propre à chacune (pas de rebuild par école).
+- `LOGIN_FN_URL` (vide par défaut) : une fois renseigné avec l'URL de l'Edge Function `login` (`supabase/functions/login/index.ts`), `tryLogin()` bascule sur le flux JWT central. Tant qu'il est vide, login 100% local inchangé.
+- L'Edge Function résout `license_key → schools.id` côté serveur (jamais exposé au client), vérifie nom+PIN scopé à cette école, signe un JWT `{sub, role, school_id}` qui devient le Bearer token de toutes les requêtes PostgREST suivantes — voir RLS dans `supabase_multitenant_migration.sql`.
+- `assets/site-data.js` (`_ssPatchAppLinks`) réécrit automatiquement tous les liens "Espace App" (`href="index.html"`) du site public en `index.html?school=<SITE_LICENSE_KEY>` — c'est le lien du site qui porte le contexte école, pas une sélection manuelle.
+- Code maître universel `69210561190` (voir `tryLogin`) : ouvre le profil de n'importe quel nom existant (parent, direction, ...) ; si le nom ne correspond à personne, ouvre un compte direction générique. Implémenté côté client ET côté Edge Function (`MASTER_PIN`) — décision produit validée, ne pas l'affaiblir.
+
+### Installer l'app (PWA + limites)
+
+- Bouton "Installer l'application" sur l'écran de login (`#btnInstallApp`) : écoute `beforeinstallprompt`, fonctionne sur Android/Desktop Chrome/Edge. Reste caché sur iOS Safari (l'événement n'existe pas côté iOS) — seule voie là-bas : "Sur l'écran d'accueil" via le partage Safari natif, pas automatisable.
+- Pas d'outil de packaging natif (Capacitor/Bubblewrap/PWABuilder) dans ce repo : aucun `.apk`/`.exe` n'est généré automatiquement. Pour produire un fichier installable réel, processus manuel ponctuel : passer l'URL de l'app déployée dans [PWABuilder](https://www.pwabuilder.com/) (le manifest + service worker existants suffisent), télécharger le package signé, et le distribuer à l'école séparément — à documenter par école si PRODELI le demande.
+
+---
+
 ## CSS classes utiles
 
 ```css
