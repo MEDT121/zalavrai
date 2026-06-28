@@ -1307,6 +1307,13 @@ const SCHOOL_KEY = (() => { try { return localStorage.getItem('_active_school_ke
 // écoles (le license_key envoyé dans le body la scope) ; à renseigner une
 // fois le projet central et l'Edge Function déployés (supabase/functions/login).
 const LOGIN_FN_URL = '';
+// Projet Supabase central OPÉRATIONNEL (les 41 tables métier + RLS, voir
+// supabase_multitenant_migration.sql) — distinct de CENTRAL_URL/CENTRAL_KEY
+// ci-dessus (qui sert le site marketing). Vide par défaut = aucune connexion
+// réelle, comportement actuel (local pur) inchangé. Une fois renseigné,
+// l'app charge/écrit réellement via ce projet pour les écoles basculées.
+const OPS_SUPA_URL = '';
+const OPS_SUPA_KEY = '';
 window.SCHOOL_LOGO = null;
 window._OPERATOR_WA = localStorage.getItem('_operator_wa') || '243978444167';
 window._imgFallback = el => { try { const p=el.parentNode; if(!p) return; p.innerHTML='<div style="width:100%;height:100%;background:'+el.dataset.bg+';color:'+el.dataset.cc+';display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800">'+el.dataset.ini+'</div>'; } catch(e){} };
@@ -1745,8 +1752,8 @@ window._updateSupabase = (url, key) => {
   SUPA_URL = url.replace(/\/$/,''); SUPA_KEY = key;
   _H = {'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'return=minimal'};
 };
-window._supaConfigured = () => true; // Supabase supprimé — bypass setup screen
-// Supabase credentials removed — new DB system coming
+window._supaConfigured = () => true; // plus d'écran de setup manuel — projet central configuré en dur (OPS_SUPA_URL)
+if (OPS_SUPA_URL) window._updateSupabase(OPS_SUPA_URL, OPS_SUPA_KEY);
 (function _clearOldSupaKeys(){
   localStorage.removeItem('_school_supa_url');
   localStorage.removeItem('_school_supa_key');
@@ -2810,6 +2817,10 @@ window.tryLogin = async () => {
       window._jwt = data.token;
       window._currentSchoolId = data.user?.school_id || '';
       _H.Authorization = 'Bearer ' + data.token;
+      // Le JWT (avec school_id) est posé : on peut maintenant charger les
+      // données réelles de l'école via RLS (avant, l'anon key seule
+      // n'aurait renvoyé aucune ligne).
+      await loadFromSupabase();
       loginAs(data.user);
     } catch (e) {
       $('PM').textContent='Connexion impossible — réessayez'; setTimeout(()=>$('PM').textContent='',2500);
@@ -18366,12 +18377,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // Supabase charge en arrière-plan — n'est plus bloquant
   const ind=$('LOAD_IND');
   if(ind) ind.style.display='';
-  loadFromSupabase()
-    .then(ok=>{
-      if(ind) ind.style.display='none';
-      if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
-    })
-    .catch(()=>{ if(ind) ind.style.display='none'; });
+  if (SCHOOL_KEY && LOGIN_FN_URL) {
+    // École migrée au central : RLS bloque toute lecture tant qu'aucun JWT
+    // n'est posé (anon key = aucune ligne). Pas de préchargement ici —
+    // loadFromSupabase() est appelé après tryLogin(), une fois le JWT
+    // (et school_id) connus. On restaure seulement l'instantané chiffré
+    // local éventuel en attendant.
+    loadFromCrypt().catch(()=>{}).then(()=>{ if(ind) ind.style.display='none'; });
+  } else {
+    loadFromSupabase()
+      .then(ok=>{
+        if(ind) ind.style.display='none';
+        if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
+      })
+      .catch(()=>{ if(ind) ind.style.display='none'; });
+  }
 });
 </script>
 </body>
