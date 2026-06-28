@@ -1325,6 +1325,11 @@ window.compressWithProfile = (file, profile, cb) => {
   compressImage(file, p.maxW, p.maxH, p.quality, cb);
 };
 
+// Identifiant de la ligne settings : 'main' en mono-école (1 base = 1 école),
+// school_id en central multi-tenant — rempli par le login (Edge Function JWT)
+// dans window._currentSchoolId. Un seul point à brancher, pas 4.
+window._settingsId = () => window._currentSchoolId || 'main';
+
 // ── DATABASE — données chargées depuis Supabase au démarrage ──
 window.DB = {
   users: [], classes: [], students: [], payments: [],
@@ -1341,7 +1346,7 @@ window.DB = {
   inscriptions: [], cahier_prep: [], prevision_matiere: [],
   _sid: 1, _uid: 1, _apid: 1,
   settings: {
-    id: 'main',
+    id: _settingsId(),
     horaires: { primaire:{ ontime:455, late:480 }, maternelle:{ ontime:485, late:510 } },
     toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true, bulletin:false },
     year: '2025-2026',
@@ -1770,7 +1775,7 @@ window.loadFromSupabase = async () => {
       _get('rattrapages','select=*&order=date.desc&limit=200'),
       _get('convocations','select=*&order=date.desc&limit=200'),
       _get('timetables','select=*'),
-      _get('settings','select=*&id=eq.main&limit=1'),
+      _get('settings','select=*&id=eq.'+_settingsId()+'&limit=1'),
       _get('approbations','select=*&order=date.desc&limit=300'),
       _get('teacher_notes','select=*&order=date.desc&limit=200'),
       _get('audit_log','select=*&order=date.desc&limit=200'),
@@ -1820,7 +1825,7 @@ window.loadFromSupabase = async () => {
     DB.cahier_prep=fd(cahier_prep);
     DB.prevision_matiere=safe(prevision_matiere);
     const sRow=safe(settings_rows)[0];
-    if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:'main'};}
+    if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:_settingsId()};}
     DB.approbations=fd(approbations);
     DB.teacher_notes=fd(teacher_notes);
     DB.audit_log=fd(audit_log);
@@ -4581,7 +4586,7 @@ window.toggleLockdown = () => {
   if(!DB.settings) DB.settings={};
   DB.settings.lockdown=S.lockdown;
   saveToCrypt();
-  pushSync('settings','patch',{lockdown:S.lockdown},'id=eq.main');
+  pushSync('settings','patch',{lockdown:S.lockdown},'id=eq.'+_settingsId());
   logAudit('lockdown_toggle',S.lockdown?'LOCKDOWN activé':'LOCKDOWN désactivé');
   if(S.lockdown) showLockdownWave();
   else toast('🟢 LOCKDOWN désactivé','success');

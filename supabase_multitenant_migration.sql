@@ -160,10 +160,13 @@ ALTER TABLE students ADD CONSTRAINT students_school_mat_unique UNIQUE (school_id
 
 -- ⚠ Cas particulier `settings` : id était fixé à 'main' (1 ligne par
 -- base = 1 école). En central, il faut 1 ligne de settings PAR école.
--- La contrainte ci-dessous empêche 2 lignes settings pour la même école ;
--- côté app (TODO futur, hors scope de ce script), il faudra que la
--- ligne settings d'une école utilise un id propre (ex: = school_id)
--- au lieu du littéral 'main' codé en dur.
+-- La contrainte ci-dessous empêche 2 lignes settings pour la même école.
+-- Côté app, c'est déjà fait : index.html utilise window._settingsId()
+-- (= window._currentSchoolId || 'main') partout où l'id de la ligne
+-- settings est lu/écrit. _currentSchoolId sera renseigné par le login
+-- (Edge Function JWT, voir section 4) une fois l'école basculée au
+-- central — jusque-là il reste undefined et le comportement actuel
+-- (id='main', mono-école) ne change pas.
 ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_school_unique;
 ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 
