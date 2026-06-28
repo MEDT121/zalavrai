@@ -13,6 +13,23 @@
 window._GUARDIAN_VIDEOS = [];
 window._GUARDIAN_VID = null;
 </script>
+<script>
+// ── HAUTEUR RÉELLE DE L'ÉCRAN ──
+// certains navigateurs/webviews mobiles calculent position:fixed;inset:0 sur une
+// hauteur de viewport différente de la zone réellement visible (barre d'adresse,
+// barres système) — ça laisse une bande de fond (bleu) visible en haut/bas des
+// écrans plein écran (splash/login/etc). On fixe la vraie hauteur en px via JS.
+(function(){
+  const setAppVh = () => {
+    const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    document.documentElement.style.setProperty('--app-vh', h + 'px');
+  };
+  setAppVh();
+  window.addEventListener('resize', setAppVh);
+  window.addEventListener('orientationchange', setAppVh);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', setAppVh);
+})();
+</script>
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script>
 <title>SchoolSafe</title>
@@ -113,7 +130,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .splash-tap{position:absolute;bottom:30px;font-size:13px;color:rgba(255,255,255,.45);animation:pulse 2s ease-in-out infinite;letter-spacing:1px}
 
 /* ── LOGIN ── */
-.login-screen{position:fixed;inset:0;z-index:900;background:radial-gradient(circle at 25% -10%,#1c2e6b 0%,#101b44 42%,#070b1f 75%,#03050f 100%);display:flex;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 0 40px}
+.login-screen{position:fixed;inset:0;height:var(--app-vh,100vh);z-index:900;background:radial-gradient(circle at 25% -10%,#1c2e6b 0%,#101b44 42%,#070b1f 75%,#03050f 100%);display:flex;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 0 40px}
 .login-screen.hidden{opacity:0;pointer-events:none}
 .login-container{background:transparent;width:100%;max-width:380px;margin:auto 16px;position:relative;z-index:1;animation:loginCardIn .6s cubic-bezier(.16,.84,.44,1) both;will-change:transform}
 @keyframes loginCardIn{from{opacity:0;transform:translateY(28px) scale(.97)}to{opacity:1;transform:none}}
