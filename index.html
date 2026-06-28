@@ -5561,17 +5561,19 @@ R.approbations = () => {
   </div>`:''}
   ${apr.length?`<div class="premium-section"><div class="premium-section-title">📬 Approbations (${apr.length})</div>
     ${apr.map(a=>{
-      const typeLabel={cahier_texte:'Cahier de texte',matiere:'Nouvelle matière',retard_grave:'⏰ Retard grave'}[a.type]||'📬 '+a.type;
+      const typeLabel={cahier_texte:'Cahier de texte',matiere:'Nouvelle matière',retard_grave:'⏰ Retard grave',cahier_prep:'📋 Préparation de leçon',prevision_matiere:'📊 Prévision matière'}[a.type]||'📬 '+a.type;
+      const iconBg={cahier_texte:'#dbeafe',matiere:'#d8f3e6',retard_grave:'#fdeccd',cahier_prep:'#dbeafe',prevision_matiere:'#ede9fe'}[a.type]||'#f1f5f9';
+      const iconEmoji={cahier_texte:'📖',matiere:'📐',retard_grave:'⏰',cahier_prep:'📋',prevision_matiere:'📊'}[a.type]||'📬';
       const submitter=gu(a.by);
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
-        <div class="pi-icon" style="background:${a.type==='cahier_texte'?'#dbeafe':a.type==='matiere'?'#d8f3e6':'#fdeccd'}">${a.type==='cahier_texte'?'📖':a.type==='matiere'?'📐':'⏰'}</div>
+        <div class="pi-icon" style="background:${iconBg}">${iconEmoji}</div>
         <div style="flex:1;min-width:150px">
           <div class="pi-title">${typeLabel}</div>
           <div class="pi-sub">${esc(a.content||'')}</div>
           ${submitter?`<div style="font-size:11px;color:var(--text-muted)">${esc(submitter.name)} · ${a.date||''}</div>`:''}
         </div>
         ${a.type==='retard_grave'?`<div style="display:flex;gap:5px"><button class="btn btn-success btn-sm" onclick="approveApr('${a.id}','approved')">Autoriser</button><button class="btn btn-danger btn-sm" onclick="approveApr('${a.id}','refused')">Refuser</button></div>`:''}
-        ${a.type==='matiere'?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">Approuver</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">Refuser</button></div>`:''}
+        ${(a.type==='matiere'||a.type==='cahier_prep'||a.type==='prevision_matiere')?`<div style="display:flex;gap:5px;width:100%"><button class="btn btn-success btn-sm" style="flex:1" onclick="approveApr('${a.id}','approved')">Valider</button><button class="btn btn-danger btn-sm" style="flex:1" onclick="approveApr('${a.id}','refused')">Refuser</button></div>`:''}
       </div>`;
     }).join('')}
   </div>`:''}
@@ -5686,6 +5688,18 @@ window.approveApr = (id, status) => {
     if(!exists){ const nm={id:'mat'+Date.now(),cid:a.data.cid,name:a.data.name,lang:a.data.lang,active:true}; DB.matieres.push(nm); pushSync('matieres','post',nm); }
     const teacher = gu(a.by);
     if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+  }
+  if(a.type==='cahier_prep' && a.data && a.data.prepId) {
+    const prep = DB.cahier_prep.find(x=>x.id===a.data.prepId);
+    if(prep){ prep.validated = status==='approved'; pushSync('cahier_prep','patch',{validated:prep.validated},'id=eq.'+prep.id); }
+    const teacher = gu(a.by);
+    if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`${status==='approved'?'✅':'❌'} Préparation ${status==='approved'?'validée — visible par les parents':'refusée'} — ${a.content.slice(0,60)}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
+  }
+  if(a.type==='prevision_matiere' && a.data) {
+    const prev = DB.prevision_matiere.find(p=>p.cid===a.data.cid&&p.matiere===a.data.matiere&&p.trimestre===a.data.trimestre);
+    if(prev){ prev.validated = status==='approved'; pushSync('prevision_matiere','upsert',prev); }
+    const teacher = gu(a.by);
+    if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`${status==='approved'?'✅':'❌'} Prévision matière ${status==='approved'?'validée — visible par les parents':'refusée'} — ${a.content.slice(0,60)}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
   if(a.type==='retard_grave' && a.sid) {
     const s=DB.students.find(x=>x.id===a.sid);
@@ -7144,6 +7158,8 @@ R.palmares = () => {
       : allMatieres;
     const [cc,cbg]=clsColor(cl.name);
     const isTeacher=role==='enseignant';
+    const couvertures=selTrim!=='Tous'?(DB.prevision_matiere||[]).filter(p=>p.cid===cl.id&&p.trimestre===selTrim&&p.validated):[];
+    const avgCouv=couvertures.length?Math.round(couvertures.reduce((s,p)=>s+(p.pourcentage||0),0)/couvertures.length):null;
 
     const ranked=students.map(s=>{
       const conduct=DB.conduct.filter(c=>c.sid===s.id);
@@ -7168,6 +7184,7 @@ R.palmares = () => {
         <h3 style="font-size:16px;font-weight:700">${esc(cl.name)}</h3>
         <span class="pill pill-gray">${ranked.length} ${t('élèves','students')}</span>
         ${isTeacher&&mc.lang?`<span class="pill" style="background:${mc.lang==='fr'?'#dbeafe':'#d8f3e6'};color:${mc.lang==='fr'?'#205fae':'#065f46'}">${mc.lang==='fr'?'🇫🇷 FR':'🇬🇧 EN'}</span>`:''}
+        ${avgCouv!==null?`<span class="pill" style="background:#ede9fe;color:#6d28d9" title="${t('Programme couvert (validé), moyenne classe','Covered curriculum (validated), class average')}">📊 ${avgCouv}% ${t('programme','curriculum')}</span>`:''}
         ${isTeacher?`<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openGradePanel('${cl.id}')">${t('📝 Saisir notes','📝 Enter Grades')}</button>`:''}
       </div>
 
@@ -7266,6 +7283,11 @@ R.palmares_parent = () => {
     const students=DB.students.filter(s=>s.cid===cl.id);
     const matieres=getClassMatieres(cl.id);
     const [cc,cbg]=clsColor(cl.name);
+    const getCouverture=matName=>{
+      if(selTrim==='Tous') return null;
+      const p=(DB.prevision_matiere||[]).find(pv=>pv.cid===cl.id&&pv.matiere===matName&&pv.trimestre===selTrim&&pv.validated);
+      return p?p.pourcentage:null;
+    };
 
     const ranked=students.map(s=>{
       let totalPct=0,sumCoeff=0;
@@ -7301,9 +7323,10 @@ R.palmares_parent = () => {
         ${secMats.map(m=>{
           const pct=matAvgPct(k.id,m.name,trimFilter);
           const bc=pct===null?'#efe3d3':pct>=70?'#2fbf8f':pct>=50?'#f59e0b':'#ef5b5b';
+          const couv=getCouverture(m.name);
           return `<div style="margin-bottom:7px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${esc(m.name)}</span>
+              <span style="color:var(--text-secondary)">${esc(m.name)}${couv!==null?` <span style="font-size:10px;color:#7c3aed;font-weight:700" title="Programme couvert">📊 ${couv}%</span>`:''}</span>
               <span style="font-weight:700;color:${bc==='#efe3d3'?'var(--text-muted)':bc}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${bc}"></div></div>
@@ -7380,9 +7403,10 @@ R.palmares_parent = () => {
         ${matieres.map(m=>{
           const pct=matAvgPct(k.id,m.name,trimFilter);
           const barColor=pct===null?'#efe3d3':pct>=70?'#2fbf8f':pct>=50?'#f59e0b':'#ef5b5b';
+          const couv=getCouverture(m.name);
           return `<div style="margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-              <span style="color:var(--text-secondary)">${esc(m.name)} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span></span>
+              <span style="color:var(--text-secondary)">${esc(m.name)} <span style="font-size:10px;color:var(--text-muted);font-weight:600">×${m.coeff||1}</span>${couv!==null?` <span style="font-size:10px;color:#7c3aed;font-weight:700" title="Programme couvert">📊 ${couv}%</span>`:''}</span>
               <span style="font-weight:700;color:${barColor==='#efe3d3'?'var(--text-muted)':barColor}">${pct!==null?pct+'%':'—'}</span>
             </div>
             <div class="ww-bar-wrap"><div class="ww-bar" style="width:${pct||0}%;background:${barColor}"></div></div>
@@ -9427,12 +9451,22 @@ R.cahier_texte = () => {
     const cl=gc(k.cid); if(!cl) return;
     const entries=DB.cahier_texte.filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+    const upcoming=(DB.cahier_prep||[]).filter(e=>e.cid===k.cid&&e.status!=='fait'&&e.validated).sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
     const [cc]=clsColor(cl.name);
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${cc}18;border-radius:14px;border-left:4px solid ${cc};margin-bottom:10px">
         <span style="font-size:24px">📖</span>
         <div><div style="font-weight:700;font-size:15px">${esc(k.name)}</div><div style="font-size:12px;color:var(--text-muted)">${esc(cl.name)}</div></div>
       </div>
+      ${upcoming.length?`<div class="premium-section" style="margin-bottom:8px;border-left:3px solid #2f7bd6">
+        <div class="premium-section-title">📅 À venir</div>
+        ${upcoming.map(e=>`<div class="premium-item">
+          <div class="pi-icon" style="background:#dbeafe">📅</div>
+          <div style="flex:1"><div class="pi-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span></div>
+            <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${esc(e.content)}</div>
+          </div>
+        </div>`).join('')}
+      </div>`:''}
       ${Object.keys(byDate).length?Object.entries(byDate).map(([date,items])=>{
         const d=new Date(date);
         return `<div class="premium-section" style="margin-bottom:8px">
@@ -9519,9 +9553,9 @@ R.cahier_prep = () => {
           <span style="font-size:11px;color:var(--text-muted)">${done}/${items.length} fait${late?` · ⚠️ ${late} en retard`:''}</span>
         </div>
         ${items.map(e=>`<div class="ww-item">
-          <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':e.date_prevue<today()?'#fee2e2':'#fdeccd'}">${e.status==='fait'?'✅':e.date_prevue<today()?'⚠️':'📅'}</div>
+          <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':e.date_prevue<today()?'#fee2e2':e.validated?'#dbeafe':'#fdeccd'}">${e.status==='fait'?'✅':e.date_prevue<today()?'⚠️':e.validated?'✔️':'🕓'}</div>
           <div class="ww-item-content">
-            <div class="ww-item-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span></div>
+            <div class="ww-item-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span>${!e.validated&&e.status!=='fait'?` <span style="font-size:10px;background:#fdeccd;color:#92400e;padding:1px 6px;border-radius:8px;font-weight:700">À valider</span>`:''}</div>
             <div class="ww-item-sub" style="white-space:normal;line-height:1.5">${esc(e.content)}</div>
           </div>
         </div>`).join('')}
@@ -9542,11 +9576,13 @@ R.cahier_prep = () => {
     </div>
     ${items.length?items.map((e,i)=>{
       const isLate=e.status!=='fait'&&e.date_prevue<today();
+      const pendingValidation=e.status!=='fait'&&!e.validated;
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
-        <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':isLate?'#fee2e2':'#fdeccd'}">${e.status==='fait'?'✅':isLate?'⚠️':'📅'}</div>
+        <div class="ww-item-icon" style="background:${e.status==='fait'?'#d8f3e6':isLate?'#fee2e2':pendingValidation?'#fdeccd':'#dbeafe'}">${e.status==='fait'?'✅':isLate?'⚠️':pendingValidation?'🕓':'✔️'}</div>
         <div class="ww-item-content">
           <div class="ww-item-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString(getLang()==='en'?'en-GB':'fr-FR',{day:'numeric',month:'long'})}</span></div>
           <div class="ww-item-sub" style="white-space:normal;line-height:1.5;margin-top:4px">${esc(e.content)}</div>
+          ${e.status!=='fait'?`<div style="font-size:11px;font-weight:700;color:${pendingValidation?'#92400e':'#1f9d6b'};margin-top:4px">${pendingValidation?'🕓 '+t('En attente de validation Direction','Awaiting management validation'):'✔️ '+t('Validé par la Direction','Validated by management')}</div>`:''}
           <div style="display:flex;gap:8px;margin-top:8px">
             ${e.status!=='fait'?`<button class="btn btn-primary btn-sm" onclick="markCahierPrepDone('${e.id}')">✅ ${t('Marquer fait','Mark done')}</button>`:''}
             <button class="btn btn-outline btn-sm" onclick="deleteCahierPrep('${e.id}')">🗑️</button>
@@ -9590,13 +9626,23 @@ window.saveCahierPrep = () => {
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
     id:'cp'+Date.now(), cid:mc.cl.id, matiere, content, lang:mc.lang,
-    date_prevue, by:S.user.id, status:'planifie'
+    date_prevue, by:S.user.id, status:'planifie', validated:false
   };
   DB.cahier_prep=DB.cahier_prep||[];
   DB.cahier_prep.unshift(entry);
   pushSync('cahier_prep','post',entry);
+  const apr={id:'apr'+Date.now(),type:'cahier_prep',status:'pending',
+    content:`Préparation: ${matiere} — ${new Date(date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} pour ${mc.cl.name} — "${content.slice(0,60)}"`,
+    data:{prepId:entry.id,cid:mc.cl.id},date:today(),by:S.user.id};
+  DB.approbations=DB.approbations||[];
+  DB.approbations.push(apr);
+  pushSync('approbations','post',apr);
+  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:`📋 Préparation à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
+    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  });
   logAudit('cahier_prep_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
-  toast('Préparation enregistrée','success');
+  toast('Préparation enregistrée — en attente de validation','success');
   saveToCrypt(); closeModal(); render();
 };
 
@@ -9632,6 +9678,8 @@ window.deleteCahierPrep = (id) => {
   showC('Supprimer cette préparation ?','', () => {
     DB.cahier_prep=DB.cahier_prep.filter(e=>e.id!==id);
     pushSync('cahier_prep','delete',{},'id=eq.'+id);
+    const apr=(DB.approbations||[]).find(a=>a.type==='cahier_prep'&&a.status==='pending'&&a.data?.prepId===id);
+    if(apr){ DB.approbations=DB.approbations.filter(a=>a.id!==apr.id); pushSync('approbations','delete',{},'id=eq.'+apr.id); }
     logAudit('cahier_prep_del', prep.matiere, id);
     toast('Préparation supprimée','success');
     saveToCrypt(); render();
@@ -9654,7 +9702,7 @@ R.prevision_matiere = () => {
       const prev=(DB.prevision_matiere||[]).find(p=>p.cid===mc.cl.id&&p.matiere===m.name&&p.trimestre===trim);
       const pct=prev?.pourcentage||0;
       return `<div class="premium-section" style="margin-bottom:12px">
-        <div class="premium-section-title">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</div>
+        <div class="premium-section-title" style="display:flex;align-items:center;gap:8px">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}${prev?prev.validated?`<span style="font-size:10px;background:#dbeafe;color:#205fae;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:auto">✔️ ${t('Validé','Validated')}</span>`:`<span style="font-size:10px;background:#fdeccd;color:#92400e;padding:1px 6px;border-radius:8px;font-weight:700;margin-left:auto">🕓 ${t('À valider','Awaiting validation')}</span>`:''}</div>
         <div class="form-group"><label class="form-label">${t('Programme prévu','Planned curriculum')}</label>
           <textarea class="form-input" id="pmProg_${m.name.replace(/[^a-zA-Z0-9]/g,'_')}" style="height:90px;resize:vertical" placeholder="${t('Ex: Chapitres 1 à 5 — fractions, géométrie, mesures...','E.g. Chapters 1 to 5 — fractions, geometry, measurements...')}">${esc(prev?.programme||'')}</textarea>
         </div>
@@ -9683,7 +9731,7 @@ R.prevision_matiere = () => {
           const pct=p.pourcentage||0;
           return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:600;font-size:13px">${esc(p.matiere)}</div>
+              <div style="font-weight:600;font-size:13px">${esc(p.matiere)}${!p.validated?` <span style="font-size:10px;background:#fdeccd;color:#92400e;padding:1px 6px;border-radius:8px;font-weight:700">🕓 À valider</span>`:''}</div>
               <div style="height:7px;border-radius:4px;background:var(--bg-card);overflow:hidden;margin-top:5px"><div style="height:100%;width:${pct}%;background:${pct>=80?'#1f9d6b':pct>=50?'#e0a020':'#dc2626'}"></div></div>
             </div>
             <span style="font-weight:700;font-size:13px;flex-shrink:0;color:${pct>=80?'#1f9d6b':pct>=50?'#92400e':'#991b1b'}">${pct}%</span>
@@ -9706,11 +9754,28 @@ window.savePrevisionMatiere = (matiere) => {
   const trim=DB.settings?.currentTrimestre||'T1';
   DB.prevision_matiere=DB.prevision_matiere||[];
   let prev=DB.prevision_matiere.find(p=>p.cid===mc.cl.id&&p.matiere===matiere&&p.trimestre===trim);
-  if(prev){ prev.programme=programme; prev.pourcentage=pourcentage; prev.by=S.user.id; }
-  else { prev={id:'pm'+Date.now(), cid:mc.cl.id, matiere, lang:mc.lang, trimestre:trim, programme, pourcentage, by:S.user.id}; DB.prevision_matiere.unshift(prev); }
+  if(prev){ prev.programme=programme; prev.pourcentage=pourcentage; prev.by=S.user.id; prev.validated=false; }
+  else { prev={id:'pm'+Date.now(), cid:mc.cl.id, matiere, lang:mc.lang, trimestre:trim, programme, pourcentage, by:S.user.id, validated:false}; DB.prevision_matiere.unshift(prev); }
   pushSync('prevision_matiere','upsert',prev);
+  DB.approbations=DB.approbations||[];
+  let apr=DB.approbations.find(a=>a.type==='prevision_matiere'&&a.status==='pending'&&a.data?.cid===mc.cl.id&&a.data?.matiere===matiere&&a.data?.trimestre===trim);
+  if(apr){
+    apr.content=`Prévision matière: ${matiere} (${mc.cl.name}) · ${pourcentage}% couvert`;
+    apr.date=today();
+    pushSync('approbations','patch',{content:apr.content,date:apr.date},'id=eq.'+apr.id);
+  } else {
+    apr={id:'apr'+Date.now(),type:'prevision_matiere',status:'pending',
+      content:`Prévision matière: ${matiere} (${mc.cl.name}) · ${pourcentage}% couvert`,
+      data:{cid:mc.cl.id,matiere,trimestre:trim},date:today(),by:S.user.id};
+    DB.approbations.push(apr);
+    pushSync('approbations','post',apr);
+    DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:`📊 Prévision matière à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
+      DB.notifs.unshift(n); pushSync('notifs','post',n);
+    });
+  }
   logAudit('prevision_save', `${mc.cl.name} · ${matiere} · ${pourcentage}%`, prev.id);
-  toast('Prévision enregistrée','success');
+  toast('Prévision enregistrée — en attente de validation','success');
   saveToCrypt(); render();
 };
 
