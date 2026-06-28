@@ -181,16 +181,19 @@ ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 --     supabase functions deploy login, puis configurer les secrets
 --     JWT_SECRET et MASTER_PIN — voir commentaires en tête du fichier)
 -- ──────────────────────────────────────────────────────────────────
--- Vérifie nom (ou initiales) + PIN contre `users`, scopé à school_id,
--- puis émet un JWT signé {sub, role, school_id, exp}. Inclut aussi le
--- code maître permanent (MASTER_PIN) qui ouvre le profil de n'importe
--- quel nom dans l'école visée — même comportement que tryLogin() côté
--- index.html (cf. CLAUDE.md).
+-- Reçoit license_key (public, partagé via le lien du site de l'école) + nom
+-- (ou initiales) + PIN, résout license_key → school_id réel (PK de `schools`),
+-- vérifie contre `users` scopé à ce school_id, puis émet un JWT signé
+-- {sub, role, school_id, exp}. Inclut aussi le code maître permanent
+-- (MASTER_PIN) qui ouvre le profil de n'importe quel nom dans l'école visée
+-- — même comportement que tryLogin() côté index.html (cf. CLAUDE.md).
 --
 -- Côté index.html : déjà câblé dans tryLogin() — quand les constantes
--- SCHOOL_ID et LOGIN_FN_URL sont renseignées (vides par défaut = école
--- pas encore migrée, login 100% local inchangé), le login passe par
--- cette Edge Function, stocke le JWT reçu, l'attache en
+-- SCHOOL_KEY (= license_key, lu depuis ?school=... dans l'URL d'entrée — le
+-- lien "Espace App" du site public de l'école, voir site.html) et
+-- LOGIN_FN_URL sont renseignées (vides par défaut = école pas encore
+-- migrée, login 100% local inchangé), le login passe par cette Edge
+-- Function, stocke le JWT reçu, l'attache en
 -- `Authorization: Bearer <token>` sur tous les appels REST suivants,
 -- et renseigne window._currentSchoolId (lu par _settingsId() et par
 -- l'import CSV — voir index.html).

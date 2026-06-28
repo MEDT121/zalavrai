@@ -75,19 +75,34 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
 
-  let body: { school_id?: string; name?: string; pin?: string };
+  let body: { license_key?: string; name?: string; pin?: string };
   try {
     body = await req.json();
   } catch {
     return jsonResponse({ error: 'JSON invalide' }, 400);
   }
 
-  const { school_id, name, pin } = body;
-  if (!school_id || !name || !pin) {
-    return jsonResponse({ error: 'school_id, name et pin sont requis' }, 400);
+  const { license_key, name, pin } = body;
+  if (!license_key || !name || !pin) {
+    return jsonResponse({ error: 'license_key, name et pin sont requis' }, 400);
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  // license_key (public, partagé via le lien du site de l'école) → school_id
+  // réel (PK interne de `schools`) — le client n'a jamais besoin de connaître
+  // cet id directement, seulement son license_key.
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('id')
+    .eq('license_key', license_key)
+    .single();
+
+  if (schoolError || !school) {
+    return jsonResponse({ error: 'École introuvable' }, 401);
+  }
+  const school_id = school.id;
+
   const { data: users, error } = await supabase
     .from('users')
     .select('id, name, role, pin, pin_hashed, initials, school_id')

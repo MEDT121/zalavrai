@@ -147,7 +147,7 @@ body{font-family:'DM Sans',-apple-system,sans-serif;background:var(--bg);color:v
 .login-input{width:100%;padding:14px 16px 14px 44px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff;text-align:left;font-size:15px;font-weight:600;height:52px;border-radius:16px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);outline:none;font-family:inherit;transition:border-color .2s,background .2s}
 .login-input:focus{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.1)}
 .login-input.pin{letter-spacing:6px;font-size:18px}
-.btn-login{width:100%;padding:16px;font-size:16px;font-weight:800;border:0;border-radius:16px;cursor:pointer;color:#1a1206;background:linear-gradient(100deg,var(--gold),#f3c768);box-shadow:0 14px 30px rgba(217,164,58,.35);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;font-family:inherit}
+.btn-login{width:100%;padding:16px;font-size:16px;font-weight:800;border:0;border-radius:16px;cursor:pointer;color:#1a1206;background:linear-gradient(100deg,var(--login-accent,var(--gold)),#f3c768);box-shadow:0 14px 30px rgba(217,164,58,.35);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;font-family:inherit}
 .btn-login:hover{transform:translateY(-2px);box-shadow:0 20px 40px rgba(217,164,58,.45)}
 .btn-login:active{transform:translateY(0)}
 .btn-login::after{content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-18deg);animation:loginShine 3.4s ease-in-out infinite}
@@ -1257,11 +1257,24 @@ window.compressImage = (file, maxW, maxH, quality, cb) => {
 const CENTRAL_URL = ''; // serveur de licences supprimé
 const CENTRAL_KEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
 const LICENSE_GRACE_DAYS = 3;
-// École basculée au projet Supabase central (id de la ligne `schools`) —
-// vide = école pas encore migrée, login 100% local inchangé (voir tryLogin).
-// Une fois migrée : SCHOOL_ID = l'id de cette école dans `schools`, et
-// LOGIN_FN_URL = `${SUPA_URL}/functions/v1/login` du projet central.
-const SCHOOL_ID = '';
+// Contexte école courante : porté par le lien d'entrée du site de l'école
+// (ex. https://app.schoolsafe.cd/?school=<license_key>, le même license_key
+// déjà connu du site public — SITE_LICENSE_KEY dans assets/site-data.js),
+// mémorisé localement pour les visites suivantes — permet à UNE SEULE app
+// centrale de servir plusieurs écoles sans rebuild par école. Vide par
+// défaut = école pas encore migrée au central, login 100% local inchangé
+// (voir tryLogin). L'Edge Function résout ce license_key en school_id réel
+// (PK interne de `schools`) — l'app n'a jamais besoin de connaître cet id.
+(function _resolveSchoolContext(){
+  try {
+    const fromUrl = new URLSearchParams(location.search).get('school');
+    if (fromUrl) localStorage.setItem('_active_school_key', fromUrl);
+  } catch(e) {}
+})();
+const SCHOOL_KEY = (() => { try { return localStorage.getItem('_active_school_key') || ''; } catch(e) { return ''; } })();
+// Edge Function `login` du projet central — la même URL pour toutes les
+// écoles (le license_key envoyé dans le body la scope) ; à renseigner une
+// fois le projet central et l'Edge Function déployés (supabase/functions/login).
 const LOGIN_FN_URL = '';
 window.SCHOOL_LOGO = null;
 window._OPERATOR_WA = localStorage.getItem('_operator_wa') || '243978444167';
@@ -2648,8 +2661,43 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 
 
 // ── LOGIN ──
+// Différencie l'écran de connexion par école : couleur d'accent (.btn-login,
+// via --login-accent) + petit badge logo de l'école accolé au logo SchoolSafe
+// (qui reste affiché tel quel). Source : school_sites (site public), via le
+// même license_key que _loadSiteDataForPage(). Best-effort, silencieux hors ligne.
+window._loginBrandingApplied = false;
+window._applyLoginBranding = async function(){
+  if (window._loginBrandingApplied) return;
+  const key = (DB.settings?.license_key||'').trim();
+  if (!key || !CENTRAL_URL || !CENTRAL_KEY) return;
+  try {
+    const ctrl = new AbortController(); setTimeout(()=>ctrl.abort(), 6000);
+    const r = await fetch(
+      CENTRAL_URL + '/rest/v1/school_sites?license_key=eq.' + encodeURIComponent(key) + '&select=logo_url,primary_color&limit=1',
+      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY }, signal: ctrl.signal }
+    );
+    const rows = r.ok ? await r.json() : [];
+    const d = rows[0];
+    if (!d) return;
+    window._loginBrandingApplied = true;
+    const ls = $('LS');
+    if (d.primary_color && ls) ls.style.setProperty('--login-accent', d.primary_color);
+    if (d.logo_url) {
+      const wrap = document.querySelector('.login-logo-wrap');
+      if (wrap && !$('schoolLogoBadge')) {
+        wrap.style.position = 'relative';
+        const img = document.createElement('img');
+        img.id = 'schoolLogoBadge'; img.src = d.logo_url; img.alt = '';
+        img.style.cssText = 'width:34px;height:34px;border-radius:50%;object-fit:cover;position:absolute;right:-4px;bottom:4px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.25);background:#fff';
+        wrap.appendChild(img);
+      }
+    }
+  } catch(e) { /* hors ligne — pas de branding cette session, pas grave */ }
+};
+
 window.showLogin = () => {
   const sp=$('SPLASH'), ls=$('LS');
+  window._applyLoginBranding();
 
   // Splash disparaît instantanément
   if(sp){ sp.style.transition='none'; sp.style.opacity='0'; sp.style.pointerEvents='none'; setTimeout(()=>{ if(sp) sp.style.display='none'; },80); }
@@ -2695,24 +2743,26 @@ window.tryLogin = async () => {
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
 
-  // ── École migrée au central : login via Edge Function, qui vérifie nom+code
-  //    contre `users` (scopé à SCHOOL_ID) et renvoie un JWT signé school_id+role.
-  //    Ce JWT devient le Bearer token de toutes les requêtes PostgREST suivantes.
-  //    Tant que SCHOOL_ID/LOGIN_FN_URL ne sont pas configurés (école pas encore
-  //    basculée), ce bloc est ignoré et le login 100% local ci-dessous s'applique. ──
-  if (SCHOOL_ID && LOGIN_FN_URL) {
+  // ── École migrée au central : login via Edge Function, qui résout SCHOOL_KEY
+  //    (license_key public) en school_id réel, vérifie nom+code contre `users`
+  //    scopé à cette école, et renvoie un JWT signé school_id+role. Ce JWT
+  //    devient le Bearer token de toutes les requêtes PostgREST suivantes.
+  //    Tant que SCHOOL_KEY/LOGIN_FN_URL ne sont pas configurés (école pas
+  //    encore basculée), ce bloc est ignoré et le login 100% local ci-dessous
+  //    s'applique. ──
+  if (SCHOOL_KEY && LOGIN_FN_URL) {
     try {
       const r = await fetch(LOGIN_FN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
-        body: JSON.stringify({ school_id: SCHOOL_ID, name: $('LN')?.value||'', pin }),
+        body: JSON.stringify({ license_key: SCHOOL_KEY, name: $('LN')?.value||'', pin }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok || !data?.token) {
         $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
       }
       window._jwt = data.token;
-      window._currentSchoolId = SCHOOL_ID;
+      window._currentSchoolId = data.user?.school_id || '';
       _H.Authorization = 'Bearer ' + data.token;
       loginAs(data.user);
     } catch (e) {
