@@ -1485,7 +1485,7 @@ window.syncQueue = {
 
 // Auto-sync quand la connexion revient
 window.addEventListener('online', async () => {
-  // window.DB_ONLINE = true; // Supabase supprimé
+  if (SUPA_URL) window.DB_ONLINE = true;
   updateSyncIndicator();
   if (syncQueue.count() > 0) {
     toast(`🔄 Synchronisation de ${syncQueue.count()} changements…`, 'info');
@@ -1794,7 +1794,7 @@ window.loadFromSupabase = async () => {
     await window._syncServerClock();
     const ping = await _get('users','select=id&limit=1');
     if (!ping) throw new Error('no response');
-    // window.DB_ONLINE = true; // Supabase supprimé
+    window.DB_ONLINE = true;
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
@@ -1901,7 +1901,22 @@ window.loadFromSupabase = async () => {
 };
 
 // ── SYNC HELPER — pousse vers Supabase ou met en file d'attente ──
-window.pushSync = async () => {}; // DB remplacée prochainement
+window.pushSync = async (table, op, data, query) => {
+  if (!window.DB_ONLINE) {
+    syncQueue.add(table, op, (op==='patch'||op==='delete') ? {query, body:data} : data);
+    updateSyncIndicator();
+    return false;
+  }
+  let ok = false;
+  if (op === 'post') ok = await _post(table, data);
+  else if (op === 'patch') ok = await _patch(table, query, data);
+  else if (op === 'upsert') ok = await _upsert(table, data);
+  else if (op === 'delete') ok = await _del(table, query);
+  else console.warn('[pushSync] op inconnu:', op);
+  if (!ok) syncQueue.add(table, op, (op==='patch'||op==='delete') ? {query, body:data} : data);
+  updateSyncIndicator();
+  return ok;
+};
 
 // ── SYNC MANUAL ──
 window.forceSyncNow = async () => {
