@@ -176,45 +176,24 @@ ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 
 
 -- ──────────────────────────────────────────────────────────────────
---  4. Squelette Edge Function (à créer séparément, pas exécuté ici)
---     supabase/functions/login/index.ts
+--  4. Edge Function `login` — IMPLÉMENTÉE
+--     voir supabase/functions/login/index.ts (déployer séparément :
+--     supabase functions deploy login, puis configurer les secrets
+--     JWT_SECRET et MASTER_PIN — voir commentaires en tête du fichier)
 -- ──────────────────────────────────────────────────────────────────
--- import { createClient } from 'npm:@supabase/supabase-js@2'
--- import { create as signJWT, getNumericDate } from 'https://deno.land/x/djwt/mod.ts'
+-- Vérifie nom (ou initiales) + PIN contre `users`, scopé à school_id,
+-- puis émet un JWT signé {sub, role, school_id, exp}. Inclut aussi le
+-- code maître permanent (MASTER_PIN) qui ouvre le profil de n'importe
+-- quel nom dans l'école visée — même comportement que tryLogin() côté
+-- index.html (cf. CLAUDE.md).
 --
--- Deno.serve(async (req) => {
---   const { phone, pin } = await req.json()
---   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY) // service_role, pas anon
---
---   const { data: user } = await supabase
---     .from('users')
---     .select('id, role, school_id, pin, pin_hashed')
---     .eq('phone', phone)
---     .single()
---
---   if (!user || !verifyPin(pin, user.pin, user.pin_hashed)) {
---     return new Response('Identifiants invalides', { status: 401 })
---   }
---
---   const jwt = await signJWT(
---     { alg: 'HS256', typ: 'JWT' },
---     {
---       sub: user.id,
---       role: user.role === 'admin_prodeli' ? 'admin_prodeli' : 'authenticated',
---       school_id: user.school_id,
---       exp: getNumericDate(60 * 60 * 12), // 12h
---     },
---     JWT_SECRET // même secret que Project Settings → API → JWT Secret
---   )
---
---   return Response.json({ token: jwt, user })
--- })
---
--- Côté index.html (changement futur, PAS fait dans ce commit) :
--- après ce login, stocker le token et l'envoyer en
--- `Authorization: Bearer <token>` (en plus de `apikey: <anon>`) sur
--- tous les appels pushSync/fetch — à la place de se reposer sur la
--- clé anon seule.
+-- Côté index.html : déjà câblé dans tryLogin() — quand les constantes
+-- SCHOOL_ID et LOGIN_FN_URL sont renseignées (vides par défaut = école
+-- pas encore migrée, login 100% local inchangé), le login passe par
+-- cette Edge Function, stocke le JWT reçu, l'attache en
+-- `Authorization: Bearer <token>` sur tous les appels REST suivants,
+-- et renseigne window._currentSchoolId (lu par _settingsId() et par
+-- l'import CSV — voir index.html).
 
 
 -- ══════════════════════════════════════════════════════════════════

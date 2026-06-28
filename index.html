@@ -1257,6 +1257,12 @@ window.compressImage = (file, maxW, maxH, quality, cb) => {
 const CENTRAL_URL = ''; // serveur de licences supprimé
 const CENTRAL_KEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
 const LICENSE_GRACE_DAYS = 3;
+// École basculée au projet Supabase central (id de la ligne `schools`) —
+// vide = école pas encore migrée, login 100% local inchangé (voir tryLogin).
+// Une fois migrée : SCHOOL_ID = l'id de cette école dans `schools`, et
+// LOGIN_FN_URL = `${SUPA_URL}/functions/v1/login` du projet central.
+const SCHOOL_ID = '';
+const LOGIN_FN_URL = '';
 window.SCHOOL_LOGO = null;
 window._OPERATOR_WA = localStorage.getItem('_operator_wa') || '243978444167';
 window._imgFallback = el => { try { const p=el.parentNode; if(!p) return; p.innerHTML='<div style="width:100%;height:100%;background:'+el.dataset.bg+';color:'+el.dataset.cc+';display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800">'+el.dataset.ini+'</div>'; } catch(e){} };
@@ -2688,6 +2694,32 @@ window.tryLogin = async () => {
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
+
+  // ── École migrée au central : login via Edge Function, qui vérifie nom+code
+  //    contre `users` (scopé à SCHOOL_ID) et renvoie un JWT signé school_id+role.
+  //    Ce JWT devient le Bearer token de toutes les requêtes PostgREST suivantes.
+  //    Tant que SCHOOL_ID/LOGIN_FN_URL ne sont pas configurés (école pas encore
+  //    basculée), ce bloc est ignoré et le login 100% local ci-dessous s'applique. ──
+  if (SCHOOL_ID && LOGIN_FN_URL) {
+    try {
+      const r = await fetch(LOGIN_FN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+        body: JSON.stringify({ school_id: SCHOOL_ID, name: $('LN')?.value||'', pin }),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok || !data?.token) {
+        $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
+      }
+      window._jwt = data.token;
+      window._currentSchoolId = SCHOOL_ID;
+      _H.Authorization = 'Bearer ' + data.token;
+      loginAs(data.user);
+    } catch (e) {
+      $('PM').textContent='Connexion impossible — réessayez'; setTimeout(()=>$('PM').textContent='',2500);
+    }
+    return;
+  }
 
   const u = DB.users.find(u =>
     normName(u.name)===name ||
