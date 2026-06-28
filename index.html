@@ -17132,28 +17132,33 @@ window.parseAndPreviewCSV = (input) => {
 window.importCSVConfirm = () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const data=window._csvData; if(!data||!data.length){toast('Aucune donnée à importer','error');return;}
+  // En central multi-tenant, school_id scope tous les lookups/créations pour
+  // éviter de matcher un parent/élève d'une autre école par téléphone/nom.
+  // window._currentSchoolId est undefined tant que le login JWT (Task #11)
+  // n'est pas branché — comportement mono-école inchangé dans ce cas.
+  const schoolId = window._currentSchoolId || null;
   let added=0,skipped=0;
   data.forEach(r=>{
     const [name,dob,className,parentName,parentPhone]=r;
     if(!name||name.length<2){skipped++;return;}
-    const cl=(DB.classes||[]).find(c=>c.name.toLowerCase().trim()===(className||'').toLowerCase().trim());
+    const cl=(DB.classes||[]).find(c=>c.name.toLowerCase().trim()===(className||'').toLowerCase().trim()&&(!schoolId||c.school_id===schoolId));
     let pid=null;
     if(parentPhone){
-      let parent=(DB.users||[]).find(u=>u.role==='parent'&&u.phone&&u.phone.replace(/\s/g,'')===parentPhone.replace(/\s/g,''));
+      let parent=(DB.users||[]).find(u=>u.role==='parent'&&u.phone&&u.phone.replace(/\s/g,'')===parentPhone.replace(/\s/g,'')&&(!schoolId||u.school_id===schoolId));
       if(!parent&&parentName){
-        parent=(DB.users||[]).find(u=>u.role==='parent'&&u.name.toLowerCase().trim()===(parentName||'').toLowerCase().trim());
+        parent=(DB.users||[]).find(u=>u.role==='parent'&&u.name.toLowerCase().trim()===(parentName||'').toLowerCase().trim()&&(!schoolId||u.school_id===schoolId));
       }
       if(!parent&&parentName){
         const genPin6=()=>Math.floor(100000+Math.random()*900000).toString();
-        const newParent={id:'u'+Date.now()+Math.random().toString(36).slice(2,5),role:'parent',name:parentName,phone:parentPhone||null,pin:genPin6(),pin_hashed:false,initials:ini(parentName)};
+        const newParent={id:'u'+Date.now()+Math.random().toString(36).slice(2,5),role:'parent',name:parentName,phone:parentPhone||null,pin:genPin6(),pin_hashed:false,initials:ini(parentName),school_id:schoolId};
         DB.users.push(newParent);pushSync('users','upsert',newParent);pid=newParent.id;
       } else if(parent){pid=parent.id;}
     }
     const mat=genMat();
-    const ns={id:'s'+Date.now()+Math.random().toString(36).slice(2,5),name,mat,cid:cl?.id||null,pid,dob:dob||null,photo:null,access_parent:false};
-    if((DB.students||[]).find(x=>x.name.toLowerCase().trim()===name.toLowerCase().trim()&&x.cid===ns.cid)){skipped++;return;}
+    const ns={id:'s'+Date.now()+Math.random().toString(36).slice(2,5),name,mat,cid:cl?.id||null,pid,dob:dob||null,photo:null,access_parent:false,school_id:schoolId};
+    if((DB.students||[]).find(x=>x.name.toLowerCase().trim()===name.toLowerCase().trim()&&x.cid===ns.cid&&(!schoolId||x.school_id===schoolId))){skipped++;return;}
     DB.students.push(ns);
-    const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t+Math.random().toString(36).slice(2,4),sid:ns.id,t,paid:false}));
+    const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t+Math.random().toString(36).slice(2,4),sid:ns.id,t,paid:false,school_id:schoolId}));
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
