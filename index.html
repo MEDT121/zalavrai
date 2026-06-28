@@ -13242,6 +13242,9 @@ window.downloadBulletin = (sid) => {
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const logoSrc=window.SCHOOL_LOGO||'';
   const cl=gc(k.cid);
+  const cycle=cl?.cycle||'primaire';
+  const isMaternelle=cycle==='maternelle';
+  const qualBand=pct=>pct===null?{l:'—',c:'#999'}:pct>=70?{l:'Acquis ✅',c:'#1f9d6b'}:pct>=50?{l:"En cours d'acquisition 🔶",c:'#d98a2b'}:{l:'À renforcer ⚠️',c:'#dc2626'};
   const matieres=getClassMatieres(k.cid);
   const isBilingual=cl&&cl.teacher_id&&cl.teacher_id_en;
   const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
@@ -13281,7 +13284,8 @@ window.downloadBulletin = (sid) => {
     const avg=matAvgPct(k.id,m.name);
     const pts=avg!==null?Math.round(avg*coeff):null;
     const col=avg===null?'#999':avg>=70?'#1f9d6b':avg>=50?'#d98a2b':'#dc2626';
-    const danger=avg!==null&&avg<50;
+    const danger=avg!==null&&avg<50&&!isMaternelle;
+    const qb=qualBand(avg);
     return `<tr${danger?' style="background:#fff5f5"':''}>
       <td>${flag} ${esc(m.name)}${danger?' <span style="color:#dc2626;font-size:10px">⚠</span>':''}</td>
       <td style="text-align:center;background:#fff7ee;font-weight:700;color:#205fae">×${coeff}</td>
@@ -13289,9 +13293,11 @@ window.downloadBulletin = (sid) => {
       <td style="text-align:center">${t2!==null?t2+'%':'—'}</td>
       <td style="text-align:center">${t3!==null?t3+'%':'—'}</td>
       <td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td>
-      <td style="text-align:center;font-weight:700;color:${col}">${pts!==null?pts+'/'+(coeff*100):'—'}</td>
+      <td style="text-align:center;font-weight:700;color:${isMaternelle?qb.c:col}">${isMaternelle?qb.l:(pts!==null?pts+'/'+(coeff*100):'—')}</td>
     </tr>`;
   }).join('');
+  // Appréciation du titulaire déjà enregistrée (pré-remplissage)
+  const appEntry=cl?(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cl.id&&a.trim===trim):null;
   // Conduct
   const conducts=DB.conduct.filter(x=>x.sid===k.id);
   const condLabel={Excellent:'🌟 Excellent',Bien:'😊 Bien',Moyen:'😐 Moyen',Mauvais:'😞 À améliorer'};
@@ -13306,42 +13312,47 @@ window.downloadBulletin = (sid) => {
     <div class="stu-info">
       <div class="stu-name">${esc(k.name)}</div>
       <div class="stu-meta">Matricule : <strong>${k.mat}</strong></div>
-      <div class="stu-meta">Classe : <strong>${cl?esc(cl.name):'—'}</strong></div>
+      <div class="stu-meta">Classe : <strong>${cl?esc(cl.name):'—'}${cl?.option?' · '+esc(cl.option):''}</strong></div>
       <div class="stu-meta">Titulaire : ${titulaire?esc(titulaire.name):'—'}${profEN?' / '+esc(profEN.name):''}</div>
       <div class="stu-meta">Trimestre : <strong>${trim}</strong> · Année scolaire <strong>${yr}</strong></div>
-      <div class="result-box" style="background:${isPassing?'#d8f3e6':'#fee2e2'};color:${isPassing?'#065f46':'#991b1b'}">${isPassing?'ADMIS(E) — Passage accordé':'ÉCHEC — Décision en délibération'}</div>
+      ${isMaternelle?'':`<div class="result-box" style="background:${isPassing?'#d8f3e6':'#fee2e2'};color:${isPassing?'#065f46':'#991b1b'}">${isPassing?'ADMIS(E) — Passage accordé':'ÉCHEC — Décision en délibération'}</div>`}
     </div>
     <div class="stu-rank">
+      ${isMaternelle?`<div class="stu-mention" style="font-size:17px;color:${qualBand(grandPct).c}">${qualBand(grandPct).l}</div><div style="font-size:10px;color:#666;margin-top:4px">Niveau global d'acquisition</div>`:`
       <div class="stu-pct" style="color:${mColor}">${grandPct}%</div>
       <div class="stu-pos">${pos}${pos===1?'er':'ème'} / ${students.length}</div>
       <div class="stu-mention" style="color:${mColor}">${mention}</div>
-      <div style="font-size:10px;color:#666;margin-top:4px">${grandTot} / ${grandMax} pts</div>
+      <div style="font-size:10px;color:#666;margin-top:4px">${grandTot} / ${grandMax} pts</div>`}
     </div>
   </div>
   <div class="stat-row">
-    <div class="stat-box"><div class="stat-num" style="color:#1f9d6b">${grandPct}%</div><div class="stat-lbl">Moyenne générale</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#243a6b">${pos}e/${students.length}</div><div class="stat-lbl">Rang dans la classe</div></div>
+    ${isMaternelle?`<div class="stat-box"><div class="stat-num" style="color:${qualBand(grandPct).c};font-size:14px">${qualBand(grandPct).l}</div><div class="stat-lbl">Niveau global</div></div>`:`<div class="stat-box"><div class="stat-num" style="color:#1f9d6b">${grandPct}%</div><div class="stat-lbl">Moyenne générale</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#243a6b">${pos}e/${students.length}</div><div class="stat-lbl">Rang dans la classe</div></div>`}
     <div class="stat-box"><div class="stat-num" style="color:#d98a2b">${absences}</div><div class="stat-lbl">Absences</div></div>
     <div class="stat-box"><div class="stat-num" style="color:#f59e0b">${retards}</div><div class="stat-lbl">Retards</div></div>
     ${latestCond?`<div class="stat-box"><div class="stat-num" style="color:${condColor[latestCond.score]||'#666'};font-size:14px">${condLabel[latestCond.score]||latestCond.score}</div><div class="stat-lbl">Conduite</div></div>`:''}
   </div>
   <table>
-    <tr><th style="text-align:left">Matière</th><th>Coeff</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th><th>Points</th></tr>
+    <tr><th style="text-align:left">${isMaternelle?"Domaine d'éveil":'Matière'}</th><th>Coeff</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th><th>${isMaternelle?'Niveau':'Points'}</th></tr>
     ${isBilingual?`${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`:''} ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''} ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:
-      `<tr class="section-hdr"><td colspan="7">📚 Toutes les matières</td></tr>${sectionRows(matieres,'📚')}`}
-    <tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">TOTAL GÉNÉRAL →</td><td style="color:${mColor};font-size:14px">${grandPct}%</td><td style="color:${mColor};font-size:13px">${grandTot}/${grandMax} pts</td></tr>
+      `<tr class="section-hdr"><td colspan="7">📚 ${isMaternelle?"Domaines d'éveil":'Toutes les matières'}</td></tr>${sectionRows(matieres,'📚')}`}
+    ${isMaternelle?
+      `<tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">SYNTHÈSE GÉNÉRALE →</td><td colspan="2" style="color:${qualBand(grandPct).c};font-size:13px">${qualBand(grandPct).l}</td></tr>`:
+      `<tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">TOTAL GÉNÉRAL →</td><td style="color:${mColor};font-size:14px">${grandPct}%</td><td style="color:${mColor};font-size:13px">${grandTot}/${grandMax} pts</td></tr>`}
   </table>
-  ${grandPct<50?`<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b"><strong>⚠️ Matières insuffisantes (&lt;50%) :</strong> ${matieres.filter(m=>{const a=matAvgPct(k.id,m.name);return a!==null&&a<50;}).map(m=>m.name).join(', ')||'—'}</div>`:''}
+  ${grandPct<50?(isMaternelle?
+    `<div style="background:#eef4fb;border:1.5px solid #205fae;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#1e3a6e"><strong>🔎 Domaines à accompagner davantage :</strong> ${matieres.filter(m=>{const a=matAvgPct(k.id,m.name);return a!==null&&a<50;}).map(m=>m.name).join(', ')||'—'}</div>`:
+    `<div style="background:#fff5f5;border:1.5px solid #dc2626;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#991b1b"><strong>⚠️ Matières insuffisantes (&lt;50%) :</strong> ${matieres.filter(m=>{const a=matAvgPct(k.id,m.name);return a!==null&&a<50;}).map(m=>m.name).join(', ')||'—'}</div>`):''}
   <div style="border:1px solid #dde5f0;border-radius:8px;padding:10px 14px;margin-bottom:16px">
     <div style="font-size:11px;font-weight:700;color:#243a6b;margin-bottom:6px">📝 Appréciation du titulaire</div>
-    <div style="height:36px;border-bottom:1px dashed #aaa;font-size:12px;color:#888;display:flex;align-items:flex-end;padding-bottom:4px">……………………………………………………………………………………………………………………</div>
+    ${appEntry?.text?`<div style="font-size:12px;color:#333;font-style:italic;line-height:1.6">"${esc(appEntry.text)}"</div>`:`<div style="height:36px;border-bottom:1px dashed #aaa;font-size:12px;color:#888;display:flex;align-items:flex-end;padding-bottom:4px">……………………………………………………………………………………………………………………</div>`}
   </div>
   <div class="sig-grid">
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Titulaire de classe<br><strong>${titulaire?esc(titulaire.name):'…………………………'}</strong></div></div>
     <div class="sig-box" style="text-align:center">${window.SCHOOL_SIGNATURE?`<img src="${window.SCHOOL_SIGNATURE}" style="height:48px;object-fit:contain;margin-bottom:4px">`:'<div style="height:48px"></div>'}<div class="sig-line"></div><div class="sig-label">Direction<br><strong>${(()=>{const d=DB.users.find(u=>u.role==='direction');return d?esc(d.name):'Direction';})()}</strong></div></div>
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">Signature<br><strong>Parent / Tuteur</strong></div></div>
   </div>`;
-  const fullHtml=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(school)} — Bulletin de ${esc(k.name)}</title><style>${CSS}</style></head><body>${hdr}<div class="dtitle"><h2>Bulletin scolaire — ${esc(k.name)}</h2><div class="yr">Année scolaire ${yr} · ${trim}</div></div>${bodyHtml}${ftr}</body></html>`;
+  const fullHtml=`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(school)} — Bulletin de ${esc(k.name)}</title><style>${CSS}</style></head><body>${hdr}<div class="dtitle"><h2>${isMaternelle?"Bulletin d'évaluation":'Bulletin scolaire'} — ${esc(k.name)}</h2><div class="yr">Année scolaire ${yr} · ${trim}${cl?.cycle==='humanites'&&cl.option?' · '+esc(cl.option):''}</div></div>${bodyHtml}${ftr}</body></html>`;
   const fname=`Bulletin-${k.name.replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()}-${yr}-${trim}.pdf`;
   dlPDF(fullHtml,fname);
   toast(`📥 Bulletin de ${esc(k.name.split(' ')[0])} (${trim}) en cours de téléchargement...`,'info');
