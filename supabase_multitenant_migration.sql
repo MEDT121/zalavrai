@@ -170,9 +170,19 @@ ALTER TABLE students ADD CONSTRAINT students_school_mat_unique UNIQUE (school_id
 ALTER TABLE settings DROP CONSTRAINT IF EXISTS settings_school_unique;
 ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 
--- TODO (à valider avec PRODELI selon les règles métier réelles) :
---   UNIQUE(school_id, phone) sur `users` si le téléphone sert d'identifiant de login
---   UNIQUE(school_id, code) sur `classes` si un code de classe est utilisé
+-- Décision (vérifiée dans index.html) :
+--   - `phone` n'est JAMAIS l'identifiant de connexion (login = nom/initiales
+--     + PIN, voir tryLogin()) — seulement un champ de contact, déjà utilisé
+--     pour retrouver un parent existant lors de l'import CSV (matching par
+--     school_id + phone, ligne ~17286). Pas de UNIQUE ajoutée : un doublon
+--     ne casse rien (le matching prend juste le premier trouvé), et une
+--     contrainte dure risquerait de faire échouer l'import de données
+--     existantes (doublons légitimes possibles : téléphone partagé par
+--     erreur de saisie). À revisiter si PRODELI veut faire de phone un
+--     identifiant de login.
+--   - `classes.code` : ce champ n'existe pas dans le modèle de données
+--     actuel (les classes sont identifiées par `name`, voir CLAUDE.md) —
+--     contrainte sans objet, retirée de la liste.
 
 
 -- ──────────────────────────────────────────────────────────────────
@@ -202,17 +212,22 @@ ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 -- ══════════════════════════════════════════════════════════════════
 --  Prochaines étapes (hors scope de ce script SQL)
 -- ══════════════════════════════════════════════════════════════════
--- 1. Créer et déployer l'Edge Function `login` ci-dessus.
--- 2. Adapter index.html : login → appel Edge Function → stocker le
---    Bearer token → l'attacher à toutes les requêtes Supabase.
--- 3. Adapter admin.html : pour une école déjà migrée au central, ne
---    plus utiliser son supabase_url/supabase_anon_key propre — toutes
---    les requêtes admin passent par le projet central avec un JWT
---    role=admin_prodeli (bypass RLS via is_prodeli_admin()).
--- 4. Migrer les données existantes (Le Sage) : export depuis l'ancien
---    projet (REST API ou pg_dump table par table), puis import dans
---    le projet central avec school_id = l'id de la ligne `schools`
---    correspondante.
--- 5. Une fois une école validée sur le central, vider/désactiver son
---    ancien projet Supabase dédié (ou le garder en lecture seule
---    quelques semaines comme filet de sécurité).
+-- 1. [FAIT] Edge Function `login` déployable (supabase/functions/login) —
+--    reste à exécuter : `supabase functions deploy login` + secrets
+--    JWT_SECRET / MASTER_PIN sur CE projet central.
+-- 2. [FAIT] index.html : tryLogin() appelle l'Edge Function quand
+--    SCHOOL_KEY+LOGIN_FN_URL sont renseignés, stocke le Bearer token et
+--    l'attache à toutes les requêtes Supabase suivantes (_H.Authorization).
+-- 3. [VÉRIFIÉ — RIEN À FAIRE] admin.html n'accède jamais aux 41 tables
+--    métier ci-dessus (seulement `schools`, `card_orders`,
+--    `school_announcements` — hors RLS, non concernées par ce script).
+--    Aucune adaptation nécessaire pour l'instant. À revisiter seulement
+--    si PRODELI veut un jour inspecter les données d'une école depuis
+--    admin.html (alors prévoir un JWT role=admin_prodeli côté admin.html).
+-- 4. [RESTE À FAIRE] Migrer les données existantes (Le Sage) : export
+--    depuis l'ancien projet (REST API ou pg_dump table par table), puis
+--    import dans ce projet central avec school_id = l'id de la ligne
+--    `schools` correspondante.
+-- 5. [RESTE À FAIRE] Une fois une école validée sur le central,
+--    vider/désactiver son ancien projet Supabase dédié (ou le garder en
+--    lecture seule quelques semaines comme filet de sécurité).
