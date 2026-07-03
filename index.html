@@ -1721,6 +1721,7 @@ window.NAV = {
       {id:'caisse_paiement',i:'●',l:'Enregistrer paiement'},
       {id:'caisse_depense',i:'●',l:'Enregistrer dépense'},
       {id:'caisse_rapport',i:'●',l:'Rapport du jour'},
+      {id:'fee_types',i:'●',l:'Types de frais'},
       {id:'cantine',i:'●',l:'Cantine Scolaire'},
       {s:'Infos'},
       {id:'notifications',i:'●',l:'Notifications'},
@@ -1809,7 +1810,7 @@ window.loadFromSupabase = async () => {
            medical,tenafep,evaluations,salaries,advances,
            sanctions,cantine,cantine_menus,cantine_presence,
            activites,activites_inscriptions,appreciations,medical_visits,
-           inscriptions,cahier_prep,prevision_matiere] = await Promise.all([
+           inscriptions,cahier_prep,prevision_matiere,fee_types,versements] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -1853,6 +1854,8 @@ window.loadFromSupabase = async () => {
       _get('inscriptions','select=*&order=created_at.desc'),
       _get('cahier_prep','select=*&order=date_prevue.desc&limit=500'),
       _get('prevision_matiere','select=*'),
+      _get('fee_types','select=*'),
+      _get('versements','select=*&order=date.desc&limit=1000'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -1881,6 +1884,9 @@ window.loadFromSupabase = async () => {
     DB.inscriptions=safe(inscriptions);
     DB.cahier_prep=fd(cahier_prep);
     DB.prevision_matiere=safe(prevision_matiere);
+    DB.fee_types=safe(fee_types);
+    DB.versements=fd(versements);
+    _seedFeeTypes();
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:_settingsId()};}
     DB.approbations=fd(approbations);
@@ -2032,6 +2038,8 @@ function _cryptSnap() {
     appreciations:DB.appreciations||[],
     medical_visits:DB.medical_visits||[],
     inscriptions:DB.inscriptions||[],
+    fee_types:DB.fee_types||[],
+    versements:(DB.versements||[]).slice(0,1000),
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -6071,6 +6079,55 @@ window.getStudentBalance = (sid) => {
   const paid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
   const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0)+(fees.inscription||0);
   return {paid,total,debt:total-paid};
+};
+
+// ── Types de frais configurables ──────────────────────────────────────────────
+window._seedFeeTypes = () => {
+  if ((DB.fee_types||[]).length) return; // déjà peuplé (Supabase ou crypt)
+  const fees = getFees();
+  const schoolId = window._currentSchoolId || null;
+  const base = [
+    {id:'ft_T1',    label:'Frais scolaires — T1',  category:'scolaire', trimestre:'T1',           montant_defaut: fees.T1||0,          active:true},
+    {id:'ft_T2',    label:'Frais scolaires — T2',  category:'scolaire', trimestre:'T2',           montant_defaut: fees.T2||0,          active:true},
+    {id:'ft_T3',    label:'Frais scolaires — T3',  category:'scolaire', trimestre:'T3',           montant_defaut: fees.T3||0,          active:true},
+    {id:'ft_insc',  label:'Frais d\'inscription',  category:'scolaire', trimestre:'inscription',  montant_defaut: fees.inscription||0, active:true},
+    {id:'ft_sort',  label:'Frais de sortie',        category:'sortie',   trimestre:null,           montant_defaut: 0,                   active:true},
+    {id:'ft_cant',  label:'Cantine scolaire',       category:'cantine',  trimestre:null,           montant_defaut: 0,                   active:true},
+    {id:'ft_unif',  label:'Uniforme',               category:'autre',    trimestre:null,           montant_defaut: 0,                   active:true},
+    {id:'ft_activ', label:'Activité / Sport',       category:'autre',    trimestre:null,           montant_defaut: 0,                   active:true},
+    {id:'ft_autre', label:'Autre frais',            category:'autre',    trimestre:null,           montant_defaut: 0,                   active:true},
+  ].map(f=>({...f, school_id: schoolId}));
+  DB.fee_types = base;
+  base.forEach(f => pushSync('fee_types','upsert',f));
+  saveToCrypt();
+};
+
+// Numéro de reçu séquentiel — format R-AAAA-NNNN, stocké dans settings
+window.genRecuNo = () => {
+  const yr = (DB.settings.year||'').slice(0,4) || new Date().getFullYear();
+  const last = DB.settings._last_recu_no || 0;
+  const next = last + 1;
+  DB.settings._last_recu_no = next;
+  pushSync('settings','upsert',DB.settings);
+  return `R-${yr}-${String(next).padStart(4,'0')}`;
+};
+
+// Versements d'un élève groupés par fee_type
+window.getStudentVersements = (sid) => {
+  const vers = (DB.versements||[]).filter(v=>v.sid===sid);
+  const feeTypes = DB.fee_types||[];
+  return feeTypes.map(f=>{
+    const typePaid = vers.filter(v=>v.fee_type_id===f.id).reduce((s,v)=>s+(Number(v.montant)||0),0);
+    const target = Number(f.montant_defaut)||0;
+    return {
+      fee_type_id: f.id, label: f.label, category: f.category,
+      trimestre: f.trimestre||null, active: f.active!==false,
+      target, paid: typePaid,
+      solde: Math.max(0, target - typePaid),
+      done: target > 0 && typePaid >= target,
+      versements: vers.filter(v=>v.fee_type_id===f.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))),
+    };
+  });
 };
 
 R.payments = () => {
@@ -11085,6 +11142,7 @@ window.submitAbsence = () => {
 };
 
 // ── DIRECTION 3 — CAISSE ──
+// PAYMENT_TYPES hérité — remplacé par DB.fee_types (dynamique)
 const PAYMENT_TYPES = [
   {id:'frais_scolaires', label:'Frais scolaires'},
   {id:'uniforme', label:'Uniforme'},
@@ -11158,83 +11216,100 @@ R.depenses = () => {
 R.caisse_paiement = () => {
   const _g=_requireRole('direction','direction3'); if(_g) return _g;
   const _totalStu = (DB.students||[]).length;
-  const fees = getFees();
-  const _totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-  const _paidFull = _totalFees>0?(DB.students||[]).filter(s=>{const paid=(DB.payments||[]).filter(p=>p.sid===s.id&&p.paid).reduce((a,p)=>a+(fees[p.t]||0),0);return paid>=_totalFees;}).length:0;
-  const _todayPay = (DB.payments||[]).filter(p=>p.date===today()).length;
+  const _todayVers = (DB.versements||[]).filter(v=>v.date===today());
+  const _todayTotal = _todayVers.reduce((s,v)=>s+(Number(v.montant)||0),0);
+  const _todayCount = _todayVers.length;
+  const feeTypes = (DB.fee_types||[]).filter(f=>f.active!==false);
   return `
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
       <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:24px">${_totalStu}</div><div class="hsub">élèves</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
-      <div style="font-size:19px">✅</div><div class="hbig" style="font-size:24px">${_paidFull}</div><div class="hsub">soldés</div>
+      <div style="font-size:19px">📥</div><div class="hbig" style="font-size:24px">${_todayCount}</div><div class="hsub">versements / jour</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
-      <div style="font-size:19px">📥</div><div class="hbig" style="font-size:24px">${_todayPay}</div><div class="hsub">aujourd'hui</div>
+      <div style="font-size:19px">💰</div><div class="hbig" style="font-size:20px">$${_todayTotal}</div><div class="hsub">encaissé / jour</div>
     </div>
   </div>
   <div class="premium-section">
-    <div class="premium-section-title">Rechercher un élève</div>
-  <div class="ww-toolbar" style="margin-top:10px">
-    <div class="ww-search" style="flex:1">
-      <input id="caisse_search" placeholder="Nom ou matricule..." oninput="clearTimeout(window._dT);window._dT=setTimeout(caisseSearch,300)" autocomplete="off">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="premium-section-title" style="margin:0">Enregistrer un paiement</div>
+      <button class="btn btn-outline btn-sm" onclick="go('fee_types')" style="font-size:11px">⚙ Types de frais</button>
     </div>
+    <div class="ww-toolbar" style="margin-top:6px">
+      <div class="ww-search" style="flex:1">
+        <input id="caisse_search" placeholder="Rechercher un élève (nom ou matricule)..." oninput="clearTimeout(window._dT);window._dT=setTimeout(caisseSearch,300)" autocomplete="off">
+      </div>
+    </div>
+    <div id="caisse_results" style="margin-top:8px"></div>
   </div>
-  <div id="caisse_results" style="margin-top:8px"></div>
-</div>
-<div id="caisse_form" style="display:none">
-  <div class="premium-section">
-    <div class="premium-section-title">💵 Enregistrer le paiement</div>
-    <div id="caisse_student_info" style="margin-bottom:14px"></div>
-    <div class="form-group">
-      <label class="form-label">Type de paiement</label>
-      <select id="caisse_type" class="form-select" onchange="caisseTypeChanged()">
-        ${PAYMENT_TYPES.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}
-      </select>
+  <div id="caisse_form" style="display:none">
+    <div class="premium-section">
+      <div class="premium-section-title">💵 Détail du versement</div>
+      <div id="caisse_student_info" style="margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">Type de frais <span style="color:#ef5b5b">*</span></label>
+        <select id="caisse_type" class="form-select" onchange="caisseTypeChanged()">
+          <option value="">— Choisir —</option>
+          ${feeTypes.map(f=>`<option value="${f.id}" data-target="${f.montant_defaut||0}">${esc(f.label)}${f.montant_defaut?` ($${f.montant_defaut})`:''}  </option>`).join('')}
+        </select>
+      </div>
+      <div id="caisse_solde_row" style="display:none;margin-bottom:10px">
+        <div style="padding:10px 14px;border-radius:10px;background:#f0fdf4;border:1px solid #86efac;font-size:13px">
+          <span id="caisse_solde_txt"></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Motif du paiement <span style="color:#ef5b5b">*</span></label>
+        <input class="form-input" id="caisse_motif" placeholder="Ex: Acompte frais T1, Visite musée, Repas semaine 3...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Montant versé ($) <span style="color:#ef5b5b">*</span></label>
+        <input class="form-input" id="caisse_amount" type="number" min="0.5" step="0.5" placeholder="Montant reçu">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note interne (optionnel)</label>
+        <input class="form-input" id="caisse_note" placeholder="Observation...">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
+        <button class="btn btn-primary" style="flex:1;padding:14px" onclick="caisseSavePaiement()">✅ Enregistrer + Imprimer reçu</button>
+      </div>
     </div>
-    <div class="form-group" id="caisse_trimestre_row" style="display:none">
-      <label class="form-label">Trimestre</label>
-      <select id="caisse_trimestre" class="form-select">
-        <option value="T1">Trimestre 1</option>
-        <option value="T2">Trimestre 2</option>
-        <option value="T3">Trimestre 3</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Montant reçu ($)</label>
-      <input class="form-input" id="caisse_amount" type="number" min="0" step="0.5" placeholder="Ex: 50">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Observation (optionnel)</label>
-      <input class="form-input" id="caisse_note" placeholder="Ex: Paiement partiel...">
-    </div>
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
-      <button class="btn btn-primary" style="flex:1;padding:14px" onclick="caisseSavePaiement()">Enregistrer + Envoyer reçu</button>
-    </div>
-  </div>
-</div>`;
+  </div>`;
 };
 
 window._caisseStudent = null;
 window.caisseTypeChanged = () => {
-  const typeId = $('caisse_type') ? $('caisse_type').value : '';
-  const row = $('caisse_trimestre_row');
-  if(row) row.style.display = typeId === 'frais_scolaires' ? '' : 'none';
+  const sel = $('caisse_type'); if(!sel) return;
+  const opt = sel.options[sel.selectedIndex];
+  const target = parseFloat(opt?.dataset?.target||'0');
+  const row = $('caisse_solde_row');
+  const txt = $('caisse_solde_txt');
+  if(!sel.value||!target||!window._caisseStudent){if(row)row.style.display='none';return;}
+  const sid = window._caisseStudent.id;
+  const typePaid = (DB.versements||[]).filter(v=>v.sid===sid&&v.fee_type_id===sel.value).reduce((s,v)=>s+(Number(v.montant)||0),0);
+  const solde = Math.max(0, target - typePaid);
+  if(row) row.style.display='';
+  if(txt) txt.innerHTML = solde>0
+    ? `Versé : <b>$${typePaid}</b> / $${target} — <b style="color:#ef5b5b">Solde restant : $${solde}</b>`
+    : `<b style="color:#1f9d6b">✅ Totalement soldé ($${target})</b>`;
+  if($('caisse_amount')&&solde>0) $('caisse_amount').placeholder=`Solde restant : $${solde}`;
 };
 window.caisseSearch = () => {
   const q = ($('caisse_search').value||'').trim().toLowerCase();
   const res = $('caisse_results'); if(!res) return;
   if(!q){res.innerHTML='';return;}
-  const found = DB.students.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).slice(0,6);
+  const found = (DB.students||[]).filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).slice(0,6);
   if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé</div>`;return;}
   res.innerHTML=found.map(s=>{
     const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
+    const totalVers=(DB.versements||[]).filter(v=>v.sid===s.id).reduce((a,v)=>a+(Number(v.montant)||0),0);
     return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
-      <span class="premium-badge" style="background:#d8f3e6;color:#065f46">Sélectionner</span>
+      <span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${totalVers} versé</span>
     </div>`;
   }).join('');
 };
@@ -11245,22 +11320,34 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_form').style.display='';
   $('caisse_results').innerHTML='';
   $('caisse_search').value='';
-  const pays=DB.payments.filter(p=>p.sid===s.id);
-  const fees=getFees();
-  const recentRecs=DB.daily_records.filter(r=>r.sid===s.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,5);
+  const summary = getStudentVersements(sid);
+  const recentVers=(DB.versements||[]).filter(v=>v.sid===sid).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,5);
   $('caisse_student_info').innerHTML=`
     <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:10px">
-      <div class="pi-icon" style="background:${cbg};color:${cc}">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
+      <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const f=fees[t]||0;return`<div style="flex:1;padding:8px;border-radius:10px;background:${p&&p.paid?'#d8f3e6':'#fee2e2'};text-align:center"><div style="font-size:11px;font-weight:700;color:${p&&p.paid?'#065f46':'#991b1b'}">${t}</div><div style="font-size:13px;font-weight:800;color:${p&&p.paid?'#1f9d6b':'#dc2626'}">${p&&p.paid?'Payé':'Dû'}</div><div style="font-size:10px;color:var(--text-muted)">${f?'$'+f:'—'}</div></div>`;}).join('')}
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+      ${summary.filter(f=>f.active&&f.target>0).map(f=>{
+        const pct=Math.min(100,Math.round(f.paid/f.target*100));
+        const col=f.done?'#1f9d6b':f.paid>0?'#f59e0b':'#ef5b5b';
+        return `<div style="padding:8px 12px;border-radius:10px;background:${f.done?'#d8f3e6':'#fff8f0'};border:1px solid ${f.done?'#86efac':'#efe3d3'}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-size:12px;font-weight:700">${esc(f.label)}</span>
+            <span style="font-size:12px;font-weight:800;color:${col}">${f.done?'Soldé':'$'+f.paid+' / $'+f.target}</span>
+          </div>
+          <div style="height:4px;border-radius:4px;background:#e5e7eb"><div style="height:4px;border-radius:4px;background:${col};width:${pct}%"></div></div>
+        </div>`;
+      }).join('')}
     </div>
-    ${recentRecs.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px">📋 Derniers paiements enregistrés</div>
-    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-      ${recentRecs.map(r=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px"><span>${esc(r.date)} · ${esc(r.type_label)}${r.trimestre?' ('+esc(r.trimestre)+')':''}</span><span style="font-weight:700;color:#1f9d6b">+$${r.amount}</span></div>`).join('')}
+    ${recentVers.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:5px">Derniers versements</div>
+    <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
+      ${recentVers.map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 10px;background:var(--bg);border-radius:8px">
+        <div><span style="font-weight:600">${esc(v.fee_label||v.fee_type_id)}</span><span style="color:var(--text-muted)"> · ${esc(v.motif||'')}</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;color:#1f9d6b">+$${v.montant}</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="printVersementRecu('${v.id}')">🖨 Reçu</button></div>
+      </div>`).join('')}
     </div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Sélectionnez le type de paiement ci-dessous</div>`;
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Remplissez le formulaire ci-dessous pour enregistrer un versement</div>`;
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
@@ -11279,27 +11366,114 @@ window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   setTimeout(()=>{el.style.transition='opacity .3s ease';el.style.opacity='0';setTimeout(()=>el.remove(),350);},2400);
 };
 window.caisseSavePaiement = async () => {
-  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=window._caisseStudent; if(!s){toast('Sélectionnez un élève','error');return;}
-  const amount=parseFloat($('caisse_amount').value||'0');
-  if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
-  const typeId=($('caisse_type')?.value||'').trim();
-  if(!typeId){toast('Sélectionnez un type de paiement','error');return;}
-  const typeLbl=PAYMENT_TYPES.find(t=>t.id===typeId)?.label||typeId;
-  const trimestre=(typeId==='frais_scolaires'&&$('caisse_trimestre'))?($('caisse_trimestre').value||'').trim()||null:null;
-  if(typeId==='frais_scolaires'&&!trimestre){toast('Sélectionnez le trimestre','error');return;}
-  if(typeId==='frais_scolaires'&&trimestre){
-    const expected=getFees()[trimestre];
-    if(expected&&amount!==expected) toast(`⚠️ Barème ${trimestre}: $${expected} — vous enregistrez $${amount}`,'info');
-  }
-  const note=($('caisse_note').value||'').trim();
-  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,type:typeId,type_label:typeLbl,trimestre,amount,note,date:today(),time:nowTime(),by:S.user.id,validated:false};
+  const feeTypeId=($('caisse_type')?.value||'').trim();
+  if(!feeTypeId){toast('Sélectionnez le type de frais','error');return;}
+  const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId);
+  const motif=($('caisse_motif')?.value||'').trim();
+  if(!motif){toast('Le motif est obligatoire','error');return;}
+  const montant=parseFloat($('caisse_amount')?.value||'0');
+  if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
+  const note=($('caisse_note')?.value||'').trim();
+  const recuNo = genRecuNo();
+  const cl = gc(s.cid);
+  const versement = {
+    id: 'v'+Date.now()+Math.random().toString(36).slice(2,5),
+    sid: s.id, student_name: s.name, mat: s.mat,
+    fee_type_id: feeTypeId, fee_label: ft?.label||feeTypeId,
+    montant, motif, note: note||null,
+    date: today(), time: nowTime(),
+    by: S.user.id, by_name: S.user.name,
+    recu_no: recuNo,
+    school_id: window._currentSchoolId||null,
+  };
+  DB.versements = DB.versements||[];
+  DB.versements.unshift(versement);
+  pushSync('versements','post',versement);
+
+  // Enregistrer aussi dans daily_records pour la caisse du jour
+  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,
+    type:feeTypeId,type_label:ft?.label||feeTypeId,trimestre:ft?.trimestre||null,
+    amount:montant,note:motif+(note?' — '+note:''),
+    date:today(),time:nowTime(),by:S.user.id,validated:false,
+    school_id:window._currentSchoolId||null};
   DB.daily_records.push(rec);
   pushSync('daily_records','post',rec);
-  if(s.pid) await sendCaisseReceipt(s, rec);
+
+  // Auto-basculer DB.payments si la tranche est maintenant soldée
+  if(ft?.trimestre){
+    const target=Number(ft.montant_defaut||0);
+    if(target>0){
+      const totalPaid=(DB.versements).filter(v=>v.sid===s.id&&v.fee_type_id===feeTypeId).reduce((a,v)=>a+(Number(v.montant)||0),0);
+      if(totalPaid>=target){
+        let p=(DB.payments||[]).find(px=>px.sid===s.id&&px.t===ft.trimestre);
+        if(p&&!p.paid){
+          p.paid=true; p.date=today(); p.by=S.user.id;
+          pushSync('payments','patch',{paid:true,date:today(),by:S.user.id},`sid=eq.${s.id}&t=eq.${ft.trimestre}`);
+        }
+      }
+    }
+  }
+
+  // Notification reçu au parent
+  if(s.pid){
+    const msg=`🧾 Reçu ${recuNo} — ${ft?.label||feeTypeId} · $${montant}\n📝 ${motif}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
+    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,msg,
+      time:nowTime(),date:today(),read:false,type:'receipt',
+      receipt:{num:recuNo,student:s.name,mat:s.mat,classe:cl?cl.name:'',
+        fee_label:ft?.label||feeTypeId,motif,note:note||null,montant,
+        by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
+    DB.notifs.unshift(notif);
+    pushSync('notifs','post',notif);
+  }
   saveToCrypt();
-  showPaymentStamp(s.name, amount, typeLbl, trimestre);
-  setTimeout(()=>{caisseCancel();render();},2600);
+  showPaymentStamp(s.name, montant, ft?.label||feeTypeId, null);
+  setTimeout(()=>{ printVersementRecu(versement.id); caisseCancel(); render(); },600);
+};
+
+// Impression du reçu d'un versement
+window.printVersementRecu = (vid) => {
+  const v=(DB.versements||[]).find(x=>x.id===vid);
+  if(!v){toast('Versement introuvable','error');return;}
+  const s=DB.students.find(x=>x.id===v.sid)||{name:v.student_name,mat:v.mat,cid:null};
+  const cl=gc(s.cid);
+  const sc=DB.settings?.school||{};
+  const school=sc.name||'SchoolSafe';
+  const printDate=new Date((v.date||today())+'T00:00').toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const numToWords = n => {
+    const u=['','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
+    const t=['','','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
+    const v2=Math.round(Number(n));
+    if(!v2||isNaN(v2)) return 'zéro';
+    if(v2<20) return u[v2];
+    if(v2<100){const tt=Math.floor(v2/10),uu=v2%10;if(tt===7||tt===9)return t[tt]+(uu===1&&tt===7?'-et-':'-')+(uu?u[10+uu]:u[10]);return t[tt]+(uu?(tt===8?'-':uu===1?'-et-':'-')+u[uu]:(tt===8?'s':''));}
+    if(v2<1000){const c=Math.floor(v2/100),r=v2%100;return(c>1?u[c]+'-':'')+'cent'+(r?'-'+numToWords(r):'s');}
+    const m=Math.floor(v2/1000),r=v2%1000;return(m>1?numToWords(m)+'-':'')+'mille'+(r?'-'+numToWords(r):'');
+  };
+  const amtWords=(numToWords(v.montant)||'').charAt(0).toUpperCase()+(numToWords(v.montant)||'').slice(1)+' dollars américains';
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;padding:20px;min-height:100vh}.page{background:#fff;width:100%;max-width:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;display:flex;align-items:center;gap:16px}.logo{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;flex-shrink:0}.sn{color:#fff}.sn h1{font-size:14px;font-weight:800}.sn p{font-size:10px;opacity:.8;margin-top:2px}.badge{text-align:center;padding:12px 20px;background:#f8faff;border-bottom:2px dashed #ddd0bf}.badge .num{font-size:11px;color:#6b7280;letter-spacing:1px;text-transform:uppercase}.badge .ttl{font-size:18px;font-weight:800;color:#243a6b;margin-top:4px;text-transform:uppercase;letter-spacing:2px}.body{padding:20px 24px}.row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f6ede0}.row:last-child{border-bottom:none}.lbl{font-size:12px;color:#6b7280;font-weight:500;flex-shrink:0;margin-right:10px}.val{font-size:13px;font-weight:700;color:#1a1a1a;text-align:right}.motif-box{background:#f8faff;border:1px solid #ddd0bf;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:13px;color:#241f1a;font-style:italic}.amount-box{background:#243a6b;color:#fff;border-radius:10px;padding:16px 20px;text-align:center;margin:14px 0}.amount-box .av{font-size:28px;font-weight:900}.amount-box .aw{font-size:11px;opacity:.8;margin-top:6px;font-style:italic}.stamp{display:flex;align-items:center;gap:10px;background:#d8f3e6;border-radius:8px;padding:10px 14px;margin-top:12px}.stamp .ic{font-size:24px}.stamp .tx{font-size:11px;color:#065f46;font-weight:600}.footer{background:#f8faff;border-top:1px solid #e5e7eb;padding:12px 24px;font-size:10px;color:#9ca3af;text-align:center}.pbtn{display:block;margin:14px auto;padding:10px 30px;background:#243a6b;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:8mm}}`;
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" class="logo" alt="">`:`<div class="logo" style="background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:28px">🏫</div>`;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reçu ${esc(v.recu_no)}</title><style>${CSS}</style></head><body><div class="page">
+<div class="hdr">${logo}<div class="sn"><h1>${esc(school)}</h1>${sc.address?`<p>${esc(sc.address)}</p>`:''}</div></div>
+<div class="badge"><div class="num">Reçu officiel · N° ${esc(v.recu_no)}</div><div class="ttl">🧾 Bordereau de paiement</div></div>
+<div class="body">
+<div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(s.name)}</span></div>
+<div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${esc(s.mat||'—')}</span></div>
+<div class="row"><span class="lbl">🎓 Classe</span><span class="val">${esc(cl?cl.name:'—')}</span></div>
+<div class="row"><span class="lbl">📋 Type de frais</span><span class="val">${esc(v.fee_label||v.fee_type_id)}</span></div>
+<div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div>
+<div class="row"><span class="lbl">⏰ Heure</span><span class="val">${v.time||'—'}</span></div>
+<div class="row"><span class="lbl">💼 Encaissé par</span><span class="val" style="color:#243a6b">${esc(v.by_name||v.by)}</span></div>
+<div class="motif-box">📝 Motif : ${esc(v.motif)}</div>
+${v.note?`<div class="row"><span class="lbl">Note</span><span class="val">${esc(v.note)}</span></div>`:''}
+<div class="amount-box"><div class="av">${sc.devise||'$'}${v.montant}</div><div class="aw">${amtWords}</div></div>
+<div class="stamp"><span class="ic">✅</span><div class="tx">Versement enregistré dans SchoolSafe<br>${esc(school)} — ${DB.settings?.year||''}</div></div>
+${_officialFooter(v.by_name||v.by,'Caisse')}
+</div>
+<button class="pbtn" onclick="window.print()">🖨 Imprimer le reçu</button>
+</div></body></html>`;
+  dlPDF(html, `Recu-${(v.recu_no||'').replace(/[^a-z0-9]/gi,'_')}.pdf`);
 };
 
 window.sendCaisseReceipt = async (student, rec) => {
@@ -11375,6 +11549,116 @@ window.saveDepense = () => {
   pushSync('daily_expenses','post',exp);
   toast(`💸 Dépense $${amount} enregistrée`,'success');
   saveToCrypt(); render();
+};
+
+// ── Gestion des types de frais ─────────────────────────────────────────────
+R.fee_types = () => {
+  const _g=_requireRole('direction','direction3'); if(_g) return _g;
+  const fts = DB.fee_types||[];
+  const cats = {scolaire:'🎓 Frais scolaires',sortie:'🚌 Sorties',cantine:'🍽 Cantine',autre:'📋 Autres frais'};
+  const catList = Object.keys(cats);
+  return `<div style="padding:0 0 80px">
+  <div class="premium-section">
+    <div class="premium-section-title">⚙ Types de frais — catalogue</div>
+    <p style="font-size:12px;color:var(--text-muted);margin:4px 0 14px">Chaque type de frais apparaît dans la liste de la caisse. Vous pouvez en créer librement.</p>
+    ${catList.map(cat=>{
+      const items=fts.filter(f=>f.category===cat);
+      if(!items.length) return '';
+      return `<div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:6px">${cats[cat]}</div>
+        ${items.map(f=>`<div class="premium-item" style="opacity:${f.active===false?.5:1}">
+          <div class="pi-icon" style="background:${f.active===false?'#e5e7eb':'#dbeafe'};color:${f.active===false?'#9ca3af':'#1d4ed8'};font-size:17px">${cat==='scolaire'?'🎓':cat==='sortie'?'🚌':cat==='cantine'?'🍽':'📋'}</div>
+          <div style="flex:1">
+            <div class="pi-title">${esc(f.label)}</div>
+            <div class="pi-sub">${f.montant_defaut?'$'+f.montant_defaut+' par élève':f.trimestre?'Tranche '+f.trimestre:'Montant libre'} ${f.active===false?'· <span style="color:#ef5b5b">Désactivé</span>':''}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" onclick="editFeeType('${f.id}')">Modifier</button>
+            <button class="btn btn-sm" style="background:${f.active===false?'#d8f3e6':'#fee2e2'};color:${f.active===false?'#065f46':'#991b1b'};border:none" onclick="toggleFeeType('${f.id}')">${f.active===false?'Activer':'Désactiver'}</button>
+          </div>
+        </div>`).join('')}
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title" id="ft_form_title">➕ Nouveau type de frais</div>
+    <input type="hidden" id="ft_edit_id">
+    <div class="form-group">
+      <label class="form-label">Libellé <span style="color:#ef5b5b">*</span></label>
+      <input class="form-input" id="ft_label" placeholder="Ex: Frais de sortie zoo, Cantine mars...">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Catégorie</label>
+        <select class="form-select" id="ft_category">
+          <option value="scolaire">Scolaire</option>
+          <option value="sortie">Sortie</option>
+          <option value="cantine">Cantine</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Montant par défaut ($)</label>
+        <input class="form-input" id="ft_montant" type="number" min="0" step="0.5" placeholder="0 = libre">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Lié à un trimestre (optionnel)</label>
+      <select class="form-select" id="ft_trimestre">
+        <option value="">— Aucun (frais ponctuel) —</option>
+        <option value="T1">Trimestre 1</option>
+        <option value="T2">Trimestre 2</option>
+        <option value="T3">Trimestre 3</option>
+        <option value="inscription">Inscription</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-outline" onclick="resetFeeTypeForm()">Annuler</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveFeeType()">Enregistrer</button>
+    </div>
+  </div>
+  </div>`;
+};
+window.toggleFeeType = (id) => {
+  const f=(DB.fee_types||[]).find(x=>x.id===id); if(!f) return;
+  f.active = f.active===false;
+  pushSync('fee_types','upsert',f);
+  saveToCrypt(); render();
+};
+window.editFeeType = (id) => {
+  const f=(DB.fee_types||[]).find(x=>x.id===id); if(!f) return;
+  const el=id=>{const e=document.getElementById(id);return e;};
+  if(el('ft_edit_id'))el('ft_edit_id').value=f.id;
+  if(el('ft_label'))el('ft_label').value=f.label||'';
+  if(el('ft_category'))el('ft_category').value=f.category||'autre';
+  if(el('ft_montant'))el('ft_montant').value=f.montant_defaut||'';
+  if(el('ft_trimestre'))el('ft_trimestre').value=f.trimestre||'';
+  if(el('ft_form_title'))el('ft_form_title').textContent='✏ Modifier le type de frais';
+  el('ft_label')?.scrollIntoView({behavior:'smooth',block:'center'});
+};
+window.resetFeeTypeForm = () => {
+  ['ft_edit_id','ft_label','ft_montant','ft_trimestre'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const c=document.getElementById('ft_category');if(c)c.value='autre';
+  const t=document.getElementById('ft_form_title');if(t)t.textContent='➕ Nouveau type de frais';
+};
+window.saveFeeType = () => {
+  const editId=(document.getElementById('ft_edit_id')?.value||'').trim();
+  const label=(document.getElementById('ft_label')?.value||'').trim();
+  if(!label){toast('Le libellé est obligatoire','error');return;}
+  const category=document.getElementById('ft_category')?.value||'autre';
+  const montant_defaut=parseFloat(document.getElementById('ft_montant')?.value||'0')||0;
+  const trimestre=document.getElementById('ft_trimestre')?.value||null;
+  DB.fee_types = DB.fee_types||[];
+  if(editId){
+    const f=DB.fee_types.find(x=>x.id===editId);
+    if(f){Object.assign(f,{label,category,montant_defaut,trimestre:trimestre||null});pushSync('fee_types','upsert',f);}
+  } else {
+    const f={id:'ft_'+Date.now()+Math.random().toString(36).slice(2,4),label,category,montant_defaut,trimestre:trimestre||null,active:true,school_id:window._currentSchoolId||null};
+    DB.fee_types.push(f);
+    pushSync('fee_types','post',f);
+  }
+  toast('Type de frais enregistré','success');
+  saveToCrypt(); resetFeeTypeForm(); render();
 };
 
 R.caisse_rapport = () => {
@@ -12788,6 +13072,7 @@ window.confirmNewYear = () => {
     DB.daily_records=[];
     DB.daily_expenses=[];
     DB.daily_reports=[];
+    DB.versements=[];
     toast(`🎉 Nouvelle année ${newYr} démarrée !`,'success');
     launchConfetti(60);
     saveToCrypt(); render();

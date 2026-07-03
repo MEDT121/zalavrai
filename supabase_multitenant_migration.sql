@@ -209,6 +209,56 @@ ALTER TABLE settings ADD CONSTRAINT settings_school_unique UNIQUE (school_id);
 -- l'import CSV — voir index.html).
 
 
+-- ──────────────────────────────────────────────────────────────────
+--  5. Tables versements + fee_types (nouveau module paiement partiel)
+-- ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS fee_types (
+  id            text PRIMARY KEY,
+  school_id     text REFERENCES schools(id) ON DELETE CASCADE,
+  label         text NOT NULL,
+  category      text NOT NULL DEFAULT 'autre',   -- scolaire|sortie|cantine|autre
+  trimestre     text,                             -- T1|T2|T3|inscription ou NULL
+  montant_defaut numeric(10,2) DEFAULT 0,
+  active        boolean NOT NULL DEFAULT true,
+  created_at    timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_fee_types_school_id ON fee_types(school_id);
+ALTER TABLE fee_types ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON fee_types;
+CREATE POLICY tenant_isolation ON fee_types
+  FOR ALL
+  USING  (school_id::text = current_school_id() OR is_prodeli_admin())
+  WITH CHECK (school_id::text = current_school_id() OR is_prodeli_admin());
+
+CREATE TABLE IF NOT EXISTS versements (
+  id            text PRIMARY KEY,
+  school_id     text REFERENCES schools(id) ON DELETE CASCADE,
+  sid           text NOT NULL,           -- student id
+  student_name  text,
+  mat           text,
+  fee_type_id   text REFERENCES fee_types(id) ON DELETE SET NULL,
+  fee_label     text,                    -- snapshot du libellé au moment du versement
+  montant       numeric(10,2) NOT NULL,
+  motif         text NOT NULL,           -- obligatoire — raison du versement
+  note          text,                    -- observation libre
+  recu_no       text,                    -- ex: R-2026-0001
+  date          date NOT NULL,
+  time          text,
+  by            text,                    -- user id du caissier
+  by_name       text,                    -- snapshot du nom du caissier
+  created_at    timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_versements_school_id ON versements(school_id);
+CREATE INDEX IF NOT EXISTS idx_versements_sid        ON versements(sid);
+CREATE INDEX IF NOT EXISTS idx_versements_date       ON versements(date DESC);
+ALTER TABLE versements ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON versements;
+CREATE POLICY tenant_isolation ON versements
+  FOR ALL
+  USING  (school_id::text = current_school_id() OR is_prodeli_admin())
+  WITH CHECK (school_id::text = current_school_id() OR is_prodeli_admin());
+
 -- ══════════════════════════════════════════════════════════════════
 --  Prochaines étapes (hors scope de ce script SQL)
 -- ══════════════════════════════════════════════════════════════════
