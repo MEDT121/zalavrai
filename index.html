@@ -6076,9 +6076,21 @@ window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0,inscription:0};
 window.getStudentBalance = (sid) => {
   const fees=getFees();
   const pays=(DB.payments||[]).filter(p=>p.sid===sid);
-  const paid=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-  const total=(fees.T1||0)+(fees.T2||0)+(fees.T3||0)+(fees.inscription||0);
-  return {paid,total,debt:total-paid};
+  const vers=(DB.versements||[]).filter(v=>v.sid===sid);
+  const feeTypes=DB.fee_types||[];
+  const trims=['T1','T2','T3','inscription'];
+  let paid=0;
+  const byTrim={};
+  trims.forEach(t=>{
+    const ft=feeTypes.find(f=>f.trimestre===t);
+    let typePaid=ft?vers.filter(v=>v.fee_type_id===ft.id).reduce((s,v)=>s+(Number(v.montant)||0),0):0;
+    // Rétrocompat données legacy : DB.payments.paid=true mais aucun versement enregistré
+    if(!typePaid&&pays.find(p=>p.t===t)?.paid) typePaid=fees[t]||0;
+    byTrim[t]={paid:typePaid,target:fees[t]||0};
+    paid+=typePaid;
+  });
+  const total=trims.reduce((s,t)=>s+(fees[t]||0),0);
+  return {paid,total,debt:Math.max(0,total-paid),byTrim};
 };
 
 // ── Types de frais configurables ──────────────────────────────────────────────
@@ -6138,16 +6150,34 @@ R.payments = () => {
     const fees=getFees();
     return kids.map(s=>{
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id);
-      const {paid,total,debt}=getStudentBalance(s.id);
+      const {paid,total,debt,byTrim}=getStudentBalance(s.id);
+      const pPct=total>0?Math.round(paid/total*100):0;
       const [cc,cbg]=clsColor(c?c.name:'');
       return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;border:1.5px solid #efe3d3;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.05)">
-        <div style="display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1.5px solid #efe3d3">
+        <div style="height:5px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct===100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .5s ease;border-radius:5px"></div></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1.5px solid #efe3d3">
           <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
           <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
-          ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">sur $${total}</div></div>`:''}
+          ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'✓ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">$${paid} / $${total}</div></div>`:''}
         </div>
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
-          ${pays.map(p=>{const pLabel=p.t==='inscription'?'Frais d\'inscription':'Trimestre '+p.t;return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:${p.paid?'#d8f3e6':'#fee2e2'};border:1px solid ${p.paid?'#86efac':'#fca5a5'}"><div style="width:9px;height:9px;border-radius:50%;background:${p.paid?'#1f9d6b':'#ef5b5b'};flex-shrink:0"></div><div style="flex:1;font-size:13px;font-weight:700;color:#241f1a">${pLabel}</div><span style="font-size:11px;font-weight:700;color:${p.paid?'#065f46':'#991b1b'}">${p.paid?'Payé':'À payer'} — $${fees[p.t]||'?'}</span></div>`;}).join('')}
+          ${pays.map(p=>{
+            const bt=byTrim&&byTrim[p.t];
+            const target=bt?.target||fees[p.t]||0;
+            const paidAmt=bt?.paid||0;
+            const done=paidAmt>=target&&target>0;
+            const partial=!done&&paidAmt>0;
+            const pLabel=p.t==='inscription'?'Frais d\'inscription':'Trimestre '+p.t;
+            const pct=target>0?Math.round(paidAmt/target*100):0;
+            return`<div style="padding:9px 12px;border-radius:12px;background:${done?'#d8f3e6':partial?'#fefce8':'#fee2e2'};border:1px solid ${done?'#86efac':partial?'#fde68a':'#fca5a5'}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:${partial?'6px':'0'}">
+                <div style="width:9px;height:9px;border-radius:50%;background:${done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b'};flex-shrink:0"></div>
+                <div style="flex:1;font-size:13px;font-weight:700;color:#241f1a">${pLabel}</div>
+                <span style="font-size:12px;font-weight:700;color:${done?'#065f46':partial?'#92400e':'#991b1b'}">${done?'Soldé':partial?`$${paidAmt} / $${target}`:'À payer — $'+target}</span>
+              </div>
+              ${partial?`<div style="height:4px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden"><div style="height:100%;width:${pct}%;background:#f59e0b;border-radius:4px;transition:width .5s ease"></div></div>`:''}
+            </div>`;
+          }).join('')}
         </div>
       </div>`;
     }).join('');
@@ -6162,9 +6192,9 @@ R.payments = () => {
   const pf=window._payFilterStatus||'';
   let studs=DB.students;
   if(cf) studs=studs.filter(s=>s.cid===cf);
-  if(pf==='paid') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.length>0&&pays.every(p=>p.paid);});
-  if(pf==='partial') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>p.paid)&&pays.some(p=>!p.paid);});
-  if(pf==='unpaid') studs=studs.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.length===0||pays.every(p=>!p.paid);});
+  if(pf==='paid') studs=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return total>0&&paid>=total;});
+  if(pf==='partial') studs=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return paid>0&&paid<total;});
+  if(pf==='unpaid') studs=studs.filter(s=>{const {paid}=getStudentBalance(s.id);return paid===0;});
   if(pf==='blocked') studs=studs.filter(s=>s.access_blocked);
   const blockedCount=DB.students.filter(s=>s.access_blocked).length;
   const ringR = 38, ringC = 2*Math.PI*ringR, ringDash = Math.round(pct/100*ringC);
@@ -6209,9 +6239,10 @@ R.payments = () => {
   <div class="ww-grid">
     ${studs.map((s,i)=>{
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
-      const {debt}=getStudentBalance(s.id);
+      const {debt,paid:paidAmt,total:totalAmt,byTrim}=getStudentBalance(s.id);
+      const paidPct=totalAmt>0?Math.round(paidAmt/totalAmt*100):0;
       const [cc,cbg]=clsColor(c?c.name:'');
-      const barColor=s.access_blocked?'#9b6fd4':paidC===3?'#2fbf8f':paidC>0?'#f59e0b':'#ef5b5b';
+      const barColor=s.access_blocked?'#9b6fd4':paidPct===100?'#2fbf8f':paidPct>0?'#f59e0b':'#ef5b5b';
       return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;box-shadow:0 3px 14px rgba(0,0,0,.06);animation:fadeInUp .3s ease both;animation-delay:${i*.03}s;border:1.5px solid ${s.access_blocked?'#d0c2f2':'#efe3d3'}">
         <div style="height:4px;background:${barColor}"></div>
         <div style="padding:14px 16px">
@@ -6220,11 +6251,11 @@ R.payments = () => {
             <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):''}</div></div>
             ${s.access_blocked?`<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:#f0e9fa;color:#6f44ab;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:800;font-size:13px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'✓'}</div>`:'')}
           </div>
-          <div style="display:flex;gap:5px;margin-bottom:10px">
-            ${pays.map(p=>`<button onclick="togglePay('${s.id}','${p.t}')" style="display:inline-flex;align-items:center;justify-content:center;gap:3px;flex:1;padding:7px 6px;border-radius:10px;cursor:pointer;border:1.5px solid ${p.paid?'#1f9d6b':'#ef5b5b'};background:${p.paid?'#d8f3e6':'#fee2e2'}"><span style="font-size:11px;font-weight:800;color:${p.paid?'#065f46':'#991b1b'}">${p.t}</span><span style="font-size:10px;font-weight:600;color:${p.paid?'#1f9d6b':'#ef5b5b'}">$${fees[p.t]||'?'}</span></button>`).join('')}
+          <div style="display:flex;gap:5px;margin-bottom:8px">
+            ${pays.map(p=>{const bt=byTrim&&byTrim[p.t];const done=p.paid||(bt&&bt.target>0&&bt.paid>=bt.target);const partial=!done&&bt&&bt.target>0&&bt.paid>0;const col=done?'#065f46':partial?'#92400e':'#991b1b';const bg=done?'#d8f3e6':partial?'#fef3c7':'#fee2e2';const bc=done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b';const lbl=bt&&bt.target>0?`$${bt.paid}/$${bt.target}`:`$${fees[p.t]||'?'}`;return`<button onclick="togglePay('${s.id}','${p.t}')" title="${done?'Soldé':partial?'Acompte en cours':'Non payé'}" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;flex:1;padding:6px 4px;border-radius:10px;cursor:pointer;border:1.5px solid ${bc};background:${bg}"><span style="font-size:11px;font-weight:800;color:${col}">${p.t}</span><span style="font-size:9px;font-weight:700;color:${col};line-height:1.2">${lbl}</span></button>`;}).join('')}
           </div>
           <div style="height:6px;border-radius:6px;background:#efe3d3;overflow:hidden;margin-bottom:10px">
-            <div style="height:100%;width:${paidC/3*100}%;background:${barColor};border-radius:6px;transition:width .4s"></div>
+            <div style="height:100%;width:${paidPct}%;background:${barColor};border-radius:6px;transition:width .5s ease"></div>
           </div>
           <div style="display:flex;gap:6px">
             ${debt>0?`<button class="btn btn-outline btn-sm" style="flex:1;min-height:36px" onclick="openAssignCaissePayment('${s.id}')">Affecter</button>`:''}
