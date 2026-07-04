@@ -6236,6 +6236,7 @@ R.payments = () => {
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <button class="btn btn-outline btn-sm" onclick="openFeesConfig()">Configurer frais</button>
+    <button class="btn btn-outline btn-sm" onclick="openVersementSearch()">🔍 Rechercher versement</button>
     <span style="font-size:12px;color:var(--text-muted)">T1:$${fees.T1||'?'} · T2:$${fees.T2||'?'} · T3:$${fees.T3||'?'} · Total/élève: $${totalFees}</span>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
@@ -11350,7 +11351,10 @@ R.caisse_paiement = () => {
   <div class="premium-section">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="premium-section-title" style="margin:0">Enregistrer un paiement</div>
-      <button class="btn btn-outline btn-sm" onclick="go('fee_types')" style="font-size:11px">⚙ Types de frais</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="openVersementSearch()" style="font-size:11px">🔍 Rechercher</button>
+        <button class="btn btn-outline btn-sm" onclick="go('fee_types')" style="font-size:11px">⚙ Types de frais</button>
+      </div>
     </div>
     <div class="ww-toolbar" style="margin-top:6px">
       <div class="ww-search" style="flex:1">
@@ -11624,6 +11628,7 @@ window.openTrimLedger = (sid, trimestre) => {
             <div style="font-size:12px;font-weight:700;color:${target>0&&cumul>=target?'#1f9d6b':cumul>0?'#f59e0b':'#6b7280'}">$${cumul.toLocaleString()}</div>
           </div>
           <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="printVersementRecu('${v.id}')">🖨</button>
+          ${['direction','direction3'].includes(S.user?.role)?`<button onclick="annulerVersement('${v.id}')" style="flex-shrink:0;width:24px;height:24px;border:1px solid #fca5a5;border-radius:6px;background:#fee2e2;color:#991b1b;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Annuler ce versement">✕</button>`:''}
         </div>`;
       }).join('')}
       ${vers.length>0&&target>0?`<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;background:${soldé?'#d8f3e6':'#fff8f0'};font-size:12px;font-weight:700">
@@ -11673,6 +11678,17 @@ window._enregistrerMouvement = async (opts) => {
     uid_perso=null,
   } = opts;
   if(!montant||montant<=0) throw new Error('Montant invalide');
+  // Verrou annuel — bloquer si l'année est archivée
+  if(DB.settings?.year_locked && DB.settings.year_locked===DB.settings.year && S.user?.role!=='direction')
+    throw new Error(`Année ${DB.settings.year} verrouillée. Contactez la Direction.`);
+  // Détection de doublon (même élève + même montant + même trimestre aujourd'hui, < 2 min)
+  if(!opts.force && sid && montant>0) {
+    const dup=(DB.versements||[]).find(v=>v.sid===sid&&Number(v.montant)===montant&&(!trimestre||v.trimestre===trimestre)&&v.date===today()&&!v.annulled);
+    if(dup) {
+      const vMs=new Date(dup.date+'T'+(dup.time||'00:00')).getTime();
+      if(Date.now()-vMs<120000) { const e=new Error('DUPLICATE'); e.isDuplicate=true; e.ref=dup.recu_no; throw e; }
+    }
+  }
   const recu_no = opts.recu_no || genRecuNo();
   const s = sid ? (DB.students||[]).find(x=>x.id===sid) : null;
   const cl = s ? gc(s.cid) : null;
@@ -11755,7 +11771,7 @@ window.saveTrimLedger = async () => {
   const s=(DB.students||[]).find(x=>x.id===tl.sid); if(!s){toast('Élève introuvable','error');return;}
   const montant=parseFloat($('tl_amount')?.value||'0');
   if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
-  try{
+  const _doSaveTL = async (force=false) => {
     const {versement}=await window._enregistrerMouvement({
       sid:s.id, montant,
       motif:tl.label, note:($('tl_note')?.value||'').trim(),
@@ -11763,14 +11779,16 @@ window.saveTrimLedger = async () => {
       fee_type_id:tl.feeTypeId||null, fee_label:tl.label,
       trimestre:tl.trimestre,
       compte_cat:tl.trimestre==='inscription'?'707':'706',
+      force,
     });
     toast(`✅ $${montant} enregistré — ${tl.label}`,'success');
-    setTimeout(()=>{
-      printVersementRecu(versement.id);
-      openTrimLedger(tl.sid,tl.trimestre);
-      if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid);
-    },300);
-  }catch(e){toast('Erreur : '+e.message,'error');}
+    setTimeout(()=>{ printVersementRecu(versement.id); openTrimLedger(tl.sid,tl.trimestre); if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid); },300);
+  };
+  try{ await _doSaveTL(); }
+  catch(e){
+    if(e.isDuplicate) showC('Doublon détecté',`Un versement de $${montant} pour ce même trimestre a été enregistré il y a moins de 2 minutes (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveTL(true));
+    else toast('Erreur : '+e.message,'error');
+  }
 };
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   const el=document.createElement('div');
@@ -11797,16 +11815,12 @@ window.caisseSavePaiement = async () => {
   const feeTypeId=($('caisse_type')?.value||'').trim();
   const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId);
   const compte_cat=ft?.category==='cantine'?'7062':ft?.category==='sortie'?'7063':ft?.trimestre==='inscription'?'707':ft?'706':($('caisse_cat')?.value||'708');
-  try{
-    const {versement}=await window._enregistrerMouvement({
-      sid:s.id, montant, motif,
-      note:($('caisse_note')?.value||'').trim(),
-      payment_method:$('caisse_pay_method')?.value||'Espèces',
-      fee_type_id:feeTypeId||null,
-      fee_label:ft?.label||motif,
-      trimestre:ft?.trimestre||window._caisseActiveTrimestre||null,
-      compte_cat,
-    });
+  const _mOpts={sid:s.id,montant,motif,note:($('caisse_note')?.value||'').trim(),
+    payment_method:$('caisse_pay_method')?.value||'Espèces',
+    fee_type_id:feeTypeId||null,fee_label:ft?.label||motif,
+    trimestre:ft?.trimestre||window._caisseActiveTrimestre||null,compte_cat};
+  const _doSaveCP = async (force=false) => {
+    const {versement}=await window._enregistrerMouvement({..._mOpts,force});
     showPaymentStamp(s.name,montant,ft?.label||motif,ft?.trimestre||null);
     setTimeout(()=>{
       printVersementRecu(versement.id);
@@ -11816,7 +11830,12 @@ window.caisseSavePaiement = async () => {
       window._caisseActiveTrimestre=null;
       caisseSelectStudent(s.id);
     },600);
-  }catch(e){toast('Erreur : '+e.message,'error');}
+  };
+  try{ await _doSaveCP(); }
+  catch(e){
+    if(e.isDuplicate) showC('Doublon détecté',`Un versement de $${montant} a été enregistré il y a moins de 2 minutes pour cet élève (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveCP(true));
+    else toast('Erreur : '+e.message,'error');
+  }
 };
 
 // Impression du reçu d'un versement
@@ -11909,6 +11928,79 @@ window.viewReceipt = (nid) => {
   const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;align-items:flex-start;padding:20px;min-height:100vh}.page{background:#fff;width:100%;max-width:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;display:flex;align-items:center;gap:16px}.logo{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;flex-shrink:0}.school-name{color:#fff}.school-name h1{font-size:14px;font-weight:800;line-height:1.2}.school-name p{font-size:10px;opacity:.8;margin-top:3px}.badge{margin-top:16px;text-align:center;padding:12px 20px;background:#f8faff;border-bottom:2px dashed #ddd0bf}.badge .num{font-size:11px;color:#6b7280;letter-spacing:1px;text-transform:uppercase}.badge .title{font-size:18px;font-weight:800;color:#243a6b;margin-top:4px;text-transform:uppercase;letter-spacing:2px}.body{padding:20px 24px}.row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f6ede0}.row:last-child{border-bottom:none}.lbl{font-size:12px;color:#6b7280;font-weight:500}.val{font-size:13px;font-weight:700;color:#1a1a1a;text-align:right}.amount-box{background:#243a6b;color:#fff;border-radius:10px;padding:16px 20px;text-align:center;margin:16px 0}.amount-box .av{font-size:28px;font-weight:900;letter-spacing:1px}.amount-box .aw{font-size:11px;opacity:.8;margin-top:6px;font-style:italic}.stamp{display:flex;align-items:center;gap:10px;background:#d8f3e6;border-radius:8px;padding:10px 14px;margin-top:14px}.stamp .icon{font-size:24px}.stamp .txt{font-size:11px;color:#065f46;font-weight:600}.footer{background:#f8faff;border-top:1px solid #e5e7eb;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#9ca3af}.pbtn{display:block;margin:16px auto;padding:11px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:10mm}}`;
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau ${esc(r.num)}</title><style>${CSS}</style></head><body><div class="page"><div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" class="logo" alt="">`:`<div class="logo" style="background:#243a6b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px">🏫</div>`}<div class="school-name"><h1>${school}</h1>${sc.address||sc.sub?`<p>${esc(sc.address||sc.sub)}</p>`:''}<p>${sc.phone?`📞 ${esc(sc.phone)}`:''}</p></div></div><div class="badge"><div class="num">Bordereau officiel de paiement · N° ${esc(r.num)}</div><div class="title">🧾 Reçu de paiement</div></div><div class="body"><div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(r.student)}</span></div><div class="row"><span class="lbl">Matricule</span><span class="val" style="font-family:monospace">${esc(r.mat||'—')}</span></div><div class="row"><span class="lbl">🎓 Classe</span><span class="val">${esc(r.classe||'—')}</span></div><div class="row"><span class="lbl">📋 Type de paiement</span><span class="val">${esc(r.type_label)}${r.trimestre?' · '+esc(r.trimestre):''}</span></div><div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div><div class="row"><span class="lbl">⏰ Heure</span><span class="val">${r.time}</span></div><div class="row"><span class="lbl">💼 Reçu par</span><span class="val" style="color:#243a6b">${esc(r.by)}</span></div>${r.note?`<div class="row"><span class="lbl">📝 Note</span><span class="val">${esc(r.note)}</span></div>`:''}<div class="amount-box"><div class="av">${sc.devise||'$'}${r.amount}</div><div class="aw">${amtWords}</div></div><div class="stamp"><span class="icon">✅</span><div class="txt">Paiement reçu et enregistré dans le système SchoolSafe<br>${school} — Année ${DB.settings.year||'2025-2026'}</div></div><div style="padding:0 24px 16px">${_officialFooter(r.by,'Caisse')}</div></div></body></html>`;
   dlPDF(html,`Recu-${(r.num||'').replace(/[^a-z0-9]/gi,'_')||today()}.pdf`);
+};
+
+// ── ANNULATION DE VERSEMENT (contre-écriture OHADA) ──
+window.annulerVersement = (vid) => {
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const v=(DB.versements||[]).find(x=>x.id===vid);
+  if(!v){toast('Versement introuvable','error');return;}
+  if(v.annulled){toast('Déjà annulé','info');return;}
+  showC('Annuler ce versement ?',
+    `$${v.montant} — ${v.fee_label||v.motif||'?'} — ${v.student_name||'?'} (${v.date})\n\nUne contre-écriture OHADA sera créée automatiquement.\nLe versement sera marqué annulé mais conservé pour l'historique.`,
+    ()=>{
+      v.annulled=true; v.annulled_by=S.user.id; v.annulled_date=today(); v.annulled_by_name=S.user.name;
+      pushSync('versements','patch',{annulled:true,annulled_by:S.user.id,annulled_date:today(),annulled_by_name:S.user.name},'id=eq.'+vid);
+      // Contre-écriture OHADA (inverse du débit/crédit original)
+      if(!DB.journal_entries) DB.journal_entries=[];
+      const isRecette=(v.mvt_type||'recette')!=='depense';
+      const reversal={id:'je_void_'+vid+'_'+Date.now(),date:today(),time:nowTime(),
+        libelle:'ANNULATION — '+(v.fee_label||v.motif||'?')+' — '+(v.student_name||'?'),
+        debit:isRecette?(v.compte_cat||'706'):'571',
+        credit:isRecette?'571':(v.compte_cat||'698'),
+        montant:v.montant,type:'annulation',ref:vid,
+        by:S.user.name,school_id:window._currentSchoolId||null};
+      DB.journal_entries.push(reversal);
+      pushSync('journal_entries','post',reversal);
+      // Remettre DB.payments à non-payé si le total tombe sous la cible
+      if(v.sid&&v.trimestre&&v.fee_type_id){
+        const ft=(DB.fee_types||[]).find(f=>f.id===v.fee_type_id);
+        const target=ft?Number(ft.montant_defaut||0):0;
+        if(target>0){
+          const remaining=(DB.versements||[]).filter(x=>x.sid===v.sid&&(x.fee_type_id===v.fee_type_id||(x.trimestre===v.trimestre&&!x.fee_type_id))&&!x.annulled).reduce((a,x)=>a+(Number(x.montant)||0),0);
+          if(remaining<target){
+            const p=(DB.payments||[]).find(px=>px.sid===v.sid&&px.t===v.trimestre&&px.paid);
+            if(p){p.paid=false;pushSync('payments','patch',{paid:false},'sid=eq.'+v.sid+'&t=eq.'+v.trimestre);}
+          }
+        }
+      }
+      logAudit('annulation_paiement',`${v.student_name||'?'} — ${v.fee_label||v.motif||'?'} — $${v.montant} (${v.recu_no||vid})`);
+      saveToCrypt();
+      toast('Versement annulé — contre-écriture OHADA créée','info');
+      if(window._tl?.sid===v.sid) openTrimLedger(v.sid,v.trimestre);
+      else render();
+    }
+  );
+};
+
+// ── RECHERCHE RAPIDE DE VERSEMENTS ──
+window.openVersementSearch = () => {
+  openM('🔍 Rechercher un versement',`
+    <input class="form-input" id="vs_q" placeholder="Nom d'élève, montant, N° reçu, date..." oninput="_renderVS()" style="margin-bottom:12px">
+    <div id="vs_results" style="max-height:340px;overflow-y:auto"></div>
+  `,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+  setTimeout(()=>{document.getElementById('vs_q')?.focus();_renderVS();},120);
+};
+window._renderVS = () => {
+  const q=(document.getElementById('vs_q')?.value||'').toLowerCase().trim();
+  const vers=(DB.versements||[]).filter(v=>!v.annulled).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  const list=q?vers.filter(v=>(v.student_name||'').toLowerCase().includes(q)||(v.fee_label||'').toLowerCase().includes(q)||(v.motif||'').toLowerCase().includes(q)||String(v.montant).includes(q)||(v.recu_no||'').toLowerCase().includes(q)||(v.date||'').includes(q)):vers.slice(0,25);
+  const el=document.getElementById('vs_results'); if(!el) return;
+  if(!list.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun versement trouvé</div>';return;}
+  const canCancel=S.user&&['direction','direction3'].includes(S.user.role);
+  el.innerHTML=`<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px">${list.length} résultat(s)</div>`+
+    list.slice(0,40).map(v=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:5px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${esc(v.student_name||'?')}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${esc(v.fee_label||v.motif||'?')} · ${v.date||''} · ${esc(v.by_name||'?')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-weight:800;color:#1f9d6b">$${v.montant}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${esc(v.recu_no||'')}</div>
+      </div>
+      <button onclick="printVersementRecu('${v.id}')" style="flex-shrink:0;padding:5px 10px;border:1px solid #1f9d6b;border-radius:8px;background:#d8f3e6;color:#065f46;font-size:11px;cursor:pointer">🖨</button>
+      ${canCancel?`<button onclick="annulerVersement('${v.id}')" style="flex-shrink:0;padding:5px 8px;border:1px solid #fca5a5;border-radius:8px;background:#fee2e2;color:#991b1b;font-size:11px;cursor:pointer">✕</button>`:''}
+    </div>`).join('');
 };
 
 R.caisse_depense = () => {
@@ -12011,6 +12103,16 @@ window.saveDepense = () => {
   if(!DB.daily_expenses) DB.daily_expenses=[];
   DB.daily_expenses.push(exp);
   pushSync('daily_expenses','post',exp);
+  // Écriture OHADA automatique : Débit compte dépense / Crédit 571 Caisse
+  if(!DB.journal_entries) DB.journal_entries=[];
+  const depEntry={id:'je_dep_'+exp.id,date:today(),time:nowTime(),
+    libelle:motif+(beneficiary?' — '+beneficiary:''),
+    debit:category_code,credit:'571',montant:amount,
+    type:'auto',ref:exp.id,by:S.user.name,
+    school_id:window._currentSchoolId||null};
+  DB.journal_entries.push(depEntry);
+  pushSync('journal_entries','post',depEntry);
+  logAudit('depense',`${motif} — $${amount} (${cat.label}) par ${S.user.name}`);
   toast(`💸 Dépense $${amount} — ${cat.label} enregistrée`,'success');
   saveToCrypt(); render();
 };
@@ -18455,14 +18557,21 @@ window.archiverAnnee = () => {
           classes: DB.classes.length,
           grades: DB.grades,
           payments: DB.payments,
+          versements: DB.versements,
+          journal_entries: DB.journal_entries,
           attendance: DB.attendance,
           students_data: DB.students,
         };
         localStorage.setItem('schoolsafe_archive_'+yr, JSON.stringify(snapshot));
         if(!DB.settings.archived_years) DB.settings.archived_years=[];
         DB.settings.archived_years.unshift({year:yr,date:today(),students:DB.students.length,snapshot_key:'schoolsafe_archive_'+yr});
+        // Verrouillage comptable — empêche toute modification rétroactive
+        DB.settings.year_locked = yr;
+        DB.settings.year_locked_date = today();
+        DB.settings.year_locked_by = S.user.name;
         pushSync('settings','upsert',DB.settings);
         saveToCrypt();
+        toast(`📦 Année ${yr} archivée et verrouillée — aucune modification possible`,'success');
       } catch(e) { console.warn('[ARCHIVE]', e.message); }
       // Step 3: After export, cleanup
       setTimeout(()=>runAutoCleanup(true), 1500);
@@ -20093,6 +20202,14 @@ window.saveSalaire = (teacherId, month) => {
     const u=DB.users.find(x=>x.id===teacherId);
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET $${net}`,date:today(),time:nowTime(),read:false,type:'info'};
     DB.notifs.unshift(n);pushSync('notifs','post',n);
+    // Écriture OHADA : Débit 6421 Rémunérations enseignants / Crédit 571 Caisse
+    if(!DB.journal_entries) DB.journal_entries=[];
+    const salEntry={id:'je_sal_'+obj.id,date:today(),time:nowTime(),
+      libelle:`Salaire ${month} — ${u?.name||teacherId}`,
+      debit:'6421',credit:'571',montant:net,
+      type:'auto',ref:obj.id,by:S.user.name,school_id:window._currentSchoolId||null};
+    DB.journal_entries.push(salEntry);pushSync('journal_entries','post',salEntry);
+    logAudit('salaire',`${u?.name||teacherId} — $${net} (${month})`);
   }
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
 };
@@ -20199,6 +20316,14 @@ window.savePersonnelSalaire = (salId) => {
   if(paid) {
     const notifTgt=(DB.users||[]).find(u=>(u.name||'').toLowerCase()===person_name.toLowerCase()&&u.role!=='parent'&&u.role!=='gardien');
     if(notifTgt) { const n={id:'n'+Date.now(),uid:notifTgt.id,msg:`💰 Paiement enregistré : $${net} (${month}) — ${person_role}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null}; DB.notifs.unshift(n);pushSync('notifs','post',n); }
+    // Écriture OHADA : Débit 6422 Personnel non-enseignant / Crédit 571 Caisse
+    if(!DB.journal_entries) DB.journal_entries=[];
+    const pEntry={id:'je_psal_'+obj.id,date:today(),time:nowTime(),
+      libelle:`Salaire ${month} — ${person_name} (${person_role})`,
+      debit:'6422',credit:'571',montant:net,
+      type:'auto',ref:obj.id,by:S.user.name,school_id:window._currentSchoolId||null};
+    DB.journal_entries.push(pEntry);pushSync('journal_entries','post',pEntry);
+    logAudit('salaire',`${person_name} (${person_role}) — $${net} (${month})`);
   }
   saveToCrypt();closeModal();toast(`✅ ${person_name} — $${net} enregistré`,'success');render();
 };
