@@ -11450,39 +11450,48 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_form').style.display='';
   $('caisse_results').innerHTML='';
   $('caisse_search').value='';
-  const summary = getStudentVersements(sid);
   const recentVers=(DB.versements||[]).filter(v=>v.sid===sid).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,6);
   const totalVersStu=recentVers.reduce((sum,v)=>sum+(Number(v.montant)||0),0);
-  // Frais avec cible : T1/T2/T3/inscription en priorité, puis autres
-  const trimFees=summary.filter(f=>f.active!==false&&f.target>0&&['T1','T2','T3','inscription'].includes(f.trimestre));
-  const otherFees=summary.filter(f=>f.active!==false&&f.target>0&&!['T1','T2','T3','inscription'].includes(f.trimestre));
+  // Cartes trimestre — toujours affichées (T1/T2/T3 + inscription)
+  // Source authoritative : getStudentBalance() qui gère versements + legacy DB.payments
+  const fees=getFees();
+  const {byTrim}=getStudentBalance(sid);
+  const trimCards=['T1','T2','T3','inscription'].map(t=>{
+    const ft=(DB.fee_types||[]).find(f=>f.trimestre===t&&f.active!==false);
+    // Cible : montant_defaut du fee_type, ou DB.settings.fees, ou 0 si non configuré
+    const target=ft?Math.max(Number(ft.montant_defaut)||0,Number(fees[t])||0):Number(fees[t])||0;
+    const paid=byTrim[t]?.paid||0;
+    return {trimestre:t, label:ft?.label||`Frais scolaires — ${t}`, fee_type_id:ft?.id||null,
+      target, paid, remaining:Math.max(0,target-paid), done:target>0&&paid>=target, unconfigured:target===0};
+  });
+  // Autres frais (fee_types hors trimestre, avec montant cible)
+  const otherFees=getStudentVersements(sid).filter(f=>f.active!==false&&f.target>0&&!['T1','T2','T3','inscription'].includes(f.trimestre));
   $('caisse_student_info').innerHTML=`
     <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:12px">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
       <span class="premium-badge" style="background:#d8f3e6;color:#065f46;font-size:12px">$${totalVersStu} total versé</span>
     </div>
-    ${trimFees.length?`
     <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Frais scolaires — Cliquez pour payer</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
-      ${trimFees.map(f=>{
-        const pct=Math.min(100,f.target>0?Math.round(f.paid/f.target*100):0);
-        const remaining=Math.max(0,f.target-f.paid);
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
+      ${trimCards.map(f=>{
+        const pct=f.target>0?Math.min(100,Math.round(f.paid/f.target*100)):0;
         const col=f.done?'#1f9d6b':f.paid>0?'#f59e0b':'#ef5b5b';
-        const bg=f.done?'linear-gradient(135deg,#d8f3e6,#a7f3d0)':f.paid>0?'linear-gradient(135deg,#fff8f0,#fde68a)':'linear-gradient(135deg,#fff1f0,#fecaca)';
-        const border=f.done?'#86efac':f.paid>0?'#fcd34d':'#fca5a5';
-        return `<div onclick="${f.done?'':(`caisseQuickPay('${f.fee_type_id}')`)}" style="border-radius:12px;background:${bg};border:1.5px solid ${border};padding:10px 12px;${f.done?'opacity:.75;':'cursor:pointer;'}transition:transform .15s,box-shadow .15s" ${f.done?'':' onmouseenter="this.style.transform=\'scale(1.02)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,.12)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'"'}>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:11px;font-weight:700;color:#374151">${esc(f.label)}</span>
-            ${f.done?'<span style="font-size:14px">✅</span>':'<span style="font-size:11px;background:#fff;border-radius:6px;padding:1px 6px;font-weight:700;color:#374151">Payer →</span>'}
+        const bg=f.unconfigured?'linear-gradient(135deg,#f3f4f6,#e5e7eb)':f.done?'linear-gradient(135deg,#d8f3e6,#a7f3d0)':f.paid>0?'linear-gradient(135deg,#fff8f0,#fde68a)':'linear-gradient(135deg,#fff1f0,#fecaca)';
+        const border=f.unconfigured?'#d1d5db':f.done?'#86efac':f.paid>0?'#fcd34d':'#fca5a5';
+        const clickable=!f.done;
+        return `<div onclick="${clickable?`caisseQuickPay('${f.fee_type_id||''}','${f.trimestre}')`:''}" style="border-radius:12px;background:${bg};border:1.5px solid ${border};padding:12px;${clickable?'cursor:pointer;':'opacity:.8;'}transition:transform .15s,box-shadow .15s" ${clickable?' onmouseenter="this.style.transform=\'scale(1.02)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,.10)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'"':''}>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:12px;font-weight:700;color:#1a1a1a">${esc(f.label)}</span>
+            ${f.done?'<span style="font-size:14px">✅</span>':f.unconfigured?'<span style="font-size:10px;color:#6b7280">⚙ non défini</span>':'<span style="font-size:11px;background:#fff;border-radius:6px;padding:2px 7px;font-weight:700;color:#374151;box-shadow:0 1px 3px rgba(0,0,0,.1)">Payer →</span>'}
           </div>
-          <div style="height:5px;border-radius:5px;background:rgba(0,0,0,.1);margin-bottom:5px"><div style="height:5px;border-radius:5px;background:${col};width:${pct}%;transition:width .4s ease"></div></div>
-          <div style="font-size:11px;color:#374151">
-            ${f.done?`<span style="font-weight:700;color:#065f46">Soldé — $${f.target}</span>`:`<span style="font-weight:700;color:${col}">$${f.paid}/$${f.target}</span>${remaining?` <span style="color:#6b7280">· reste $${remaining}</span>`:''}`}
+          <div style="height:6px;border-radius:6px;background:rgba(0,0,0,.08);margin-bottom:5px"><div style="height:6px;border-radius:6px;background:${col};width:${pct}%;transition:width .5s ease"></div></div>
+          <div style="font-size:11px">
+            ${f.done?`<span style="font-weight:700;color:#065f46">Soldé ✓ $${f.target}</span>`:f.unconfigured?`<span style="color:#6b7280">Versé : $${f.paid} — montant total non configuré</span>`:`<span style="font-weight:700;color:${col}">$${f.paid} / $${f.target}</span>${f.remaining?` <span style="color:#6b7280"> · reste <strong>$${f.remaining}</strong></span>`:''}`}
           </div>
         </div>`;
       }).join('')}
-    </div>`:''}
+    </div>
     ${otherFees.length?`
     <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px">Autres frais</div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
@@ -11508,26 +11517,39 @@ window.caisseSelectStudent = (sid) => {
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Cliquez sur un frais ci-dessus ou remplissez le formulaire pour un paiement libre</div>`;
 };
 
-window.caisseQuickPay = (feeTypeId) => {
-  const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId); if(!ft) return;
+window.caisseQuickPay = (feeTypeId, trimestre) => {
   const s=window._caisseStudent; if(!s) return;
-  // Pré-remplir le formulaire
-  const sel=$('caisse_type'); if(sel){sel.value=feeTypeId;}
-  const motifEl=$('caisse_motif'); if(motifEl){motifEl.value=ft.label||'';}
+  const ft=feeTypeId?(DB.fee_types||[]).find(f=>f.id===feeTypeId):null;
+  const trim=ft?.trimestre||trimestre||'';
+  // Motif
+  const label=ft?.label||(trim?`Frais scolaires — ${trim}`:`Frais scolaires`);
+  const motifEl=$('caisse_motif'); if(motifEl){motifEl.value=label;}
+  // Lier au fee_type si disponible
+  const sel=$('caisse_type'); if(sel){sel.value=feeTypeId||'';}
   // Calculer le solde restant
-  const target=Number(ft.montant_defaut||0);
-  const paid=(DB.versements||[]).filter(v=>v.sid===s.id&&v.fee_type_id===feeTypeId).reduce((a,v)=>a+(Number(v.montant)||0),0);
+  const fees=getFees();
+  const target=ft?Math.max(Number(ft.montant_defaut)||0,Number(fees[trim])||0):Number(fees[trim])||0;
+  const {byTrim}=getStudentBalance(s.id);
+  const paid=byTrim[trim]?.paid||0;
   const remaining=Math.max(0,target-paid);
   const amtEl=$('caisse_amount');
-  if(amtEl&&remaining>0){amtEl.value=remaining;amtEl.focus();}
-  // Sélectionner la bonne catégorie comptable
-  const catEl=$('caisse_cat');
-  if(catEl){
-    catEl.value=ft.category==='cantine'?'7062':ft.category==='sortie'?'7063':ft.trimestre==='inscription'?'707':'706';
+  if(amtEl){
+    if(remaining>0){amtEl.value=remaining;}
+    else{amtEl.value='';amtEl.placeholder='Montant à verser';}
+    amtEl.focus();
   }
+  // Catégorie comptable
+  const catEl=$('caisse_cat');
+  if(catEl){catEl.value=ft?.category==='cantine'?'7062':ft?.category==='sortie'?'7063':trim==='inscription'?'707':'706';}
   caisseTypeChanged();
-  // Scroller vers le formulaire
-  const form=$('caisse_form'); if(form){form.scrollIntoView({behavior:'smooth',block:'start'});}
+  // Afficher solde restant dans la bannière même sans fee_type lié
+  if(!feeTypeId&&remaining>0){
+    const row=$('caisse_solde_row');const txt=$('caisse_solde_txt');
+    if(row){row.style.display='';}
+    if(txt){txt.innerHTML=`Versé : <b>$${paid}</b> / $${target} — <b style="color:#ef5b5b">Solde restant : $${remaining}</b>`;}
+    if(amtEl){amtEl.placeholder=`Solde restant : $${remaining}`;}
+  }
+  const form=$('caisse_form'); if(form){form.scrollIntoView({behavior:'smooth',block:'nearest'});}
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
