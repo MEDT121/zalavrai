@@ -12134,7 +12134,8 @@ R.comptabilite = () => {
 
   else if(tab==='grandlivre') {
     const accts = Object.values(balance).filter(b=>b.debit>0||b.credit>0).sort((a,b)=>a.num.localeCompare(b.num));
-    body = accts.map(b=>{
+    body = `<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px" onclick="exportGrandLivrePDF()">⬇️ Grand Livre PDF (SYSCOHADA)</button></div>` +
+    accts.map(b=>{
       const acctEntries=journal.filter(e=>e.debit===b.num||e.credit===b.num).sort((a,c)=>(a.date+a.time).localeCompare(c.date+c.time));
       let running=0;
       return `<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--border)">
@@ -12197,7 +12198,8 @@ R.comptabilite = () => {
         <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2f7bd6">$${rows.reduce((s,b)=>s+(b.sens==='credit'?Math.max(0,b.solde):0),0)}</td>
       </tr></tfoot>
     </table></div>
-    ${totD===totC?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#065f46;text-align:center">✅ Balance équilibrée — Débit = Crédit = $${totD}</div>`:`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center">⚠️ Balance déséquilibrée — écart de $${Math.abs(totD-totC)}</div>`}`;
+    ${totD===totC?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#065f46;text-align:center">✅ Balance équilibrée — Débit = Crédit = $${totD}</div>`:`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center">⚠️ Balance déséquilibrée — écart de $${Math.abs(totD-totC)}</div>`}
+    <button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px;width:100%;margin-top:10px;padding:10px" onclick="exportBalancePDF()">⬇️ Balance Générale PDF (SYSCOHADA)</button>`;
   }
 
   else if(tab==='resultat') {
@@ -12287,42 +12289,420 @@ window.saveManualEntry = () => {
   saveToCrypt(); closeModal(); toast('Écriture enregistrée','success'); render();
 };
 
-// ── Export PDF Compte de Résultat ──
-window.exportComptabilitePDF = () => {
-  const sc=DB.settings?.school||{}; const school=sc.name||'SchoolSafe';
-  const journal=_getJournalAll(); const balance=_getBalanceComptes(journal);
-  const produits=Object.values(balance).filter(b=>b.type==='produit');
-  const charges=Object.values(balance).filter(b=>b.type==='charge');
-  const totP=produits.reduce((s,b)=>s+b.solde,0);
-  const totC=charges.reduce((s,b)=>s+b.solde,0);
-  const res=totP-totC;
-  const printDate=new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric'});
-  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:20px}.page{background:#fff;max-width:620px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;color:#fff}.hdr h1{font-size:16px;font-weight:800}.hdr p{font-size:11px;opacity:.7;margin-top:4px}.sec{padding:0 20px 16px}.sec-title{font-size:13px;font-weight:800;padding:12px 0 8px;border-bottom:2px solid currentColor;margin-bottom:8px}.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12px}.lbl{color:#374151}.val{font-weight:700}.tot{display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:800}.res{text-align:center;padding:20px;margin:16px 20px;border-radius:12px;color:#fff}.footer{padding:12px 20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb}@media print{body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:10mm}}`;
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Compte de Résultat — ${esc(school)}</title><style>${CSS}</style></head><body><div class="page">
-    <div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;float:right;border:2px solid rgba(255,255,255,.4)">`:''}<h1>📒 Compte de Résultat</h1><p>${esc(school)} · Édité le ${printDate} · Année ${DB.settings.year||''}</p></div>
-    <div class="sec"><div class="sec-title" style="color:#1f9d6b">📈 PRODUITS (Classe 7)</div>${produits.map(b=>`<div class="row"><span class="lbl">${b.num} — ${b.n}</span><span class="val" style="color:#1f9d6b">$${b.solde}</span></div>`).join('')}<div class="tot" style="color:#1f9d6b"><span>TOTAL PRODUITS</span><span>$${totP}</span></div></div>
-    <div class="sec"><div class="sec-title" style="color:#dc2626">📉 CHARGES (Classe 6)</div>${charges.map(b=>`<div class="row"><span class="lbl">${b.num} — ${b.n}</span><span class="val" style="color:#dc2626">$${b.solde}</span></div>`).join('')}<div class="tot" style="color:#dc2626"><span>TOTAL CHARGES</span><span>$${totC}</span></div></div>
-    <div class="res" style="background:${res>=0?'#1f9d6b':'#dc2626'}"><div style="font-size:12px;opacity:.8;margin-bottom:6px">${res>=0?'RÉSULTAT NET BÉNÉFICIAIRE':'RÉSULTAT NET DÉFICITAIRE'}</div><div style="font-size:36px;font-weight:900">${res>=0?'+':'-'}$${Math.abs(res)}</div></div>
-    <div class="footer">${esc(school)} · SchoolSafe · Plan comptable OHADA · ${printDate}</div>
-    <button onclick="window.print()" style="display:block;margin:16px auto;padding:10px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨️ Imprimer</button>
-  </div></body></html>`;
-  dlPDF(html,`CompteResultat-${today()}.pdf`);
+// ── Helpers documents officiels ──
+function _fmtM(n, dev) {
+  if (!n && n !== 0) return '0,00';
+  const x = Math.round(Number(n) * 100) / 100;
+  const parts = x.toFixed(2).split('.');
+  const int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // espace insécable
+  return int + ',' + parts[1] + ' ' + (dev || 'USD');
+}
+function _pdfYearRange() {
+  const yr = DB.settings?.year || '';
+  if (/^\d{4}-\d{4}$/.test(yr)) {
+    const y1 = yr.slice(0,4), y2 = yr.slice(5,9);
+    return 'du 1er septembre ' + y1 + ' au 30 juin ' + y2;
+  }
+  return yr ? 'Exercice ' + yr : '';
+}
+function _pdfSchoolBlock(sc) {
+  const parts = [];
+  if (sc.name) parts.push('<strong style="font-size:13px">' + esc(sc.name) + '</strong>');
+  if (sc.name_en) parts.push('<span style="font-size:11px;opacity:.7">' + esc(sc.name_en) + '</span>');
+  const infos = [];
+  if (sc.dgep)    infos.push('N° Agrément DGEP : ' + esc(sc.dgep));
+  if (sc.address) infos.push(esc(sc.address));
+  if (sc.phone)   infos.push('Tél : ' + esc(sc.phone));
+  if (infos.length) parts.push('<span style="font-size:10px;opacity:.75">' + infos.join(' | ') + '</span>');
+  return parts.join('<br>');
+}
+function _pdfSignatureBlock(devise) {
+  const d = new Date().toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
+  const lieu = (DB.settings?.school?.country || 'RDC').replace(/R(.épublique D.émocratique du Congo|DC)/i, 'Kinshasa').trim();
+  return `
+  <table style="width:100%;border-top:2px solid #243a6b;margin-top:22px;font-size:10px">
+    <tr>
+      <td style="width:33%;padding:14px 8px 6px;vertical-align:top">
+        <div style="font-weight:700;margin-bottom:18px">Etabli par le Responsable Comptable</div>
+        <div style="border-bottom:1px solid #9ca3af;height:30px;margin-bottom:4px"></div>
+        <div style="color:#6b7280">Nom &amp; signature</div>
+      </td>
+      <td style="width:33%;padding:14px 8px 6px;vertical-align:top;text-align:center">
+        <div style="font-weight:700;margin-bottom:4px">Arrêté le présent document</div>
+        <div style="margin-bottom:18px;color:#374151">${lieu}, le ${d}</div>
+        <div style="border-bottom:1px solid #9ca3af;height:30px;margin-bottom:4px"></div>
+        <div style="color:#6b7280">Cachet de l’établissement</div>
+      </td>
+      <td style="width:33%;padding:14px 8px 6px;vertical-align:top;text-align:right">
+        <div style="font-weight:700;margin-bottom:18px">Lu et approuvé par la Direction</div>
+        <div style="border-bottom:1px solid #9ca3af;height:30px;margin-bottom:4px"></div>
+        <div style="color:#6b7280">Nom &amp; signature</div>
+      </td>
+    </tr>
+  </table>
+  <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:8px">
+    Document établi conformément aux dispositions du Système Comptable OHADA (SYSCOHADA) — Acte uniforme révisé du 26 janvier 2017
+  </div>`;
+}
+const _COMPTA_CSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;padding:14px;background:#fff}
+.doc-hdr{display:flex;align-items:flex-start;gap:14px;border-bottom:3px solid #243a6b;padding-bottom:12px;margin-bottom:12px}
+.doc-hdr-logo{width:54px;height:54px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #243a6b}
+.doc-hdr-title{flex:1}
+.doc-hdr-title h1{font-size:16px;font-weight:800;color:#243a6b;text-transform:uppercase;letter-spacing:.5px}
+.doc-hdr-title .sous-titre{font-size:11px;color:#374151;margin-top:2px}
+.doc-hdr-title .periode{font-size:10px;color:#6b7280;margin-top:1px}
+.syscohada{font-size:9px;color:#9ca3af;text-align:right;white-space:nowrap}
+table{width:100%;border-collapse:collapse}
+th{background:#243a6b;color:#fff;padding:6px 8px;font-size:10px;font-weight:700;text-align:left}
+th.num{text-align:right}
+td{padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:10px;vertical-align:top}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:nth-child(even){background:#f8fafc}
+tr.month-hdr td{background:#e0e7ef;font-weight:700;font-size:10px;text-align:center;padding:5px;color:#243a6b;letter-spacing:.3px}
+tr.sub-tot td{background:#f0f4f8;font-weight:700;border-top:1px solid #cbd5e1}
+tr.grand-tot td{background:#243a6b;color:#fff;font-weight:800;padding:7px 8px}
+tr.grand-tot td.num{text-align:right}
+tr.debit-row td{background:#f0fdf4}
+tr.credit-row td{background:#eff6ff;font-style:italic}
+.bal-ok{background:#d1fae5;border:1px solid #6ee7b7;padding:8px 12px;margin-top:10px;font-weight:700;color:#065f46;text-align:center;border-radius:6px}
+.bal-err{background:#fee2e2;border:1px solid #fca5a5;padding:8px 12px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center;border-radius:6px}
+.sect-title{font-size:12px;font-weight:800;padding:10px 0 4px;border-bottom:2px solid;margin-bottom:4px}
+.produit{color:#065f46;border-color:#1f9d6b}
+.charge{color:#991b1b;border-color:#dc2626}
+.res-box{padding:14px;margin:12px 0;text-align:center;border-radius:8px;color:#fff}
+.res-pos{background:#1f9d6b}
+.res-neg{background:#dc2626}
+@media print{body{padding:4mm}@page{margin:8mm;size:A4}}
+`;
+
+// ── Export Journal Général PDF (format SYSCOHADA-RDC) ──
+window.exportJournalPDF = () => {
+  const sc = DB.settings?.school || {};
+  const dev = sc.devise || 'USD';
+  const yr = DB.settings?.year || '';
+  const journal = _getJournalAll().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const pf = window._comptaPeriod || '';
+  const entries = pf ? journal.filter(e=>e.date&&e.date.slice(0,7)===pf) : journal;
+  const totalMvt = entries.reduce((s,e)=>s+Number(e.montant||0), 0);
+
+  // Group by month
+  const byMonth = {};
+  entries.forEach(e => {
+    const m = (e.date||'????-??').slice(0,7);
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(e);
+  });
+  const MOIS_FR = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  function moisLabel(ym) {
+    const p = ym.split('-'); if (p.length < 2) return ym;
+    const m = parseInt(p[1], 10); return (MOIS_FR[m]||ym) + ' ' + p[0];
+  }
+
+  let rows = '';
+  let nopiece = 1;
+  Object.keys(byMonth).sort().forEach(ym => {
+    const mes = byMonth[ym];
+    const totMois = mes.reduce((s,e)=>s+Number(e.montant||0), 0);
+    rows += `<tr class="month-hdr"><td colspan="6">— ${moisLabel(ym).toUpperCase()} —</td></tr>`;
+    mes.forEach(e => {
+      const dAcc = _PC[e.debit] || {n: e.debit};
+      const cAcc = _PC[e.credit] || {n: e.credit};
+      const pno  = String(nopiece++).padStart(4, '0');
+      rows += `<tr class="debit-row">
+        <td>${e.date}</td><td>${pno}</td>
+        <td><strong>${e.debit}</strong></td>
+        <td>${esc(dAcc.n)}<br><small style="color:#6b7280;font-style:italic">${esc(e.libelle)}</small></td>
+        <td class="num"><strong>${_fmtM(e.montant, dev)}</strong></td>
+        <td class="num"></td>
+      </tr>
+      <tr class="credit-row">
+        <td></td><td></td>
+        <td style="padding-left:18px">${e.credit}</td>
+        <td style="padding-left:18px">${esc(cAcc.n)}</td>
+        <td class="num"></td>
+        <td class="num">${_fmtM(e.montant, dev)}</td>
+      </tr>`;
+    });
+    rows += `<tr class="sub-tot">
+      <td colspan="4" style="text-align:right">SOUS-TOTAL ${moisLabel(ym).toUpperCase()}</td>
+      <td class="num">${_fmtM(totMois, dev)}</td>
+      <td class="num">${_fmtM(totMois, dev)}</td>
+    </tr>`;
+  });
+
+  const html = `<html><head><meta charset="utf-8"><style>${_COMPTA_CSS}</style></head><body>
+  <div class="doc-hdr">
+    ${window.SCHOOL_LOGO ? `<img class="doc-hdr-logo" src="${window.SCHOOL_LOGO}">` : ''}
+    <div class="doc-hdr-title">
+      <h1>Journal G&eacute;n&eacute;ral des &Eacute;critures</h1>
+      <div class="sous-titre">${_pdfSchoolBlock(sc)}</div>
+      <div class="periode">${_pdfYearRange()}${pf?' &nbsp;|&nbsp; P&eacute;riode : '+moisLabel(pf):''} &nbsp;|&nbsp; ${entries.length} &eacute;critures</div>
+    </div>
+    <div class="syscohada">SYSCOHADA<br>Plan comptable<br>OHADA</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th style="width:72px">Date</th>
+      <th style="width:46px">N&deg; Pi&egrave;ce</th>
+      <th style="width:46px">N&deg; Cpte</th>
+      <th>Intitul&eacute; du compte / Libell&eacute;</th>
+      <th class="num" style="width:110px">D&eacute;bit (${dev})</th>
+      <th class="num" style="width:110px">Cr&eacute;dit (${dev})</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr class="grand-tot">
+        <td colspan="4">TOTAL G&Eacute;N&Eacute;RAL &mdash; ${entries.length} &eacute;critures</td>
+        <td class="num">${_fmtM(totalMvt, dev)}</td>
+        <td class="num">${_fmtM(totalMvt, dev)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="font-size:10px;color:#374151;margin-top:10px">
+    Le pr&eacute;sent journal comprend <strong>${entries.length}</strong> &eacute;critures comptables enregistr&eacute;es pour l&apos;exercice ${yr}.
+    D&eacute;bits totaux = Cr&eacute;dits totaux = <strong>${_fmtM(totalMvt, dev)}</strong>.
+  </div>
+  ${_pdfSignatureBlock(dev)}
+  </body></html>`;
+  dlPDF(html, `Journal-${today()}.pdf`);
 };
 
-// ── Export Journal PDF ──
-window.exportJournalPDF = () => {
-  const sc=DB.settings?.school||{}; const school=sc.name||'SchoolSafe';
-  const journal=_getJournalAll().slice(-500);
-  const printDate=new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric'});
-  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:12px}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#243a6b;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #f3f4f6}tr:nth-child(even){background:#f8f3ec}.hdr{margin-bottom:12px}.hdr h1{font-size:15px;font-weight:800;color:#243a6b}.hdr p{font-size:10px;color:#6b7280}@media print{@page{margin:8mm}}`;
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Journal — ${esc(school)}</title><style>${CSS}</style></head><body>
-    <div class="hdr"><h1>📋 Journal des Écritures — ${esc(school)}</h1><p>Édité le ${printDate} · ${journal.length} écritures</p></div>
-    <table><thead><tr><th>Date</th><th>Libellé</th><th>Cpte D</th><th>Cpte C</th><th style="text-align:right">Montant $</th></tr></thead>
-    <tbody>${journal.map(e=>`<tr><td>${e.date}</td><td>${esc(e.libelle)}</td><td>${e.debit}</td><td>${e.credit}</td><td style="text-align:right;font-weight:700">$${e.montant}</td></tr>`).join('')}</tbody>
-    <tfoot><tr style="background:#243a6b;color:#fff"><td colspan="4" style="padding:7px 8px;font-weight:800">TOTAL</td><td style="text-align:right;padding:7px 8px;font-weight:800">$${journal.reduce((s,e)=>s+e.montant,0)}</td></tr></tfoot>
-    </table><button onclick="window.print()" style="margin-top:12px;padding:8px 20px;background:#243a6b;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimer</button>
+// ── Export Balance Générale PDF (format SYSCOHADA-RDC) ──
+window.exportBalancePDF = () => {
+  const sc = DB.settings?.school || {};
+  const dev = sc.devise || 'USD';
+  const yr = DB.settings?.year || '';
+  const journal = _getJournalAll();
+  const balance = _getBalanceComptes(journal);
+  const rows = Object.values(balance).sort((a,b)=>a.num.localeCompare(b.num));
+  const totD = rows.reduce((s,b)=>s+b.debit, 0);
+  const totC = rows.reduce((s,b)=>s+b.credit, 0);
+  const totSD = rows.reduce((s,b)=>s+(b.sens==='debit'?Math.max(0,b.solde):0), 0);
+  const totSC = rows.reduce((s,b)=>s+(b.sens==='credit'?Math.max(0,b.solde):0), 0);
+  const equil = totD === totC;
+
+  const tRows = rows.map((b,i) => {
+    const sd = b.sens==='debit' ? Math.max(0,b.solde) : 0;
+    const sc2 = b.sens==='credit' ? Math.max(0,b.solde) : 0;
+    const active = b.debit>0||b.credit>0;
+    return `<tr style="${!active?'color:#9ca3af;':''}${i%2?'':'background:#f8fafc;'}">
+      <td><strong style="color:#243a6b">${b.num}</strong></td>
+      <td>${b.n}</td>
+      <td class="num">${b.debit?_fmtM(b.debit,dev):''}</td>
+      <td class="num">${b.credit?_fmtM(b.credit,dev):''}</td>
+      <td class="num" style="color:#065f46;font-weight:700">${sd?_fmtM(sd,dev):''}</td>
+      <td class="num" style="color:#1d4ed8;font-weight:700">${sc2?_fmtM(sc2,dev):''}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<html><head><meta charset="utf-8"><style>${_COMPTA_CSS}</style></head><body>
+  <div class="doc-hdr">
+    ${window.SCHOOL_LOGO ? `<img class="doc-hdr-logo" src="${window.SCHOOL_LOGO}">` : ''}
+    <div class="doc-hdr-title">
+      <h1>Balance G&eacute;n&eacute;rale des Comptes</h1>
+      <div class="sous-titre">${_pdfSchoolBlock(sc)}</div>
+      <div class="periode">${_pdfYearRange()} &nbsp;|&nbsp; &Eacute;dit&eacute;e le ${new Date().toLocaleDateString('fr-FR')}</div>
+    </div>
+    <div class="syscohada">SYSCOHADA<br>Balance de<br>v&eacute;rification</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:50px">N&deg; Cpte</th>
+        <th>Intitul&eacute; du compte</th>
+        <th class="num" colspan="2">Mouvements de l&apos;exercice</th>
+        <th class="num" colspan="2">Soldes finaux</th>
+      </tr>
+      <tr style="background:#3b5998">
+        <th></th><th></th>
+        <th class="num" style="width:110px">D&eacute;bit (${dev})</th>
+        <th class="num" style="width:110px">Cr&eacute;dit (${dev})</th>
+        <th class="num" style="width:110px">D&eacute;biteur</th>
+        <th class="num" style="width:110px">Cr&eacute;diteur</th>
+      </tr>
+    </thead>
+    <tbody>${tRows}</tbody>
+    <tfoot>
+      <tr class="grand-tot">
+        <td colspan="2">TOTAUX G&Eacute;N&Eacute;RAUX</td>
+        <td class="num">${_fmtM(totD,dev)}</td>
+        <td class="num">${_fmtM(totC,dev)}</td>
+        <td class="num">${_fmtM(totSD,dev)}</td>
+        <td class="num">${_fmtM(totSC,dev)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="${equil?'bal-ok':'bal-err'}">
+    ${equil
+      ? 'BALANCE EQUILIBREE &mdash; Total D&eacute;bits = Total Cr&eacute;dits = ' + _fmtM(totD,dev)
+      : 'BALANCE DESEQUILIBREE &mdash; Ecart de ' + _fmtM(Math.abs(totD-totC),dev) + ' &mdash; Verifier les ecritures'}
+  </div>
+  <div style="font-size:10px;color:#374151;margin-top:8px">
+    Note : Les soldes initiaux (report &agrave; nouveau) ne sont pas inclus dans ce tableau &mdash; ce document pr&eacute;sente les mouvements de l&apos;exercice ${yr}.
+  </div>
+  ${_pdfSignatureBlock(dev)}
   </body></html>`;
-  dlPDF(html,`Journal-${today()}.pdf`);
+  dlPDF(html, `Balance-${today()}.pdf`);
+};
+
+// ── Export Grand Livre PDF (format SYSCOHADA-RDC) ──
+window.exportGrandLivrePDF = () => {
+  const sc = DB.settings?.school || {};
+  const dev = sc.devise || 'USD';
+  const yr = DB.settings?.year || '';
+  const journal = _getJournalAll().sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const balance = _getBalanceComptes(journal);
+  const accts = Object.values(balance).filter(b=>b.debit>0||b.credit>0).sort((a,c)=>a.num.localeCompare(c.num));
+
+  let content = '';
+  accts.forEach(b => {
+    const acctEntries = journal.filter(e=>e.debit===b.num||e.credit===b.num);
+    let running = 0;
+    const eRows = acctEntries.map(e => {
+      const isD = e.debit === b.num;
+      running += isD ? Number(e.montant||0) : -Number(e.montant||0);
+      return `<tr>
+        <td>${e.date}</td>
+        <td>${esc(e.libelle)}</td>
+        <td class="num" style="color:#065f46">${isD ? _fmtM(e.montant,dev) : ''}</td>
+        <td class="num" style="color:#1d4ed8">${!isD ? _fmtM(e.montant,dev) : ''}</td>
+        <td class="num" style="font-weight:700;color:${running>=0?'#065f46':'#dc2626'}">${_fmtM(Math.abs(running),dev)}${running<0?' Cr':' Dr'}</td>
+      </tr>`;
+    }).join('');
+    const clLabel = b.cl===7?'Produit':b.cl===6?'Charge':'Trésorerie';
+    content += `
+    <div style="margin-bottom:16px">
+      <div style="background:#243a6b;color:#fff;padding:7px 10px;font-weight:700;font-size:11px;display:flex;justify-content:space-between">
+        <span>Compte ${b.num} &mdash; ${b.n} (${clLabel})</span>
+        <span>Solde : ${_fmtM(b.solde,dev)} ${b.sens==='debit'?'D&eacute;biteur':'Cr&eacute;diteur'}</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:80px">Date</th>
+          <th>Libell&eacute;</th>
+          <th class="num" style="width:110px">D&eacute;bit</th>
+          <th class="num" style="width:110px">Cr&eacute;dit</th>
+          <th class="num" style="width:120px">Solde progressif</th>
+        </tr></thead>
+        <tbody>
+          <tr style="background:#f0f4f8;font-style:italic">
+            <td colspan="2" style="color:#6b7280">Report &agrave; nouveau (Solde initial = 0)</td>
+            <td></td><td></td>
+            <td class="num" style="color:#6b7280">0,00 ${dev}</td>
+          </tr>
+          ${eRows}
+        </tbody>
+        <tfoot>
+          <tr class="grand-tot">
+            <td colspan="2">TOTAUX &mdash; ${acctEntries.length} mouvement(s)</td>
+            <td class="num">${_fmtM(b.debit,dev)}</td>
+            <td class="num">${_fmtM(b.credit,dev)}</td>
+            <td class="num">${_fmtM(b.solde,dev)} ${b.sens==='debit'?'Dr':'Cr'}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>`;
+  });
+
+  const html = `<html><head><meta charset="utf-8"><style>${_COMPTA_CSS}</style></head><body>
+  <div class="doc-hdr">
+    ${window.SCHOOL_LOGO ? `<img class="doc-hdr-logo" src="${window.SCHOOL_LOGO}">` : ''}
+    <div class="doc-hdr-title">
+      <h1>Grand Livre des Comptes</h1>
+      <div class="sous-titre">${_pdfSchoolBlock(sc)}</div>
+      <div class="periode">${_pdfYearRange()} &nbsp;|&nbsp; ${accts.length} comptes mouviment&eacute;s</div>
+    </div>
+    <div class="syscohada">SYSCOHADA<br>Grand Livre<br>OHADA</div>
+  </div>
+  ${content || '<p style="text-align:center;color:#9ca3af;padding:30px">Aucun mouvement enregistr&eacute;</p>'}
+  ${_pdfSignatureBlock(dev)}
+  </body></html>`;
+  dlPDF(html, `GrandLivre-${today()}.pdf`);
+};
+
+// ── Export Compte de Résultat PDF (format SYSCOHADA-RDC Tableau 25) ──
+window.exportComptabilitePDF = () => {
+  const sc = DB.settings?.school || {};
+  const dev = sc.devise || 'USD';
+  const yr = DB.settings?.year || '';
+  const journal = _getJournalAll();
+  const balance = _getBalanceComptes(journal);
+  const produits = Object.values(balance).filter(b=>b.type==='produit').sort((a,c)=>a.num.localeCompare(c.num));
+  const charges  = Object.values(balance).filter(b=>b.type==='charge').sort((a,c)=>a.num.localeCompare(c.num));
+  const totP = produits.reduce((s,b)=>s+b.solde, 0);
+  const totC = charges.reduce((s,b)=>s+b.solde, 0);
+  const res = totP - totC;
+  const isPos = res >= 0;
+
+  // Build two-column parallel table
+  const maxLen = Math.max(produits.length, charges.length);
+  const tRows = Array.from({length: maxLen}, (_,i) => {
+    const p = produits[i], c = charges[i];
+    return `<tr>
+      <td style="border-right:1px solid #e5e7eb">${c?'<strong style="color:#243a6b">'+c.num+'</strong>':''}</td>
+      <td style="border-right:1px solid #cbd5e1">${c?esc(c.n):''}</td>
+      <td class="num" style="color:#dc2626;border-right:2px solid #9ca3af">${c?_fmtM(c.solde,dev):''}</td>
+      <td>${p?'<strong style="color:#243a6b">'+p.num+'</strong>':''}</td>
+      <td>${p?esc(p.n):''}</td>
+      <td class="num" style="color:#065f46">${p?_fmtM(p.solde,dev):''}</td>
+    </tr>`;
+  }).join('');
+
+  // Résultat row direction
+  const chargesResRow = isPos ? `<tr style="background:#fef2f2"><td></td><td style="font-weight:700;color:#dc2626">${isPos?'B&eacute;n&eacute;fice de l&apos;exercice':''}</td><td class="num" style="font-weight:800;color:#dc2626;border-right:2px solid #9ca3af">${isPos?_fmtM(res,dev):''}</td><td></td><td></td><td></td></tr>` : '';
+  const produitsResRow= !isPos ? `<tr style="background:#f0fdf4"><td></td><td></td><td class="num" style="border-right:2px solid #9ca3af"></td><td></td><td style="font-weight:700;color:#065f46">D&eacute;ficit de l&apos;exercice</td><td class="num" style="font-weight:800;color:#065f46">${!isPos?_fmtM(Math.abs(res),dev):''}</td></tr>` : '';
+
+  const html = `<html><head><meta charset="utf-8"><style>${_COMPTA_CSS}
+  .cr-header{background:#243a6b;color:#fff;padding:8px 10px;font-weight:800;font-size:11px;text-transform:uppercase}
+  .cr-charge{background:#fff5f5}.cr-produit{background:#f0fdf4}
+  </style></head><body>
+  <div class="doc-hdr">
+    ${window.SCHOOL_LOGO ? `<img class="doc-hdr-logo" src="${window.SCHOOL_LOGO}">` : ''}
+    <div class="doc-hdr-title">
+      <h1>Compte de R&eacute;sultat</h1>
+      <div class="sous-titre">${_pdfSchoolBlock(sc)}</div>
+      <div class="periode">${_pdfYearRange()} &nbsp;|&nbsp; En unit&eacute;s : ${dev}</div>
+    </div>
+    <div class="syscohada">SYSCOHADA<br>Tableau 25<br>OHADA</div>
+  </div>
+  <table style="table-layout:fixed">
+    <colgroup>
+      <col style="width:46px"><col><col style="width:110px">
+      <col style="width:46px"><col><col style="width:110px">
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="3" style="background:#b91c1c;text-align:center">CHARGES (Classe 6)</th>
+        <th colspan="3" style="background:#047857;text-align:center">PRODUITS (Classe 7)</th>
+      </tr>
+      <tr>
+        <th>N&deg;</th><th>Intitul&eacute;</th><th class="num">Montant</th>
+        <th>N&deg;</th><th>Intitul&eacute;</th><th class="num">Montant</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tRows}
+      ${chargesResRow}${produitsResRow}
+    </tbody>
+    <tfoot>
+      <tr class="grand-tot">
+        <td colspan="2" style="font-weight:800">TOTAL CHARGES</td>
+        <td class="num">${_fmtM(totC + (isPos?res:0), dev)}</td>
+        <td colspan="2" style="font-weight:800">TOTAL PRODUITS</td>
+        <td class="num">${_fmtM(totP + (!isPos?Math.abs(res):0), dev)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="res-box ${isPos?'res-pos':'res-neg'}" style="margin-top:12px">
+    <div style="font-size:11px;opacity:.85;margin-bottom:4px">${isPos?'RESULTAT NET BENEFICIAIRE':'RESULTAT NET DEFICITAIRE'} &mdash; Exercice ${yr}</div>
+    <div style="font-size:24px;font-weight:900">${isPos?'+':'-'}&nbsp;${_fmtM(Math.abs(res),dev)}</div>
+    <div style="font-size:10px;opacity:.8;margin-top:3px">Produits&nbsp;${_fmtM(totP,dev)} &minus; Charges&nbsp;${_fmtM(totC,dev)}</div>
+  </div>
+  ${_pdfSignatureBlock(dev)}
+  </body></html>`;
+  dlPDF(html, `CompteResultat-${today()}.pdf`);
 };
 
 R.caisse_rapport = () => {
