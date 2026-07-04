@@ -1522,6 +1522,7 @@ window.NAV = {
       {s:'Scolarité'},
       {id:'payments',i:'●',l:'Paiements'},
       {id:'etat_financier',i:'●',l:'État Financier'},
+      {id:'tresorerie',i:'🏦',l:'Trésorerie'},
       {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
       {id:'palmares',i:'●',l:'Palmarès'},
       {id:'cantine',i:'●',l:'Cantine Scolaire'},
@@ -1724,6 +1725,7 @@ window.NAV = {
       {id:'caisse_depense',i:'●',l:'Enregistrer dépense'},
       {id:'caisse_rapport',i:'●',l:'Rapport du jour'},
       {id:'etat_financier',i:'●',l:'État Financier'},
+      {id:'tresorerie',i:'🏦',l:'Trésorerie'},
       {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
       {id:'fee_types',i:'●',l:'Types de frais'},
       {id:'cantine',i:'●',l:'Cantine Scolaire'},
@@ -2254,7 +2256,7 @@ window.PT = {
   teacher_activity:'Activité Profs', audit_log:'Historique des modifications', year_mgmt:'Année Scolaire',
   export:'Export', alert_urgent:'Alerte Urgence',
   devoirs_parent:'Devoirs', palmares_parent:'Palmarès', recus_parent:'Mes Reçus',
-  caisse_paiement:'Enregistrer Paiement', caisse_depense:'Enregistrer Dépense', etat_financier:'État Financier', comptabilite:'Comptabilité Générale',
+  caisse_paiement:'Enregistrer Paiement', caisse_depense:'Enregistrer Dépense', etat_financier:'État Financier', tresorerie:'Trésorerie', comptabilite:'Comptabilité Générale',
   recettes:'Recettes', depenses:'Dépenses',
   caisse_rapport:'Rapport du Jour',
   profil_gardien:'Mon profil', profil_caisse:'Mon profil',
@@ -11640,40 +11642,107 @@ window.viewReceipt = (nid) => {
   dlPDF(html,`Recu-${(r.num||'').replace(/[^a-z0-9]/gi,'_')||today()}.pdf`);
 };
 
-R.caisse_depense = () => `
-<div class="premium-section">
-  <div class="premium-section-title">💸 Enregistrer une dépense</div>
-  <div class="form-group" style="margin-top:14px">
-    <label class="form-label">Montant ($)</label>
-    <input class="form-input" id="dep_amount" type="number" min="0" step="0.5" placeholder="Ex: 25">
+R.caisse_depense = () => {
+  const todayExp=(DB.daily_expenses||[]).filter(e=>e.date===today()&&!e.validated).sort((a,b)=>b.time.localeCompare(a.time));
+  const todayTotal=todayExp.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const allTodayTotal=(DB.daily_expenses||[]).filter(e=>e.date===today()).reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const catOpts=_EXP_CATS.map(c=>`<option value="${c.code}">${c.icon} ${c.label}</option>`).join('');
+  const payOpts=_PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  return `
+  <div class="hbento" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">📉</div><div class="hbig" style="font-size:22px">$${todayTotal}</div><div class="hsub">Dépenses non validées</div>
+    </div>
+    <div class="htile" style="background:linear-gradient(135deg,#7c3aed,#9b59b6);color:#fff;padding:13px 10px">
+      <div style="font-size:19px">💸</div><div class="hbig" style="font-size:22px">${todayExp.length}</div><div class="hsub">Opérations du jour</div>
+    </div>
   </div>
-  <div class="form-group">
-    <label class="form-label">Motif de la dépense</label>
-    <input class="form-input" id="dep_motif" placeholder="Ex: Achat craies, Réparation porte...">
+  <div class="premium-section">
+    <div class="premium-section-title">💸 Enregistrer une dépense / paiement</div>
+    <div class="form-row" style="margin-top:12px">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Catégorie (compte OHADA) <span style="color:#ef5b5b">*</span></label>
+        <select id="dep_cat" class="form-select" onchange="depCatChanged()">${catOpts}</select>
+      </div>
+    </div>
+    <div id="dep_cat_ex" style="font-size:11px;color:var(--text-muted);margin:-6px 0 10px;padding:4px 0"></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Montant <span style="color:#ef5b5b">*</span></label>
+        <input class="form-input" id="dep_amount" type="number" min="0" step="0.5" placeholder="0.00">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Mode de paiement</label>
+        <select id="dep_pay" class="form-select">${payOpts}</select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description / Motif <span style="color:#ef5b5b">*</span></label>
+      <input class="form-input" id="dep_motif" placeholder="Ex: Achat peinture pour salles de classe, Réparation tableau...">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Fournisseur / Bénéficiaire</label>
+        <input class="form-input" id="dep_bene" placeholder="Ex: Quincaillerie ABC, Jean Kabongo...">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">N° Facture / Bon / Reçu</label>
+        <input class="form-input" id="dep_ref" placeholder="Ex: FAC-2026-001">
+      </div>
+    </div>
+    <button class="btn btn-danger" style="width:100%;padding:14px;margin-top:6px" onclick="saveDepense()">💸 Enregistrer la dépense</button>
   </div>
-  <button class="btn btn-danger" style="width:100%;padding:14px;margin-top:6px" onclick="saveDepense()">💸 Enregistrer la dépense</button>
-</div>
-${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).length?`
-<div class="premium-section">
-  <div class="premium-section-title">📋 Dépenses du jour</div>
-  ${DB.daily_expenses.filter(e=>e.date===today()&&!e.validated).map(e=>`
-    <div class="premium-item">
-      <div class="pi-icon" style="background:#fee2e2">💸</div>
-      <div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div>
-      <span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span>
-    </div>`).join('')}
-</div>`:''}`;
+  ${todayExp.length?`
+  <div class="premium-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="premium-section-title" style="margin:0">📋 Dépenses du jour</div>
+      <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">Total : $${allTodayTotal}</span>
+    </div>
+    ${todayExp.map(e=>{
+      const cat=_EXP_CATS.find(c=>c.code===e.category_code)||{icon:'💸',label:e.category_code||'Dépense'};
+      return `<div class="premium-item" style="border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:6px">
+        <div class="pi-icon" style="background:#fee2e2;font-size:20px">${cat.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div class="pi-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.motif)}</div>
+          <div class="pi-sub">${cat.label}${e.beneficiary?' · '+esc(e.beneficiary):''}${e.payment_method?' · '+esc(e.payment_method):''}</div>
+          <div class="pi-sub" style="font-size:10px">${e.time||''}${e.invoice_ref?' · Réf: '+esc(e.invoice_ref):''}</div>
+        </div>
+        <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">$${e.amount}</span>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
+};
 
+window.depCatChanged = () => {
+  const sel=$('dep_cat'); if(!sel) return;
+  const cat=_EXP_CATS.find(c=>c.code===sel.value);
+  const ex=$('dep_cat_ex'); if(ex) ex.textContent=cat?'Ex : '+cat.ex:'';
+};
 window.saveDepense = () => {
-  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
-  const amount=parseFloat($('dep_amount').value||'0');
-  const motif=($('dep_motif').value||'').trim();
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const amount=parseFloat($('dep_amount')?.value||'0');
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
+  const motif=($('dep_motif')?.value||'').trim();
   if(!motif){toast('Entrez le motif','error');return;}
-  const exp={id:'de'+Date.now(),amount,motif,date:today(),time:nowTime(),by:S.user.id,validated:false};
+  const category_code=($('dep_cat')?.value||'698');
+  const cat=_EXP_CATS.find(c=>c.code===category_code)||{label:'Charges diverses'};
+  const payment_method=($('dep_pay')?.value||'Espèces');
+  const beneficiary=($('dep_bene')?.value||'').trim()||null;
+  const invoice_ref=($('dep_ref')?.value||'').trim()||null;
+  const exp={
+    id:'de'+Date.now()+Math.random().toString(36).slice(2,4),
+    amount, motif,
+    category_code, category_label: cat.label,
+    payment_method, beneficiary, invoice_ref,
+    date:today(), time:nowTime(),
+    by:S.user.id, by_name:S.user.name,
+    validated:false,
+    school_id:window._currentSchoolId||null,
+  };
+  if(!DB.daily_expenses) DB.daily_expenses=[];
   DB.daily_expenses.push(exp);
   pushSync('daily_expenses','post',exp);
-  toast(`💸 Dépense $${amount} enregistrée`,'success');
+  toast(`💸 Dépense $${amount} — ${cat.label} enregistrée`,'success');
   saveToCrypt(); render();
 };
 
@@ -11989,6 +12058,32 @@ window.sendClassFeeNotif = (feeTypeId) => {
 // ══════════════════════════════════════════════════════════════════
 //  COMPTABILITÉ GÉNÉRALE — Plan comptable OHADA (adapté école DRC)
 // ══════════════════════════════════════════════════════════════════
+
+// Catégories de dépenses avec codes OHADA — utilisées dans R.caisse_depense
+// et dans _getJournalAll() pour le mapping automatique vers les comptes 6xx
+const _EXP_CATS = [
+  {code:'6061',label:'Cantine — Achats alimentaires',  icon:'🍽️', ex:'Riz, haricots, légumes, viande, pain'},
+  {code:'606', label:'Fournitures & Petit matériel',   icon:'📦', ex:'Craies, papier, peinture, cahiers, stylos'},
+  {code:'6231',label:'Entretien bâtiment & mobilier',  icon:'🔧', ex:'Réparation porte, peinture murs, robinet'},
+  {code:'611', label:'Loyer & charges locatives',      icon:'🏠', ex:'Loyer bâtiment, location salle'},
+  {code:'612', label:'Eau (REGIDESO)',                 icon:'💧', ex:'Facture REGIDESO, eau minérale'},
+  {code:'613', label:'Électricité & énergie (SNEL)',   icon:'⚡', ex:'Facture SNEL, groupe électrogène, carburant GE'},
+  {code:'614', label:'Télécom & Internet',             icon:'📡', ex:'Airtel, Vodacom, Afrimax, fibre optique'},
+  {code:'625', label:'Transport & Déplacements',       icon:'🚗', ex:'Taxi, carburant, bus, dédommagement déplacement'},
+  {code:'626', label:'Frais bancaires & postaux',      icon:'🏦', ex:'Commissions M-Pesa, frais virement, courrier'},
+  {code:'631', label:'Impôts, taxes & droits',         icon:'🏛️', ex:'Patente, taxe communale, DGI, INPP'},
+  {code:'641', label:'Salaire — Enseignants',          icon:'👩‍🏫', ex:'Paiement salaire mensuel enseignants'},
+  {code:'642', label:'Salaire — Personnel admin/direction', icon:'👔', ex:'Directeur, secrétaire, économe, comptable'},
+  {code:'6421',label:'Salaire — Gardiens & Agents',   icon:'🔒', ex:'Gardiens, nettoyeurs, agents de service'},
+  {code:'6422',label:'Salaire — Personnel cantine',    icon:'👨‍🍳', ex:'Cuisiniers, serveurs cantine'},
+  {code:'643', label:'Avance sur salaire',             icon:'💳', ex:'Avance exceptionnelle, acompte mensuel'},
+  {code:'624', label:'Honoraires & Frais professionnels', icon:'⚖️', ex:'Avocat, expert, médecin scolaire'},
+  {code:'698', label:'Charges diverses & imprévues',   icon:'🔀', ex:'Dons, cotisations, frais divers non classés'},
+];
+
+// Modes de paiement courants en RDC
+const _PAY_METHODS = ['Espèces','M-Pesa (Vodacom)','Airtel Money','Orange Money','Virement bancaire','Chèque bancaire','Autre'];
+
 const _PC = {
   '571': {n:'Caisse',          cl:5, type:'actif',   sens:'debit',  icon:'💵'},
   '521': {n:'Banque/MM',       cl:5, type:'actif',   sens:'debit',  icon:'🏦'},
@@ -11997,12 +12092,23 @@ const _PC = {
   '7062':{n:'Cantine',         cl:7, type:'produit', sens:'credit', icon:'🍽️'},
   '7063':{n:'Sorties & Activités',cl:7,type:'produit',sens:'credit',icon:'🚌'},
   '708': {n:'Autres produits', cl:7, type:'produit', sens:'credit', icon:'📋'},
-  '641': {n:'Rémunérations enseignants',cl:6,type:'charge',sens:'debit',icon:'👩‍🏫'},
-  '642': {n:'Rémunérations admin',cl:6,type:'charge',sens:'debit',icon:'👔'},
-  '643': {n:'Avances sur salaire',cl:6,type:'charge',sens:'debit',icon:'💳'},
-  '606': {n:'Fournitures scolaires',cl:6,type:'charge',sens:'debit',icon:'📦'},
-  '625': {n:'Transports & déplacements',cl:6,type:'charge',sens:'debit',icon:'🚗'},
-  '698': {n:'Charges diverses', cl:6, type:'charge', sens:'debit',  icon:'🔧'},
+  '641': {n:'Rémunérations enseignants',    cl:6,type:'charge',sens:'debit',icon:'👩‍🏫'},
+  '642': {n:'Rémunérations personnel admin', cl:6,type:'charge',sens:'debit',icon:'👔'},
+  '6421':{n:'Rémunérations gardiens/agents', cl:6,type:'charge',sens:'debit',icon:'🔒'},
+  '6422':{n:'Rémunérations personnel cantine',cl:6,type:'charge',sens:'debit',icon:'👨‍🍳'},
+  '643': {n:'Avances sur salaire',           cl:6,type:'charge',sens:'debit',icon:'💳'},
+  '606': {n:'Fournitures & petit matériel',  cl:6,type:'charge',sens:'debit',icon:'📦'},
+  '6061':{n:'Achats alimentaires (cantine)', cl:6,type:'charge',sens:'debit',icon:'🍽️'},
+  '611': {n:'Loyer & charges locatives',     cl:6,type:'charge',sens:'debit',icon:'🏠'},
+  '612': {n:'Eau (REGIDESO)',                cl:6,type:'charge',sens:'debit',icon:'💧'},
+  '613': {n:'Électricité & énergie (SNEL)', cl:6,type:'charge',sens:'debit',icon:'⚡'},
+  '614': {n:'Télécom & Internet',            cl:6,type:'charge',sens:'debit',icon:'📡'},
+  '625': {n:'Transports & déplacements',     cl:6,type:'charge',sens:'debit',icon:'🚗'},
+  '6231':{n:'Entretien & réparations',       cl:6,type:'charge',sens:'debit',icon:'🔧'},
+  '624': {n:'Honoraires professionnels',     cl:6,type:'charge',sens:'debit',icon:'⚖️'},
+  '626': {n:'Frais bancaires & postaux',     cl:6,type:'charge',sens:'debit',icon:'🏦'},
+  '631': {n:'Impôts & taxes',               cl:6,type:'charge',sens:'debit',icon:'🏛️'},
+  '698': {n:'Charges diverses',             cl:6,type:'charge',sens:'debit',icon:'🔀'},
 };
 
 // Génère le journal complet à partir de toutes les sources de données
@@ -12030,27 +12136,47 @@ window._getJournalAll = () => {
     });
   });
 
-  // ── 2. Dépenses ──
+  // ── 2. Dépenses enrichies ──
   (DB.daily_expenses||[]).forEach(e => {
-    const motifLower=(e.motif||'').toLowerCase();
-    let debit='698';
-    if(motifLower.includes('fourniture')||motifLower.includes('cahier')||motifLower.includes('craie')) debit='606';
-    else if(motifLower.includes('transport')||motifLower.includes('déplacement')||motifLower.includes('deplacement')) debit='625';
+    // Priorité au category_code sauvé; fallback keyword sur motif pour ancien data
+    let debit = e.category_code || '698';
+    if(!e.category_code) {
+      const ml=(e.motif||'').toLowerCase();
+      if(ml.includes('fourniture')||ml.includes('cahier')||ml.includes('craie')||ml.includes('peinture')) debit='606';
+      else if(ml.includes('transport')||ml.includes('déplacement')||ml.includes('carburant')) debit='625';
+      else if(ml.includes('eau')||ml.includes('regideso')) debit='612';
+      else if(ml.includes('électric')||ml.includes('electri')||ml.includes('snel')) debit='613';
+      else if(ml.includes('internet')||ml.includes('téléphone')) debit='614';
+      else if(ml.includes('loyer')||ml.includes('location')) debit='611';
+      else if(ml.includes('réparation')||ml.includes('entretien')) debit='6231';
+    }
+    // Si ce compte n'est pas dans _PC, on le mappe au plus proche dans les charges
+    const debitLabel = e.category_label || (_EXP_CATS.find(c=>c.code===debit)||{label:'Charges diverses'}).label;
     entries.push({
       id:'je_e_'+e.id, date:e.date||today(), time:e.time||'00:00',
-      libelle:`Dépense : ${e.motif||'?'}`,
+      libelle:`${debitLabel}${e.beneficiary?' — '+e.beneficiary:''} : ${e.motif||'?'}`,
       debit, credit:'571', montant:Number(e.amount)||0,
-      ref:e.id, type:'depense', by:e.by||'',
+      ref:e.id, type:'depense', by:e.by_name||e.by||'',
+      payment_method:e.payment_method||null,
     });
   });
 
-  // ── 3. Salaires versés ──
-  (DB.salaries||[]).filter(s=>s.paid&&s.net>0).forEach(s => {
-    const teacher = (DB.users||[]).find(u=>u.id===s.teacher_id);
+  // ── 3. Salaires versés (enseignants + tout le personnel) ──
+  (DB.salaries||[]).filter(s=>s.paid&&(s.net||s.amount)>0).forEach(s => {
+    const teacher = s.teacher_id ? (DB.users||[]).find(u=>u.id===s.teacher_id) : null;
+    // Déterminer le compte charge selon le type de personnel
+    const personName = teacher?.name || s.person_name || 'Personnel';
+    const personRole = (s.person_role||'').toLowerCase();
+    let debitSal = '641'; // enseignant par défaut
+    if(!s.teacher_id) {
+      if(personRole.includes('gardien')||personRole.includes('agent')||personRole.includes('nettoy')) debitSal='6421';
+      else if(personRole.includes('cuisinier')||personRole.includes('cantine')||personRole.includes('serveur')) debitSal='6422';
+      else debitSal='642'; // admin/direction/secrétaire/économe
+    }
     entries.push({
       id:'je_s_'+s.id, date:s.paid_date||s.updated||today(), time:'00:00',
-      libelle:`Salaire ${s.month||'?'} — ${teacher?.name||'Enseignant'}`,
-      debit:'641', credit:'571', montant:Number(s.net)||0,
+      libelle:`Salaire ${s.month||'?'} — ${personName}${s.person_role?' ('+s.person_role+')':''}`,
+      debit:debitSal, credit:'571', montant:Number(s.net||s.amount)||0,
       ref:s.id, type:'salaire', by:s.by||'',
     });
   });
@@ -12085,6 +12211,100 @@ window._getBalanceComptes = (entries) => {
     b.solde = b.sens==='debit' ? b.debit-b.credit : b.credit-b.debit;
   });
   return bal;
+};
+
+R.tresorerie = () => {
+  if(!['direction','direction3'].includes(S.user.role)) return `<div style="text-align:center;padding:60px"><h2>Accès réservé</h2></div>`;
+  const selDate=window._tresoDate||today().slice(0,7);
+  const [mo,yr]=[parseInt(selDate.split('-')[1]),selDate.split('-')[0]];
+  const monthLabel=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mo-1]+' '+yr;
+  // Recettes du mois
+  const versM=(DB.versements||[]).filter(v=>v.date&&v.date.startsWith(selDate));
+  const totalRecettes=versM.reduce((s,v)=>s+(Number(v.amount)||0),0);
+  // Dépenses du mois
+  const depM=(DB.daily_expenses||[]).filter(d=>d.date&&d.date.startsWith(selDate));
+  const totalDepenses=depM.reduce((s,d)=>s+(Number(d.amount)||0),0);
+  // Salaires du mois
+  const salM=(DB.salaries||[]).filter(s=>s.month===selDate&&s.paid);
+  const totalSalaires=salM.reduce((s,r)=>s+(Number(r.net||r.amount)||0),0);
+  // Solde
+  const solde=totalRecettes-totalDepenses-totalSalaires;
+  // Recettes par méthode de paiement
+  const byMethod={};
+  versM.forEach(v=>{const m=v.payment_method||'Espèces';byMethod[m]=(byMethod[m]||0)+(Number(v.amount)||0);});
+  // Dépenses par catégorie
+  const byCat={};
+  depM.forEach(d=>{const c=d.category_label||d.motif||'Divers';byCat[c]=(byCat[c]||0)+(Number(d.amount)||0);});
+  // Mouvements récents (50 derniers)
+  const allMov=[];
+  versM.forEach(v=>allMov.push({date:v.date,time:v.time||'',type:'recette',label:v.fee_label||v.motif||'Paiement',amount:Number(v.amount)||0,method:v.payment_method||'Espèces'}));
+  depM.forEach(d=>allMov.push({date:d.date,time:d.time||'',type:'depense',label:d.category_label||d.motif||'Dépense',amount:Number(d.amount)||0,method:d.payment_method||'Espèces'}));
+  salM.forEach(s=>{const nm=s.teacher_id?(DB.users||[]).find(u=>u.id===s.teacher_id)?.name||'Enseignant':s.person_name||'Personnel';allMov.push({date:s.paid_date||selDate+'-01',time:'',type:'salaire',label:'Salaire — '+nm,amount:Number(s.net||s.amount)||0,method:s.payment_method||'Espèces'});});
+  allMov.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  const recent=allMov.slice(0,50);
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#1e3a5f,#2563eb);display:flex;align-items:center;justify-content:center;font-size:20px">🏦</div>
+      <div><div style="font-size:15px;font-weight:800">Trésorerie</div><div style="font-size:11px;color:var(--text-muted)">${monthLabel}</div></div>
+    </div>
+    <input type="month" class="form-input" value="${selDate}" style="max-width:180px" onchange="window._tresoDate=this.value;render()">
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+    <div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#065f46">$${totalRecettes.toLocaleString()}</div>
+      <div style="font-size:11px;color:#047857;font-weight:600">📥 Recettes</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#7f1d1d">$${totalDepenses.toLocaleString()}</div>
+      <div style="font-size:11px;color:#991b1b;font-weight:600">📤 Dépenses</div>
+    </div>
+    <div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:20px;font-weight:800;color:#1e3a8a">$${totalSalaires.toLocaleString()}</div>
+      <div style="font-size:11px;color:#1d4ed8;font-weight:600">👥 Salaires payés</div>
+    </div>
+    <div style="background:linear-gradient(135deg,${solde>=0?'#d1fae5,#a7f3d0':'#fee2e2,#fecaca'});border-radius:12px;padding:14px;text-align:center">
+      <div style="font-size:20px;font-weight:800;color:${solde>=0?'#065f46':'#7f1d1d'}">${solde>=0?'+':'-'}$${Math.abs(solde).toLocaleString()}</div>
+      <div style="font-size:11px;color:${solde>=0?'#047857':'#991b1b'};font-weight:600">💰 Solde net</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+    <div class="premium-section" style="padding:14px">
+      <div class="premium-section-title" style="font-size:13px;margin-bottom:10px">📥 Recettes par mode de paiement</div>
+      ${Object.keys(byMethod).length===0?`<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:10px">Aucune recette</div>`:''}
+      ${Object.entries(byMethod).sort((a,b)=>b[1]-a[1]).map(([m,t])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-color);font-size:12px">
+          <span>${esc(m)}</span>
+          <span style="font-weight:700;color:#065f46">$${t.toLocaleString()}</span>
+        </div>`).join('')}
+    </div>
+    <div class="premium-section" style="padding:14px">
+      <div class="premium-section-title" style="font-size:13px;margin-bottom:10px">📤 Dépenses par catégorie</div>
+      ${Object.keys(byCat).length===0?`<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:10px">Aucune dépense</div>`:''}
+      ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([c,t])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-color);font-size:12px">
+          <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c)}</span>
+          <span style="font-weight:700;color:#991b1b">$${t.toLocaleString()}</span>
+        </div>`).join('')}
+    </div>
+  </div>
+  <div class="premium-section" style="padding:14px">
+    <div class="premium-section-title" style="font-size:13px;margin-bottom:10px">📋 Mouvements récents (${recent.length})</div>
+    ${recent.length===0?`<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px">Aucun mouvement ce mois</div>`:''}
+    ${recent.map(mv=>{
+      const col=mv.type==='recette'?'#065f46':mv.type==='salaire'?'#1d4ed8':'#991b1b';
+      const sign=mv.type==='recette'?'+':'-';
+      const icon=mv.type==='recette'?'📥':mv.type==='salaire'?'👥':'📤';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-color)">
+        <div style="font-size:16px">${icon}</div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600">${esc(mv.label)}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${mv.date}${mv.time?' '+mv.time:''} — ${esc(mv.method)}</div>
+        </div>
+        <div style="font-size:13px;font-weight:800;color:${col}">${sign}$${mv.amount.toLocaleString()}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
 };
 
 R.comptabilite = () => {
@@ -19421,7 +19641,44 @@ R.salaires = () => {
         <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">$${net}</span></div>
       </div>`:''}
     </div>`;
-  }).join('')}`;
+  }).join('')}
+  ${(()=>{
+    const nonTeach=(DB.salaries||[]).filter(s=>!s.teacher_id&&s.person_name&&s.month===selMonth);
+    const totalNT=nonTeach.reduce((s,r)=>s+(r.net||r.amount||0),0);
+    const canEdit=S.user&&(S.user.role==='direction'||S.user.role==='direction3');
+    return `<div class="premium-section" style="margin-top:14px;border-left:4px solid #2563eb">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="premium-section-title" style="color:#2563eb;margin-bottom:0">👔 Personnel non-enseignant — ${monthLabel}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:#dbeafe;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#1d4ed8">Masse : $${totalNT}</div>
+          ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openPersonnelSalaireForm(null,'${selMonth}')">➕ Ajouter</button>`:''}
+        </div>
+      </div>
+      ${nonTeach.length===0?`<div style="text-align:center;color:var(--text-muted);padding:18px;font-size:13px">Aucun paiement de personnel enregistré pour ${monthLabel}.<br><span style="font-size:11px">Cliquez ➕ Ajouter pour enregistrer un salaire ou paiement.</span></div>`:''}
+      ${nonTeach.map((r,i)=>{
+        const net=r.net||r.amount||0;
+        return `<div class="premium-section" style="margin-bottom:8px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${ini(r.person_name)}</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:14px">${esc(r.person_name)}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${esc(r.person_role||'Personnel')} — ${r.paid?'<span style="color:#1f9d6b">✅ Payé</span>':'<span style="color:#f59e0b">⏳ Non payé</span>'}</div>
+            </div>
+            <div style="text-align:right;min-width:80px">
+              <div style="font-size:16px;font-weight:800;color:${net>=0?'#1d4ed8':'#dc2626'}">$${net}</div>
+              <div style="font-size:10px;color:var(--text-muted)">${r.payment_method||'Espèces'}</div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="printPersonnelFichePaie('${r.id}')">💾</button>`:''}
+              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="openPersonnelSalaireForm('${r.id}','${selMonth}')">✏️</button>`:''}
+              ${canEdit&&S.user.role==='direction'?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePersonnelSalaire('${r.id}')">🗑️</button>`:''}
+            </div>
+          </div>
+          ${r.notes?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border-color)">📝 ${esc(r.notes)}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  })()}`;
 };
 
 window.openRatRateConfig = () => {
@@ -19559,6 +19816,138 @@ window.deleteSalaire = (teacherId, month) => {
     pushSync('salaries','delete','','id=eq.'+id);
     saveToCrypt();render();toast('Salaire supprimé','info');
   });
+};
+
+// ── Personnel non-enseignant : paie et paiements ──
+window.openPersonnelSalaireForm = (salId) => {
+  const existing = salId ? (DB.salaries||[]).find(s=>s.id===salId) : null;
+  const postes=['Directeur / Directrice','Directeur Adjoint','Secrétaire','Économe / Comptable','Gardien / Agent de sécurité','Nettoyeur / Femme de ménage','Cuisinier(ère) — Cantine','Chauffeur / Accompagnateur','Technicien / Maintenance','Autre personnel'];
+  const payOpts=_PAY_METHODS.map(m=>`<option value="${m}" ${existing?.payment_method===m?'selected':''}>${m}</option>`).join('');
+  const posteOpts=postes.map(p=>`<option value="${p}" ${existing?.person_role===p?'selected':''}>${p}</option>`).join('');
+  const curMonth=window._salMonth||today().slice(0,7);
+  openM(salId?'✏️ Modifier paiement personnel':'💰 Paiement personnel — Enregistrer',`
+  <div class="form-row">
+    <div class="form-group" style="flex:2">
+      <label class="form-label">Nom complet <span style="color:#ef5b5b">*</span></label>
+      <input class="form-input" id="psal_name" value="${esc(existing?.person_name||'')}" placeholder="Ex: Jean-Baptiste Kabila">
+    </div>
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Mois <span style="color:#ef5b5b">*</span></label>
+      <input class="form-input" id="psal_month" type="month" value="${existing?.month||curMonth}">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Poste / Fonction <span style="color:#ef5b5b">*</span></label>
+    <select id="psal_role" class="form-select"><option value="">— Choisir —</option>${posteOpts}</select>
+  </div>
+  <div class="form-row">
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Salaire de base ($)</label>
+      <input class="form-input" id="psal_base" type="number" min="0" step="0.5" value="${existing?.amount||''}" oninput="psalCalcNet()">
+    </div>
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Primes / Bonus ($)</label>
+      <input class="form-input" id="psal_bonus" type="number" min="0" step="0.5" value="${existing?.bonus||0}" oninput="psalCalcNet()">
+    </div>
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Retenues / Déduc. ($)</label>
+      <input class="form-input" id="psal_deduct" type="number" min="0" step="0.5" value="${existing?.deductions||0}" oninput="psalCalcNet()">
+    </div>
+  </div>
+  <div id="psal_net_box" style="background:#d8f3e6;border-radius:10px;padding:10px 14px;font-size:14px;font-weight:700;color:#065f46;text-align:center;margin-bottom:10px">
+    NET : $0
+  </div>
+  <div class="form-row">
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Mode de paiement</label>
+      <select id="psal_pay" class="form-select">${payOpts}</select>
+    </div>
+    <div class="form-group" style="flex:1">
+      <label class="form-label">Statut</label>
+      <select id="psal_paid" class="form-select">
+        <option value="1" ${!existing||existing?.paid?'selected':''}>✅ Payé</option>
+        <option value="0" ${existing&&!existing?.paid?'selected':''}>⏳ En attente</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Note (optionnel)</label>
+    <input class="form-input" id="psal_notes" value="${esc(existing?.notes||'')}" placeholder="Observation...">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="savePersonnelSalaire('${salId||''}')">💾 Enregistrer</button>`);
+  setTimeout(psalCalcNet, 50);
+};
+window.psalCalcNet = () => {
+  const b=parseFloat($('psal_base')?.value||0), bo=parseFloat($('psal_bonus')?.value||0), d=parseFloat($('psal_deduct')?.value||0);
+  const net=b+bo-d;
+  const box=$('psal_net_box'); if(box) box.textContent='NET À PAYER : $'+net.toFixed(2);
+};
+window.savePersonnelSalaire = (salId) => {
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const person_name=($('psal_name')?.value||'').trim();
+  if(!person_name){toast('Le nom est obligatoire','error');return;}
+  const person_role=($('psal_role')?.value||'').trim();
+  if(!person_role){toast('Sélectionnez le poste','error');return;}
+  const month=$('psal_month')?.value||today().slice(0,7);
+  const amount=parseFloat($('psal_base')?.value||0);
+  const bonus=parseFloat($('psal_bonus')?.value||0);
+  const deductions=parseFloat($('psal_deduct')?.value||0);
+  const net=amount+bonus-deductions;
+  const paid=($('psal_paid')?.value||'1')==='1';
+  const payment_method=$('psal_pay')?.value||'Espèces';
+  const notes=($('psal_notes')?.value||'').trim()||null;
+  if(!DB.salaries) DB.salaries=[];
+  const id=salId||(DB.salaries.find(s=>!s.teacher_id&&s.person_name===person_name&&s.month===month)||{}).id||('psal'+Date.now());
+  const idx=salId?DB.salaries.findIndex(s=>s.id===salId):-1;
+  const obj={id, teacher_id:null, person_name, person_role, month,
+    amount, bonus, deductions, net, paid, paid_date:paid?today():null,
+    payment_method, notes, by:S.user.id, updated:today(),
+    school_id:window._currentSchoolId||null};
+  if(idx>=0) DB.salaries[idx]=obj; else DB.salaries.push(obj);
+  pushSync('salaries','upsert',obj);
+  if(paid) {
+    const notifTgt=(DB.users||[]).find(u=>(u.name||'').toLowerCase()===person_name.toLowerCase()&&u.role!=='parent'&&u.role!=='gardien');
+    if(notifTgt) { const n={id:'n'+Date.now(),uid:notifTgt.id,msg:`💰 Paiement enregistré : $${net} (${month}) — ${person_role}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null}; DB.notifs.unshift(n);pushSync('notifs','post',n); }
+  }
+  saveToCrypt();closeModal();toast(`✅ ${person_name} — $${net} enregistré`,'success');render();
+};
+window.deletePersonnelSalaire = (id) => {
+  if(!S.user||!['direction'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  showC('Supprimer cette fiche','Confirmer la suppression ?',()=>{
+    const idx=(DB.salaries||[]).findIndex(s=>s.id===id); if(idx<0) return;
+    DB.salaries.splice(idx,1);
+    pushSync('salaries','delete','','id=eq.'+id);
+    saveToCrypt();render();toast('Fiche supprimée','info');
+  });
+};
+window.printPersonnelFichePaie = (salId) => {
+  const sal=(DB.salaries||[]).find(s=>s.id===salId); if(!sal||!sal.person_name) return;
+  const sc=DB.settings.school||{};
+  const [yr2,mo]=(sal.month||'?-?').split('-');
+  const monthLabel=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][parseInt(mo)-1]||sal.month;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fiche Paie — ${sal.person_name}</title>
+  <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;background:#fff;margin:0;padding:16px}.hdr{display:flex;justify-content:space-between;border-bottom:3px solid #243a6b;padding-bottom:10px;margin-bottom:14px}.emp{background:#f0f4ff;border-radius:10px;padding:12px 16px;margin-bottom:14px}.tbl{width:100%;border-collapse:collapse}.tbl td{padding:9px 12px;border-bottom:1px solid #e5e7eb}.tbl .tot{background:#243a6b;color:#fff;font-weight:800;font-size:15px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px}.sig-line{border-top:2px solid #374151;padding-top:6px;font-size:11px;text-align:center}.foot{font-size:10px;color:#9ca3af;text-align:center;margin-top:12px;border-top:1px solid #e5e7eb;padding-top:8px}@media print{@page{margin:8mm}body{padding:0}}</style>
+  </head><body>
+  <div class="hdr"><div><strong style="font-size:15px;color:#243a6b">${esc(sc.name||'SchoolSafe')}</strong><br><span style="font-size:11px;color:#6b7280">${esc(sc.address||'')}${sc.dgep?' · N° DGEP: '+esc(sc.dgep):''}</span></div>
+  <div style="text-align:right"><span style="background:#243a6b;color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">FICHE DE PAIE</span><br><span style="font-size:13px;font-weight:600;color:#374151">${monthLabel} ${yr2}</span></div></div>
+  <div class="emp"><strong style="font-size:15px">${esc(sal.person_name)}</strong><br>
+  <span style="font-size:12px;color:#6b7280">${esc(sal.person_role)} · Année scolaire ${DB.settings.year||''}</span></div>
+  <table class="tbl">
+    <tr><td>Salaire de base</td><td style="text-align:right;font-weight:700;color:#065f46">$${sal.amount||0}</td></tr>
+    ${sal.bonus?`<tr><td>Primes / Bonus</td><td style="text-align:right;font-weight:700;color:#065f46">+$${sal.bonus}</td></tr>`:''}
+    ${sal.deductions?`<tr><td>Retenues / Déductions</td><td style="text-align:right;font-weight:700;color:#dc2626">-$${sal.deductions}</td></tr>`:''}
+    <tr class="tot"><td>NET À PAYER</td><td style="text-align:right">$${sal.net}</td></tr>
+  </table>
+  <div style="margin:12px 0;font-size:12px"><strong>Mode de paiement :</strong> ${esc(sal.payment_method||'Espèces')} &nbsp;|&nbsp; <strong>Statut :</strong> ${sal.paid?'✅ PAYÉ le '+sal.paid_date:'⏳ En attente'}</div>
+  ${sal.notes?`<div style="background:#fef3c7;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px"><strong>Note :</strong> ${esc(sal.notes)}</div>`:''}
+  <div class="sig">
+    <div><div style="height:40px"></div><div class="sig-line">Bénéficiaire — ${esc(sal.person_name)}</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Direction — ${esc(sc.name||'')}</div></div>
+  </div>
+  <div class="foot">Document confidentiel · SchoolSafe · ${today()}</div>
+  </body></html>`;
+  dlPDF(html,`FichePaie-${sal.person_name.replace(/ /g,'_')}-${sal.month}.pdf`);
 };
 
 window.printFichePaie = (teacherId, month) => {
