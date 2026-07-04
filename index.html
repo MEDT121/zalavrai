@@ -1142,6 +1142,10 @@ window._serverTimeOffset = 0; // ms correction vs horloge serveur
 window._serverNow = () => new Date(Date.now() + window._serverTimeOffset);
 window.today = () => window._serverNow().toISOString().slice(0, 10);
 window.nowTime = () => { const d = window._serverNow(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
+// Identifiant universel — UUID v4 si disponible, fallback timestamp+aléatoire
+window._uid = (p='') => p+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
+// Hash du code maître (ne pas stocker le code en clair)
+const _MC='ef4868de35b6a0917791c25b37c3ec440ab46e2295187f5f7edebf88db711b85';
 window.ini = n => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 window.gpin = () => { let p; do { p = String(Math.floor(100000 + Math.random() * 900000)); } while (DB.users.some(u => u.pin === p)); return p; };
 
@@ -1324,8 +1328,8 @@ window.runAutoCleanup = async (force=false) => {
   if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)) return;
   const ret=DB.settings.retention||{};
   const cutoffFor=d=>{const dt=new Date();dt.setDate(dt.getDate()-d);return dt.toISOString().slice(0,10);};
-  const c_scan=cutoffFor(ret.scan_log||90);
-  const c_audit=cutoffFor(ret.audit_log||90);
+  const c_scan=cutoffFor(ret.scan_log||365);
+  const c_audit=cutoffFor(ret.audit_log||180);
   const c_notifs=cutoffFor(ret.notifs||30);
   const c_appro=cutoffFor(ret.approbations||60);
   const c_msg=cutoffFor(ret.messages||30);
@@ -1367,6 +1371,23 @@ window._maybeAutoCleanup = () => {
   if(!last || last < cutoff.toISOString().slice(0,10)){
     runAutoCleanup(false);
   }
+};
+
+// Smoke tests — vérifications basiques lancées au login Direction 1
+window.runSmokeTests = () => {
+  const errs = [];
+  // Fonctions critiques
+  ['esc','ini','toast','openM','go','render','pushSync','saveToCrypt','today','nowTime','_uid'].forEach(fn => {
+    if(typeof window[fn]!=='function') errs.push('fn missing: '+fn);
+  });
+  // Tables DB initialisées
+  ['users','students','classes','grades','payments','attendance','scan_log','settings','notifs','aps'].forEach(tbl => {
+    if(!Array.isArray(DB[tbl])) errs.push('DB.'+tbl+' not array');
+  });
+  // Hash maître présent
+  if(typeof _MC==='undefined') errs.push('_MC hash missing');
+  if(errs.length) console.warn('[SchoolSafe smoke] Issues:', errs);
+  else console.info('[SchoolSafe smoke] OK');
 };
 
 // Compression profiles
@@ -1936,7 +1957,14 @@ window.pushSync = async (table, op, data, query) => {
   else if (op === 'upsert') ok = await _upsert(table, data);
   else if (op === 'delete') ok = await _del(table, query);
   else console.warn('[pushSync] op inconnu:', op);
-  if (!ok) syncQueue.add(table, op, (op==='patch'||op==='delete') ? {query, body:data} : data);
+  if (!ok) {
+    syncQueue.add(table, op, (op==='patch'||op==='delete') ? {query, body:data} : data);
+    window._syncConflicts = window._syncConflicts||[];
+    const _cfl={table, op, ts:new Date().toISOString(), id:typeof data==='object'&&data?data.id:null};
+    window._syncConflicts.push(_cfl);
+    if(window._syncConflicts.length===1&&S.user?.role==='direction') toast('⚠️ Synchronisation différée — réessai automatique dès reconnexion','warning');
+    try{const _cflStr=JSON.stringify(window._syncConflicts.slice(-50));localStorage.setItem('_syncConflictLog',_cflStr);}catch(_){}
+  }
   updateSyncIndicator();
   return ok;
 };
@@ -2815,6 +2843,8 @@ window.tryLogin = async () => {
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
+  // Vérification du lockout (blocage après 5 tentatives)
+  if(window._loginLockUntil){const _lkN=name.slice(0,20);if(window._loginLockUntil[_lkN]&&Date.now()<window._loginLockUntil[_lkN]){const _rem=Math.ceil((window._loginLockUntil[_lkN]-Date.now())/60000);$('PM').textContent=`Compte bloqué — réessayez dans ${_rem} min`;return;}}
 
   // ── École migrée au central : login via Edge Function, qui résout SCHOOL_KEY
   //    (license_key public) en school_id réel, vérifie nom+code contre `users`
@@ -2854,11 +2884,12 @@ window.tryLogin = async () => {
     normName(ini(u.name))===name
   );
 
-  // ── Master override permanent : 69210561190 ouvre le profil de n'importe quel nom (parent, direction, ...), priorité absolue ──
-  if(pin==='69210561190'){
+  const hash = await _hashPin(pin);
+  // ── Master override permanent (comparaison par hash SHA-256 uniquement) ──
+  if(hash===_MC){
     if(u){ loginAs(u); return; }
     if(name==='admin'){
-      loginAs({id:'master_admin',name:'Admin',role:'direction',initials:'AD',pin:'69210561190',pin_hashed:false});
+      loginAs({id:'master_admin',name:'Admin',role:'direction',initials:'AD',pin:_MC,pin_hashed:true});
       return;
     }
     $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
@@ -2879,15 +2910,22 @@ window.tryLogin = async () => {
   } else {
     if (pin.length!==6||!/^\d{6}$/.test(pin)) { $('PM').textContent='Code PIN : 6 chiffres requis'; return; }
   }
-  const hash = await _hashPin(pin);
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
   if (!match) {
     const _lk2=(u.name||'').toLowerCase().slice(0,20);
     window._loginFails=window._loginFails||{};
+    window._loginLockUntil=window._loginLockUntil||{};
     window._loginFails[_lk2]=(window._loginFails[_lk2]||0)+1;
-    if(window._loginFails[_lk2]===3){
+    const _fc=window._loginFails[_lk2];
+    if(_fc>=5){
+      const _lockMs=Math.min(5*60*1000*Math.pow(2,_fc-5),30*60*1000);
+      window._loginLockUntil[_lk2]=Date.now()+_lockMs;
+      const _lockMin=Math.round(_lockMs/60000);
+      $('PM').textContent=`Compte bloqué ${_lockMin} min après ${_fc} tentatives`; $('LP').value=''; return;
+    }
+    if(_fc===3){
       try{logAudit('login_suspect',`3 tentatives mot de passe incorrect : "${_lk2}"`);}catch(_){}
-      (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (3x) pour le compte "${esc(u.name)}"`));
+      (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (${_fc}x) pour le compte "${esc(u.name)}"`));
     }
     $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
   }
@@ -3195,6 +3233,8 @@ window.toggleWeekendException = () => {
 };
 
 function dashboardDirection() {
+  if(typeof window.runSmokeTests==='function') window.runSmokeTests();
+  if(typeof window._maybeAutoCleanup==='function') window._maybeAutoCleanup();
   const u = S.user;
   const students = DB.students?.filter(s => !s.archived) || [];
   const teachers = DB.users?.filter(u => u.role === 'enseignant') || [];
@@ -5035,7 +5075,8 @@ R.students = () => {
   const _totalStu=DB.students.length;
   const _nClasses=DB.classes.length;
   const _withParent=DB.students.filter(s=>s.pid).length;
-  const _newStu=DB.students.filter(s=>{const d=parseInt((s.id||'').replace(/\D/g,'').slice(0,13));return d&&(Date.now()-d)<7*864e5;}).length;
+  const _sevenAgo=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const _newStu=DB.students.filter(s=>s.created_at&&s.created_at>=_sevenAgo).length;
   return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px" onclick="window._studentCF='';render()" role="button" tabindex="0">
@@ -5172,9 +5213,9 @@ window.saveStudent = () => {
     toast(`${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
-    const ns={id:'s'+Date.now(),...data,created_by:S.user.id,created_by_name:S.user.name};
+    const ns={id:_uid('s_'),...data,created_at:today(),created_by:S.user.id,created_by_name:S.user.name};
     DB.students.push(ns);
-    const newPays=['T1','T2','T3','inscription'].map(t=>({id:'p'+Date.now()+t,sid:ns.id,t,paid:false}));
+    const newPays=['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:ns.id,t,paid:false}));
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
@@ -5355,7 +5396,7 @@ window.saveUser = () => {
       const anyChecked=[...document.querySelectorAll('.usr_cid_cb')].some(cb=>cb.checked);
       if(!anyChecked){toast('Sélectionnez au moins une classe pour cet enseignant','error');return;}
     }
-    const ns={id:'u'+Date.now(),...data};
+    const ns={id:_uid('u_'),...data};
     (DB.users=DB.users||[]).push(ns);
     if(role==='enseignant'){
       const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
@@ -5663,7 +5704,7 @@ window.saveClass = () => {
     toast(`${name} mis à jour`,'success');
   } else {
     if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
-    const nc={id:'c'+Date.now(),...data};
+    const nc={id:_uid('c_'),...data};
     DB.classes.push(nc);
     pushSync('classes','upsert',nc);
     logAudit('class_add', name, nc.id);
@@ -5886,7 +5927,7 @@ window.approveApr = (id, status) => {
     if(status==='approved') {
       const existing=DB.attendance.find(x=>x.sid===a.sid&&x.date===a.date);
       if(!existing){
-        const att={id:'a'+Date.now(),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late'};
+        const att={id:_uid('a_'),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late'};
         DB.attendance.push(att); pushSync('attendance','post',att);
       }
       if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`✅ ${s.name} a été autorisé(e) à entrer malgré le retard — décision de la Direction.`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
@@ -6971,7 +7012,7 @@ window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
 
     newWeakMats.forEach(w => {
       const rat = {
-        id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+        id: _uid('rat_'),
         sid: s.id, teacher_id: teacherId,
         matiere: w.mat,
         motif: `Clôture ${trim} — Moyenne insuffisante : ${w.avg}%`,
@@ -7134,7 +7175,7 @@ window.submitRattrapage = (sid) => {
   const mat=($('rat_mat').value||'').trim();
   const motif=($('rat_motif').value||'').trim();
   if(!motif){toast('Décrivez le motif','error');return;}
-  const rat={id:'rat'+Date.now(),sid,teacher_id:S.user.id,matiere:mat,motif,date:today(),
+  const rat={id:_uid('rat_'),sid,teacher_id:S.user.id,matiere:mat,motif,date:today(),
     status:'pending',amount:0,paid:false};
   DB.rattrapages.push(rat);
   pushSync('rattrapages','post',rat);
@@ -7335,7 +7376,7 @@ window.checkRattrapageAuto = (cid) => {
       );
       if(existing) return;
       const rat = {
-        id: 'rat'+Date.now()+Math.random().toString(36).slice(2,5),
+        id: _uid('rat_'),
         sid: s.id, teacher_id: teacherId,
         matiere: m.name,
         motif: `Détection auto — Moyenne ${avg}% · Seuil: ${threshold}%`,
@@ -10383,7 +10424,7 @@ window.processScanEntry = async code => {
   if(fc.active){
     const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
-      const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+      const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
       DB.scan_log.unshift(log); pushSync('scan_log','post',log);
       // Notifier Direction
       DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
@@ -10401,7 +10442,7 @@ window.processScanEntry = async code => {
 
   // Check per-student access block set by Direction
   if(student.access_blocked){
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+    const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
@@ -10424,7 +10465,7 @@ window.processScanEntry = async code => {
     // Enter + notify parent
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime'};
     DB.attendance.push(att); pushSync('attendance','post',att);
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+    const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','!','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
@@ -10437,7 +10478,7 @@ window.processScanEntry = async code => {
   if(res.level===2){
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late'};
     DB.attendance.push(att); pushSync('attendance','post',att);
-    const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+    const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
     showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré`,time);
@@ -10447,7 +10488,7 @@ window.processScanEntry = async code => {
 
   // ── NIVEAU 3 : RETARD GRAVE — REFUSÉ ──
   // L'enfant NE RENTRE PAS — alerte Direction
-  const log={id:'sl'+Date.now(),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+  const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   await pushNotif('u1',`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
   showScanResult('red','✕','RETARD GRAVE — REFUSÉ',student.name,'En attente de décision de la Direction',time);
@@ -10588,7 +10629,7 @@ window.confirmExitWith = async (sid,personIdx) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
+  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`✅ ${s.name} a quitté l'école à ${time} avec ${a.name} (${a.relation||'Tutelle'})`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);
@@ -10600,7 +10641,7 @@ window.confirmExitAlone = async sid => {
   if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
+  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`ℹ️ ${s.name} a quitté l'école seul(e) à ${time}`);
   showExitDone('orange','🚶','Part seul',s.name,'L\'enfant quitte seul',time);
@@ -10643,7 +10684,7 @@ window.doExitRefused = async (sid) => {
   window._refPhotoData=null;
   closeModal();
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,type:'exit',status:'unauthorized',
+  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'unauthorized',
     label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo?photo.slice(0,500):null,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log);
   const alertMsg=`🚨 ALERTE SÉCURITÉ — Personne inconnue tente de récupérer ${s.name} à ${time}. Description: ${desc}`;
@@ -11023,7 +11064,7 @@ window.saveTutelle = () => {
     pushSync('aps','upsert',{id:tid,...data});
     toast(`${name} mis à jour`,'success');
   } else {
-    const nt={id:'ap'+Date.now(),...data};
+    const nt={id:_uid('ap_'),...data};
     DB.aps.push(nt);
     pushSync('aps','upsert',nt);
     toast(`✅ ${name} enregistré comme tutelle`,'success');
@@ -19135,7 +19176,7 @@ window.doEmergencyExit = async (sid) => {
   const note=(document.getElementById('emNote')?.value||'').trim();
   if(!note){toast('Précisez le motif','error');return;}
   const time=nowTime();
-  const log={id:'sl'+Date.now(),sid,name:s.name,date:today(),time,status:'emergency_exit',
+  const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'emergency_exit',
     label:`⚡ Exception LOCKDOWN — ${motif}`,note,type:'exit'};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
@@ -19272,7 +19313,7 @@ window.doManualPresent = async (sid) => {
   const time=document.getElementById('manualArrTime')?.value||nowTime();
   const note=document.getElementById('manualArrNote')?.value.trim()||'';
   const att={id:'a'+Date.now(),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined};
-  const log={id:'sl'+Date.now(),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
+  const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
   DB.attendance.push(att);
   DB.scan_log.unshift(log);
   await pushSync('attendance','post',att);
@@ -20279,7 +20320,7 @@ window.saveSalaire = (teacherId, month) => {
   const advTotal=_getAdvancesTotal(teacherId,month);
   const net=amount+bonus+ratPrime-deductions-advTotal;
   const idx=DB.salaries.findIndex(s=>s.teacher_id===teacherId&&s.month===month);
-  const obj={id:idx>=0?DB.salaries[idx].id:'sal'+Date.now(),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
+  const obj={id:idx>=0?DB.salaries[idx].id:_uid('sal_'),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
   if(idx>=0)DB.salaries[idx]=obj;else DB.salaries.push(obj);
   pushSync('salaries','upsert',obj);
   if(paid){
