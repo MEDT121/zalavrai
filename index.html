@@ -1522,6 +1522,7 @@ window.NAV = {
       {s:'Scolarité'},
       {id:'payments',i:'●',l:'Paiements'},
       {id:'etat_financier',i:'●',l:'État Financier'},
+      {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
       {id:'palmares',i:'●',l:'Palmarès'},
       {id:'cantine',i:'●',l:'Cantine Scolaire'},
       {id:'activites',i:'●',l:'Activités Extrascolaires'},
@@ -1723,6 +1724,7 @@ window.NAV = {
       {id:'caisse_depense',i:'●',l:'Enregistrer dépense'},
       {id:'caisse_rapport',i:'●',l:'Rapport du jour'},
       {id:'etat_financier',i:'●',l:'État Financier'},
+      {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
       {id:'fee_types',i:'●',l:'Types de frais'},
       {id:'cantine',i:'●',l:'Cantine Scolaire'},
       {s:'Infos'},
@@ -1812,7 +1814,7 @@ window.loadFromSupabase = async () => {
            medical,tenafep,evaluations,salaries,advances,
            sanctions,cantine,cantine_menus,cantine_presence,
            activites,activites_inscriptions,appreciations,medical_visits,
-           inscriptions,cahier_prep,prevision_matiere,fee_types,versements] = await Promise.all([
+           inscriptions,cahier_prep,prevision_matiere,fee_types,versements,journal_entries] = await Promise.all([
       _get('users','select=*'),
       _get('classes','select=*'),
       _get('students','select=*'),
@@ -1858,6 +1860,7 @@ window.loadFromSupabase = async () => {
       _get('prevision_matiere','select=*'),
       _get('fee_types','select=*'),
       _get('versements','select=*&order=date.desc&limit=1000'),
+      _get('journal_entries','select=*&order=date.desc&limit=500'),
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
@@ -1888,6 +1891,7 @@ window.loadFromSupabase = async () => {
     DB.prevision_matiere=safe(prevision_matiere);
     DB.fee_types=safe(fee_types);
     DB.versements=fd(versements);
+    DB.journal_entries=fd(journal_entries);
     _seedFeeTypes();
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:_settingsId()};}
@@ -2042,6 +2046,7 @@ function _cryptSnap() {
     inscriptions:DB.inscriptions||[],
     fee_types:DB.fee_types||[],
     versements:(DB.versements||[]).slice(0,1000),
+    journal_entries:(DB.journal_entries||[]).slice(0,500),
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -2249,7 +2254,7 @@ window.PT = {
   teacher_activity:'Activité Profs', audit_log:'Historique des modifications', year_mgmt:'Année Scolaire',
   export:'Export', alert_urgent:'Alerte Urgence',
   devoirs_parent:'Devoirs', palmares_parent:'Palmarès', recus_parent:'Mes Reçus',
-  caisse_paiement:'Enregistrer Paiement', caisse_depense:'Enregistrer Dépense', etat_financier:'État Financier',
+  caisse_paiement:'Enregistrer Paiement', caisse_depense:'Enregistrer Dépense', etat_financier:'État Financier', comptabilite:'Comptabilité Générale',
   recettes:'Recettes', depenses:'Dépenses',
   caisse_rapport:'Rapport du Jour',
   profil_gardien:'Mon profil', profil_caisse:'Mon profil',
@@ -11960,6 +11965,364 @@ window.sendClassFeeNotif = (feeTypeId) => {
   });
   saveToCrypt(); closeModal();
   toast(`✅ Notification envoyée à ${parents.length} parent(s)`,'success');
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  COMPTABILITÉ GÉNÉRALE — Plan comptable OHADA (adapté école DRC)
+// ══════════════════════════════════════════════════════════════════
+const _PC = {
+  '571': {n:'Caisse',          cl:5, type:'actif',   sens:'debit',  icon:'💵'},
+  '521': {n:'Banque/MM',       cl:5, type:'actif',   sens:'debit',  icon:'🏦'},
+  '706': {n:'Frais scolaires', cl:7, type:'produit', sens:'credit', icon:'📚'},
+  '707': {n:'Inscriptions',    cl:7, type:'produit', sens:'credit', icon:'✏️'},
+  '7062':{n:'Cantine',         cl:7, type:'produit', sens:'credit', icon:'🍽️'},
+  '7063':{n:'Sorties & Activités',cl:7,type:'produit',sens:'credit',icon:'🚌'},
+  '708': {n:'Autres produits', cl:7, type:'produit', sens:'credit', icon:'📋'},
+  '641': {n:'Rémunérations enseignants',cl:6,type:'charge',sens:'debit',icon:'👩‍🏫'},
+  '642': {n:'Rémunérations admin',cl:6,type:'charge',sens:'debit',icon:'👔'},
+  '643': {n:'Avances sur salaire',cl:6,type:'charge',sens:'debit',icon:'💳'},
+  '606': {n:'Fournitures scolaires',cl:6,type:'charge',sens:'debit',icon:'📦'},
+  '625': {n:'Transports & déplacements',cl:6,type:'charge',sens:'debit',icon:'🚗'},
+  '698': {n:'Charges diverses', cl:6, type:'charge', sens:'debit',  icon:'🔧'},
+};
+
+// Génère le journal complet à partir de toutes les sources de données
+window._getJournalAll = () => {
+  const feeTypes = DB.fee_types||[];
+  const entries = [];
+
+  // ── 1. Versements parents ──
+  (DB.versements||[]).forEach(v => {
+    const ft = feeTypes.find(f=>f.id===v.fee_type_id)||{};
+    let credit = '708';
+    if(ft.category==='scolaire' && ft.trimestre==='inscription') credit='707';
+    else if(ft.category==='scolaire') credit='706';
+    else if(ft.category==='cantine') credit='7062';
+    else if(ft.category==='sortie') credit='7063';
+    entries.push({
+      id:'je_v_'+v.id, date:v.date||today(), time:v.time||'00:00',
+      libelle:`${v.student_name||'?'} — ${v.fee_label||ft.label||'?'}${v.motif?' ('+v.motif+')':''}`,
+      debit:'571', credit, montant:Number(v.montant)||0,
+      ref:v.id, type:'versement', recu:v.recu_no||null, by:v.by_name||'',
+    });
+  });
+
+  // ── 2. Dépenses ──
+  (DB.daily_expenses||[]).forEach(e => {
+    const motifLower=(e.motif||'').toLowerCase();
+    let debit='698';
+    if(motifLower.includes('fourniture')||motifLower.includes('cahier')||motifLower.includes('craie')) debit='606';
+    else if(motifLower.includes('transport')||motifLower.includes('déplacement')||motifLower.includes('deplacement')) debit='625';
+    entries.push({
+      id:'je_e_'+e.id, date:e.date||today(), time:e.time||'00:00',
+      libelle:`Dépense : ${e.motif||'?'}`,
+      debit, credit:'571', montant:Number(e.amount)||0,
+      ref:e.id, type:'depense', by:e.by||'',
+    });
+  });
+
+  // ── 3. Salaires versés ──
+  (DB.salaries||[]).filter(s=>s.paid&&s.net>0).forEach(s => {
+    const teacher = (DB.users||[]).find(u=>u.id===s.teacher_id);
+    entries.push({
+      id:'je_s_'+s.id, date:s.paid_date||s.updated||today(), time:'00:00',
+      libelle:`Salaire ${s.month||'?'} — ${teacher?.name||'Enseignant'}`,
+      debit:'641', credit:'571', montant:Number(s.net)||0,
+      ref:s.id, type:'salaire', by:s.by||'',
+    });
+  });
+
+  // ── 4. Avances sur salaire ──
+  (DB.advances||[]).filter(a=>a.amount>0).forEach(a => {
+    const teacher = (DB.users||[]).find(u=>u.id===a.teacher_id);
+    entries.push({
+      id:'je_a_'+a.id, date:a.date||today(), time:a.time||'00:00',
+      libelle:`Avance salaire — ${teacher?.name||'?'}${a.reason?' ('+a.reason+')':''}`,
+      debit:'643', credit:'571', montant:Number(a.amount)||0,
+      ref:a.id, type:'avance', by:a.by||'',
+    });
+  });
+
+  // ── 5. Écritures manuelles ──
+  (DB.journal_entries||[]).forEach(j => entries.push({...j, type:'manuel'}));
+
+  return entries.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+};
+
+// Totaux par compte (débit / crédit)
+window._getBalanceComptes = (entries) => {
+  const bal={};
+  Object.keys(_PC).forEach(num=>{bal[num]={num, ...(_PC[num]), debit:0, credit:0};});
+  entries.forEach(e=>{
+    if(!e.montant) return;
+    if(bal[e.debit])  bal[e.debit].debit  += e.montant;
+    if(bal[e.credit]) bal[e.credit].credit += e.montant;
+  });
+  Object.values(bal).forEach(b=>{
+    b.solde = b.sens==='debit' ? b.debit-b.credit : b.credit-b.debit;
+  });
+  return bal;
+};
+
+R.comptabilite = () => {
+  if(!['direction','direction3'].includes(S.user.role)) return `<div style="text-align:center;padding:60px"><h2>Accès réservé</h2></div>`;
+  const tab = window._comptaTab||'journal';
+  const journal = _getJournalAll();
+  const balance = _getBalanceComptes(journal);
+
+  // Filtres période
+  const pf = window._comptaPeriod||'';
+  const filtered = pf ? journal.filter(e=>e.date&&e.date.slice(0,7)===pf) : journal;
+  const totalDebits  = filtered.reduce((s,e)=>s+e.montant,0);
+  const totalCredits = filtered.reduce((s,e)=>s+e.montant,0);
+
+  // Résultat
+  const totalProduits = Object.values(balance).filter(b=>b.type==='produit').reduce((s,b)=>s+b.solde,0);
+  const totalCharges  = Object.values(balance).filter(b=>b.type==='charge').reduce((s,b)=>s+b.solde,0);
+  const resultat = totalProduits - totalCharges;
+
+  // Mois disponibles
+  const moisDispos=[...new Set(journal.map(e=>e.date?.slice(0,7)).filter(Boolean))].sort().reverse().slice(0,12);
+
+  const tabStyle = (t) => `padding:9px 14px;border:none;cursor:pointer;font-size:12px;font-weight:700;border-radius:9px;transition:background .15s;background:${tab===t?'#243a6b':'transparent'};color:${tab===t?'#fff':'var(--text-secondary)'}`;
+
+  let body = '';
+
+  if(tab==='journal') {
+    const rows = filtered.slice().reverse().slice(0,200);
+    body = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <select class="form-select" style="flex:1;min-width:120px;max-width:180px;font-size:12px" onchange="window._comptaPeriod=this.value;render()">
+        <option value="">Toutes périodes</option>
+        ${moisDispos.map(m=>`<option value="${m}" ${pf===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <span style="font-size:12px;color:var(--text-muted)">${filtered.length} écriture(s)</span>
+      <button class="btn btn-outline btn-sm" onclick="openManualEntry()">➕ Écriture manuelle</button>
+      <button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px" onclick="exportJournalPDF()">⬇️ PDF</button>
+    </div>
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid var(--border)">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#f8f3ec">
+        <th style="padding:8px 10px;text-align:left;color:var(--text-secondary);font-weight:700;white-space:nowrap">Date</th>
+        <th style="padding:8px 10px;text-align:left;color:var(--text-secondary);font-weight:700">Libellé</th>
+        <th style="padding:8px 10px;text-align:center;color:var(--text-secondary);font-weight:700">Cpte D</th>
+        <th style="padding:8px 10px;text-align:center;color:var(--text-secondary);font-weight:700">Cpte C</th>
+        <th style="padding:8px 10px;text-align:right;color:#1f9d6b;font-weight:700">Débit $</th>
+        <th style="padding:8px 10px;text-align:right;color:#2f7bd6;font-weight:700">Crédit $</th>
+      </tr></thead>
+      <tbody>
+      ${rows.length?rows.map((e,i)=>{
+        const dAcc=_PC[e.debit]||{n:e.debit,icon:'?'};
+        const cAcc=_PC[e.credit]||{n:e.credit,icon:'?'};
+        return `<tr style="border-top:1px solid var(--border);background:${i%2?'transparent':'rgba(0,0,0,.015)'}">
+          <td style="padding:7px 10px;white-space:nowrap;color:var(--text-muted)">${e.date}</td>
+          <td style="padding:7px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.libelle)}">${esc(e.libelle)}</td>
+          <td style="padding:7px 10px;text-align:center"><span title="${dAcc.n}" style="font-size:11px;font-weight:700;color:#1f9d6b;background:#d8f3e6;padding:2px 6px;border-radius:5px">${e.debit}</span></td>
+          <td style="padding:7px 10px;text-align:center"><span title="${cAcc.n}" style="font-size:11px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:2px 6px;border-radius:5px">${e.credit}</span></td>
+          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#065f46">$${e.montant}</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#1d4ed8">$${e.montant}</td>
+        </tr>`;
+      }).join(''):'<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-muted)">Aucune écriture pour cette période</td></tr>'}
+      </tbody>
+      <tfoot><tr style="background:#f8f3ec;border-top:2px solid var(--border)">
+        <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px">TOTAUX</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">$${filtered.reduce((s,e)=>s+e.montant,0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">$${filtered.reduce((s,e)=>s+e.montant,0)}</td>
+      </tr></tfoot>
+    </table></div>`;
+  }
+
+  else if(tab==='grandlivre') {
+    const accts = Object.values(balance).filter(b=>b.debit>0||b.credit>0).sort((a,b)=>a.num.localeCompare(b.num));
+    body = accts.map(b=>{
+      const acctEntries=journal.filter(e=>e.debit===b.num||e.credit===b.num).sort((a,c)=>(a.date+a.time).localeCompare(c.date+c.time));
+      let running=0;
+      return `<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+        <div style="background:${b.cl===7?'linear-gradient(135deg,#1f9d6b,#047857)':b.cl===6?'linear-gradient(135deg,#dc2626,#b91c1c)':'linear-gradient(135deg,#243a6b,#1f4da0)'};padding:10px 14px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">${b.icon}</span>
+          <div style="flex:1;color:#fff"><div style="font-size:13px;font-weight:800">${b.num} — ${b.n}</div><div style="font-size:10px;opacity:.8">${b.debit} D · ${b.credit} C · Solde: $${b.solde}</div></div>
+          <span style="font-size:14px;font-weight:900;color:${b.cl===7?'#6ee7b7':b.cl===6?'#fca5a5':'#93c5fd'}">${b.cl===7?'+':'-'}$${b.solde}</span>
+        </div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:#f8f3ec"><th style="padding:5px 8px;text-align:left">Date</th><th style="padding:5px 8px">Libellé</th><th style="padding:5px 8px;text-align:right;color:#1f9d6b">Débit</th><th style="padding:5px 8px;text-align:right;color:#2f7bd6">Crédit</th><th style="padding:5px 8px;text-align:right">Solde</th></tr></thead>
+          <tbody>${acctEntries.map(e=>{
+            const isD=e.debit===b.num;
+            running += isD ? e.montant : -e.montant;
+            return `<tr style="border-top:1px solid var(--border)">
+              <td style="padding:5px 8px;white-space:nowrap;color:var(--text-muted)">${e.date}</td>
+              <td style="padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.libelle)}</td>
+              <td style="padding:5px 8px;text-align:right;color:#065f46">${isD?'$'+e.montant:''}</td>
+              <td style="padding:5px 8px;text-align:right;color:#1d4ed8">${!isD?'$'+e.montant:''}</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:700;color:${running>=0?'#1f9d6b':'#dc2626'}">$${running}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+    }).join('') || '<div style="text-align:center;padding:40px;color:var(--text-muted)">Aucune écriture</div>';
+  }
+
+  else if(tab==='balance') {
+    const rows=Object.values(balance).sort((a,b)=>a.num.localeCompare(b.num));
+    const totD=rows.reduce((s,b)=>s+b.debit,0), totC=rows.reduce((s,b)=>s+b.credit,0);
+    body=`<div style="overflow-x:auto;border-radius:12px;border:1px solid var(--border)">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#f8f3ec">
+        <th style="padding:8px 10px;text-align:left">N°</th>
+        <th style="padding:8px 10px;text-align:left">Intitulé</th>
+        <th style="padding:8px 10px;text-align:right;color:#1f9d6b">Mouvements Débit</th>
+        <th style="padding:8px 10px;text-align:right;color:#2f7bd6">Mouvements Crédit</th>
+        <th style="padding:8px 10px;text-align:right">Solde débiteur</th>
+        <th style="padding:8px 10px;text-align:right">Solde créditeur</th>
+      </tr></thead>
+      <tbody>
+      ${rows.map((b,i)=>{
+        const sd=b.sens==='debit'?Math.max(0,b.solde):0;
+        const sc=b.sens==='credit'?Math.max(0,b.solde):0;
+        return `<tr style="border-top:1px solid var(--border);background:${i%2?'transparent':'rgba(0,0,0,.015)'}">
+          <td style="padding:6px 10px"><span style="font-size:11px;font-weight:800;background:#f0f4ff;color:#243a6b;padding:2px 6px;border-radius:5px">${b.num}</span></td>
+          <td style="padding:6px 10px;font-weight:${b.debit||b.credit?700:400};color:${b.debit||b.credit?'inherit':'var(--text-muted)'}">${b.icon} ${b.n}</td>
+          <td style="padding:6px 10px;text-align:right;color:#065f46">${b.debit?'$'+b.debit:''}</td>
+          <td style="padding:6px 10px;text-align:right;color:#1d4ed8">${b.credit?'$'+b.credit:''}</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#1f9d6b">${sd?'$'+sd:''}</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#2f7bd6">${sc?'$'+sc:''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+      <tfoot><tr style="background:#f8f3ec;border-top:2px solid var(--border)">
+        <td colspan="2" style="padding:8px 10px;font-weight:800">TOTAUX</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">$${totD}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">$${totC}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1f9d6b">$${rows.reduce((s,b)=>s+(b.sens==='debit'?Math.max(0,b.solde):0),0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2f7bd6">$${rows.reduce((s,b)=>s+(b.sens==='credit'?Math.max(0,b.solde):0),0)}</td>
+      </tr></tfoot>
+    </table></div>
+    ${totD===totC?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#065f46;text-align:center">✅ Balance équilibrée — Débit = Crédit = $${totD}</div>`:`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center">⚠️ Balance déséquilibrée — écart de $${Math.abs(totD-totC)}</div>`}`;
+  }
+
+  else if(tab==='resultat') {
+    const produits=Object.values(balance).filter(b=>b.type==='produit').sort((a,c)=>a.num.localeCompare(c.num));
+    const charges=Object.values(balance).filter(b=>b.type==='charge').sort((a,c)=>a.num.localeCompare(c.num));
+    body=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="border-radius:14px;overflow:hidden;border:1.5px solid #86efac">
+        <div style="background:linear-gradient(135deg,#1f9d6b,#047857);padding:12px 14px;color:#fff;font-weight:800;font-size:13px">📈 PRODUITS</div>
+        <div style="background:#f0fdf4">
+        ${produits.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #d8f3e6">
+          <span style="font-size:12px">${b.icon} ${b.n}</span>
+          <span style="font-size:13px;font-weight:700;color:#065f46">$${b.solde}</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#d8f3e6;font-weight:800"><span>TOTAL</span><span style="color:#065f46">$${totalProduits}</span></div>
+        </div>
+      </div>
+      <div style="border-radius:14px;overflow:hidden;border:1.5px solid #fca5a5">
+        <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:12px 14px;color:#fff;font-weight:800;font-size:13px">📉 CHARGES</div>
+        <div style="background:#fff5f5">
+        ${charges.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #fecaca">
+          <span style="font-size:12px">${b.icon} ${b.n}</span>
+          <span style="font-size:13px;font-weight:700;color:#991b1b">$${b.solde}</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#fee2e2;font-weight:800"><span>TOTAL</span><span style="color:#991b1b">$${totalCharges}</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="border-radius:14px;padding:18px;text-align:center;background:${resultat>=0?'linear-gradient(135deg,#1f9d6b,#047857)':'linear-gradient(135deg,#dc2626,#b91c1c)'};color:#fff">
+      <div style="font-size:12px;opacity:.8;margin-bottom:6px">${resultat>=0?'✅ RÉSULTAT NET BÉNÉFICIAIRE':'⚠️ RÉSULTAT NET DÉFICITAIRE'}</div>
+      <div style="font-size:36px;font-weight:900">$${Math.abs(resultat)}</div>
+      <div style="font-size:12px;opacity:.8;margin-top:4px">Produits ($${totalProduits}) — Charges ($${totalCharges})</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:12px;padding:13px;font-weight:700" onclick="exportComptabilitePDF()">⬇️ Exporter Compte de Résultat PDF</button>`;
+  }
+
+  return `
+  <div class="ww-toolbar" style="animation:fadeInUp .3s ease both;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#243a6b,#1f4da0);display:flex;align-items:center;justify-content:center;font-size:20px">📒</div>
+      <div><div style="font-size:15px;font-weight:800">Comptabilité Générale</div><div style="font-size:11px;color:var(--text-muted)">Plan comptable OHADA — ${journal.length} écritures</div></div>
+    </div>
+  </div>
+  <!-- Résumé rapide -->
+  <div class="hbento" style="margin-bottom:12px">
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#047857);color:#fff;cursor:default"><div class="hic">📈</div><div class="hbig" style="font-size:18px">$${totalProduits}</div><div class="hsub">Produits</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;cursor:default"><div class="hic">📉</div><div class="hbig" style="font-size:18px">$${totalCharges}</div><div class="hsub">Charges</div></div>
+    <div class="htile" style="background:${resultat>=0?'linear-gradient(135deg,#243a6b,#1f4da0)':'linear-gradient(135deg,#7c2d12,#9a3412)'};color:#fff;cursor:default"><div class="hic">${resultat>=0?'✅':'⚠️'}</div><div class="hbig" style="font-size:18px">${resultat>=0?'+':'-'}$${Math.abs(resultat)}</div><div class="hsub">Résultat</div></div>
+  </div>
+  <!-- Onglets -->
+  <div style="display:flex;gap:4px;background:var(--bg-card);border-radius:12px;padding:4px;margin-bottom:14px;border:1px solid var(--border)">
+    <button style="${tabStyle('journal')}"    onclick="window._comptaTab='journal';render()">📋 Journal</button>
+    <button style="${tabStyle('grandlivre')}" onclick="window._comptaTab='grandlivre';render()">📖 Grand Livre</button>
+    <button style="${tabStyle('balance')}"    onclick="window._comptaTab='balance';render()">⚖️ Balance</button>
+    <button style="${tabStyle('resultat')}"   onclick="window._comptaTab='resultat';render()">📊 Résultat</button>
+  </div>
+  ${body}`;
+};
+
+// ── Écriture manuelle ──
+window.openManualEntry = () => {
+  const pcOpts = Object.entries(_PC).map(([k,v])=>`<option value="${k}">${k} — ${v.n}</option>`).join('');
+  openM('➕ Écriture manuelle',`
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><label class="form-label">Date *</label><input class="form-input" id="je_date" type="date" value="${today()}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Libellé *</label><input class="form-input" id="je_lib" placeholder="Ex: Régularisation, Don, Subvention..."></div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1"><label class="form-label">Compte débité *</label><select class="form-select" id="je_debit">${pcOpts}</select></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Compte crédité *</label><select class="form-select" id="je_credit">${pcOpts.replace('<option value="571"','<option value="571" selected')}</select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Montant ($) *</label><input class="form-input" id="je_montant" type="number" min="0" step="0.01" placeholder="0.00"></div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveManualEntry()">Enregistrer</button>`);
+};
+window.saveManualEntry = () => {
+  const date=($('je_date')?.value||today()).trim();
+  const lib=($('je_lib')?.value||'').trim();
+  const debit=($('je_debit')?.value||'').trim();
+  const credit=($('je_credit')?.value||'').trim();
+  const montant=parseFloat($('je_montant')?.value||0);
+  if(!lib||!debit||!credit||!montant||montant<=0){toast('Remplissez tous les champs','error');return;}
+  if(debit===credit){toast('Débit et crédit doivent être différents','error');return;}
+  if(!DB.journal_entries) DB.journal_entries=[];
+  const e={id:'je_m_'+Date.now(),date,time:nowTime(),libelle:lib,debit,credit,montant,type:'manuel',by:S.user.name,school_id:window._currentSchoolId||null};
+  DB.journal_entries.push(e);
+  pushSync('journal_entries','post',e);
+  saveToCrypt(); closeModal(); toast('Écriture enregistrée','success'); render();
+};
+
+// ── Export PDF Compte de Résultat ──
+window.exportComptabilitePDF = () => {
+  const sc=DB.settings?.school||{}; const school=sc.name||'SchoolSafe';
+  const journal=_getJournalAll(); const balance=_getBalanceComptes(journal);
+  const produits=Object.values(balance).filter(b=>b.type==='produit');
+  const charges=Object.values(balance).filter(b=>b.type==='charge');
+  const totP=produits.reduce((s,b)=>s+b.solde,0);
+  const totC=charges.reduce((s,b)=>s+b.solde,0);
+  const res=totP-totC;
+  const printDate=new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric'});
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;padding:20px}.page{background:#fff;max-width:620px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;color:#fff}.hdr h1{font-size:16px;font-weight:800}.hdr p{font-size:11px;opacity:.7;margin-top:4px}.sec{padding:0 20px 16px}.sec-title{font-size:13px;font-weight:800;padding:12px 0 8px;border-bottom:2px solid currentColor;margin-bottom:8px}.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12px}.lbl{color:#374151}.val{font-weight:700}.tot{display:flex;justify-content:space-between;padding:10px 0;font-size:14px;font-weight:800}.res{text-align:center;padding:20px;margin:16px 20px;border-radius:12px;color:#fff}.footer{padding:12px 20px;text-align:center;font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb}@media print{body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:10mm}}`;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Compte de Résultat — ${esc(school)}</title><style>${CSS}</style></head><body><div class="page">
+    <div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;float:right;border:2px solid rgba(255,255,255,.4)">`:''}<h1>📒 Compte de Résultat</h1><p>${esc(school)} · Édité le ${printDate} · Année ${DB.settings.year||''}</p></div>
+    <div class="sec"><div class="sec-title" style="color:#1f9d6b">📈 PRODUITS (Classe 7)</div>${produits.map(b=>`<div class="row"><span class="lbl">${b.num} — ${b.n}</span><span class="val" style="color:#1f9d6b">$${b.solde}</span></div>`).join('')}<div class="tot" style="color:#1f9d6b"><span>TOTAL PRODUITS</span><span>$${totP}</span></div></div>
+    <div class="sec"><div class="sec-title" style="color:#dc2626">📉 CHARGES (Classe 6)</div>${charges.map(b=>`<div class="row"><span class="lbl">${b.num} — ${b.n}</span><span class="val" style="color:#dc2626">$${b.solde}</span></div>`).join('')}<div class="tot" style="color:#dc2626"><span>TOTAL CHARGES</span><span>$${totC}</span></div></div>
+    <div class="res" style="background:${res>=0?'#1f9d6b':'#dc2626'}"><div style="font-size:12px;opacity:.8;margin-bottom:6px">${res>=0?'RÉSULTAT NET BÉNÉFICIAIRE':'RÉSULTAT NET DÉFICITAIRE'}</div><div style="font-size:36px;font-weight:900">${res>=0?'+':'-'}$${Math.abs(res)}</div></div>
+    <div class="footer">${esc(school)} · SchoolSafe · Plan comptable OHADA · ${printDate}</div>
+    <button onclick="window.print()" style="display:block;margin:16px auto;padding:10px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨️ Imprimer</button>
+  </div></body></html>`;
+  dlPDF(html,`CompteResultat-${today()}.pdf`);
+};
+
+// ── Export Journal PDF ──
+window.exportJournalPDF = () => {
+  const sc=DB.settings?.school||{}; const school=sc.name||'SchoolSafe';
+  const journal=_getJournalAll().slice(-500);
+  const printDate=new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric'});
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:12px}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#243a6b;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #f3f4f6}tr:nth-child(even){background:#f8f3ec}.hdr{margin-bottom:12px}.hdr h1{font-size:15px;font-weight:800;color:#243a6b}.hdr p{font-size:10px;color:#6b7280}@media print{@page{margin:8mm}}`;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Journal — ${esc(school)}</title><style>${CSS}</style></head><body>
+    <div class="hdr"><h1>📋 Journal des Écritures — ${esc(school)}</h1><p>Édité le ${printDate} · ${journal.length} écritures</p></div>
+    <table><thead><tr><th>Date</th><th>Libellé</th><th>Cpte D</th><th>Cpte C</th><th style="text-align:right">Montant $</th></tr></thead>
+    <tbody>${journal.map(e=>`<tr><td>${e.date}</td><td>${esc(e.libelle)}</td><td>${e.debit}</td><td>${e.credit}</td><td style="text-align:right;font-weight:700">$${e.montant}</td></tr>`).join('')}</tbody>
+    <tfoot><tr style="background:#243a6b;color:#fff"><td colspan="4" style="padding:7px 8px;font-weight:800">TOTAL</td><td style="text-align:right;padding:7px 8px;font-weight:800">$${journal.reduce((s,e)=>s+e.montant,0)}</td></tr></tfoot>
+    </table><button onclick="window.print()" style="margin-top:12px;padding:8px 20px;background:#243a6b;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimer</button>
+  </body></html>`;
+  dlPDF(html,`Journal-${today()}.pdf`);
 };
 
 R.caisse_rapport = () => {
