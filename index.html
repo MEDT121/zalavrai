@@ -6214,6 +6214,7 @@ R.payments = () => {
   const blockedCount=DB.students.filter(s=>s.access_blocked).length;
   const ringR = 38, ringC = 2*Math.PI*ringR, ringDash = Math.round(pct/100*ringC);
   return `
+  ${_helpBanner('payments','<strong>Page Paiements — vue d\'ensemble</strong><br>Chaque élève affiche ses boutons T1 / T2 / T3 colorés : 🔴 rien payé · 🟡 acompte en cours · 🟢 soldé.<br>Cliquez sur un bouton pour ouvrir le <strong>détail du trimestre</strong> : historique complet + saisie d\'un nouveau versement.<br>Utilisez les filtres (Soldés / Partiels / Non payés) pour cibler rapidement les élèves à relancer.')}
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile h-pres" style="cursor:default">
       <div class="hgauge" data-pct="${pct}" style="background:conic-gradient(#2fbf8f 0 0%, rgba(255,255,255,.13) 0% 100%)">
@@ -11329,6 +11330,16 @@ R.depenses = () => {
   `;
 };
 
+// ── AIDE CONTEXTUELLE — bannière discrète masquable par page ──
+window._helpBanner = (key, msg) => {
+  if(localStorage.getItem('_hd_'+key)==='1') return '';
+  return `<div id="hb_${key}" style="display:flex;align-items:flex-start;gap:10px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1.5px solid #93c5fd;border-radius:14px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#1e40af;line-height:1.6">
+    <span style="font-size:18px;flex-shrink:0;margin-top:1px">ℹ️</span>
+    <div style="flex:1">${msg}</div>
+    <button onclick="localStorage.setItem('_hd_${key}','1');const el=document.getElementById('hb_${key}');if(el)el.remove()" style="flex-shrink:0;background:none;border:none;cursor:pointer;font-size:18px;color:#93c5fd;padding:0;line-height:1" title="Masquer ce guide">✕</button>
+  </div>`;
+};
+
 R.caisse_paiement = () => {
   const _g=_requireRole('direction','direction3'); if(_g) return _g;
   const _totalStu = (DB.students||[]).length;
@@ -11337,6 +11348,7 @@ R.caisse_paiement = () => {
   const _todayCount = _todayVers.length;
   const feeTypes = (DB.fee_types||[]).filter(f=>f.active!==false);
   return `
+  ${_helpBanner('caisse_paiement','<strong>Comment utiliser la Caisse ?</strong><br>① Trouvez l\'élève dans la liste par classe (ou tapez son nom dans la barre de recherche).<br>② Cliquez sur son nom → les cartes T1 / T2 / T3 / Inscription apparaissent.<br>③ Cliquez sur le trimestre concerné → entrez le montant reçu (même partiel) → <strong>Enregistrer + Reçu</strong>.<br>Un reçu est envoyé automatiquement au parent à chaque versement, quel que soit le montant.')}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#2fbf8f);color:#fff;padding:13px 10px">
       <div style="font-size:19px">🎓</div><div class="hbig" style="font-size:24px">${_totalStu}</div><div class="hsub">élèves</div>
@@ -12066,6 +12078,7 @@ R.caisse_depense = () => {
   const catOpts=_EXP_CATS.map(c=>`<option value="${c.code}">${c.icon} ${c.label}</option>`).join('');
   const payOpts=_PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
   return `
+  ${_helpBanner('caisse_depense','Enregistrez chaque sortie d\'argent (fournitures, salaires, autres) — la catégorie OHADA est appliquée automatiquement. Les dépenses non validées apparaissent ici jusqu\'à validation par la Direction 1.')}
   <div class="hbento" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff;padding:13px 10px">
       <div style="font-size:19px">📉</div><div class="hbig" style="font-size:22px">$${todayTotal}</div><div class="hsub">Dépenses non validées</div>
@@ -12183,6 +12196,7 @@ R.fee_types = () => {
   <button onclick="go('caisse_paiement')" style="display:flex;align-items:center;gap:8px;background:transparent;border:1.5px solid var(--border);border-radius:12px;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:14px;width:100%">
     ← Retour à la Caisse
   </button>
+  ${_helpBanner('fee_types','<strong>Types de frais — à quoi ça sert ?</strong><br>Chaque type de frais que vous créez ici apparaît automatiquement dans la Caisse et le profil des parents.<br>→ <strong>Liez à un trimestre</strong> (T1/T2/T3) pour que le suivi de solde et l\'OHADA se génèrent automatiquement.<br>→ <strong>Montant par défaut</strong> : définissez la cible à atteindre pour que le système sache quand le trimestre est soldé.<br>→ Désactivez un frais pour le masquer sans le supprimer.')}
   <div class="premium-section">
     <div class="premium-section-title">⚙ Types de frais — catalogue</div>
     <p style="font-size:12px;color:var(--text-muted);margin:4px 0 14px">Chaque type de frais apparaît dans la liste de la caisse. Vous pouvez en créer librement.</p>
@@ -12695,6 +12709,7 @@ R.tresorerie = () => {
   allMov.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
   const recent=allMov.slice(0,50);
   return `
+  ${_helpBanner('tresorerie','<strong>Trésorerie — résumé automatique</strong><br>Cette page consolide <strong>automatiquement</strong> toutes les recettes (paiements élèves) et toutes les dépenses du mois sélectionné.<br>Aucune saisie ici — tout vient de ce qui est enregistré dans la Caisse et la page Dépenses.<br>Changez le mois en haut à droite pour consulter n\'importe quelle période de l\'année.')}
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#1e3a5f,#2563eb);display:flex;align-items:center;justify-content:center;font-size:20px">🏦</div>
@@ -12930,6 +12945,7 @@ R.comptabilite = () => {
   }
 
   return `
+  ${_helpBanner('comptabilite','Vue OHADA automatique — chaque paiement, dépense et salaire génère une écriture comptable. Journal : toutes les écritures dans l\'ordre. Balance : solde par compte. Résultat : Produits − Charges. Aucune saisie manuelle n\'est nécessaire.')}
   <div class="ww-toolbar" style="animation:fadeInUp .3s ease both;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#243a6b,#1f4da0);display:flex;align-items:center;justify-content:center;font-size:20px">📒</div>
@@ -13411,6 +13427,7 @@ R.caisse_rapport = () => {
   }
   const pastReps=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated');
   return `
+  ${_helpBanner('caisse_rapport','Ce rapport récapitule toutes les recettes et dépenses du jour non encore validées. Envoyez-le à la Direction 1 en fin de journée — après validation vous ne pourrez plus le modifier. Le rapport automatique part à 16h00.')}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">📈</div><div class="hbig" style="font-size:24px">${totalIn}$</div><div class="hsub">encaissé</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff"><div class="hic">📉</div><div class="hbig" style="font-size:24px">${totalOut}$</div><div class="hsub">dépensé</div></div>
