@@ -11482,11 +11482,11 @@ window.caisseSelectStudent = (sid) => {
         const col=f.done?'#1f9d6b':f.paid>0?'#f59e0b':'#ef5b5b';
         const bg=f.unconfigured?'linear-gradient(135deg,#f3f4f6,#e5e7eb)':f.done?'linear-gradient(135deg,#d8f3e6,#a7f3d0)':f.paid>0?'linear-gradient(135deg,#fff8f0,#fde68a)':'linear-gradient(135deg,#fff1f0,#fecaca)';
         const border=f.unconfigured?'#d1d5db':f.done?'#86efac':f.paid>0?'#fcd34d':'#fca5a5';
-        const clickable=!f.done;
-        return `<div onclick="${clickable?`caisseQuickPay('${f.fee_type_id||''}','${f.trimestre}')`:''}" style="border-radius:12px;background:${bg};border:1.5px solid ${border};padding:12px;${clickable?'cursor:pointer;':'opacity:.8;'}transition:transform .15s,box-shadow .15s" ${clickable?' onmouseenter="this.style.transform=\'scale(1.02)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,.10)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'"':''}>
+        const clickable=true; // toujours cliquable pour voir l'historique
+        return `<div onclick="openTrimLedger('${sid}','${f.trimestre}')" style="border-radius:12px;background:${bg};border:1.5px solid ${border};padding:12px;cursor:pointer;transition:transform .15s,box-shadow .15s" onmouseenter="this.style.transform='scale(1.02)';this.style.boxShadow='0 4px 14px rgba(0,0,0,.10)'" onmouseleave="this.style.transform='';this.style.boxShadow=''">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
             <span style="font-size:12px;font-weight:700;color:#1a1a1a">${esc(f.label)}</span>
-            ${f.done?'<span style="font-size:14px">✅</span>':f.unconfigured?'<span style="font-size:10px;color:#6b7280">⚙ non défini</span>':'<span style="font-size:11px;background:#fff;border-radius:6px;padding:2px 7px;font-weight:700;color:#374151;box-shadow:0 1px 3px rgba(0,0,0,.1)">Payer →</span>'}
+            ${f.done?'<span style="font-size:11px;background:#d8f3e6;border-radius:6px;padding:2px 7px;font-weight:700;color:#065f46;box-shadow:0 1px 3px rgba(0,0,0,.1)">Voir →</span>':f.unconfigured?'<span style="font-size:11px;background:#fff;border-radius:6px;padding:2px 7px;font-weight:700;color:#374151;box-shadow:0 1px 3px rgba(0,0,0,.1)">Détail →</span>':'<span style="font-size:11px;background:#fff;border-radius:6px;padding:2px 7px;font-weight:700;color:#374151;box-shadow:0 1px 3px rgba(0,0,0,.1)">Payer →</span>'}
           </div>
           <div style="height:6px;border-radius:6px;background:rgba(0,0,0,.08);margin-bottom:5px"><div style="height:6px;border-radius:6px;background:${col};width:${pct}%;transition:width .5s ease"></div></div>
           <div style="font-size:11px">
@@ -11564,6 +11564,158 @@ window.caisseQuickPay = (feeTypeId, trimestre) => {
   const detailSec=$('caisse_form'); if(detailSec){detailSec.scrollIntoView({behavior:'smooth',block:'nearest'});}
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
+
+// ── LIVRE DE COMPTE PAR TRIMESTRE ─────────────────────────────────────────────
+window.openTrimLedger = (sid, trimestre) => {
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s)return;
+  const cl=gc(s.cid);
+  const fees=getFees();
+  const ft=(DB.fee_types||[]).find(f=>f.trimestre===trimestre&&f.active!==false);
+  const feeTypeId=ft?.id||null;
+  const label=ft?.label||`Frais scolaires — ${trimestre}`;
+  const target=ft?Math.max(Number(ft.montant_defaut)||0,Number(fees[trimestre])||0):Number(fees[trimestre])||0;
+  const trimLabel={'T1':'1er Trimestre','T2':'2ème Trimestre','T3':'3ème Trimestre','inscription':'Inscription'}[trimestre]||trimestre;
+  // Tous les versements liés à ce trimestre
+  const vers=(DB.versements||[]).filter(v=>v.sid===sid&&(v.fee_type_id===feeTypeId||(v.trimestre===trimestre&&!v.fee_type_id)))
+    .sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  const totalPaid=vers.reduce((s,v)=>s+(Number(v.montant)||0),0);
+  const remaining=Math.max(0,target-totalPaid);
+  const pct=target>0?Math.min(100,Math.round(totalPaid/target*100)):0;
+  const soldé=target>0&&totalPaid>=target;
+  // Mémoriser pour saveTrimLedger
+  window._tl={sid,trimestre,feeTypeId,label,target};
+  const col=soldé?'#1f9d6b':totalPaid>0?'#f59e0b':'#ef5b5b';
+  const renderBody=()=>`
+    <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:14px;padding:16px 18px;margin-bottom:16px;color:#fff">
+      <div style="font-size:12px;opacity:.75;margin-bottom:4px">${esc(s.name)} · ${esc(s.mat)} · ${cl?esc(cl.name):''}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:26px;font-weight:900;line-height:1">$${totalPaid.toLocaleString()}</div>
+          <div style="font-size:12px;opacity:.8">versé sur $${target>0?target.toLocaleString():'?'} attendu</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:32px;font-weight:900;line-height:1">${pct}%</div>
+          ${soldé?`<div style="font-size:11px;color:#86efac;font-weight:700">✅ Soldé</div>`:`<div style="font-size:11px;opacity:.75">Reste : <strong>$${remaining.toLocaleString()}</strong></div>`}
+        </div>
+      </div>
+      <div style="height:10px;border-radius:10px;background:rgba(255,255,255,.2)">
+        <div style="height:10px;border-radius:10px;background:${soldé?'#86efac':'#fde68a'};width:${pct}%;transition:width .5s ease"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">📜 Historique — ${vers.length} versement${vers.length!==1?'s':''}</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px;${vers.length>4?'max-height:220px;overflow-y:auto;':''}">
+      ${vers.length===0?`<div style="text-align:center;color:var(--text-muted);padding:14px 0;font-size:12px">Aucun paiement enregistré pour ce trimestre</div>`:''}
+      ${vers.map((v,i)=>{
+        const cumul=vers.slice(0,i+1).reduce((s,x)=>s+(Number(x.montant)||0),0);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border)">
+          <div style="width:28px;height:28px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${i+1}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:14px;font-weight:800;color:#1f9d6b">+$${Number(v.montant).toLocaleString()}</span>
+              <span style="font-size:10px;color:var(--text-muted)">${v.date||''} à ${v.time||'?'}</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px">
+              ${esc(v.payment_method||'Espèces')} · Encaissé par ${esc(v.by_name||v.by||'?')}${v.note?` · ${esc(v.note)}`:''}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10px;color:var(--text-muted)">Cumulé</div>
+            <div style="font-size:12px;font-weight:700;color:${target>0&&cumul>=target?'#1f9d6b':cumul>0?'#f59e0b':'#6b7280'}">$${cumul.toLocaleString()}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="printVersementRecu('${v.id}')">🖨</button>
+        </div>`;
+      }).join('')}
+      ${vers.length>0&&target>0?`<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;background:${soldé?'#d8f3e6':'#fff8f0'};font-size:12px;font-weight:700">
+        <span>Total versé</span><span style="color:${col}">$${totalPaid.toLocaleString()} / $${target.toLocaleString()}</span>
+      </div>`:''}
+    </div>
+    ${!soldé?`
+    <div style="border-top:2px solid var(--border);padding-top:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">➕ Nouveau versement</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Montant ($) *</label>
+          <input class="form-input" id="tl_amount" type="number" min="1" step="1"
+            value="${remaining>0&&remaining<=target?remaining:''}"
+            placeholder="${remaining>0?`Reste : $${remaining.toLocaleString()}`:'Montant'}">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Mode de paiement</label>
+          <select id="tl_pay" class="form-select">
+            ${_PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Note interne (optionnel)</label>
+        <input class="form-input" id="tl_note" placeholder="Ex : 2ème versement, apporté par la mère...">
+      </div>
+    </div>`:`<div style="background:#d8f3e6;border-radius:12px;padding:14px;text-align:center;font-size:13px;font-weight:700;color:#065f46">✅ ${esc(label)} — Entièrement soldé pour ${esc(s.name)}</div>`}
+  `;
+  openM(`📋 ${label}`,renderBody(),
+    !soldé?`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>
+            <button class="btn btn-primary" onclick="saveTrimLedger()">💾 Enregistrer + Reçu</button>`
+          :`<button class="btn btn-primary" onclick="closeModal()">Fermer</button>`
+  );
+};
+
+window.saveTrimLedger = async () => {
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const tl=window._tl; if(!tl){toast('Contexte perdu, relancez','error');return;}
+  const s=(DB.students||[]).find(x=>x.id===tl.sid); if(!s){toast('Élève introuvable','error');return;}
+  const montant=parseFloat($('tl_amount')?.value||'0');
+  if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
+  const payment_method=$('tl_pay')?.value||'Espèces';
+  const note=($('tl_note')?.value||'').trim();
+  const cl=gc(s.cid);
+  const recuNo=genRecuNo();
+  const versement={
+    id:'v'+Date.now()+Math.random().toString(36).slice(2,5),
+    sid:s.id, student_name:s.name, mat:s.mat,
+    fee_type_id:tl.feeTypeId||null, fee_label:tl.label,
+    compte_cat:tl.trimestre==='inscription'?'707':'706',
+    trimestre:tl.trimestre, montant, motif:tl.label,
+    note:note||null, payment_method,
+    date:today(), time:nowTime(),
+    by:S.user.id, by_name:S.user.name,
+    recu_no:recuNo, school_id:window._currentSchoolId||null,
+  };
+  DB.versements=DB.versements||[];
+  DB.versements.unshift(versement);
+  pushSync('versements','post',versement);
+  // daily_record
+  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,
+    type:tl.feeTypeId||'706',type_label:tl.label,trimestre:tl.trimestre,
+    amount:montant,note:tl.label+(note?' — '+note:''),
+    date:today(),time:nowTime(),by:S.user.id,validated:false,school_id:window._currentSchoolId||null};
+  DB.daily_records.push(rec);
+  pushSync('daily_records','post',rec);
+  // Auto-marquer trimestre soldé si total atteint
+  if(tl.feeTypeId&&tl.target>0){
+    const totalNow=(DB.versements).filter(v=>v.sid===s.id&&(v.fee_type_id===tl.feeTypeId||(v.trimestre===tl.trimestre&&!v.fee_type_id))).reduce((a,v)=>a+(Number(v.montant)||0),0);
+    if(totalNow>=tl.target){
+      let p=(DB.payments||[]).find(px=>px.sid===s.id&&px.t===tl.trimestre);
+      if(p&&!p.paid){p.paid=true;p.date=today();p.by=S.user.id;pushSync('payments','patch',{paid:true,date:today(),by:S.user.id},`sid=eq.${s.id}&t=eq.${tl.trimestre}`);}
+    }
+  }
+  // Notif parent
+  if(s.pid){
+    const msg=`🧾 Reçu ${recuNo} — ${tl.label} · $${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,msg,time:nowTime(),date:today(),read:false,type:'receipt',
+      receipt:{num:recuNo,student:s.name,mat:s.mat,classe:cl?cl.name:'',fee_label:tl.label,motif:tl.label,note:note||null,montant,by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
+    DB.notifs.unshift(n);pushSync('notifs','post',n);
+  }
+  logAudit('paiement',`${s.name} — ${tl.label} — $${montant} (${payment_method})`);
+  saveToCrypt();
+  // Imprimer reçu puis ré-ouvrir le ledger mis à jour
+  setTimeout(()=>{
+    printVersementRecu(versement.id);
+    openTrimLedger(tl.sid, tl.trimestre);
+    // Rafraîchir les cartes si le formulaire caisse est ouvert
+    if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid);
+  }, 300);
+  toast(`✅ $${montant} enregistré — ${tl.label}`,'success');
+};
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   const el=document.createElement('div');
   el.className='pay-stamp-overlay';
