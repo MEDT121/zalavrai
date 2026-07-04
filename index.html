@@ -11660,62 +11660,117 @@ window.openTrimLedger = (sid, trimestre) => {
   );
 };
 
+// ══════════════════════════════════════════════════════════════
+// PIPELINE FINANCIER CENTRAL — toute recette/dépense passe ici
+// ══════════════════════════════════════════════════════════════
+window._enregistrerMouvement = async (opts) => {
+  const {
+    sid=null, montant, motif='', note='',
+    payment_method='Espèces',
+    fee_type_id=null, fee_label='',
+    trimestre=null, compte_cat='706',
+    mvt_type='recette',
+    uid_perso=null,
+  } = opts;
+  if(!montant||montant<=0) throw new Error('Montant invalide');
+  const recu_no = opts.recu_no || genRecuNo();
+  const s = sid ? (DB.students||[]).find(x=>x.id===sid) : null;
+  const cl = s ? gc(s.cid) : null;
+  const label = fee_label || motif || 'Paiement';
+
+  // 1 — VERSEMENT
+  const versement = {
+    id:'v'+Date.now()+Math.random().toString(36).slice(2,5),
+    sid, student_name:s?.name||null, mat:s?.mat||null,
+    fee_type_id, fee_label:label, compte_cat, trimestre,
+    montant, motif, note:note||null,
+    payment_method, mvt_type,
+    date:today(), time:nowTime(),
+    by:S.user.id, by_name:S.user.name,
+    recu_no, school_id:window._currentSchoolId||null,
+    uid_perso,
+  };
+  DB.versements=DB.versements||[];
+  DB.versements.unshift(versement);
+  pushSync('versements','post',versement);
+
+  // 2 — DAILY RECORD (caisse du jour)
+  const rec={id:'dr'+Date.now(),sid,student_name:s?.name||null,mat:s?.mat||null,
+    type:fee_type_id||compte_cat,type_label:label,trimestre,amount:montant,
+    note:motif+(note?' — '+note:''),mvt_type,
+    date:today(),time:nowTime(),by:S.user.id,validated:false,
+    school_id:window._currentSchoolId||null};
+  DB.daily_records=DB.daily_records||[];
+  DB.daily_records.push(rec);
+  pushSync('daily_records','post',rec);
+
+  // 3 — ÉCRITURE OHADA AUTOMATIQUE
+  if(!DB.journal_entries) DB.journal_entries=[];
+  const isRecette=mvt_type!=='depense';
+  const ohadaEntry={
+    id:'je_auto_'+versement.id,
+    date:today(),time:nowTime(),
+    libelle:label+(s?' — '+s.name:'')+(note?' ('+note+')':''),
+    debit: isRecette?'571':compte_cat,
+    credit:isRecette?compte_cat:'571',
+    montant, type:'auto', ref:versement.id, recu_no,
+    by:S.user.name, school_id:window._currentSchoolId||null,
+  };
+  DB.journal_entries.push(ohadaEntry);
+  pushSync('journal_entries','post',ohadaEntry);
+
+  // 4 — AUTO-SOLDE trimestre (rétrocompat DB.payments)
+  if(sid && fee_type_id && trimestre){
+    const ft=(DB.fee_types||[]).find(f=>f.id===fee_type_id);
+    const target=ft?Number(ft.montant_defaut||0):0;
+    if(target>0){
+      const totalPaid=(DB.versements).filter(v=>v.sid===sid&&(v.fee_type_id===fee_type_id||(v.trimestre===trimestre&&!v.fee_type_id))).reduce((a,v)=>a+(Number(v.montant)||0),0);
+      if(totalPaid>=target){
+        const p=(DB.payments||[]).find(px=>px.sid===sid&&px.t===trimestre);
+        if(p&&!p.paid){p.paid=true;p.date=today();p.by=S.user.id;pushSync('payments','patch',{paid:true,date:today(),by:S.user.id},`sid=eq.${sid}&t=eq.${trimestre}`);}
+      }
+    }
+  }
+
+  // 5 — NOTIFICATION PARENT
+  if(sid&&s?.pid){
+    const msg=`🧾 Reçu ${recu_no} — ${label} · $${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,
+      msg,time:nowTime(),date:today(),read:false,type:'receipt',
+      receipt:{num:recu_no,student:s.name,mat:s.mat,classe:cl?cl.name:'',
+        fee_label:label,motif,note:note||null,montant,
+        by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
+    DB.notifs.unshift(n);pushSync('notifs','post',n);
+  }
+
+  // 6 — AUDIT + SAVE
+  logAudit(mvt_type, `${s?s.name:(uid_perso||'—')} — ${label} — $${montant} (${payment_method})`);
+  saveToCrypt();
+  return {versement, ok:true};
+};
+
 window.saveTrimLedger = async () => {
   if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const tl=window._tl; if(!tl){toast('Contexte perdu, relancez','error');return;}
   const s=(DB.students||[]).find(x=>x.id===tl.sid); if(!s){toast('Élève introuvable','error');return;}
   const montant=parseFloat($('tl_amount')?.value||'0');
   if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
-  const payment_method=$('tl_pay')?.value||'Espèces';
-  const note=($('tl_note')?.value||'').trim();
-  const cl=gc(s.cid);
-  const recuNo=genRecuNo();
-  const versement={
-    id:'v'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid:s.id, student_name:s.name, mat:s.mat,
-    fee_type_id:tl.feeTypeId||null, fee_label:tl.label,
-    compte_cat:tl.trimestre==='inscription'?'707':'706',
-    trimestre:tl.trimestre, montant, motif:tl.label,
-    note:note||null, payment_method,
-    date:today(), time:nowTime(),
-    by:S.user.id, by_name:S.user.name,
-    recu_no:recuNo, school_id:window._currentSchoolId||null,
-  };
-  DB.versements=DB.versements||[];
-  DB.versements.unshift(versement);
-  pushSync('versements','post',versement);
-  // daily_record
-  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,
-    type:tl.feeTypeId||'706',type_label:tl.label,trimestre:tl.trimestre,
-    amount:montant,note:tl.label+(note?' — '+note:''),
-    date:today(),time:nowTime(),by:S.user.id,validated:false,school_id:window._currentSchoolId||null};
-  DB.daily_records.push(rec);
-  pushSync('daily_records','post',rec);
-  // Auto-marquer trimestre soldé si total atteint
-  if(tl.feeTypeId&&tl.target>0){
-    const totalNow=(DB.versements).filter(v=>v.sid===s.id&&(v.fee_type_id===tl.feeTypeId||(v.trimestre===tl.trimestre&&!v.fee_type_id))).reduce((a,v)=>a+(Number(v.montant)||0),0);
-    if(totalNow>=tl.target){
-      let p=(DB.payments||[]).find(px=>px.sid===s.id&&px.t===tl.trimestre);
-      if(p&&!p.paid){p.paid=true;p.date=today();p.by=S.user.id;pushSync('payments','patch',{paid:true,date:today(),by:S.user.id},`sid=eq.${s.id}&t=eq.${tl.trimestre}`);}
-    }
-  }
-  // Notif parent
-  if(s.pid){
-    const msg=`🧾 Reçu ${recuNo} — ${tl.label} · $${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,msg,time:nowTime(),date:today(),read:false,type:'receipt',
-      receipt:{num:recuNo,student:s.name,mat:s.mat,classe:cl?cl.name:'',fee_label:tl.label,motif:tl.label,note:note||null,montant,by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
-    DB.notifs.unshift(n);pushSync('notifs','post',n);
-  }
-  logAudit('paiement',`${s.name} — ${tl.label} — $${montant} (${payment_method})`);
-  saveToCrypt();
-  // Imprimer reçu puis ré-ouvrir le ledger mis à jour
-  setTimeout(()=>{
-    printVersementRecu(versement.id);
-    openTrimLedger(tl.sid, tl.trimestre);
-    // Rafraîchir les cartes si le formulaire caisse est ouvert
-    if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid);
-  }, 300);
-  toast(`✅ $${montant} enregistré — ${tl.label}`,'success');
+  try{
+    const {versement}=await window._enregistrerMouvement({
+      sid:s.id, montant,
+      motif:tl.label, note:($('tl_note')?.value||'').trim(),
+      payment_method:$('tl_pay')?.value||'Espèces',
+      fee_type_id:tl.feeTypeId||null, fee_label:tl.label,
+      trimestre:tl.trimestre,
+      compte_cat:tl.trimestre==='inscription'?'707':'706',
+    });
+    toast(`✅ $${montant} enregistré — ${tl.label}`,'success');
+    setTimeout(()=>{
+      printVersementRecu(versement.id);
+      openTrimLedger(tl.sid,tl.trimestre);
+      if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid);
+    },300);
+  }catch(e){toast('Erreur : '+e.message,'error');}
 };
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   const el=document.createElement('div');
@@ -11739,82 +11794,29 @@ window.caisseSavePaiement = async () => {
   if(!motif){toast('Le motif est obligatoire','error');return;}
   const montant=parseFloat($('caisse_amount')?.value||'0');
   if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
-  const feeTypeId=($('caisse_type')?.value||'').trim(); // optionnel
+  const feeTypeId=($('caisse_type')?.value||'').trim();
   const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId);
-  // Catégorie comptable : priorité au fee_type si relié, sinon sélecteur caisse_cat
-  const compteCat = ft?.category==='cantine'?'7062':ft?.category==='sortie'?'7063':ft?.trimestre==='inscription'?'707':ft?'706':($('caisse_cat')?.value||'708');
-  const note=($('caisse_note')?.value||'').trim();
-  const payment_method=($('caisse_pay_method')?.value||'Espèces');
-  const recuNo = genRecuNo();
-  const cl = gc(s.cid);
-  // fee_label : utiliser le libellé du type connu, sinon le motif lui-même
-  const feeLabel = ft?.label || motif;
-  const trimestre = ft?.trimestre || window._caisseActiveTrimestre || null;
-  const versement = {
-    id: 'v'+Date.now()+Math.random().toString(36).slice(2,5),
-    sid: s.id, student_name: s.name, mat: s.mat,
-    fee_type_id: feeTypeId||null, fee_label: feeLabel,
-    compte_cat: compteCat, trimestre,
-    montant, motif, note: note||null,
-    payment_method,
-    date: today(), time: nowTime(),
-    by: S.user.id, by_name: S.user.name,
-    recu_no: recuNo,
-    school_id: window._currentSchoolId||null,
-  };
-  DB.versements = DB.versements||[];
-  DB.versements.unshift(versement);
-  pushSync('versements','post',versement);
-
-  // Enregistrer aussi dans daily_records pour la caisse du jour
-  const rec={id:'dr'+Date.now(),sid:s.id,student_name:s.name,mat:s.mat,
-    type:feeTypeId||compteCat,type_label:feeLabel,trimestre:ft?.trimestre||null,
-    amount:montant,note:motif+(note?' — '+note:''),
-    date:today(),time:nowTime(),by:S.user.id,validated:false,
-    school_id:window._currentSchoolId||null};
-  DB.daily_records.push(rec);
-  pushSync('daily_records','post',rec);
-
-  // Auto-basculer DB.payments si la tranche est maintenant soldée (seulement si fee_type avec trimestre)
-  if(ft?.trimestre){
-    const target=Number(ft.montant_defaut||0);
-    if(target>0){
-      const totalPaid=(DB.versements).filter(v=>v.sid===s.id&&v.fee_type_id===feeTypeId).reduce((a,v)=>a+(Number(v.montant)||0),0);
-      if(totalPaid>=target){
-        let p=(DB.payments||[]).find(px=>px.sid===s.id&&px.t===ft.trimestre);
-        if(p&&!p.paid){
-          p.paid=true; p.date=today(); p.by=S.user.id;
-          pushSync('payments','patch',{paid:true,date:today(),by:S.user.id},`sid=eq.${s.id}&t=eq.${ft.trimestre}`);
-        }
-      }
-    }
-  }
-
-  // Notification reçu au parent
-  if(s.pid){
-    const msg=`🧾 Reçu ${recuNo} — ${feeLabel} · $${montant}\n📝 ${motif}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
-    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,msg,
-      time:nowTime(),date:today(),read:false,type:'receipt',
-      receipt:{num:recuNo,student:s.name,mat:s.mat,classe:cl?cl.name:'',
-        fee_label:feeLabel,motif,note:note||null,montant,
-        by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
-    DB.notifs.unshift(notif);
-    pushSync('notifs','post',notif);
-  }
-  saveToCrypt();
-  showPaymentStamp(s.name, montant, feeLabel, ft?.trimestre||null);
-  // Garder l'élève sélectionné et rafraîchir les cartes — ne pas appeler caisseCancel()
-  setTimeout(()=>{
-    printVersementRecu(versement.id);
-    // Réinitialiser seulement les champs du formulaire
-    const clearIds=['caisse_motif','caisse_amount','caisse_note'];
-    clearIds.forEach(id=>{const el=$(id);if(el)el.value='';});
-    const selT=$('caisse_type');if(selT)selT.value='';
-    const row=$('caisse_solde_row');if(row)row.style.display='none';
-    window._caisseActiveTrimestre=null;
-    // Rafraîchir les cartes de solde sans bouger la page
-    caisseSelectStudent(s.id);
-  },600);
+  const compte_cat=ft?.category==='cantine'?'7062':ft?.category==='sortie'?'7063':ft?.trimestre==='inscription'?'707':ft?'706':($('caisse_cat')?.value||'708');
+  try{
+    const {versement}=await window._enregistrerMouvement({
+      sid:s.id, montant, motif,
+      note:($('caisse_note')?.value||'').trim(),
+      payment_method:$('caisse_pay_method')?.value||'Espèces',
+      fee_type_id:feeTypeId||null,
+      fee_label:ft?.label||motif,
+      trimestre:ft?.trimestre||window._caisseActiveTrimestre||null,
+      compte_cat,
+    });
+    showPaymentStamp(s.name,montant,ft?.label||motif,ft?.trimestre||null);
+    setTimeout(()=>{
+      printVersementRecu(versement.id);
+      ['caisse_motif','caisse_amount','caisse_note'].forEach(id=>{const el=$(id);if(el)el.value='';});
+      const selT=$('caisse_type');if(selT)selT.value='';
+      const row=$('caisse_solde_row');if(row)row.style.display='none';
+      window._caisseActiveTrimestre=null;
+      caisseSelectStudent(s.id);
+    },600);
+  }catch(e){toast('Erreur : '+e.message,'error');}
 };
 
 // Impression du reçu d'un versement
@@ -12049,6 +12051,12 @@ R.fee_types = () => {
     <div class="form-group">
       <label class="form-label">Libellé <span style="color:#ef5b5b">*</span></label>
       <input class="form-input" id="ft_label" placeholder="Ex: Frais de sortie zoo, Cantine mars...">
+      <div style="margin-top:8px">
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Suggestions :</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${['Frais scolaires T1','Frais scolaires T2','Frais scolaires T3','Frais d\'inscription','Frais d\'examen','Frais de cantine','Frais d\'uniforme','Sortie pédagogique','Frais de bibliothèque','Frais d\'activités','Frais de remise de bulletins','Frais TENAFEP','Frais de transport','Cotisation APEEE','Frais de garderie','Frais médicaux','Frais de dossier','Frais de stage','Frais de sport','Frais informatique'].map(n=>`<button type="button" onclick="document.getElementById('ft_label').value='${n.replace(/'/g,"\\'")}'" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;padding:3px 10px;font-size:11px;cursor:pointer;color:#374151;transition:background .15s" onmouseenter="this.style.background='#dbeafe'" onmouseleave="this.style.background='#f1f5f9'">${n}</button>`).join('')}
+        </div>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">
