@@ -11358,10 +11358,49 @@ R.caisse_paiement = () => {
     </div>
     <div class="ww-toolbar" style="margin-top:6px">
       <div class="ww-search" style="flex:1">
-        <input id="caisse_search" placeholder="Rechercher un élève (nom ou matricule)..." oninput="clearTimeout(window._dT);window._dT=setTimeout(caisseSearch,300)" autocomplete="off">
+        <input id="caisse_search" placeholder="🔍 Filtrer par nom ou matricule..." oninput="clearTimeout(window._dT);window._dT=setTimeout(caisseSearch,300)" autocomplete="off">
       </div>
     </div>
     <div id="caisse_results" style="margin-top:8px"></div>
+  </div>
+  <!-- ── NAVIGATEUR ÉLÈVES PAR CLASSE ── -->
+  <div id="caisse_browser">
+    ${(()=>{
+      const classes=(DB.classes||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+      if(!classes.length) return `<div style="text-align:center;padding:30px;color:var(--text-muted)">Aucune classe configurée</div>`;
+      return classes.map(cl=>{
+        const studs=(DB.students||[]).filter(s=>s.cid===cl.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+        if(!studs.length) return '';
+        const [cc,cbg]=clsColor(cl.name);
+        const paidCount=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return total>0&&paid>=total;}).length;
+        return `<div style="border-radius:16px;overflow:hidden;background:var(--bg-card);border:1.5px solid var(--border);margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg,${cbg}22,${cbg}11);border-bottom:1.5px solid var(--border)">
+            <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0">${esc(cl.name.slice(0,3))}</div>
+            <div style="flex:1"><div style="font-weight:800;font-size:14px">${esc(cl.name)}</div><div style="font-size:11px;color:var(--text-muted)">${studs.length} élève${studs.length>1?'s':''} · ${paidCount} soldé${paidCount>1?'s':''}</div></div>
+            <div style="height:6px;width:80px;border-radius:6px;background:rgba(0,0,0,.08);overflow:hidden"><div style="height:100%;width:${studs.length>0?Math.round(paidCount/studs.length*100):0}%;background:#1f9d6b;border-radius:6px;transition:width .5s ease"></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0">
+            ${studs.map((s,si)=>{
+              const {paid,total,debt}=getStudentBalance(s.id);
+              const pct=total>0?Math.min(100,Math.round(paid/total*100)):0;
+              const status=total>0&&paid>=total?'solde':paid>0?'partiel':'nonpaye';
+              const sc={solde:{dot:'#1f9d6b',bg:'#f0fdf4',txt:'#065f46',label:'Soldé'},partiel:{dot:'#f59e0b',bg:'#fffbeb',txt:'#92400e',label:`$${debt} restant`},nonpaye:{dot:'#ef5b5b',bg:'#fff1f0',txt:'#991b1b',label:'Non commencé'}}[status];
+              return `<div onclick="caisseSelectStudent('${s.id}')" style="display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;background:transparent;border-bottom:${si<studs.length-1?'1px solid var(--border)':'none'};transition:background .12s" onmouseenter="this.style.background='${sc.bg}'" onmouseleave="this.style.background='transparent'">
+                <div style="width:36px;height:36px;border-radius:10px;background:${sc.bg};border:2px solid ${sc.dot};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sc.dot};flex-shrink:0;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:ini(s.name)}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+                  <div style="font-size:11px;color:var(--text-muted)">${esc(s.mat||'')}</div>
+                </div>
+                ${total>0?`<div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:12px;font-weight:800;color:${sc.dot}">$${paid}<span style="font-weight:400;color:var(--text-muted);font-size:10px"> / $${total}</span></div>
+                  <div style="font-size:10px;font-weight:600;color:${sc.txt}">${sc.label}</div>
+                </div>`:'<div style="font-size:11px;color:var(--text-muted)">→</div>'}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('');
+    })()}
   </div>
   <div id="caisse_form" style="display:none">
     <div class="premium-section">
@@ -11438,16 +11477,23 @@ window.caisseTypeChanged = () => {
 window.caisseSearch = () => {
   const q = ($('caisse_search').value||'').trim().toLowerCase();
   const res = $('caisse_results'); if(!res) return;
-  if(!q){res.innerHTML='';return;}
-  const found = (DB.students||[]).filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).slice(0,6);
-  if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé</div>`;return;}
+  const browser = $('caisse_browser');
+  if(!q){
+    res.innerHTML='';
+    if(browser) browser.style.display='';
+    return;
+  }
+  if(browser) browser.style.display='none';
+  const found = (DB.students||[]).filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)).slice(0,12);
+  if(!found.length){res.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-muted)">Aucun élève trouvé pour "${q}"</div>`;return;}
   res.innerHTML=found.map(s=>{
     const cl=gc(s.cid); const [cc,cbg]=clsColor(cl?cl.name:'');
-    const totalVers=(DB.versements||[]).filter(v=>v.sid===s.id).reduce((a,v)=>a+(Number(v.montant)||0),0);
+    const {paid,total,debt}=getStudentBalance(s.id);
+    const status=total>0&&paid>=total?'#1f9d6b':paid>0?'#f59e0b':'#ef5b5b';
     return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
-      <span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${totalVers} versé</span>
+      <div style="text-align:right"><div style="font-weight:800;font-size:13px;color:${status}">$${paid}</div><div style="font-size:10px;color:var(--text-muted)">/ $${total}</div></div>
     </div>`;
   }).join('');
 };
@@ -11458,6 +11504,10 @@ window.caisseSelectStudent = (sid) => {
   $('caisse_form').style.display='';
   $('caisse_results').innerHTML='';
   $('caisse_search').value='';
+  // Masquer le navigateur quand un élève est sélectionné
+  const b=$('caisse_browser'); if(b) b.style.display='none';
+  // Scroller vers le formulaire
+  setTimeout(()=>{ $('caisse_form')?.scrollIntoView({behavior:'smooth',block:'start'}); },100);
   const recentVers=(DB.versements||[]).filter(v=>v.sid===sid).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,6);
   const totalVersStu=recentVers.reduce((sum,v)=>sum+(Number(v.montant)||0),0);
   // Cartes trimestre — toujours affichées (T1/T2/T3 + inscription)
@@ -11568,7 +11618,13 @@ window.caisseQuickPay = (feeTypeId, trimestre) => {
   // Scroller vers le formulaire
   const detailSec=$('caisse_form'); if(detailSec){detailSec.scrollIntoView({behavior:'smooth',block:'nearest'});}
 };
-window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
+window.caisseCancel = () => {
+  window._caisseStudent=null;
+  $('caisse_form').style.display='none';
+  $('caisse_search').value='';
+  $('caisse_results').innerHTML='';
+  const b=$('caisse_browser'); if(b) b.style.display='';
+};
 
 // ── LIVRE DE COMPTE PAR TRIMESTRE ─────────────────────────────────────────────
 window.openTrimLedger = (sid, trimestre) => {
