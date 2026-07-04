@@ -10759,6 +10759,7 @@ R.authorized = () => {
     const _tuts=(DB.aps||[]).length;
     const _noParent=DB.students.length-_wParent;
     return _wrapDark(`
+    <button onclick="go('scanner')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:rgba(255,255,255,.6);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">← Retour au Scanner</button>
     <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
       <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🎓</div><div class="hbig" style="font-size:23px">${DB.students.length}</div><div class="hsub">élèves</div></div>
       <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👑</div><div class="hbig" style="font-size:23px">${_wParent}</div><div class="hsub">avec parent</div></div>
@@ -11162,7 +11163,7 @@ R.absences = () => {
       </div>
       ${teacherAbs.length?`<div class="premium-section">${teacherAbs.map(a=>{const u=gu(a.uid);const cl=u?DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id):null;return`<div class="premium-item" style="flex-wrap:wrap;gap:8px"><div class="pi-icon" style="background:#fdeccd">🏠</div><div style="flex:1;min-width:150px"><div class="pi-title">${u?esc(u.name):'?'}${cl?` <span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div><div class="pi-sub">${esc(a.motif||'—')}${a.duree?' · '+esc(a.duree):''}</div><div style="font-size:11px;color:var(--text-muted)">${a.date} à ${a.time||'—'}</div></div>${a.date===today()?`<span class="pill" style="background:#fef9c3;color:#78350f;flex-shrink:0">Aujourd'hui</span>`:''}</div>`;}).join('')}</div>`:`<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune absence enseignant déclarée</div>`}`;
     }
-    return tabBtns+`
+    return `<button onclick="go('attendance')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Présences</button>`+tabBtns+`
     <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
       <div class="htile" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:13px 10px">
         <div style="font-size:19px">⏳</div><div class="hbig" style="font-size:24px">${_pending}</div><div class="hsub">en attente</div>
@@ -12078,6 +12079,7 @@ R.caisse_depense = () => {
   const catOpts=_EXP_CATS.map(c=>`<option value="${c.code}">${c.icon} ${c.label}</option>`).join('');
   const payOpts=_PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('');
   return `
+  <button onclick="go('caisse_paiement')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour à la Caisse</button>
   ${_helpBanner('caisse_depense','Enregistrez chaque sortie d\'argent (fournitures, salaires, autres) — la catégorie OHADA est appliquée automatiquement. Les dépenses non validées apparaissent ici jusqu\'à validation par la Direction 1.')}
   <div class="hbento" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff;padding:13px 10px">
@@ -12945,6 +12947,7 @@ R.comptabilite = () => {
   }
 
   return `
+  <button onclick="go('caisse_paiement')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour à la Caisse</button>
   ${_helpBanner('comptabilite','Vue OHADA automatique — chaque paiement, dépense et salaire génère une écriture comptable. Journal : toutes les écritures dans l\'ordre. Balance : solde par compte. Résultat : Produits − Charges. Aucune saisie manuelle n\'est nécessaire.')}
   <div class="ww-toolbar" style="animation:fadeInUp .3s ease both;margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px">
@@ -13427,6 +13430,7 @@ R.caisse_rapport = () => {
   }
   const pastReps=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated');
   return `
+  <button onclick="go('caisse_paiement')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour à la Caisse</button>
   ${_helpBanner('caisse_rapport','Ce rapport récapitule toutes les recettes et dépenses du jour non encore validées. Envoyez-le à la Direction 1 en fin de journée — après validation vous ne pourrez plus le modifier. Le rapport automatique part à 16h00.')}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">📈</div><div class="hbig" style="font-size:24px">${totalIn}$</div><div class="hsub">encaissé</div></div>
@@ -14301,6 +14305,7 @@ R.convocations = () => {
   const _done=all.filter(c=>c.status==='completed').length;
   const _missed=all.filter(c=>c.status==='missed').length;
   return `
+  <button onclick="go('students')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour aux Élèves</button>
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
       <div style="font-size:19px">📋</div><div class="hbig" style="font-size:24px">${_active}</div><div class="hsub">en cours</div>
@@ -14635,6 +14640,7 @@ R.year_mgmt = () => {
   const locks = s.trimLocks||{T1:false,T2:false,T3:false};
   const archived = s.archived_years||[];
   return `
+  <button onclick="go('settings')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour aux Paramètres</button>
   <div class="premium-section" style="border-left:4px solid #2f7bd6">
     <div class="premium-section-title">📆 Année scolaire en cours</div>
     <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
@@ -17915,6 +17921,7 @@ R.audit_log = () => {
   const _todayN=all.filter(e=>e.date===today()).length;
   const _actors=[...new Set(all.map(e=>e.by_name))].length;
   return `
+  <button onclick="go('settings')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour aux Paramètres</button>
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🕐</div><div class="hbig" style="font-size:23px">${all.length}</div><div class="hsub">actions</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">📅</div><div class="hbig" style="font-size:23px">${_todayN}</div><div class="hsub">aujourd'hui</div></div>
@@ -18882,6 +18889,7 @@ R.acces_parents = () => {
     </div>`;
   const filterLabels={tous:'Tous',complets:'Payés',partiels:'⚠️ Partiels',impayés:'❌ Impayés'};
   return _wrapDark(`
+  <button onclick="go('students')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:rgba(255,255,255,.6);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.6)'">← Retour aux Élèves</button>
   <!-- Zone 1 : Ce que l'école publie -->
   <div class="premium-section" style="border-left:4px solid #93c5fd;margin-bottom:16px">
     <div style="font-size:13px;font-weight:800;color:#93c5fd;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">⚙️ Ce que l'école publie en ce moment</div>
