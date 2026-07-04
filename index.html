@@ -11443,35 +11443,81 @@ window.caisseSelectStudent = (sid) => {
   const summary = getStudentVersements(sid);
   const recentVers=(DB.versements||[]).filter(v=>v.sid===sid).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))).slice(0,6);
   const totalVersStu=recentVers.reduce((sum,v)=>sum+(Number(v.montant)||0),0);
+  // Frais avec cible : T1/T2/T3/inscription en priorité, puis autres
+  const trimFees=summary.filter(f=>f.active!==false&&f.target>0&&['T1','T2','T3','inscription'].includes(f.trimestre));
+  const otherFees=summary.filter(f=>f.active!==false&&f.target>0&&!['T1','T2','T3','inscription'].includes(f.trimestre));
   $('caisse_student_info').innerHTML=`
-    <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:10px">
+    <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:12px">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
-      <span class="premium-badge" style="background:#d8f3e6;color:#065f46;font-size:12px">$${totalVersStu} versé</span>
+      <span class="premium-badge" style="background:#d8f3e6;color:#065f46;font-size:12px">$${totalVersStu} total versé</span>
     </div>
-    ${summary.filter(f=>f.active&&f.target>0).length?`
-    <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:5px">Suivi des frais connus</div>
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
-      ${summary.filter(f=>f.active&&f.target>0).map(f=>{
-        const pct=Math.min(100,Math.round(f.paid/f.target*100));
+    ${trimFees.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Frais scolaires — Cliquez pour payer</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px">
+      ${trimFees.map(f=>{
+        const pct=Math.min(100,f.target>0?Math.round(f.paid/f.target*100):0);
+        const remaining=Math.max(0,f.target-f.paid);
         const col=f.done?'#1f9d6b':f.paid>0?'#f59e0b':'#ef5b5b';
-        return `<div style="padding:8px 12px;border-radius:10px;background:${f.done?'#d8f3e6':'#fff8f0'};border:1px solid ${f.done?'#86efac':'#efe3d3'}">
+        const bg=f.done?'linear-gradient(135deg,#d8f3e6,#a7f3d0)':f.paid>0?'linear-gradient(135deg,#fff8f0,#fde68a)':'linear-gradient(135deg,#fff1f0,#fecaca)';
+        const border=f.done?'#86efac':f.paid>0?'#fcd34d':'#fca5a5';
+        return `<div onclick="${f.done?'':(`caisseQuickPay('${f.fee_type_id}')`)}" style="border-radius:12px;background:${bg};border:1.5px solid ${border};padding:10px 12px;${f.done?'opacity:.75;':'cursor:pointer;'}transition:transform .15s,box-shadow .15s" ${f.done?'':' onmouseenter="this.style.transform=\'scale(1.02)\';this.style.boxShadow=\'0 4px 14px rgba(0,0,0,.12)\'" onmouseleave="this.style.transform=\'\';this.style.boxShadow=\'\'"'}>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <span style="font-size:12px;font-weight:700">${esc(f.label)}</span>
-            <span style="font-size:12px;font-weight:800;color:${col}">${f.done?'Soldé':'$'+f.paid+' / $'+f.target}</span>
+            <span style="font-size:11px;font-weight:700;color:#374151">${esc(f.label)}</span>
+            ${f.done?'<span style="font-size:14px">✅</span>':'<span style="font-size:11px;background:#fff;border-radius:6px;padding:1px 6px;font-weight:700;color:#374151">Payer →</span>'}
           </div>
-          <div style="height:4px;border-radius:4px;background:#e5e7eb"><div style="height:4px;border-radius:4px;background:${col};width:${pct}%"></div></div>
+          <div style="height:5px;border-radius:5px;background:rgba(0,0,0,.1);margin-bottom:5px"><div style="height:5px;border-radius:5px;background:${col};width:${pct}%;transition:width .4s ease"></div></div>
+          <div style="font-size:11px;color:#374151">
+            ${f.done?`<span style="font-weight:700;color:#065f46">Soldé — $${f.target}</span>`:`<span style="font-weight:700;color:${col}">$${f.paid}/$${f.target}</span>${remaining?` <span style="color:#6b7280">· reste $${remaining}</span>`:''}`}
+          </div>
         </div>`;
       }).join('')}
     </div>`:''}
-    ${recentVers.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:5px">Historique des versements</div>
+    ${otherFees.length?`
+    <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px">Autres frais</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+      ${otherFees.map(f=>{
+        const pct=Math.min(100,f.target>0?Math.round(f.paid/f.target*100):0);
+        const col=f.done?'#1f9d6b':f.paid>0?'#f59e0b':'#ef5b5b';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:9px;background:var(--bg);border:1px solid var(--border);cursor:pointer" onclick="${f.done?'':(`caisseQuickPay('${f.fee_type_id}')`)}">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:700">${esc(f.label)}</div>
+            <div style="height:3px;border-radius:3px;background:#e5e7eb;margin-top:4px"><div style="height:3px;border-radius:3px;background:${col};width:${pct}%"></div></div>
+          </div>
+          <span style="font-size:12px;font-weight:800;color:${col}">${f.done?'✅':'$'+f.paid+' / $'+f.target}</span>
+        </div>`;
+      }).join('')}
+    </div>`:''}
+    ${recentVers.length?`<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:5px">Versements récents</div>
     <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
       ${recentVers.map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-        <div style="min-width:0;flex:1"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.fee_label||v.motif||'?')}</div><div style="color:var(--text-muted);font-size:11px">${v.date||''} · ${esc(v.motif||'')}</div></div>
+        <div style="min-width:0;flex:1"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.fee_label||v.motif||'?')}</div><div style="color:var(--text-muted);font-size:11px">${v.date||''}</div></div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-weight:700;color:#1f9d6b">+$${v.montant}</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="printVersementRecu('${v.id}')">🖨</button></div>
       </div>`).join('')}
     </div>`:''}
-    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Entrez motif + montant pour enregistrer un nouveau versement</div>`;
+    <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Cliquez sur un frais ci-dessus ou remplissez le formulaire pour un paiement libre</div>`;
+};
+
+window.caisseQuickPay = (feeTypeId) => {
+  const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId); if(!ft) return;
+  const s=window._caisseStudent; if(!s) return;
+  // Pré-remplir le formulaire
+  const sel=$('caisse_type'); if(sel){sel.value=feeTypeId;}
+  const motifEl=$('caisse_motif'); if(motifEl){motifEl.value=ft.label||'';}
+  // Calculer le solde restant
+  const target=Number(ft.montant_defaut||0);
+  const paid=(DB.versements||[]).filter(v=>v.sid===s.id&&v.fee_type_id===feeTypeId).reduce((a,v)=>a+(Number(v.montant)||0),0);
+  const remaining=Math.max(0,target-paid);
+  const amtEl=$('caisse_amount');
+  if(amtEl&&remaining>0){amtEl.value=remaining;amtEl.focus();}
+  // Sélectionner la bonne catégorie comptable
+  const catEl=$('caisse_cat');
+  if(catEl){
+    catEl.value=ft.category==='cantine'?'7062':ft.category==='sortie'?'7063':ft.trimestre==='inscription'?'707':'706';
+  }
+  caisseTypeChanged();
+  // Scroller vers le formulaire
+  const form=$('caisse_form'); if(form){form.scrollIntoView({behavior:'smooth',block:'start'});}
 };
 window.caisseCancel = () => { window._caisseStudent=null; $('caisse_form').style.display='none'; $('caisse_search').value=''; $('caisse_results').innerHTML=''; };
 window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
@@ -11596,6 +11642,15 @@ window.printVersementRecu = (vid) => {
 <div class="motif-box">📝 Motif : ${esc(v.motif)}</div>
 ${v.note?`<div class="row"><span class="lbl">Note</span><span class="val">${esc(v.note)}</span></div>`:''}
 <div class="amount-box"><div class="av">${sc.devise||'$'}${v.montant}</div><div class="aw">${amtWords}</div></div>
+${(()=>{
+    if(!v.fee_type_id) return '';
+    const ftt=(DB.fee_types||[]).find(f=>f.id===v.fee_type_id); if(!ftt||!ftt.montant_defaut) return '';
+    const target=Number(ftt.montant_defaut);
+    const totalSoFar=(DB.versements||[]).filter(x=>x.sid===v.sid&&x.fee_type_id===v.fee_type_id).reduce((a,x)=>a+(Number(x.montant)||0),0);
+    const remaining=Math.max(0,target-totalSoFar);
+    if(remaining>0) return `<div style="background:#fff8f0;border:1.5px solid #f59e0b;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px"><div style="font-weight:700;color:#92400e;margin-bottom:3px">📋 Suivi — ${esc(ftt.label)}</div><div style="display:flex;justify-content:space-between"><span>Total versé</span><span style="font-weight:700">$${totalSoFar}</span></div><div style="display:flex;justify-content:space-between"><span>Total attendu</span><span style="font-weight:700">$${target}</span></div><div style="display:flex;justify-content:space-between;border-top:1px solid #fde68a;margin-top:5px;padding-top:5px"><span style="color:#b45309;font-weight:700">Solde restant dû</span><span style="font-weight:800;color:#ef5b5b">$${remaining}</span></div></div>`;
+    return `<div style="background:#d8f3e6;border:1.5px solid #86efac;border-radius:8px;padding:8px 14px;margin:10px 0;font-size:12px;text-align:center;font-weight:700;color:#065f46">✅ ${esc(ftt.label)} — Entièrement soldé ($${target})</div>`;
+  })()}
 <div class="stamp"><span class="ic">✅</span><div class="tx">Versement enregistré dans SchoolSafe<br>${esc(school)} — ${DB.settings?.year||''}</div></div>
 ${_officialFooter(v.by_name||v.by,'Caisse')}
 </div>
