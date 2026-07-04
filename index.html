@@ -1398,6 +1398,7 @@ window.DB = {
   teacher_notes: [], audit_log: [], teacher_absences: [],
   sanctions: [], medical: [], tenafep: [], evaluations: [],
   salaries: [], advances: [],
+  fee_types: [], versements: [], journal_entries: [],
   cantine: [], cantine_menus: [], cantine_presence: [],
   activites: [], activites_inscriptions: [], appreciations: [], medical_visits: [],
   inscriptions: [], cahier_prep: [], prevision_matiere: [],
@@ -2269,6 +2270,7 @@ window.PT = {
   tenafep:'ENAFEP CM2',
   evaluations_ens:'Évaluations des enseignants',
   salaires:'Salaires & Fiches de paie',
+  primes:'Primes Enseignants', fee_types:'Types de frais', mon_site:'Mon site web',
   rapport_secope:'Rapport SECOPE/MEPSP',
   inscriptions:'Demandes d\'inscription',
   cantine:'Cantine Scolaire',
@@ -11388,9 +11390,17 @@ R.caisse_paiement = () => {
           <span id="caisse_solde_txt"></span>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Note interne (optionnel)</label>
-        <input class="form-input" id="caisse_note" placeholder="Observation...">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Mode de paiement</label>
+          <select id="caisse_pay_method" class="form-select">
+            ${_PAY_METHODS.map(m=>`<option value="${m}">${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Note interne (optionnel)</label>
+          <input class="form-input" id="caisse_note" placeholder="Observation...">
+        </div>
       </div>
       <div style="display:flex;gap:10px;margin-top:14px">
         <button class="btn btn-outline" onclick="caisseCancel()">✕ Annuler</button>
@@ -11547,6 +11557,7 @@ window.caisseSavePaiement = async () => {
   // Catégorie comptable : priorité au fee_type si relié, sinon sélecteur caisse_cat
   const compteCat = ft?.category==='cantine'?'7062':ft?.category==='sortie'?'7063':ft?.trimestre==='inscription'?'707':ft?'706':($('caisse_cat')?.value||'708');
   const note=($('caisse_note')?.value||'').trim();
+  const payment_method=($('caisse_pay_method')?.value||'Espèces');
   const recuNo = genRecuNo();
   const cl = gc(s.cid);
   // fee_label : utiliser le libellé du type connu, sinon le motif lui-même
@@ -11557,6 +11568,7 @@ window.caisseSavePaiement = async () => {
     fee_type_id: feeTypeId||null, fee_label: feeLabel,
     compte_cat: compteCat,
     montant, motif, note: note||null,
+    payment_method,
     date: today(), time: nowTime(),
     by: S.user.id, by_name: S.user.name,
     recu_no: recuNo,
@@ -11639,6 +11651,7 @@ window.printVersementRecu = (vid) => {
 <div class="row"><span class="lbl">📅 Date</span><span class="val">${printDate}</span></div>
 <div class="row"><span class="lbl">⏰ Heure</span><span class="val">${v.time||'—'}</span></div>
 <div class="row"><span class="lbl">💼 Encaissé par</span><span class="val" style="color:#243a6b">${esc(v.by_name||v.by)}</span></div>
+<div class="row"><span class="lbl">💳 Mode de paiement</span><span class="val">${esc(v.payment_method||'Espèces')}</span></div>
 <div class="motif-box">📝 Motif : ${esc(v.motif)}</div>
 ${v.note?`<div class="row"><span class="lbl">Note</span><span class="val">${esc(v.note)}</span></div>`:''}
 <div class="amount-box"><div class="av">${sc.devise||'$'}${v.montant}</div><div class="aw">${amtWords}</div></div>
@@ -12247,7 +12260,23 @@ window._getJournalAll = () => {
     });
   });
 
-  // ── 5. Écritures manuelles ──
+  // ── 5. DB.payments legacy (anciens enregistrements paid:true sans versement lié) ──
+  const versIds=new Set((DB.versements||[]).map(v=>v.fee_type_id+'_'+v.sid).filter(k=>!k.startsWith('_')));
+  (DB.payments||[]).filter(p=>p.paid).forEach(p=>{
+    const key=(p.fee_type_id||p.t||'')+'_'+p.sid;
+    if(versIds.has(key)) return; // déjà couvert par un versement
+    const fees=getFees();
+    const montant=Number(fees[p.t]||0); if(!montant) return;
+    const stu=(DB.students||[]).find(s=>s.id===p.sid);
+    entries.push({
+      id:'je_leg_'+p.id, date:p.date||today(), time:'00:00',
+      libelle:`[Legacy] Frais ${p.t||'?'} — ${stu?.name||p.sid}`,
+      debit:'571', credit:'706', montant,
+      ref:p.id, type:'versement', by:p.by||'',
+    });
+  });
+
+  // ── 6. Écritures manuelles ──
   (DB.journal_entries||[]).forEach(j => entries.push({...j, type:'manuel'}));
 
   return entries.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
@@ -12275,7 +12304,7 @@ R.tresorerie = () => {
   const monthLabel=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mo-1]+' '+yr;
   // Recettes du mois
   const versM=(DB.versements||[]).filter(v=>v.date&&v.date.startsWith(selDate));
-  const totalRecettes=versM.reduce((s,v)=>s+(Number(v.amount)||0),0);
+  const totalRecettes=versM.reduce((s,v)=>s+(Number(v.montant)||0),0);
   // Dépenses du mois
   const depM=(DB.daily_expenses||[]).filter(d=>d.date&&d.date.startsWith(selDate));
   const totalDepenses=depM.reduce((s,d)=>s+(Number(d.amount)||0),0);
@@ -12286,13 +12315,13 @@ R.tresorerie = () => {
   const solde=totalRecettes-totalDepenses-totalSalaires;
   // Recettes par méthode de paiement
   const byMethod={};
-  versM.forEach(v=>{const m=v.payment_method||'Espèces';byMethod[m]=(byMethod[m]||0)+(Number(v.amount)||0);});
+  versM.forEach(v=>{const m=v.payment_method||'Espèces';byMethod[m]=(byMethod[m]||0)+(Number(v.montant)||0);});
   // Dépenses par catégorie
   const byCat={};
   depM.forEach(d=>{const c=d.category_label||d.motif||'Divers';byCat[c]=(byCat[c]||0)+(Number(d.amount)||0);});
   // Mouvements récents (50 derniers)
   const allMov=[];
-  versM.forEach(v=>allMov.push({date:v.date,time:v.time||'',type:'recette',label:v.fee_label||v.motif||'Paiement',amount:Number(v.amount)||0,method:v.payment_method||'Espèces'}));
+  versM.forEach(v=>allMov.push({date:v.date,time:v.time||'',type:'recette',label:v.fee_label||v.motif||'Paiement',amount:Number(v.montant)||0,method:v.payment_method||'Espèces'}));
   depM.forEach(d=>allMov.push({date:d.date,time:d.time||'',type:'depense',label:d.category_label||d.motif||'Dépense',amount:Number(d.amount)||0,method:d.payment_method||'Espèces'}));
   salM.forEach(s=>{const nm=s.teacher_id?(DB.users||[]).find(u=>u.id===s.teacher_id)?.name||'Enseignant':s.person_name||'Personnel';allMov.push({date:s.paid_date||selDate+'-01',time:'',type:'salaire',label:'Salaire — '+nm,amount:Number(s.net||s.amount)||0,method:s.payment_method||'Espèces'});});
   allMov.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
@@ -12371,8 +12400,7 @@ R.comptabilite = () => {
   // Filtres période
   const pf = window._comptaPeriod||'';
   const filtered = pf ? journal.filter(e=>e.date&&e.date.slice(0,7)===pf) : journal;
-  const totalDebits  = filtered.reduce((s,e)=>s+e.montant,0);
-  const totalCredits = filtered.reduce((s,e)=>s+e.montant,0);
+  const totalMouvements = filtered.reduce((s,e)=>s+e.montant,0);
 
   // Résultat
   const totalProduits = Object.values(balance).filter(b=>b.type==='produit').reduce((s,b)=>s+b.solde,0);
@@ -19968,7 +19996,7 @@ window.savePersonnelSalaire = (salId) => {
   saveToCrypt();closeModal();toast(`✅ ${person_name} — $${net} enregistré`,'success');render();
 };
 window.deletePersonnelSalaire = (id) => {
-  if(!S.user||!['direction'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer cette fiche','Confirmer la suppression ?',()=>{
     const idx=(DB.salaries||[]).findIndex(s=>s.id===id); if(idx<0) return;
     DB.salaries.splice(idx,1);
