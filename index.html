@@ -7054,23 +7054,26 @@ window.validateScanPresence = () => {
   const students=DB.students.filter(s=>s.cid===mc.cl.id);
   const todayScans=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
   const scannedSids=todayScans.map(l=>l.sid);
-  let confirmed=0;
+  let confirmed=0, absentMarked=0;
   students.forEach(s=>{
     const existing=DB.attendance.find(a=>a.sid===s.id&&a.date===today());
     if(scannedSids.includes(s.id)){
-      // Scan data already created attendance entry from gardien — just mark teacher_validated
       if(existing){ existing.teacher_validated=true; pushSync('attendance','patch',{teacher_validated:true},'id=eq.'+existing.id); }
       confirmed++;
+    } else {
+      // Créer une ligne status:'absent' pour pouvoir compter l'absentéisme annuel
+      if(!existing){
+        const absRec={id:_uid('att_'),sid:s.id,date:today(),arr_time:null,status:'absent',teacher_validated:true,by:S.user.id,cid:mc.cl.id};
+        DB.attendance.push(absRec);
+        pushSync('attendance','post',absRec);
+        absentMarked++;
+      } else if(existing.status!=='absent'){
+        existing.teacher_validated=true;
+        pushSync('attendance','patch',{teacher_validated:true},'id=eq.'+existing.id);
+      }
     }
-    // Non-scanned → mark absent (no entry = absent, already covered)
   });
-  // Mark class-wide validation flag via a sentinel record
-  const sent=DB.attendance.find(a=>a.date===today()&&a.teacher_validated&&students.some(s=>s.id===a.sid));
-  if(!sent){
-    // Create a dummy validated flag by updating all existing records
-    DB.attendance.filter(a=>a.date===today()&&students.some(s=>s.id===a.sid)).forEach(a=>{ a.teacher_validated=true; });
-  }
-  toast(`${confirmed} présence${confirmed>1?'s':''} validée${confirmed>1?'s':''}. Les absences sont enregistrées automatiquement.`,'success');
+  toast(`${confirmed} présence${confirmed>1?'s':''} validée${confirmed>1?'s':''}${absentMarked?` · ${absentMarked} absence${absentMarked>1?'s':''} enregistrée${absentMarked>1?'s':''}`:''}`,'success');
   saveToCrypt(); render();
 };
 
