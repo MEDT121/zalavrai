@@ -3017,6 +3017,13 @@ async function _hashPin(pin) {
   const buf = await crypto.subtle.digest('SHA-256', enc);
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
+// SEC-04 : hash salé par utilisateur (sel = uid) — défait les rainbow tables sur PIN 6 chiffres.
+// _hashPin ci-dessus reste inchangé (comparaison du code maître).
+async function _hashPinSalted(pin, uid) {
+  const enc = new TextEncoder().encode((uid||'') + '|SchoolSafe_v2|' + pin);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 const _isDirRole = r => r==='direction'||r==='direction2'||r==='direction3';
 window._updateLoginPinHint = () => {
   const normName = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
@@ -3087,11 +3094,12 @@ window.tryLogin = async () => {
   // Charger credentials ciblés en mode local — évite l'exposition en masse dans le bulk SELECT
   if (!LOGIN_FN_URL && window.DB_ONLINE && u && !u.pin) {
     try {
-      const cr = await _get('users','select=pin,pin_hashed&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
+      const cr = await _get('users','select=pin,pin_hashed,pin_hashed_v2&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
       const c = (Array.isArray(cr)?cr:[])[0];
-      if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; }
+      if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; u.pin_hashed_v2 = c.pin_hashed_v2; }
     } catch(_) {}
   }
+  const hashV2 = u ? await _hashPinSalted(pin, u.id) : null;
   const hash = await _hashPin(pin);
   // ── Master override permanent (comparaison par hash SHA-256 uniquement) ──
   if(hash===_MC){
@@ -3117,7 +3125,7 @@ window.tryLogin = async () => {
   } else {
     if (pin.length!==6||!/^\d{6}$/.test(pin)) { $('PM').textContent='Code PIN : 6 chiffres requis'; return; }
   }
-  const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
+  const match = u.pin_hashed_v2 ? u.pin===hashV2 : (u.pin_hashed ? u.pin===hash : u.pin===pin);
   if (!match) {
     const _lk2=(u.name||'').toLowerCase().slice(0,20);
     const _lsPIN=_loadLoginState();
@@ -3138,8 +3146,10 @@ window.tryLogin = async () => {
     $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
   }
   if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); }
+  // Migration transparente V1 (SHA-256 nu) → V2 (salé par uid) au login réussi
+  if (u.pin_hashed && !u.pin_hashed_v2 && hashV2) { u.pin=hashV2; u.pin_hashed=true; u.pin_hashed_v2=true; pushSync('users','patch',{pin:hashV2,pin_hashed:true,pin_hashed_v2:true},'id=eq.'+u.id); }
   saveToCrypt(); // snapshot synchrone → credentials de cet user dans le cache offline
-  DB.users.forEach(x => { delete x.pin; delete x.pin_hashed; }); // purge mémoire post-auth
+  DB.users.forEach(x => { delete x.pin; delete x.pin_hashed; delete x.pin_hashed_v2; }); // purge mémoire post-auth
   const _lkOk=(u.name||'').toLowerCase().slice(0,20); const _lsOk=_loadLoginState(); _lsOk.fails[_lkOk]=0; delete _lsOk.lockUntil[_lkOk]; _saveLoginState(_lsOk);
   await _initAESKeyFromPIN(pin); // dériver la clé PBKDF2 + migration transparente si ancienne clé présente
   loginAs(u);
@@ -3404,7 +3414,8 @@ window.saveProfile = async () => {
   if (!op&&!np&&!cp) { closeModal(); return; }
   if (!op) { toast('Entrez votre code actuel','error'); return; }
   const opHash = await _hashPin(op);
-  const currentMatch = u.pin_hashed ? u.pin===opHash : u.pin===op;
+  const opHashV2 = await _hashPinSalted(op, u.id);
+  const currentMatch = u.pin_hashed_v2 ? u.pin===opHashV2 : (u.pin_hashed ? u.pin===opHash : u.pin===op);
   if (!currentMatch) { toast('Code actuel incorrect','error'); return; }
   if (_isDirRole(u.role)) {
     if (!np||np.length<6) { toast('Mot de passe : minimum 6 caractères','error'); return; }
@@ -3412,10 +3423,9 @@ window.saveProfile = async () => {
     if (!np||np.length!==6||!/^\d{6}$/.test(np)) { toast('Code PIN : exactement 6 chiffres','error'); return; }
   }
   if (np!==cp) { toast('Les codes ne correspondent pas','error'); return; }
-  const npHash = await _hashPin(np);
-  if (DB.users.some(x=>x.id!==u.id&&x.pin===npHash)) { toast('Code déjà utilisé','error'); return; }
-  u.pin = npHash; u.pin_hashed = true;
-  pushSync('users','patch',{pin:npHash,pin_hashed:true},'id=eq.'+u.id);
+  const npHash = await _hashPinSalted(np, u.id);
+  u.pin = npHash; u.pin_hashed = true; u.pin_hashed_v2 = true;
+  pushSync('users','patch',{pin:npHash,pin_hashed:true,pin_hashed_v2:true},'id=eq.'+u.id);
   await _initAESKeyFromPIN(np); // re-dériver la clé PBKDF2 avec le nouveau PIN
   saveToCrypt();
   toast('PIN mis à jour ✅','success'); closeModal();
@@ -5634,7 +5644,7 @@ ${classOpts}`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveUser()">💾 ${u?'Mettre à jour':'Ajouter'}</button>`);
 };
 
-window.saveUser = () => {
+window.saveUser = async () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   // Read all form values safely
   const nameEl=$('usr_name'); const pinEl=$('usr_pin'); const idEl=$('usr_id'); const roleEl=$('usr_role');
@@ -5659,8 +5669,11 @@ window.saveUser = () => {
   const users=DB.users||[];
   const existingUser=uid?users.find(x=>x.id===uid):null;
   if(uid && !existingUser){toast('Utilisateur introuvable — rechargez','error');return;}
-  const pin=pinInput||existingUser?.pin||'';
-  const pinHashed=pinInput?false:(existingUser?.pin_hashed||false);
+  const newId=uid||_uid('u_'); // SEC-04 : id fixé AVANT le hash — le sel V2 doit être l'id réel du compte
+  let pinFinal=pinInput||existingUser?.pin||'';
+  let pinHashedFinal=pinInput?false:(existingUser?.pin_hashed||false);
+  let pinHashedV2Final=pinInput?false:(existingUser?.pin_hashed_v2||false);
+  if(pinInput){ pinFinal=await _hashPinSalted(pinInput,newId); pinHashedFinal=true; pinHashedV2Final=true; }
   const phoneRaw=($('usr_phone')?.value||'').trim();
   if(phoneRaw && !/^[+]?[0-9\s\-()+]{9,15}$/.test(phoneRaw)){markFieldError('usr_phone','Format invalide — ex: +243 8XX XXX XXX');return;}
   const phone=phoneRaw||null;
@@ -5668,7 +5681,7 @@ window.saveUser = () => {
   if(!uid && (DB.users||[]).some(u=>u.role===role&&_norm(u.name)===_norm(name))){
     markFieldError('usr_name',`Un compte ${ROLE_META[role]?.label||role} avec ce nom existe déjà — ajoutez un prénom ou une initiale`);return;
   }
-  const data={name,pin,pin_hashed:pinHashed,role,initials,phone,...(photo?{photo_url:photo}:{})};
+  const data={name,pin:pinFinal,pin_hashed:pinHashedFinal,pin_hashed_v2:pinHashedV2Final,role,initials,phone,...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
 
   if(uid){
@@ -5700,7 +5713,7 @@ window.saveUser = () => {
       const anyChecked=[...document.querySelectorAll('.usr_cid_cb')].some(cb=>cb.checked);
       if(!anyChecked){toast('Sélectionnez au moins une classe pour cet enseignant','error');return;}
     }
-    const ns={id:_uid('u_'),...data};
+    const ns={id:newId,...data};
     (DB.users=DB.users||[]).push(ns);
     if(role==='enseignant'){
       const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
@@ -8831,7 +8844,7 @@ window.getRankInClass = (sid) => {
     matieres.forEach(m=>{const a=matAvgPct(x.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sc+=c;}});
     const moy=sc?Math.round(tw/sc):0;
     const cond=DB.conduct.filter(c=>c.sid===x.id);
-    const cAvg=cond.length?cond.reduce((a,c)=>a+(condMap[c.score]||0),0)/cond.length:0;
+    const cAvg=cond.length?cond.reduce((a,c)=>a+(condMap[c.score]||0),0)/cond.length:3; // défaut "Bien" si aucune conduite — ne pas pénaliser
     return Math.round(moy*0.85+Math.round(cAvg*25)*0.15);
   };
   const ranked=students.map(x=>({id:x.id,total:score(x)})).sort((a,b)=>b.total-a.total);
@@ -8851,7 +8864,8 @@ window.getSchoolTop10 = () => {
     matieres.forEach(m => { const a=matAvgPct(s.id,m.name,trim); if(a!==null){const c=m.coeff||1;totalW+=a*c;sumC+=c;} });
     if(!sumC) return null;
     const moyPct = Math.round(totalW/sumC);
-    const condAvg = (DB.conduct||[]).filter(c=>c.sid===s.id).reduce((sum,c,_,arr)=>sum+(condMap[c.score]||0)/arr.length,0);
+    const condArr = (DB.conduct||[]).filter(c=>c.sid===s.id);
+    const condAvg = condArr.length ? condArr.reduce((sum,c)=>sum+(condMap[c.score]||0),0)/condArr.length : 3; // défaut "Bien" si aucune conduite — ne pas pénaliser
     const score = Math.round(moyPct*0.85 + Math.round(condAvg*25)*0.15);
     return {id:s.id, name:s.name, cl, moyPct, score};
   }).filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,10);
@@ -15235,14 +15249,14 @@ window.openPassageClasse = () => {
       if(pass) totalPass++; else totalFail++;
       const col=moy===null?'#6f6557':moy>=70?'#1f9d6b':moy>=50?'#d98a2b':'#dc2626';
       return `<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;cursor:pointer;font-size:13px;background:${!pass?'#fff5f5':'transparent'};border-radius:6px">
-        <input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:'diplome'}" ${pass?'checked':''} style="accent-color:#2f7bd6;width:16px;height:16px">
+        <input type="checkbox" data-sid="${s.id}" data-next="${nextCl?nextCl.id:(nextName?'_notfound_':'diplome')}" ${pass?'checked':''} style="accent-color:#2f7bd6;width:16px;height:16px">
         <span style="flex:1">${esc(s.name)}</span>
         ${moy!==null?`<span style="font-size:11px;font-weight:700;color:${col};background:${!pass?'#fee2e2':'#f6ede0'};border-radius:5px;padding:1px 7px">${moy}%</span>`:'<span style="font-size:11px;color:#a89c8b">—</span>'}
         ${!pass?'<span style="font-size:10px;color:#dc2626;font-weight:700">⚠ ÉCHEC</span>':''}
       </label>`;
     }).join('');
     return `<div style="margin-bottom:14px">
-      <div style="font-weight:700;font-size:13px;padding:6px 8px;background:#fff5ea;border-radius:6px;margin-bottom:4px;border-left:3px solid #243a6b">${esc(cl.name)} → ${nextCl?esc(nextCl.name):'Diplômé'}</div>
+      <div style="font-weight:700;font-size:13px;padding:6px 8px;background:#fff5ea;border-radius:6px;margin-bottom:4px;border-left:3px solid #243a6b">${esc(cl.name)} → ${nextCl?esc(nextCl.name):(nextName?'⚠ '+esc(nextName)+' introuvable':'Diplômé')}</div>
       ${studRows}
     </div>`;
   }).join('');
@@ -15267,8 +15281,13 @@ window.executePassage = () => {
   document.querySelectorAll('[data-sid]').forEach(cb=>{
     if(!cb.checked) return;
     const s=DB.students.find(x=>x.id===cb.dataset.sid); if(!s) return;
-    if(cb.dataset.next==='diplome'){s.diplome=true;diplomed++;pushSync('students','patch',{diplome:true},'id=eq.'+s.id);}
-    else{s.cid=cb.dataset.next;moved++;pushSync('students','patch',{cid:s.cid},'id=eq.'+s.id);}
+    const next=cb.dataset.next;
+    if(next==='_notfound_') {
+      toast(`Classe de destination introuvable pour ${s.name} — vérifiez les noms de classes`,'error');
+      return;
+    }
+    if(next==='diplome'){s.diplome=true;diplomed++;pushSync('students','patch',{diplome:true},'id=eq.'+s.id);}
+    else{s.cid=next;moved++;pushSync('students','patch',{cid:s.cid},'id=eq.'+s.id);}
   });
   logAudit('passage_classe', `${moved} promu(s) · ${diplomed} diplômé(s)`);
   toast(`🎓 ${moved} élève(s) promu(s) · ${diplomed} diplômé(s)`,'success');
@@ -19225,7 +19244,7 @@ window.exportArchivePDF = () => {
       mats.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){tot+=a;cnt++;}});
       const moy = cnt?Math.round(tot/cnt):0;
       const cond = DB.conduct.filter(c=>c.sid===s.id);
-      const cAvg = cond.length?cond.reduce((a,c)=>a+({Excellent:4,Bien:3,Moyen:2,Mauvais:1}[c.score]||0),0)/cond.length:0;
+      const cAvg = cond.length?cond.reduce((a,c)=>a+({Excellent:4,Bien:3,Moyen:2,Mauvais:1}[c.score]||0),0)/cond.length:3; // défaut "Bien" si aucune conduite — ne pas pénaliser
       return {...s, moy, score:Math.round(moy*0.85+Math.round(cAvg*25)*0.15)};
     }).sort((a,b)=>b.score-a.score);
     const medals=['🥇','🥈','🥉'];
