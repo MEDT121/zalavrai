@@ -1492,10 +1492,9 @@ window.DEFAULT_MATIERES = {
 window.SYNC_QUEUE_KEY = 'schoolsafe_sync_queue';
 window.syncQueue = {
   add(table, op, data) {
-    const queue = this.load(); // load() auto-purge les entrées > 7j
-    queue.push({ table, op, data, ts: Date.now() });
+    const queue = this.load();
+    queue.push({ table, op, data, ts: Date.now(), retries: 0 });
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-    // Alerte unique à 200 opérations en attente
     if (queue.length === 200 && typeof toast === 'function') {
       toast('⚠️ 200 opérations en attente de sync — connectez-vous au réseau','warning');
     }
@@ -1503,10 +1502,9 @@ window.syncQueue = {
   load() {
     try {
       const raw = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
-      const cutoff = Date.now() - 7*24*60*60*1000; // 7 jours
+      const cutoff = Date.now() - 7*24*60*60*1000;
       const fresh = raw.filter(e => !e.ts || e.ts > cutoff);
       if (fresh.length !== raw.length) {
-        // Des entrées ont été purgées — sauvegarder immédiatement
         if (fresh.length) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(fresh));
         else localStorage.removeItem(SYNC_QUEUE_KEY);
       }
@@ -1521,6 +1519,7 @@ window.syncQueue = {
     if (!queue.length || !DB_ONLINE) return 0;
     let done = 0;
     const remaining = [];
+    let deadCount = 0;
     for (const item of queue) {
       try {
         let ok = false;
@@ -1528,9 +1527,19 @@ window.syncQueue = {
         else if (item.op === 'post') ok = await _post(item.table, item.data);
         else if (item.op === 'patch') ok = await _patch(item.table, item.data.query, item.data.body);
         else if (item.op === 'delete') ok = await _del(item.table, item.data.query);
-        if (ok) done++; else remaining.push(item);
-      } catch(e) { remaining.push(item); }
+        if (ok) done++;
+        else {
+          item.retries = (item.retries || 0) + 1;
+          if (item.retries < 5) remaining.push(item);
+          else { deadCount++; console.warn('[SYNC] item dead-lettered after 5 retries:', item.table, item.op); }
+        }
+      } catch(e) {
+        item.retries = (item.retries || 0) + 1;
+        if (item.retries < 5) remaining.push(item);
+        else { deadCount++; console.warn('[SYNC] item dead-lettered:', item.table, item.op, e.message); }
+      }
     }
+    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) abandonnée(s) après 5 tentatives`, 'warning');
     if (remaining.length === 0) this.clear();
     else localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
     return done;
@@ -1546,8 +1555,20 @@ window.addEventListener('online', async () => {
     const done = await syncQueue.flush();
     if (done > 0) { toast(`✅ ${done} changements synchronisés`, 'success'); updateSyncIndicator(); }
   }
+  if (S.user && SUPA_URL) {
+    await loadFromSupabase();
+    render();
+  }
 });
 window.addEventListener('offline', () => { window.DB_ONLINE = false; updateSyncIndicator(); });
+
+// Pull périodique toutes les 3 min pour garder les données fraîches
+window._iv_periodic_sync = setInterval(async () => {
+  if (window.DB_ONLINE && S.user && SUPA_URL) {
+    await loadFromSupabase();
+    render();
+  }
+}, 180000);
 
 // ── NAVIGATION STRUCTURE v3.0 ──
 window.NAV = {
