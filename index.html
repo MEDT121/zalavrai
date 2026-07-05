@@ -13975,7 +13975,7 @@ R.messages = () => {
     ${tabs.map(t=>`<button onclick="window._msgTab='${t.id}';render()" style="flex:1;min-width:70px;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${tab===t.id?'var(--primary)':'var(--bg)'};color:${tab===t.id?'#fff':'var(--text-secondary)'}">${t.l}</button>`).join('')}
   </div>
   <div style="display:flex;gap:8px;margin-bottom:14px">
-    <button class="btn btn-primary" style="flex:1" onclick="openComposeMsg()">✉️ ${role==='parent'?'Écrire à la Direction':role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
+    <button class="btn btn-primary" style="flex:1" onclick="openComposeMsg()">✉️ ${role==='parent'?(DB.settings?.toggles?.direct_teacher_msg?'Envoyer un message':'Écrire à la Direction'):role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
     ${received.filter(m=>!m.read).length?`<button class="btn btn-outline" onclick="markAllMsgRead()">✓ Tout lu</button>`:''}
   </div>
   ${tab==='parents'&&isDir?`<div>${fromParents.length?fromParents.map(m=>card(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📨</div>Aucun message de parent</div>'}</div>`:''}
@@ -14014,10 +14014,35 @@ window.openComposeMsg = () => {
   const role=S.user.role;
 
   if(role==='parent'){
-    openM('Écrire à la Direction',`
-    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#065f46">
+    const directTeacher=!!(DB.settings?.toggles?.direct_teacher_msg);
+    // Collect unique teachers from the parent's children's classes
+    const myKids=(DB.students||[]).filter(s=>s.pid===S.user.id);
+    const teacherOpts=[];
+    if(directTeacher){
+      const seen=new Set();
+      myKids.forEach(k=>{
+        const cl=(DB.classes||[]).find(c=>c.id===k.cid);
+        if(!cl) return;
+        const tid=cl.titulaire_id||cl.teacher_id;
+        if(tid&&!seen.has(tid)){
+          seen.add(tid);
+          const t=(DB.users||[]).find(u=>u.id===tid);
+          if(t) teacherOpts.push({id:tid,name:t.name,cls:cl.name});
+        }
+      });
+    }
+    const recipientHtml=directTeacher&&teacherOpts.length?`
+    <div class="form-group"><label class="form-label">Destinataire</label>
+      <select class="form-select" id="msg_to">
+        <option value="direction">🏫 Direction de l'école</option>
+        ${teacherOpts.map(t=>`<option value="teacher:${t.id}">👨‍🏫 ${esc(t.name)} — ${esc(t.cls)}</option>`).join('')}
+      </select>
+    </div>`:
+    `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:#065f46">
       🏫 Votre message sera envoyé directement à la Direction de l'école
-    </div>
+    </div><select id="msg_to" style="display:none"><option value="direction" selected></option></select>`;
+    openM('Envoyer un message',`
+    ${recipientHtml}
     <div class="form-group"><label class="form-label">Type</label>
       <select class="form-select" id="msg_type">
         <option value="question">❓ Question</option>
@@ -14033,7 +14058,7 @@ window.openComposeMsg = () => {
       <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Votre message..."></textarea>
     </div>`,
     `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-     <button class="btn btn-primary" onclick="sendMsg('parent_to_dir')">📤 Envoyer</button>`);
+     <button class="btn btn-primary" onclick="sendMsg('parent_direct')">📤 Envoyer</button>`);
     return;
   }
 
@@ -14136,9 +14161,17 @@ window.sendMsg = async (mode) => {
 
   let toId=null,toRole=null,toClassCid=null,needsApproval=false,targets=[];
 
-  if(mode==='parent_to_dir'){
-    toRole='direction';
-    targets=DB.users.filter(u=>u.role==='direction');
+  if(mode==='parent_to_dir'||mode==='parent_direct'){
+    const toVal=($('msg_to')?.value||'direction');
+    if(toVal.startsWith('teacher:')){
+      const tid=toVal.replace('teacher:','');
+      const teacher=(DB.users||[]).find(u=>u.id===tid);
+      if(!teacher){toast('Enseignant introuvable','error');return;}
+      toId=tid; targets=[teacher];
+    } else {
+      toRole='direction';
+      targets=(DB.users||[]).filter(u=>u.role==='direction');
+    }
   } else if(mode==='teacher_broadcast'){
     const mc=getMyClass();
     if(!mc.cl){toast('Aucune classe assignée','error');return;}
@@ -14182,7 +14215,7 @@ window.sendMsg = async (mode) => {
         msg:`✉️ ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(n);pushSync('notifs','post',n);
     });
-    if(mode==='parent_to_dir'){
+    if(mode==='parent_to_dir'||(mode==='parent_direct'&&toRole==='direction')){
       DB.users.filter(u=>u.role==='direction').forEach(u=>{
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
           msg:`📨 MESSAGE PARENT — ${S.user.name} : "${subject}"`,
@@ -16784,6 +16817,7 @@ R.settings = () => {
         ['presences','📋','Présences','Marquage des présences par les enseignants'],
         ['palmares','🏆','Palmarès (classement de classe)','Parents voient le classement complet de la classe de leur enfant'],
         ['bulletin','📊','Bulletins de notes','Parents téléchargent le bulletin PDF de leur enfant (frais soldés requis)'],
+        ['direct_teacher_msg','✉️','Messagerie directe parent→enseignant','Les parents peuvent écrire directement au professeur de leur enfant, sans validation de la Direction'],
       ].map(([k,ic,lbl,sub])=>`
       <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
         <div style="width:38px;height:38px;border-radius:10px;background:${tog[k]?'#dbeafe':'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ic}</div>
