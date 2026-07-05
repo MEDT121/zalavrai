@@ -3216,6 +3216,7 @@ window.logout = () => {
    'salaries','advances','absences','messages','teacher_notes','timetables','teacher_absences',
    'medical','tenafep','evaluations','cantine'].forEach(k=>{ DB[k]=[]; });
   DB.settings={};
+  try { localStorage.removeItem(CRYPT_STORE); localStorage.removeItem(CRYPT_KEY_STORE); } catch(_) {}
   S.user=null; S.page='dashboard'; S._history=[];
   document.body.removeAttribute('data-role');
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
@@ -4856,7 +4857,7 @@ function applyCrop() {
 // ── CARDS COMMANDER (Direction) — commande vers APKart ──
 R.cards = () => {
   const _g=_requireRole('direction','direction2'); if(_g) return _g;
-  const allStudents = (DB.students||[]).filter(s=>!s.blocked);
+  const allStudents = (DB.students||[]).filter(s=>!s.access_blocked);
   const total = allStudents.length;
   const withPhoto = allStudents.filter(s=>s.photo).length;
   const complete = allStudents.filter(s=>s.photo&&s.name&&s.mat&&s.dob).length;
@@ -7724,7 +7725,7 @@ window.checkRattrapageAuto = (cid) => {
   const cl = gc(cid); if(!cl) return;
   const trim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   const teacherId = S.user.id;
-  const students = (DB.students||[]).filter(s => s.cid === cid && !s.blocked);
+  const students = (DB.students||[]).filter(s => s.cid === cid && !s.access_blocked);
   const matieres = getClassMatieres(cid);
   let newRats = [];
   students.forEach(s => {
@@ -16158,7 +16159,7 @@ R.mon_site = () => {
 
   const d   = window._siteData || {};
   const sc  = DB.settings?.school || {};
-  const totalS  = (DB.students||[]).filter(s=>!s.blocked).length;
+  const totalS  = (DB.students||[]).filter(s=>!s.access_blocked).length;
   const totalT  = (DB.users||[]).filter(u=>u.role==='enseignant').length;
   const totalCl = (DB.classes||[]).length;
   const pub     = d.published || false;
@@ -16541,7 +16542,7 @@ window.saveSiteData = async () => {
     secondaire: ($('site_prog_sec')?.value||'').trim() || null,
   };
   const stats = {
-    students: (DB.students||[]).filter(s=>!s.blocked).length,
+    students: (DB.students||[]).filter(s=>!s.access_blocked).length,
     teachers: (DB.users||[]).filter(u=>u.role==='enseignant').length,
     classes:  (DB.classes||[]).length,
   };
