@@ -5419,9 +5419,9 @@ window.saveStudent = () => {
     toast(`${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
-    const ns={id:_uid('s_'),...data,created_at:today(),created_by:S.user.id,created_by_name:S.user.name};
+    const ns={id:_uid('s_'),...data,created_at:today(),created_by:S.user.id,created_by_name:S.user.name,school_id:window._currentSchoolId||null};
     DB.students.push(ns);
-    const newPays=['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:ns.id,t,paid:false}));
+    const newPays=['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:ns.id,t,paid:false,school_id:window._currentSchoolId||null}));
     newPays.forEach(p=>DB.payments.push(p));
     pushSync('students','upsert',ns);
     pushSync('payments','upsert',newPays);
@@ -6153,7 +6153,7 @@ window.approveApr = (id, status) => {
     if(status==='approved') {
       const existing=DB.attendance.find(x=>x.sid===a.sid&&x.date===a.date);
       if(!existing){
-        const att={id:_uid('a_'),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late'};
+        const att={id:_uid('a_'),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late',school_id:window._currentSchoolId||null};
         DB.attendance.push(att); pushSync('attendance','post',att);
       }
       if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`✅ ${s.name} a été autorisé(e) à entrer malgré le retard — décision de la Direction.`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
@@ -7194,7 +7194,7 @@ window.validateScanPresence = () => {
     } else {
       // Créer une ligne status:'absent' pour pouvoir compter l'absentéisme annuel
       if(!existing){
-        const absRec={id:_uid('att_'),sid:s.id,date:today(),arr_time:null,status:'absent',teacher_validated:true,by:S.user.id,cid:mc.cl.id};
+        const absRec={id:_uid('att_'),sid:s.id,date:today(),arr_time:null,status:'absent',teacher_validated:true,by:S.user.id,cid:mc.cl.id,school_id:window._currentSchoolId||null};
         DB.attendance.push(absRec);
         pushSync('attendance','post',absRec);
         absentMarked++;
@@ -7673,7 +7673,7 @@ window.checkRattrapageAuto = (cid) => {
 window.markAttendance = (sid,status) => {
   let a=DB.attendance.find(x=>x.sid===sid&&x.date===today());
   if(a){ a.status=status; pushSync('attendance','patch',{status},'id=eq.'+a.id); }
-  else{ a={id:'a'+Date.now(),sid,date:today(),arr_time:nowTime(),status}; DB.attendance.push(a); pushSync('attendance','post',a); }
+  else{ a={id:'a'+Date.now(),sid,date:today(),arr_time:nowTime(),status,school_id:window._currentSchoolId||null}; DB.attendance.push(a); pushSync('attendance','post',a); }
   const s=DB.students.find(x=>x.id===sid);
   const labels={excused:'Absent justifié',sick:'🤒 Sorti pour maladie',ontime:'À l\'heure',late:'⚠️ Retard'};
   toast(`${s?s.name:''} — ${labels[status]||status}`,'info');
@@ -8881,7 +8881,8 @@ window.saveGradePanel = cid => {
       type, note, max: 20, weight: coef,
       label: label || `${typeIcon} ${type.charAt(0).toUpperCase()+type.slice(1)}`,
       date: today(),
-      pct: Math.round((note / 20) * 100)
+      pct: Math.round((note / 20) * 100),
+      school_id: window._currentSchoolId||null
     };
     DB.grades.push(g);
     pushSync('grades', 'post', g);
@@ -9733,7 +9734,7 @@ window.saveCorrecteurDevoir = dvId => {
       const g={id:'g'+Date.now()+Math.random().toString(36).slice(2,5),sid,cid:d.cid,
         type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
         date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id,
-        comment,corrected_at};
+        comment,corrected_at,school_id:window._currentSchoolId||null};
       DB.grades.push(g); pushSync('grades','post',g);
     }
     saved++;
@@ -10742,7 +10743,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // ── NIVEAU 1 : À L'HEURE ──
   if(res.level===1){
     // Enter + notify parent
-    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime'};
+    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime',school_id:window._currentSchoolId||null};
     DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
@@ -10755,7 +10756,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
 
   // ── NIVEAU 2 : RETARD LÉGER ──
   if(res.level===2){
-    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late'};
+    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late',school_id:window._currentSchoolId||null};
     DB.attendance.push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
