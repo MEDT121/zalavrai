@@ -2089,12 +2089,16 @@ window._initAESKeyFromPIN = async (rawPin) => {
   } catch(e) { console.warn('[CRYPT PBKDF2]', e.message); }
 };
 function _cryptSnap() {
+  // Photos exclues du snapshot pour rester sous la limite 5 MB de localStorage.
+  // Elles rechargent depuis Supabase à chaque sync ; les autres données restent intactes.
+  const studentsNoPhoto = (DB.students||[]).map(({photo:_p,...s})=>s);
+  const apsNoPhoto = (DB.aps||[]).map(({photo:_p,...a})=>a);
   return {
-    users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
+    users:DB.users, classes:DB.classes, students:studentsNoPhoto, payments:DB.payments,
     attendance:DB.attendance.slice(0,300), scan_log:DB.scan_log.slice(0,200),
     conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:DB.absences.slice(0,200),
     notifs:DB.notifs.slice(0,100), events:DB.events, messages:DB.messages.slice(0,100),
-    aps:DB.aps, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
+    aps:apsNoPhoto, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
     approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
     daily_records:DB.daily_records.slice(0,500),
     daily_expenses:DB.daily_expenses.slice(0,500),
@@ -3005,6 +3009,14 @@ window.logout = () => {
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
   window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=window._iv_autoreport=null;
+  // Purge clé AES de la mémoire et toutes les données sensibles
+  _aesKey = null;
+  ['users','students','classes','grades','payments','attendance','scan_log','notifs','aps',
+   'conduct','devoirs','rattrapages','cahier_texte','audit_log','convocations','sanctions',
+   'daily_records','daily_expenses','daily_reports','journal_entries','versements','fee_types',
+   'salaries','advances','absences','messages','teacher_notes','timetables','teacher_absences',
+   'medical','tenafep','evaluations','cantine'].forEach(k=>{ DB[k]=[]; });
+  DB.settings={};
   S.user=null; S.page='dashboard'; S._history=[];
   document.body.removeAttribute('data-role');
   $('LN').value=''; $('LP').value=''; $('PM').textContent='';
