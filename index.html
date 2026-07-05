@@ -13146,18 +13146,22 @@ window.openManualEntry = () => {
      <button class="btn btn-primary" onclick="saveManualEntry()">Enregistrer</button>`);
 };
 window.saveManualEntry = () => {
-  const date=($('je_date')?.value||today()).trim();
-  const lib=($('je_lib')?.value||'').trim();
-  const debit=($('je_debit')?.value||'').trim();
-  const credit=($('je_credit')?.value||'').trim();
-  const montant=parseFloat($('je_montant')?.value||0);
-  if(!lib||!debit||!credit||!montant||montant<=0){toast('Remplissez tous les champs','error');return;}
-  if(debit===credit){toast('Débit et crédit doivent être différents','error');return;}
-  if(!DB.journal_entries) DB.journal_entries=[];
-  const e={id:'je_m_'+Date.now(),date,time:nowTime(),libelle:lib,debit,credit,montant,type:'manuel',by:S.user.name,school_id:window._currentSchoolId||null};
-  DB.journal_entries.push(e);
-  pushSync('journal_entries','post',e);
-  saveToCrypt(); closeModal(); toast('Écriture enregistrée','success'); render();
+  if(window._savingManualEntry) return; // garde anti-doublon
+  window._savingManualEntry = true;
+  try {
+    const date=($('je_date')?.value||today()).trim();
+    const lib=($('je_lib')?.value||'').trim();
+    const debit=($('je_debit')?.value||'').trim();
+    const credit=($('je_credit')?.value||'').trim();
+    const montant=parseFloat($('je_montant')?.value||0);
+    if(!lib||!debit||!credit||!montant||montant<=0){toast('Remplissez tous les champs','error');return;}
+    if(debit===credit){toast('Débit et crédit doivent être différents','error');return;}
+    if(!DB.journal_entries) DB.journal_entries=[];
+    const e={id:_uid('je_m_'),date,time:nowTime(),libelle:lib,debit,credit,montant,type:'manuel',by:S.user.name,school_id:window._currentSchoolId||null};
+    DB.journal_entries.push(e);
+    pushSync('journal_entries','post',e);
+    saveToCrypt(); closeModal(); toast('Écriture enregistrée','success'); render();
+  } finally { window._savingManualEntry = false; }
 };
 
 // ── Helpers documents officiels ──
