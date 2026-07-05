@@ -6410,9 +6410,11 @@ window.genRecuNo = () => {
 window.getStudentVersements = (sid) => {
   const vers = (DB.versements||[]).filter(v=>v.sid===sid);
   const feeTypes = DB.fee_types||[];
+  const fees = getFees();
   return feeTypes.map(f=>{
     const typePaid = vers.filter(v=>v.fee_type_id===f.id).reduce((s,v)=>s+(Number(v.montant)||0),0);
-    const target = Number(f.montant_defaut)||0;
+    // For core trimesters, always read from settings.fees (single source of truth)
+    const target = f.trimestre && fees[f.trimestre] !== undefined ? (Number(fees[f.trimestre])||0) : (Number(f.montant_defaut)||0);
     return {
       fee_type_id: f.id, label: f.label, category: f.category,
       trimestre: f.trimestre||null, active: f.active!==false,
@@ -6706,6 +6708,12 @@ window.saveFeesConfig = () => {
   DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
   DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
   DB.settings.fees.inscription=parseFloat($('fee_ins')?.value)||0;
+  // Sync fee_types.montant_defaut so both sources stay consistent
+  const trimMap={T1:'ft_T1',T2:'ft_T2',T3:'ft_T3',inscription:'ft_insc'};
+  Object.entries(trimMap).forEach(([t,fid])=>{
+    const ft=(DB.fee_types||[]).find(f=>f.id===fid);
+    if(ft){ ft.montant_defaut=DB.settings.fees[t]||0; pushSync('fee_types','patch',{montant_defaut:ft.montant_defaut},'id=eq.'+fid); }
+  });
   logAudit('fees_control', `T1:$${DB.settings.fees.T1} · T2:$${DB.settings.fees.T2} · T3:$${DB.settings.fees.T3} · Inscription:$${DB.settings.fees.inscription}`);
   toast('Frais scolaires mis à jour','success');
   closeModal(); saveToCrypt(); render();
