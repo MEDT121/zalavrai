@@ -7692,6 +7692,9 @@ window.checkRattrapageAuto = (cid) => {
     matieres.forEach(m => {
       const avg = matAvgPct(s.id, m.name, trim);
       if(avg === null || avg >= threshold) return;
+      // Ne pas déclencher sur une seule épreuve — attendre au moins 2 évaluations
+      const evalCount = (DB.grades||[]).filter(g=>g.sid===s.id&&g.matiere===m.name&&g.trimester===trim).length;
+      if(evalCount < 2) return;
       const existing = (DB.rattrapages||[]).find(r =>
         r.sid === s.id && r.matiere === m.name && r.trimestre === trim && !r.archived
       );
@@ -12736,7 +12739,8 @@ R.etat_financier = () => {
   const totalDepenses=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
   const depByMotif={};
   exps.forEach(e=>{const m=e.motif||'Divers';depByMotif[m]=(depByMotif[m]||0)+Number(e.amount||0);});
-  const soldeNet=totalRecettes-totalDepenses;
+  const soldeOuverture=(DB.settings.opening_cash||0)+(DB.settings.opening_bank||0);
+  const soldeNet=soldeOuverture+totalRecettes-totalDepenses;
   // ── Classement par classe ──
   const byClass=DB.classes.map(cl=>{
     const studs=DB.students.filter(s=>s.cid===cl.id);
@@ -12773,9 +12777,10 @@ R.etat_financier = () => {
       <div class="hic">💸</div><div class="hbig">$${totalDepenses}</div><div class="hsub">dépenses</div>
     </div>
     <div class="htile" style="background:${soldeNet>=0?'linear-gradient(135deg,#2f7bd6,#5b6fd6)':'linear-gradient(135deg,#dc2626,#f2716b)'};color:#fff;cursor:default">
-      <div class="hic">${soldeNet>=0?'📈':'⚠️'}</div><div class="hbig">$${soldeNet}</div><div class="hsub">solde net</div>
+      <div class="hic">${soldeNet>=0?'📈':'⚠️'}</div><div class="hbig">$${soldeNet}</div><div class="hsub">solde net cumulé${soldeOuverture?` (dont $${soldeOuverture} report)`:''}</div>
     </div>
   </div>
+  ${soldeOuverture?`<div style="font-size:11px;color:var(--text-secondary);margin:-8px 0 12px;padding:0 2px">Report à-nouveau exercice précédent : <strong>$${soldeOuverture}</strong></div>`:''}
 
   <!-- Graphique mensuel -->
   ${months.length?`<div class="premium-section" style="margin-bottom:14px">
@@ -19074,6 +19079,14 @@ window.archiverAnnee = () => {
         DB.settings.year_locked = yr;
         DB.settings.year_locked_date = today();
         DB.settings.year_locked_by = S.user.name;
+        // Reporter le solde de clôture comme à-nouveau de l'exercice suivant
+        const _vers = DB.versements||[];
+        const _exps = DB.daily_expenses||[];
+        const _clotureRecettes = _vers.reduce((s,v)=>s+(Number(v.montant)||0),0);
+        const _clotureDepenses = _exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
+        const _clotureOuv = (DB.settings.opening_cash||0)+(DB.settings.opening_bank||0);
+        DB.settings.opening_cash = Math.max(0, _clotureOuv + _clotureRecettes - _clotureDepenses);
+        DB.settings.opening_bank = 0;
         pushSync('settings','upsert',DB.settings);
         saveToCrypt();
         toast(`📦 Année ${yr} archivée et verrouillée — aucune modification possible`,'success');
