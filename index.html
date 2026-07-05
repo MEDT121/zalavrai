@@ -1517,6 +1517,21 @@ window.syncQueue = {
   async flush() {
     let queue = this.load();
     if (!queue.length || !DB_ONLINE) return 0;
+    // Deduplicate: remove zombie DELETEs superseded by a later POST/UPSERT for the same table+id
+    // (delete items store their target in data.query, e.g. 'id=eq.XYZ')
+    const _before = queue.length;
+    queue = queue.filter((i, idx) => {
+      if (i.op !== 'delete') return true;
+      const m = /(?:^|&)id=eq\.([^&]+)/.exec(i.data?.query || '');
+      if (!m) return true;
+      const key = i.table + ':' + m[1];
+      const superseded = queue.some((j, jdx) => jdx > idx && (j.op === 'post' || j.op === 'upsert') && j.data?.id != null && (j.table + ':' + j.data.id) === key);
+      return !superseded;
+    });
+    if (queue.length !== _before) {
+      if (queue.length) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+      else { this.clear(); return 0; }
+    }
     let done = 0;
     const remaining = [];
     let deadCount = 0;
@@ -5532,6 +5547,9 @@ window.deleteStudent = (sid) => {
     DB.attendance=DB.attendance.filter(x=>x.sid!==sid);
     pushSync('students','delete',{},'id=eq.'+sid);
     pushSync('payments','delete',{},'sid=eq.'+sid);
+    DB.grades = (DB.grades||[]).filter(x=>x.sid!==sid);
+    pushSync('grades','delete',{},'sid=eq.'+sid);
+    pushSync('attendance','delete',{},'sid=eq.'+sid);
     toast(`🗑️ ${s.name} supprimé`,'info');
     saveToCrypt(); render();
   });
@@ -8856,9 +8874,14 @@ window.getRankInClass = (sid) => {
     return Math.round(moy*0.85+Math.round(cAvg*25)*0.15);
   };
   const ranked=students.map(x=>({id:x.id,total:score(x)})).sort((a,b)=>b.total-a.total);
-  const pos=ranked.findIndex(x=>x.id===sid)+1;
-  const me=ranked.find(x=>x.id===sid);
-  return {pos, total:me?me.total:0, outOf:students.length};
+  // Ex-aequo: même score → même rang (1, 1, 3, ...)
+  let rank = 1;
+  const rankedWithRank = ranked.map((x, i) => {
+    if (i > 0 && x.total < ranked[i-1].total) rank = i + 1;
+    return {...x, rank};
+  });
+  const me=rankedWithRank.find(x=>x.id===sid);
+  return {pos: me?me.rank:0, total:me?me.total:0, outOf:students.length};
 };
 
 // School-wide top 10 for current trimester — used on parent profile
