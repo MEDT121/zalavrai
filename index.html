@@ -1481,12 +1481,26 @@ window.DEFAULT_MATIERES = {
 window.SYNC_QUEUE_KEY = 'schoolsafe_sync_queue';
 window.syncQueue = {
   add(table, op, data) {
-    const queue = this.load();
+    const queue = this.load(); // load() auto-purge les entrées > 7j
     queue.push({ table, op, data, ts: Date.now() });
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+    // Alerte unique à 200 opérations en attente
+    if (queue.length === 200 && typeof toast === 'function') {
+      toast('⚠️ 200 opérations en attente de sync — connectez-vous au réseau','warning');
+    }
   },
   load() {
-    try { return JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]'); }
+    try {
+      const raw = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
+      const cutoff = Date.now() - 7*24*60*60*1000; // 7 jours
+      const fresh = raw.filter(e => !e.ts || e.ts > cutoff);
+      if (fresh.length !== raw.length) {
+        // Des entrées ont été purgées — sauvegarder immédiatement
+        if (fresh.length) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(fresh));
+        else localStorage.removeItem(SYNC_QUEUE_KEY);
+      }
+      return fresh;
+    }
     catch(e) { return []; }
   },
   clear() { localStorage.removeItem(SYNC_QUEUE_KEY); },
