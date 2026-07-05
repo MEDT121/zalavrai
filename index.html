@@ -2222,10 +2222,11 @@ async function _hmacSign(secret, message) {
 function _cryptSnap() {
   // Photos exclues du snapshot pour rester sous la limite 5 MB de localStorage.
   // Elles rechargent depuis Supabase à chaque sync ; les autres données restent intactes.
-  const studentsNoPhoto = (DB.students||[]).map(({photo:_p,...s})=>s);
+  const studentsNoPhoto = (DB.students||[]).map(({photo:_p,photo_url:_pu,...s})=>s);
   const apsNoPhoto = (DB.aps||[]).map(({photo:_p,...a})=>a);
+  const usersNoPhoto = (DB.users||[]).map(({photo:_p,photo_url:_pu,...u})=>u);
   return {
-    users:DB.users, classes:DB.classes, students:studentsNoPhoto, payments:DB.payments,
+    users:usersNoPhoto, classes:DB.classes, students:studentsNoPhoto, payments:DB.payments,
     // Sort DESC before slice so offline cache always keeps the MOST RECENT entries,
     // not the oldest ones (mutations push() to end of array, breaking load order)
     attendance:[...(DB.attendance||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,300),
@@ -5371,6 +5372,14 @@ R.students = () => {
   let list = tab==='archives' ? archives : actifs;
   if (q) list = list.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q));
   if (cf && tab!=='archives') list = list.filter(s=>s.cid===cf);
+  // SYNC-03 : limite de rendu — sans recherche/filtre, cap à 60 cartes (bouton "Voir plus" pour le reste)
+  const _stuPageSize = 60;
+  const _stuShowAll = !!(window._stuShowAll);
+  window._stuShowAll = false; // reset : repagine par défaut au prochain render
+  const _displayList = (!q && !cf && !_stuShowAll && list.length > _stuPageSize)
+    ? list.slice(0, _stuPageSize)
+    : list;
+  const _hasMore = list.length > _stuPageSize && !q && !cf && !_stuShowAll;
   const _totalStu=actifs.length;
   const _nClasses=DB.classes.length;
   const _withParent=actifs.filter(s=>s.pid).length;
@@ -5407,9 +5416,9 @@ R.students = () => {
     ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${c.name} (${actifs.filter(s=>s.cid===c.id).length})</button>`).join('')}
   </div>`:`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:10px">📦 Élèves archivés — données conservées (paiements, présences, notes). Aucune suppression effectuée.</div>`}
   ${!list.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>${q?'Aucun résultat pour "'+q+'"':'Aucun élève inscrit'}</div>`:`
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${list.length} élève(s) affiché(s)</div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${_hasMore?`${_displayList.length} sur ${list.length} élève(s) affiché(s)`:`${list.length} élève(s) affiché(s)`}</div>
   <div class="ww-grid">
-    ${list.map((s,i)=>{
+    ${_displayList.map((s,i)=>{
       const c=gc(s.cid),p=gu(s.pid);
       const [cc,cbg]=clsColor(c?c.name:'');
       const pays=S.user.role!=='direction2'?DB.payments.filter(x=>x.sid===s.id):[];
@@ -5442,7 +5451,8 @@ R.students = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`}`);
+  </div>
+  ${_hasMore ? `<div style="text-align:center;padding:14px"><button class="btn btn-outline" onclick="window._stuShowAll=true;render()">Voir les ${list.length - _stuPageSize} élèves suivants ▼</button></div>` : ''}`}`);
 };
 
 window.openStudentForm = (sid) => {
