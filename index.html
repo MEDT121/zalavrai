@@ -1934,6 +1934,8 @@ window.loadFromSupabase = async () => {
     _seedFeeTypes();
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:_settingsId()};}
+    // Déchiffre subject/body si chiffrés (enc:...) — clé disponible maintenant dans DB.settings
+    if (DB.settings?.msg_enc_key) DB.messages = await _decryptMsgs(DB.messages);
     DB.approbations=fd(approbations);
     DB.teacher_notes=fd(teacher_notes);
     DB.audit_log=fd(audit_log);
@@ -2061,6 +2063,48 @@ function _xorDecryptLegacy(enc) {
     return JSON.parse(decodeURIComponent(r));
   } catch(e) { return null; }
 }
+// ── Chiffrement messages (clé partagée école, protège contenu au repos dans Supabase) ──
+let _msgEncKey = null;
+async function _getMsgEncKey() {
+  if (_msgEncKey) return _msgEncKey;
+  const hex = DB.settings?.msg_enc_key;
+  if (!hex || hex.length < 32) return null;
+  try {
+    const raw = new Uint8Array(hex.match(/.{2}/g).map(b=>parseInt(b,16)));
+    _msgEncKey = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt','decrypt']);
+    return _msgEncKey;
+  } catch(e) { return null; }
+}
+async function _encryptMsgField(str) {
+  const key = await _getMsgEncKey();
+  if (!key || !str) return str;
+  try {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(str));
+    const buf = new Uint8Array(12 + ct.byteLength);
+    buf.set(iv); buf.set(new Uint8Array(ct), 12);
+    return 'enc:' + btoa(String.fromCharCode(...buf));
+  } catch(e) { return str; }
+}
+async function _decryptMsgField(str) {
+  if (!str || !str.startsWith('enc:')) return str;
+  const key = await _getMsgEncKey();
+  if (!key) return str;
+  try {
+    const buf = Uint8Array.from(atob(str.slice(4)), c=>c.charCodeAt(0));
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)}, key, buf.slice(12));
+    return new TextDecoder().decode(plain);
+  } catch(e) { return str; }
+}
+async function _decryptMsgs(msgs) {
+  if (!msgs || !msgs.length) return msgs;
+  return Promise.all(msgs.map(async m => {
+    const s = await _decryptMsgField(m.subject);
+    const b = await _decryptMsgField(m.body);
+    return (s===m.subject && b===m.body) ? m : {...m,subject:s,body:b};
+  }));
+}
+
 // Dérive une clé AES-256 depuis le PIN brut via PBKDF2 — le sel est stocké en clair (inoffensif)
 async function _pbkdf2DeriveKey(rawPin) {
   let salt = localStorage.getItem(CRYPT_SALT_STORE);
@@ -3043,8 +3087,9 @@ window.logout = () => {
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
   window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=window._iv_autoreport=null;
-  // Purge clé AES de la mémoire et toutes les données sensibles
+  // Purge clés AES de la mémoire et toutes les données sensibles
   _aesKey = null;
+  _msgEncKey = null;
   ['users','students','classes','grades','payments','attendance','scan_log','notifs','aps',
    'conduct','devoirs','rattrapages','cahier_texte','audit_log','convocations','sanctions',
    'daily_records','daily_expenses','daily_reports','journal_entries','versements','fee_types',
@@ -3335,6 +3380,12 @@ function dashboardDirection() {
     const arr = crypto.getRandomValues(new Uint8Array(16));
     DB.settings.qr_secret = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
     DB.settings.qr_secret_date = today();
+    pushSync('settings','upsert',DB.settings);
+    saveToCrypt();
+  }
+  if (DB.settings && !DB.settings.msg_enc_key) {
+    const arr = crypto.getRandomValues(new Uint8Array(32));
+    DB.settings.msg_enc_key = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
     pushSync('settings','upsert',DB.settings);
     saveToCrypt();
   }
@@ -13886,7 +13937,7 @@ window.applyDirMsgTemplate = () => {
   }
 };
 
-window.sendMsg = (mode) => {
+window.sendMsg = async (mode) => {
   if(!S.user||!['direction','direction2','enseignant','parent'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const subject=($('msg_subject')?.value||'').trim();
   const body=($('msg_body')?.value||'').trim();
@@ -13923,7 +13974,10 @@ window.sendMsg = (mode) => {
   const msg={id:'msg'+Date.now(),from:S.user.id,from_role:S.user.role,to:toId,to_role:toRole,
     to_class_cid:toClassCid||null,subject,body,msg_type:msgType,
     date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
-  DB.messages.push(msg); pushSync('messages','post',msg);
+  DB.messages.push(msg);
+  // Chiffre subject+body avant envoi Supabase — plaintext reste en mémoire locale
+  const encS=await _encryptMsgField(subject), encB=await _encryptMsgField(body);
+  pushSync('messages','post',{...msg,subject:encS,body:encB});
 
   if(needsApproval){
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
@@ -14701,7 +14755,7 @@ window.openCommuniqueM = () => {
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" onclick="sendCommunique()">📣 Envoyer</button>`);
 };
-window.sendCommunique = () => {
+window.sendCommunique = async () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const target=$('cq_target')?.value||'all';
   const cid=target==='class'?($('cq_class')?.value||''):'';
@@ -14723,7 +14777,8 @@ window.sendCommunique = () => {
   const msg={id:'m'+Date.now(),from:S.user.id,from_role:S.user.role,to:toLabel,to_class:cid||null,type:'communique',subject,body,date:today(),status:'sent',read:false};
   if(!DB.messages) DB.messages=[];
   DB.messages.unshift(msg);
-  pushSync('messages','post',msg);
+  const encS=await _encryptMsgField(subject), encB=await _encryptMsgField(body);
+  pushSync('messages','post',{...msg,subject:encS,body:encB});
   // In-app notification for each parent
   targetParentIds.forEach(pid=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,6),uid:pid,
