@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v8';
+const CACHE = 'schoolsafe-v9';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -11,7 +11,15 @@ const PRECACHE = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  // Librairies CDN critiques — disponibles hors-ligne après 1er chargement
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
 ];
+
+// Domaines CDN servis en Cache-First (stale-while-revalidate)
+const CDN_HOSTS = ['cdnjs.cloudflare.com', 'cdn.jsdelivr.net'];
 
 // Domaines qui ne passent jamais par le cache
 const BYPASS_HOSTS = [
@@ -20,7 +28,6 @@ const BYPASS_HOSTS = [
   'script.googleusercontent.com',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
-  'cdnjs.cloudflare.com',
 ];
 
 // Extensions qui ne sont jamais mises en cache (toujours réseau)
@@ -57,6 +64,20 @@ self.addEventListener('fetch', evt => {
 
   // Bypass pour les API externes
   if (BYPASS_HOSTS.some(h => url.hostname.includes(h))) return;
+
+  // Cache-First pour les librairies CDN — disponibles hors-ligne, mises à jour en arrière-plan
+  if (CDN_HOSTS.some(h => url.hostname.includes(h))) {
+    evt.respondWith(
+      caches.match(evt.request).then(cached => {
+        const netFetch = fetch(evt.request).then(resp => {
+          if (resp.ok) caches.open(CACHE).then(c => c.put(evt.request, resp.clone()));
+          return resp;
+        }).catch(() => cached);
+        return cached || netFetch;
+      })
+    );
+    return;
+  }
 
   // Bypass pour POST/PATCH/DELETE
   if (evt.request.method !== 'GET') return;

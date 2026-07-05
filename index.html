@@ -2504,35 +2504,49 @@ window.animateCounters = () => {
   }
 };
 
-window.render = () => {
-  const _tt=$('TT'); if(_tt) _tt.textContent = PT[S.page] || 'SchoolSafe';
-  const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? 'block' : 'none';
-  const fn = R[S.page];
-  try {
+window.render = (() => {
+  let _scheduled = false;
+  let _lastPage = null;
+  function _exec() {
+    _scheduled = false;
+    const _tt=$('TT'); if(_tt) _tt.textContent = PT[S.page] || 'SchoolSafe';
+    const _apbg=$('APP_PHOTO_BG'); if(_apbg) _apbg.style.display = (S.page === 'dashboard') ? 'block' : 'none';
+    const fn = R[S.page];
     const _pc=$('PC');
     if(!_pc) return;
-    _pc.innerHTML = fn ? fn() : ph(S.page);
-    _pc.style.animation='none';
-    void _pc.offsetHeight;
-    _pc.style.animation='pageSlide .3s ease both';
-  } catch(e) {
-    console.error('[render] crash on page', S.page, e);
-    if(typeof logAudit==='function') try{logAudit('app_error',(e.message||'Erreur inconnue').slice(0,200));}catch(_){}
-    toast('Erreur détectée — retour accueil dans 5s','warning');
-    const _pcErr=$('PC'); if(!_pcErr) return;
-    _pcErr.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted)">
-      <div style="font-size:48px;margin-bottom:12px">⚠️</div>
-      <div style="font-weight:700;margin-bottom:8px;color:#241f1a">Erreur d'affichage</div>
-      <div style="font-size:12px;color:#6f6557;margin-bottom:12px">${e.message||'Erreur inconnue'}</div>
-      <div style="font-size:13px;color:#a89c8b;margin-bottom:20px">Retour automatique dans <strong id="_errCd">5</strong>s</div>
-      <button class="btn btn-primary" onclick="go('dashboard')">Retour à l'accueil</button>
-    </div>`;
-    let _s=5;const _iv=setInterval(()=>{_s--;const _el=$('_errCd');if(_el)_el.textContent=_s;if(_s<=0){clearInterval(_iv);go('dashboard');}},1000);
+    const isSamePage = _lastPage === S.page;
+    const savedScroll = isSamePage ? _pc.scrollTop : 0;
+    try {
+      _pc.innerHTML = fn ? fn() : ph(S.page);
+      if (!isSamePage) {
+        _pc.style.animation='none';
+        void _pc.offsetHeight;
+        _pc.style.animation='pageSlide .3s ease both';
+      } else {
+        // Même page : restaurer la position de scroll sans animation
+        _pc.scrollTop = savedScroll;
+      }
+      _lastPage = S.page;
+    } catch(e) {
+      console.error('[render] crash on page', S.page, e);
+      if(typeof logAudit==='function') try{logAudit('app_error',(e.message||'Erreur inconnue').slice(0,200));}catch(_){}
+      toast('Erreur détectée — retour accueil dans 5s','warning');
+      _pc.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+        <div style="font-weight:700;margin-bottom:8px;color:#241f1a">Erreur d'affichage</div>
+        <div style="font-size:12px;color:#6f6557;margin-bottom:12px">${e.message||'Erreur inconnue'}</div>
+        <div style="font-size:13px;color:#a89c8b;margin-bottom:20px">Retour automatique dans <strong id="_errCd">5</strong>s</div>
+        <button class="btn btn-primary" onclick="go('dashboard')">Retour à l'accueil</button>
+      </div>`;
+      let _s=5;const _iv=setInterval(()=>{_s--;const _el=$('_errCd');if(_el)_el.textContent=_s;if(_s<=0){clearInterval(_iv);go('dashboard');}},1000);
+    }
+    if (typeof animateCounters === 'function') setTimeout(animateCounters, 100);
+    updateBadges();
+    _updateTopBtn();
   }
-  if (typeof animateCounters === 'function') setTimeout(animateCounters, 100);
-  updateBadges();
-  _updateTopBtn();
-};
+  // Debounce via requestAnimationFrame : plusieurs appels synchrones → 1 seul rendu
+  return () => { if (!_scheduled) { _scheduled = true; requestAnimationFrame(_exec); } };
+})();
 
 window.updateBadges = () => {
   const cnt = getPendingCount();
