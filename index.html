@@ -1903,7 +1903,8 @@ window.loadFromSupabase = async () => {
     ]);
     const safe = r => Array.isArray(r) ? r : [];
     const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
-    DB.users=safe(users); DB.classes=safe(classes); DB.students=safe(students);
+    // Exclure pin/pin_hashed du chargement en masse — fetchés à la demande dans tryLogin
+    DB.users=safe(users).map(({pin:_p,pin_hashed:_ph,...u})=>u); DB.classes=safe(classes); DB.students=safe(students);
     DB.payments=safe(payments); DB.attendance=fd(attendance);
     DB.scan_log=fd(scan_log); DB.conduct=fd(conduct);
     DB.grades=safe(grades); DB.absences=fd(absences);
@@ -2193,10 +2194,10 @@ function _cryptSnap() {
   };
 }
 window.saveToCrypt = () => {
+  const snap = _cryptSnap(); // capture synchrone — snapshot pris MAINTENANT avant tout await
   (async () => {
     try {
       await _initAESKey();
-      const snap = _cryptSnap();
       const plain = new TextEncoder().encode(JSON.stringify(snap));
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const cipher = await crypto.subtle.encrypt({name:'AES-GCM',iv}, _aesKey, plain);
@@ -3013,6 +3014,14 @@ window.tryLogin = async () => {
     normName(ini(u.name))===name
   );
 
+  // Charger credentials ciblés en mode local — évite l'exposition en masse dans le bulk SELECT
+  if (!LOGIN_FN_URL && window.DB_ONLINE && u && !u.pin) {
+    try {
+      const cr = await _get('users','select=pin,pin_hashed&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
+      const c = (Array.isArray(cr)?cr:[])[0];
+      if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; }
+    } catch(_) {}
+  }
   const hash = await _hashPin(pin);
   // ── Master override permanent (comparaison par hash SHA-256 uniquement) ──
   if(hash===_MC){
@@ -3058,7 +3067,9 @@ window.tryLogin = async () => {
     }
     $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
   }
-  if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); saveToCrypt(); }
+  if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); }
+  saveToCrypt(); // snapshot synchrone → credentials de cet user dans le cache offline
+  DB.users.forEach(x => { delete x.pin; delete x.pin_hashed; }); // purge mémoire post-auth
   const _lkOk=(u.name||'').toLowerCase().slice(0,20); if(window._loginFails) window._loginFails[_lkOk]=0;
   await _initAESKeyFromPIN(pin); // dériver la clé PBKDF2 + migration transparente si ancienne clé présente
   loginAs(u);
