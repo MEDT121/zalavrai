@@ -2088,6 +2088,12 @@ window._initAESKeyFromPIN = async (rawPin) => {
     _aesKey = pbKey;
   } catch(e) { console.warn('[CRYPT PBKDF2]', e.message); }
 };
+// HMAC-SHA256 tronqué à 8 hex chars — utilisé pour signer les QR codes
+async function _hmacSign(secret, message) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,8);
+}
 function _cryptSnap() {
   // Photos exclues du snapshot pour rester sous la limite 5 MB de localStorage.
   // Elles rechargent depuis Supabase à chaque sync ; les autres données restent intactes.
@@ -3296,6 +3302,14 @@ window.toggleWeekendException = () => {
 function dashboardDirection() {
   if(typeof window.runSmokeTests==='function') window.runSmokeTests();
   if(typeof window._maybeAutoCleanup==='function') window._maybeAutoCleanup();
+  // Génération unique du secret HMAC pour les QR signés
+  if (DB.settings && !DB.settings.qr_secret) {
+    const arr = crypto.getRandomValues(new Uint8Array(16));
+    DB.settings.qr_secret = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+    DB.settings.qr_secret_date = today();
+    pushSync('settings','upsert',DB.settings);
+    saveToCrypt();
+  }
   const u = S.user;
   const students = DB.students?.filter(s => !s.archived) || [];
   const teachers = DB.users?.filter(u => u.role === 'enseignant') || [];
@@ -6860,8 +6874,20 @@ window.showChildQR = (sid) => {
     ctx.fillText('ID: '+s.id.slice(-6).toUpperCase(),70,70);
     ctx.fillText(s.mat,70,90);
     el.appendChild(canvas);
-    // QR scannable avec même payload que la carte
-    if(window.QRCode){el.innerHTML='';new QRCode(el,{text:'schoolsafe://student/'+s.id+'/'+s.mat,width:140,height:140,colorDark:'#2a2622',colorLight:'#ffffff'});}
+    // QR signé HMAC-SHA256 — payload : schoolsafe://student/{mat}/{YYYYMMDD}/{sig8}
+    if(window.QRCode){
+      const secret=DB.settings?.qr_secret;
+      let qrPayload;
+      if(secret){
+        const ts=today().replace(/-/g,'');
+        _hmacSign(secret, s.mat+':'+ts).then(sig=>{
+          qrPayload='schoolsafe://student/'+s.mat+'/'+ts+'/'+sig;
+          el.innerHTML='';new QRCode(el,{text:qrPayload,width:140,height:140,colorDark:'#2a2622',colorLight:'#ffffff'});
+        });
+      } else {
+        el.innerHTML='';new QRCode(el,{text:'schoolsafe://student/'+s.id+'/'+s.mat,width:140,height:140,colorDark:'#2a2622',colorLight:'#ffffff'});
+      }
+    }
   },100);
 };
 
@@ -10330,26 +10356,28 @@ function stopScan() {
   setScanStatus(false,'Caméra arrêtée');
 }
 function _decodeQR(raw) {
-  // Extrait le matricule depuis n'importe quel format SchoolSafe
+  // Extrait matricule + infos signature depuis n'importe quel format SchoolSafe
+  // Retourne {mat, qrSig, qrTs} — qrSig/qrTs null si ancien format non signé
   if(!raw) return null;
-  let mat=raw.trim();
-  if(mat.startsWith('schoolsafe://student/')||mat.startsWith('schoolsafe://verify/')){
-    // schoolsafe://student/{sid}/{mat}  ou schoolsafe://student/{mat}
-    const parts=mat.split('/');
+  let str=raw.trim();
+  if(str.startsWith('schoolsafe://student/')||str.startsWith('schoolsafe://verify/')){
+    const parts=str.split('/');
+    // Nouveau format signé : schoolsafe://student/{mat}/{YYYYMMDD}/{sig8} → 6 segments
+    if(parts.length===6 && /^\d{8}$/.test(parts[4])){
+      return {mat:parts[3], qrTs:parts[4], qrSig:parts[5]};
+    }
+    // Ancien format : schoolsafe://student/{sid}/{mat}
     const last=parts[parts.length-1];
     const second=parts[parts.length-2];
-    // Si le dernier segment ressemble à un matricule (STU-...) on l'utilise, sinon on cherche par ID
-    if(last&&last.includes('-')) return last;
-    // Sinon cherche par sid
+    if(last&&last.includes('-')) return {mat:last, qrSig:null, qrTs:null};
     const byId=DB.students.find(s=>s.id===second||s.id===last);
-    return byId?byId.mat:last;
+    return {mat:byId?byId.mat:last, qrSig:null, qrTs:null};
   }
-  mat=mat.toUpperCase();
+  let mat=str.toUpperCase();
   if(mat.startsWith('CR360-STU-')) mat=mat.replace('CR360-STU-','');
-  // Cherche par ID brut (ex: "stu001" ou "u5")
   const byId=DB.students.find(s=>s.id===raw||s.id===raw.toLowerCase());
-  if(byId) return byId.mat;
-  return mat;
+  if(byId) return {mat:byId.mat, qrSig:null, qrTs:null};
+  return {mat, qrSig:null, qrTs:null};
 }
 function _startDecodeLoop(video) {
   const canvas=document.createElement('canvas');
@@ -10369,11 +10397,12 @@ function _startDecodeLoop(video) {
       else if(typeof jsQR!=='undefined'){const img=ctx.getImageData(0,0,canvas.width,canvas.height);const q=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});if(q) raw=q.data;}
       if(raw && raw!==lastCode && Date.now()-lastTime>2000){
         lastCode=raw; lastTime=Date.now();
-        const mat=_decodeQR(raw);
-        if(!mat) return;
+        const _dqr=_decodeQR(raw);
+        if(!_dqr||!_dqr.mat) return;
+        const {mat:_mat,qrSig:_qSig,qrTs:_qTs}=_dqr;
         setScanStatus(true,'QR détecté — traitement...');
-        if(S.page==='scanner') processScanEntry(mat);
-        else if(S.page==='scanner_exit'){const inp=$('exitCode');if(inp)inp.value=mat;scanExit();}
+        if(S.page==='scanner') processScanEntry(_mat,_qSig,_qTs);
+        else if(S.page==='scanner_exit'){const inp=$('exitCode');if(inp)inp.value=_mat;scanExit();}
       }
     } catch(e){}
   }
@@ -10456,7 +10485,7 @@ window.manualScanEntry = () => {
   if($('scanInput')) $('scanInput').value='';
 };
 
-window.processScanEntry = async code => {
+window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   if(window._scanBusy) return; // anti-doublon
   window._scanBusy = true;
   try {
@@ -10475,6 +10504,33 @@ window.processScanEntry = async code => {
   const cls=gc(student.cid);
   const cycle=cls?cls.cycle:'primaire';
   const time=nowTime();
+
+  // ── VÉRIFICATION SIGNATURE QR ─────────────────────────────────────────────
+  const _qrSecret=DB.settings?.qr_secret;
+  let _qrOk = true; // true = passe, false = bloque
+  let _qrWarn = null; // message avertissement orange si QR non signé en période de grâce
+  if(_qrSecret) {
+    if(qrSig && qrTs) {
+      // QR signé — vérifier l'HMAC
+      const expectedSig = await _hmacSign(_qrSecret, code+':'+qrTs);
+      if(qrSig !== expectedSig) {
+        const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_fake_qr',label:'QR falsifié',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+        DB.scan_log.unshift(log);pushSync('scan_log','post',log);
+        (DB.users||[]).filter(u=>u.role==='direction'||u.role==='gardien').forEach(u=>pushNotif(u.id,`⚠️ QR FALSIFIÉ détecté pour ${student.name} — carte non authentique`));
+        showScanResult('red','⚠','QR FALSIFIÉ',student.name,'Carte non authentique — Alertez la Direction',time);
+        saveToCrypt(); return;
+      }
+    } else {
+      // QR non signé (ancienne carte) — appliquer la grâce de 30 jours
+      const secretDate=DB.settings?.qr_secret_date;
+      const daysElapsed=secretDate?Math.floor((new Date(today())-new Date(secretDate))/86400000):0;
+      if(daysElapsed>30){
+        showScanResult('red','⏰','CARTE PÉRIMÉE',student.name,'Carte non certifiée — régénérez-la depuis l\'app',time);
+        return;
+      }
+      _qrWarn=`⚠ Carte non certifiée (${30-daysElapsed} j restants pour renouveler)`;
+    }
+  }
 
   // Already scanned today?
   const existing=DB.attendance.find(a=>a.sid===student.id&&a.date===today());
@@ -10530,7 +10586,7 @@ window.processScanEntry = async code => {
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','!','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
-    else showScanResult('green','✓','À l\'heure',student.name,cls?cls.name:'',time);
+    else showScanResult(_qrWarn?'orange':'green',_qrWarn?'⚠':'✓',_qrWarn?'À l\'heure — Carte non certifiée':'À l\'heure',student.name,(cls?cls.name:'')+(_qrWarn?' — '+_qrWarn:''),time);
     saveToCrypt();
     return;
   }
@@ -10542,7 +10598,7 @@ window.processScanEntry = async code => {
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
-    showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré`,time);
+    showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré${_qrWarn?' — '+_qrWarn:''}`,time);
     saveToCrypt();
     return;
   }
