@@ -2220,7 +2220,7 @@ function _wrapDark(html){ return `<div class="dark role-dark-page" style="animat
     const tc=$('TC'); if(!tc) return;
     const el=document.createElement('div');
     el.className='toast '+type;
-    el.innerHTML=`<span class="ti">${icons[type]||'ℹ️'}</span>${msg}`;
+    el.innerHTML=`<span class="ti">${icons[type]||'ℹ️'}</span>${esc(msg)}`;
     tc.appendChild(el);
     const dismiss=()=>{ el.style.opacity='0'; setTimeout(()=>{ el.remove(); if(queue.length) show(queue.shift()); },300); };
     setTimeout(dismiss, DURATION);
@@ -6153,7 +6153,7 @@ window.viewDailyReport = (rid) => {
   const totalOut=(rep.expenses||[]).reduce((s,e)=>s+Number(e.amount||0),0);
   const body=`
     <div style="margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:10px">
-      <div style="font-weight:700">${sender?sender.name:'?'} — ${rep.date} à ${rep.time}</div>
+      <div style="font-weight:700">${sender?esc(sender.name):'?'} — ${rep.date} à ${rep.time}</div>
       <div style="font-size:13px;color:#065f46;margin-top:4px">Encaissé: $${totalIn} &nbsp;|&nbsp; Dépensé: $${totalOut} &nbsp;|&nbsp; Solde: $${totalIn-totalOut}</div>
     </div>
     ${rep.records&&rep.records.length?`<div style="font-weight:700;margin-bottom:6px">Paiements (${rep.records.length})</div>
@@ -10899,7 +10899,7 @@ R.scan_log = () => {
   </div>
   ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
   ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité aujourd'hui (${incidents.length})</div>
-    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title">${l.name}</div><div class="pi-sub">${l.label||l.status} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#f87171">${l.time}</span></div>`).join('')}
+    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${esc(l.label||l.status)} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#f87171">${esc(l.time)}</span></div>`).join('')}
   </div>`:''}
   ${logs.length?`
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} scan${logs.length>1?'s':''} aujourd'hui</div>
@@ -13639,7 +13639,7 @@ R.caisse_rapport = () => {
     <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="printReport('caisse')">💾 Télécharger en PDF</button>
   </div>
   ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Paiements (${recs.length})</div>
-    ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${r.student_name}</div><div class="pi-sub">${r.type_label}${r.note?' · '+r.note:''} — ${r.time}</div></div><span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${r.amount}</span></div>`).join('')}
+    ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${esc(r.student_name)}</div><div class="pi-sub">${esc(r.type_label||'')}${r.note?' · '+esc(r.note):''} — ${r.time}</div></div><span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${r.amount}</span></div>`).join('')}
   </div>`:''}
   ${exps.length?`<div class="premium-section"><div class="premium-section-title">💸 Dépenses (${exps.length})</div>
     ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
@@ -15563,9 +15563,9 @@ window.printReport = (type) => {
     <div style="display:flex;align-items:center;gap:20px;padding:16px;background:#f8faff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:18px">
       <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#efe3d3;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0;border:3px solid #243a6b">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:#6f6557">'+ini(k.name)+'</span>'}</div>
       <div style="flex:1">
-        <div style="font-size:18px;font-weight:800;color:#243a6b">${k.name}</div>
-        <div style="font-size:12px;color:#666;margin-top:2px">${k.mat} · ${cl?cl.name:'—'} · Année ${yr}</div>
-        <div style="font-size:12px;color:#666">Prof: ${profFR?profFR.name:'—'}${profEN?' / '+profEN.name:''}</div>
+        <div style="font-size:18px;font-weight:800;color:#243a6b">${esc(k.name)}</div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${esc(k.mat)} · ${cl?esc(cl.name):'—'} · Année ${yr}</div>
+        <div style="font-size:12px;color:#666">Prof: ${profFR?esc(profFR.name):'—'}${profEN?' / '+esc(profEN.name):''}</div>
       </div>
       <div style="text-align:center">
         <div style="font-size:28px;font-weight:900;color:${mColor}">${me?me.moy:0}%</div>
@@ -15585,13 +15585,13 @@ window.printReport = (type) => {
   } else if(type==='students'){
     title='Liste des Élèves';
     const byClass=DB.classes.map(cl=>({cl,studs:DB.students.filter(s=>s.cid===cl.id)})).filter(x=>x.studs.length);
-    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves total</div></div><div class="stat"><div class="v">${DB.classes.filter(c=>DB.students.some(s=>s.cid===c.id)).length}</div><div class="l">Classes</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender==='F').length}</div><div class="l">Filles</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender!=='F').length}</div><div class="l">Garçons</div></div></div>${byClass.map(({cl,studs})=>`<div class="ch">🏫 ${cl.name} <span style="font-weight:400;font-size:11px">(${studs.length} élèves)</span></div><table><tr><th>#</th><th>Matricule</th><th>Nom</th><th>Naissance</th><th>Parent / Tuteur</th><th>Contact</th></tr>${studs.map((s,i)=>{const p=gu(s.pid);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-family:monospace;font-size:11px">${s.mat}</td><td style="font-weight:600">${s.name}</td><td>${s.dob||'—'}</td><td>${p?p.name:'—'}</td><td style="font-size:11px">${p?p.phone||'—':'—'}</td></tr>`;}).join('')}</table>`).join('')}`;
+    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves total</div></div><div class="stat"><div class="v">${DB.classes.filter(c=>DB.students.some(s=>s.cid===c.id)).length}</div><div class="l">Classes</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender==='F').length}</div><div class="l">Filles</div></div><div class="stat"><div class="v">${DB.students.filter(s=>s.gender!=='F').length}</div><div class="l">Garçons</div></div></div>${byClass.map(({cl,studs})=>`<div class="ch">🏫 ${esc(cl.name)} <span style="font-weight:400;font-size:11px">(${studs.length} élèves)</span></div><table><tr><th>#</th><th>Matricule</th><th>Nom</th><th>Naissance</th><th>Parent / Tuteur</th><th>Contact</th></tr>${studs.map((s,i)=>{const p=gu(s.pid);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-family:monospace;font-size:11px">${esc(s.mat)}</td><td style="font-weight:600">${esc(s.name)}</td><td>${esc(s.dob||'—')}</td><td>${p?esc(p.name):'—'}</td><td style="font-size:11px">${p?esc(p.phone||'—'):'—'}</td></tr>`;}).join('')}</table>`).join('')}`;
 
   } else if(type==='payments'){
     title='Tableau des Paiements';
     const fees=getFees();
     const allPaidCount=DB.students.filter(s=>['T1','T2','T3'].every(t=>DB.payments.find(p=>p.sid===s.id&&p.t===t)?.paid)).length;
-    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 ($${fees.T1||'?'})</th><th>T2 ($${fees.T2||'?'})</th><th>T3 ($${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${s.name}</td><td>${c?c.name:''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-$${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
+    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 ($${fees.T1||'?'})</th><th>T2 ($${fees.T2||'?'})</th><th>T3 ($${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td>${c?esc(c.name):''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-$${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
 
   } else if(type==='palmares'){
     title='Palmarès Général';
@@ -15600,7 +15600,7 @@ window.printReport = (type) => {
       if(!studs.length) return '';
       const mats=[...new Set(DB.grades.filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere))];
       const ranked=studs.map(s=>{const avg=mats.length?Math.round(mats.reduce((a,mt)=>{const v=matAvgPct(s.id,mt);return v!==null?a+v:a;},0)/(mats.filter(mt=>matAvgPct(s.id,mt)!==null).length||1)):0;return{s,avg};}).sort((a,b)=>b.avg-a.avg);
-      return `<div class="ch">🏆 ${cl.name}</div><table><tr><th>Rang</th><th>Nom</th>${mats.map(m=>`<th style="font-size:10px">${m}</th>`).join('')}<th>Moy.</th><th>Mention</th></tr>${ranked.map(({s,avg},i)=>{const m=avg>=90?'Excellent':avg>=75?'Bien':avg>=60?'Assez bien':avg>=50?'Passable':'Insuffisant';const mc=avg>=75?'paid':avg>=50?'warn':'unpaid';return`<tr><td style="font-weight:700;color:${i<3?'#d98a2b':'#aaa'}">${['🥇','🥈','🥉'][i]||i+1}</td><td style="font-weight:600">${s.name}</td>${mats.map(mt=>{const a=matAvgPct(s.id,mt);return`<td style="text-align:center;color:${a!==null&&a>=50?'#1f9d6b':'#dc2626'};font-weight:600">${a!==null?a+'%':'—'}</td>`;}).join('')}<td style="font-weight:800;text-align:center;color:${avg>=50?'#1f9d6b':'#dc2626'}">${avg}%</td><td><span class="pill ${mc}">${m}</span></td></tr>`;}).join('')}</table>`;
+      return `<div class="ch">🏆 ${esc(cl.name)}</div><table><tr><th>Rang</th><th>Nom</th>${mats.map(m=>`<th style="font-size:10px">${esc(m)}</th>`).join('')}<th>Moy.</th><th>Mention</th></tr>${ranked.map(({s,avg},i)=>{const m=avg>=90?'Excellent':avg>=75?'Bien':avg>=60?'Assez bien':avg>=50?'Passable':'Insuffisant';const mc=avg>=75?'paid':avg>=50?'warn':'unpaid';return`<tr><td style="font-weight:700;color:${i<3?'#d98a2b':'#aaa'}">${['🥇','🥈','🥉'][i]||i+1}</td><td style="font-weight:600">${esc(s.name)}</td>${mats.map(mt=>{const a=matAvgPct(s.id,mt);return`<td style="text-align:center;color:${a!==null&&a>=50?'#1f9d6b':'#dc2626'};font-weight:600">${a!==null?a+'%':'—'}</td>`;}).join('')}<td style="font-weight:800;text-align:center;color:${avg>=50?'#1f9d6b':'#dc2626'}">${avg}%</td><td><span class="pill ${mc}">${m}</span></td></tr>`;}).join('')}</table>`;
     }).join('');
 
   } else if(type==='attendance'){
@@ -15626,9 +15626,9 @@ window.printReport = (type) => {
       <div class="stat"><div class="v" style="color:#dc2626">-$${totalOut}</div><div class="l">Dépensé</div></div>
       <div class="stat"><div class="v" style="color:${solde>=0?'#1f9d6b':'#dc2626'}">$${solde}</div><div class="l">Solde net</div></div>
     </div>
-    <div style="font-size:12px;color:#666;margin-bottom:14px">Caissier : <strong>${caissier}</strong> · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
-    ${recs.length?`<div class="ch">💵 Paiements reçus (${recs.length})</div><table><tr><th>#</th><th>Élève</th><th>Type</th><th>Heure</th><th>Montant</th></tr>${recs.map((r,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${r.student_name}</td><td>${r.type_label||'—'}</td><td>${r.time}</td><td style="font-weight:700;color:#1f9d6b">$${r.amount}</td></tr>`).join('')}</table>`:''}
-    ${exps.length?`<div class="ch">💸 Dépenses (${exps.length})</div><table><tr><th>#</th><th>Motif</th><th>Heure</th><th>Montant</th></tr>${exps.map((e,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td>${e.motif}</td><td>${e.time}</td><td style="font-weight:700;color:#dc2626">$${e.amount}</td></tr>`).join('')}</table>`:''}
+    <div style="font-size:12px;color:#666;margin-bottom:14px">Caissier : <strong>${esc(caissier)}</strong> · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+    ${recs.length?`<div class="ch">💵 Paiements reçus (${recs.length})</div><table><tr><th>#</th><th>Élève</th><th>Type</th><th>Heure</th><th>Montant</th></tr>${recs.map((r,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(r.student_name)}</td><td>${esc(r.type_label||'—')}</td><td>${r.time}</td><td style="font-weight:700;color:#1f9d6b">$${r.amount}</td></tr>`).join('')}</table>`:''}
+    ${exps.length?`<div class="ch">💸 Dépenses (${exps.length})</div><table><tr><th>#</th><th>Motif</th><th>Heure</th><th>Montant</th></tr>${exps.map((e,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td>${esc(e.motif)}</td><td>${e.time}</td><td style="font-weight:700;color:#dc2626">$${e.amount}</td></tr>`).join('')}</table>`:''}
     <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:2px solid #1f9d6b;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-weight:700;font-size:14px">Solde final du jour</span>
       <span style="font-weight:800;font-size:20px;color:${solde>=0?'#1f9d6b':'#dc2626'}">$${solde}</span>
@@ -15700,7 +15700,7 @@ window.printReport = (type) => {
       const studs=DB.students.filter(s=>s.cid===cl.id);
       const fail=studs.filter(s=>{const gs=DB.grades.filter(g=>g.sid===s.id);if(!gs.length)return false;return gs.reduce((a,g)=>a+gradePct(g),0)/gs.length<pass;}).map(s=>{const gs=DB.grades.filter(g=>g.sid===s.id);const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);const weak=[...new Set(gs.filter(g=>gradePct(g)<pass).map(g=>g.matiere))];return{s,avg,weak};});
       if(!fail.length) return '';
-      return `<div class="ch">📚 ${cl.name} — ${fail.length} élève(s)</div><table><tr><th>#</th><th>Nom</th><th>Moyenne</th><th>Matières insuffisantes</th></tr>${fail.map(({s,avg,weak},i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${s.name}</td><td><span class="pill unpaid">${avg}%</span></td><td style="color:#dc2626">${weak.join(' · ')||'—'}</td></tr>`).join('')}</table>`;
+      return `<div class="ch">📚 ${esc(cl.name)} — ${fail.length} élève(s)</div><table><tr><th>#</th><th>Nom</th><th>Moyenne</th><th>Matières insuffisantes</th></tr>${fail.map(({s,avg,weak},i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td><span class="pill unpaid">${avg}%</span></td><td style="color:#dc2626">${weak.map(w=>esc(w)).join(' · ')||'—'}</td></tr>`).join('')}</table>`;
     }).join('');
     html=sections||'<p style="text-align:center;padding:30px;color:#1f9d6b;font-size:14px;font-weight:600">✅ Aucun élève en situation de rattrapage</p>';
   }
