@@ -2256,7 +2256,9 @@ window.saveToCrypt = () => {
       const buf = new Uint8Array(12 + cipher.byteLength);
       buf.set(iv); buf.set(new Uint8Array(cipher), 12);
       localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...buf)));
-      localStorage.setItem('schoolsafe_db_ts', Date.now().toString());
+      const ts = Date.now();
+      localStorage.setItem('schoolsafe_db_ts', ts.toString());
+      window._lastCryptWrite = ts;
     } catch(e) { console.warn('[CRYPT]', e.message); }
   })();
 };
@@ -2292,6 +2294,16 @@ window.loadFromCrypt = async () => {
   } catch(e) { return false; }
 };
 if(!window._iv_autosave) window._iv_autosave = setInterval(() => { if (S.user && (DB.users||[]).length > 0) saveToCrypt(); }, 30000);
+
+// Coordination inter-onglets : si un autre onglet écrit un snapshot plus récent, on converge
+window.addEventListener('storage', async (e) => {
+  if (e.key !== CRYPT_STORE || !e.newValue || !S.user) return;
+  const theirTs = parseInt(localStorage.getItem('schoolsafe_db_ts') || '0', 10);
+  if (theirTs > (window._lastCryptWrite || 0)) {
+    await loadFromCrypt();
+    render();
+  }
+});
 
 // ── UI HELPERS ──
 function esc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
