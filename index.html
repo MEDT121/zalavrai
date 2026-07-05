@@ -12049,6 +12049,11 @@ window.openTrimLedger = (sid, trimestre) => {
 // ══════════════════════════════════════════════════════════════
 // PIPELINE FINANCIER CENTRAL — toute recette/dépense passe ici
 // ══════════════════════════════════════════════════════════════
+// FIN-03 : compte de trésorerie selon le mode de paiement
+// Mobile Money (M-Pesa, Airtel, Orange, virement, banque) → 521 Banque/Mobile Money
+// Espèces/cash → 571 Caisse
+window._tresoCompte = pm => /pesa|airtel|orange|virement|banc|cheque|mobile|momo/i.test(pm||'') ? '521' : '571';
+
 window._enregistrerMouvement = async (opts) => {
   const {
     sid=null, montant, motif='', note='',
@@ -12108,8 +12113,8 @@ window._enregistrerMouvement = async (opts) => {
     id:'je_auto_'+versement.id,
     date:today(),time:nowTime(),
     libelle:label+(s?' — '+s.name:'')+(note?' ('+note+')':''),
-    debit: isRecette?'571':compte_cat,
-    credit:isRecette?compte_cat:'571',
+    debit: isRecette?_tresoCompte(payment_method):compte_cat,
+    credit:isRecette?compte_cat:_tresoCompte(payment_method),
     montant, type:'auto', ref:versement.id, recu_no,
     by:S.user.name, school_id:window._currentSchoolId||null,
   };
@@ -12327,8 +12332,8 @@ window.annulerVersement = (vid) => {
       const isRecette=(v.mvt_type||'recette')!=='depense';
       const reversal={id:'je_void_'+vid+'_'+Date.now(),date:today(),time:nowTime(),
         libelle:'ANNULATION — '+(v.fee_label||v.motif||'?')+' — '+(v.student_name||'?'),
-        debit:isRecette?(v.compte_cat||'706'):'571',
-        credit:isRecette?'571':(v.compte_cat||'698'),
+        debit:isRecette?(v.compte_cat||'706'):_tresoCompte(v.payment_method),
+        credit:isRecette?_tresoCompte(v.payment_method):(v.compte_cat||'698'),
         montant:v.montant,type:'annulation',ref:vid,
         by:S.user.name,school_id:window._currentSchoolId||null};
       DB.journal_entries.push(reversal);
@@ -12486,11 +12491,11 @@ window.saveDepense = () => {
   if(!DB.daily_expenses) DB.daily_expenses=[];
   DB.daily_expenses.push(exp);
   pushSync('daily_expenses','post',exp);
-  // Écriture OHADA automatique : Débit compte dépense / Crédit 571 Caisse
+  // Écriture OHADA automatique : Débit compte dépense / Crédit compte trésorerie
   if(!DB.journal_entries) DB.journal_entries=[];
   const depEntry={id:'je_dep_'+exp.id,date:today(),time:nowTime(),
     libelle:motif+(beneficiary?' — '+beneficiary:''),
-    debit:category_code,credit:'571',montant:amount,
+    debit:category_code,credit:_tresoCompte(payment_method),montant:amount,
     type:'auto',ref:exp.id,by:S.user.name,
     school_id:window._currentSchoolId||null};
   DB.journal_entries.push(depEntry);
@@ -12895,7 +12900,7 @@ window._getJournalAll = () => {
     entries.push({
       id:'je_v_'+v.id, date:v.date||today(), time:v.time||'00:00',
       libelle:`${v.student_name||'?'} — ${v.fee_label||ft.label||v.motif||'?'}${v.motif&&v.fee_label&&v.motif!==v.fee_label?' ('+v.motif+')':''}`,
-      debit:'571', credit, montant:Number(v.montant)||0,
+      debit:_tresoCompte(v.payment_method), credit, montant:Number(v.montant)||0,
       ref:v.id, type:'versement', recu:v.recu_no||null, by:v.by_name||'',
     });
   });
@@ -12919,7 +12924,7 @@ window._getJournalAll = () => {
     entries.push({
       id:'je_e_'+e.id, date:e.date||today(), time:e.time||'00:00',
       libelle:`${debitLabel}${e.beneficiary?' — '+e.beneficiary:''} : ${e.motif||'?'}`,
-      debit, credit:'571', montant:Number(e.amount)||0,
+      debit, credit:_tresoCompte(e.payment_method), montant:Number(e.amount)||0,
       ref:e.id, type:'depense', by:e.by_name||e.by||'',
       payment_method:e.payment_method||null,
     });
