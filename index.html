@@ -7097,6 +7097,26 @@ window.getClassMatieres = (cid) => {
   return [...custom, ...defaults.filter(d=>!customLangs.has(d.lang))];
 };
 
+// ── Calcul absentéisme réel : explicite + implicite (jours de classe sans enregistrement) ──
+window.getStudentAbsences = (sid) => {
+  const student = (DB.students||[]).find(s=>s.id===sid);
+  if (!student) return {absent:0, excused:0, late:0, total:0};
+  const atts = (DB.attendance||[]).filter(a=>a.sid===sid);
+  const excused = atts.filter(a=>a.status==='excused'||a.status==='sick').length;
+  const late    = atts.filter(a=>a.status==='late').length;
+  const explicitAbsent = atts.filter(a=>a.status==='absent').length;
+  // Jours où au moins un camarade de classe était présent mais l'élève n'a pas de ligne
+  const classDates = new Set(
+    (DB.attendance||[])
+      .filter(a=>{ const s=(DB.students||[]).find(x=>x.id===a.sid); return s&&s.cid===student.cid&&(a.status==='ontime'||a.status==='late'); })
+      .map(a=>a.date)
+  );
+  const studentDates = new Set(atts.map(a=>a.date));
+  const implicitAbsent = [...classDates].filter(d=>!studentDates.has(d)).length;
+  const absent = explicitAbsent + implicitAbsent;
+  return {absent, excused, late, total: absent + excused};
+};
+
 // ── PRÉSENCES (enseignant: validation depuis scan automatique) ──
 R.attendance = () => {
   const role=S.user.role;
@@ -15901,8 +15921,9 @@ window.downloadBulletin = (sid) => {
   const mColor=grandPct>=70?'#1f9d6b':grandPct>=50?'#d98a2b':'#dc2626';
   const isPassing=grandPct>=50;
   // Absences / retards
-  const absences=DB.attendance.filter(a=>a.sid===k.id&&(a.status==='absent'||a.status==='sick'||a.status==='excused')).length;
-  const retards=DB.attendance.filter(a=>a.sid===k.id&&a.status==='late').length;
+  const _absInfo=getStudentAbsences(k.id);
+  const absences=_absInfo.total;
+  const retards=_absInfo.late;
   // Section rows: matière | coeff | T1 | T2 | T3 | Moy | Pts
   const sectionRows=(mats,flag)=>mats.map(m=>{
     const coeff=m.coeff||1;
