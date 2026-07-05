@@ -2064,6 +2064,22 @@ function _xorDecryptLegacy(enc) {
     return JSON.parse(decodeURIComponent(r));
   } catch(e) { return null; }
 }
+// ── Lockout login persistant (survit au F5) ──────────────────────────────────
+const LOGIN_FAILS_KEY = 'schoolsafe_login_fails';
+function _loadLoginState() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LOGIN_FAILS_KEY)||'{}');
+    const now = Date.now();
+    const lu = d.lockUntil||{};
+    // Purge les lockouts expirés
+    Object.keys(lu).forEach(k => { if (lu[k]<=now) { delete lu[k]; delete (d.fails||{})[k]; } });
+    return { fails: d.fails||{}, lockUntil: lu };
+  } catch(_) { return { fails:{}, lockUntil:{} }; }
+}
+function _saveLoginState(st) {
+  try { localStorage.setItem(LOGIN_FAILS_KEY, JSON.stringify(st)); } catch(_) {}
+}
+
 // ── Chiffrement messages (clé partagée école, protège contenu au repos dans Supabase) ──
 let _msgEncKey = null;
 async function _getMsgEncKey() {
@@ -2968,8 +2984,8 @@ window.tryLogin = async () => {
   const pin = ($('LP')?.value||'').trim();
   if (!name) { $('PM').textContent='Entrez votre nom'; return; }
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
-  // Vérification du lockout (blocage après 5 tentatives)
-  if(window._loginLockUntil){const _lkN=name.slice(0,20);if(window._loginLockUntil[_lkN]&&Date.now()<window._loginLockUntil[_lkN]){const _rem=Math.ceil((window._loginLockUntil[_lkN]-Date.now())/60000);$('PM').textContent=`Compte bloqué — réessayez dans ${_rem} min`;return;}}
+  // Vérification du lockout (persisté localStorage — résiste au F5)
+  { const _lkSt=_loadLoginState(),_lkN=name.slice(0,20); if(_lkSt.lockUntil[_lkN]&&Date.now()<_lkSt.lockUntil[_lkN]){const _rem=Math.ceil((_lkSt.lockUntil[_lkN]-Date.now())/60000);$('PM').textContent=`Compte bloqué — réessayez dans ${_rem} min`;return;}}
   // Support offline post-migration PBKDF2 : si DB.users vide et pas d'ancienne clé aléatoire,
   // tenter de déchiffrer le cache avec la clé dérivée du PIN saisi.
   if ((DB.users||[]).length===0 && !localStorage.getItem(CRYPT_KEY_STORE) && localStorage.getItem(CRYPT_STORE)) {
@@ -3035,9 +3051,8 @@ window.tryLogin = async () => {
 
   if (!u) {
     const _lk=(($('LN')?.value||'').trim().toLowerCase().slice(0,20))||'unknown';
-    window._loginFails=window._loginFails||{};
-    window._loginFails[_lk]=(window._loginFails[_lk]||0)+1;
-    if(window._loginFails[_lk]===3){
+    const _lsSt=_loadLoginState(); _lsSt.fails[_lk]=(_lsSt.fails[_lk]||0)+1; _saveLoginState(_lsSt);
+    if(_lsSt.fails[_lk]===3){
       try{logAudit('login_suspect',`3 tentatives échouées : "${_lk}"`);}catch(_){}
       (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (3x) pour le nom "${_lk}"`));
     }
@@ -3051,16 +3066,17 @@ window.tryLogin = async () => {
   const match = u.pin_hashed ? u.pin===hash : u.pin===pin;
   if (!match) {
     const _lk2=(u.name||'').toLowerCase().slice(0,20);
-    window._loginFails=window._loginFails||{};
-    window._loginLockUntil=window._loginLockUntil||{};
-    window._loginFails[_lk2]=(window._loginFails[_lk2]||0)+1;
-    const _fc=window._loginFails[_lk2];
+    const _lsPIN=_loadLoginState();
+    _lsPIN.fails[_lk2]=(_lsPIN.fails[_lk2]||0)+1;
+    const _fc=_lsPIN.fails[_lk2];
     if(_fc>=5){
       const _lockMs=Math.min(5*60*1000*Math.pow(2,_fc-5),30*60*1000);
-      window._loginLockUntil[_lk2]=Date.now()+_lockMs;
+      _lsPIN.lockUntil[_lk2]=Date.now()+_lockMs;
+      _saveLoginState(_lsPIN);
       const _lockMin=Math.round(_lockMs/60000);
       $('PM').textContent=`Compte bloqué ${_lockMin} min après ${_fc} tentatives`; $('LP').value=''; return;
     }
+    _saveLoginState(_lsPIN);
     if(_fc===3){
       try{logAudit('login_suspect',`3 tentatives mot de passe incorrect : "${_lk2}"`);}catch(_){}
       (DB.users||[]).filter(d=>d.role==='direction').forEach(d=>pushNotif(d.id,`Tentatives de connexion suspectes (${_fc}x) pour le compte "${esc(u.name)}"`));
@@ -3070,7 +3086,7 @@ window.tryLogin = async () => {
   if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); }
   saveToCrypt(); // snapshot synchrone → credentials de cet user dans le cache offline
   DB.users.forEach(x => { delete x.pin; delete x.pin_hashed; }); // purge mémoire post-auth
-  const _lkOk=(u.name||'').toLowerCase().slice(0,20); if(window._loginFails) window._loginFails[_lkOk]=0;
+  const _lkOk=(u.name||'').toLowerCase().slice(0,20); const _lsOk=_loadLoginState(); _lsOk.fails[_lkOk]=0; delete _lsOk.lockUntil[_lkOk]; _saveLoginState(_lsOk);
   await _initAESKeyFromPIN(pin); // dériver la clé PBKDF2 + migration transparente si ancienne clé présente
   loginAs(u);
 };
