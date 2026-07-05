@@ -2649,7 +2649,7 @@ window.render = (() => {
       _pc.innerHTML = `<div style="text-align:center;padding:60px;color:var(--text-muted)">
         <div style="font-size:48px;margin-bottom:12px">⚠️</div>
         <div style="font-weight:700;margin-bottom:8px;color:#241f1a">Erreur d'affichage</div>
-        <div style="font-size:12px;color:#6f6557;margin-bottom:12px">${e.message||'Erreur inconnue'}</div>
+        <details style="font-size:11px;color:#a89c8b;margin-bottom:8px;cursor:pointer"><summary style="outline:none">Détails techniques</summary>${esc(e.message||'Erreur inconnue')}</details>
         <div style="font-size:13px;color:#a89c8b;margin-bottom:20px">Retour automatique dans <strong id="_errCd">5</strong>s</div>
         <button class="btn btn-primary" onclick="go('dashboard')">Retour à l'accueil</button>
       </div>`;
@@ -5140,13 +5140,12 @@ R.notifications = () => {
   </div>`).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>Aucune notification</div>'}</div>`;
 };
 window.clearAllNotifs = () => {
-  const uid=S.user.id, role=S.user.role;
-  const toDelete = role==='direction' ? [...DB.notifs] : DB.notifs.filter(n=>n.uid===uid);
-  showC('Effacer toutes les notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} seront supprimées.`,()=>{
+  const uid=S.user.id;
+  // Direction efface uniquement ses propres notifications — pas celles de toute l'école
+  const toDelete = DB.notifs.filter(n=>n.uid===uid);
+  showC('Effacer mes notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} personnelles seront supprimées.`,()=>{
     if(toDelete.length){const _ids=toDelete.map(n=>n.id).join(',');pushSync('notifs','delete',{},'id=in.('+_ids+')');}
-
-    if(role==='direction') DB.notifs=[];
-    else DB.notifs=DB.notifs.filter(n=>n.uid!==uid);
+    DB.notifs=DB.notifs.filter(n=>n.uid!==uid);
     saveToCrypt(); toast('🗑️ Notifications effacées','info'); render();
   });
 };
@@ -5461,6 +5460,10 @@ window.saveStudent = () => {
     toast(`${name} mis à jour`,'success');
   } else {
     if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
+    const _normS=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
+    if((DB.students||[]).some(x=>x.cid===cid&&_normS(x.name)===_normS(name)&&!x.archived)){
+      markFieldError('stu_name',`Un élève "${name}" existe déjà dans cette classe`);return;
+    }
     const ns={id:_uid('s_'),...data,created_at:today(),created_by:S.user.id,created_by_name:S.user.name,school_id:window._currentSchoolId||null};
     DB.students.push(ns);
     const newPays=['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:ns.id,t,paid:false,school_id:window._currentSchoolId||null}));
@@ -5632,7 +5635,14 @@ window.saveUser = () => {
   if(uid && !existingUser){toast('Utilisateur introuvable — rechargez','error');return;}
   const pin=pinInput||existingUser?.pin||'';
   const pinHashed=pinInput?false:(existingUser?.pin_hashed||false);
-  const data={name,pin,pin_hashed:pinHashed,role,initials,phone:($('usr_phone')?.value||'').trim()||null,...(photo?{photo_url:photo}:{})};
+  const phoneRaw=($('usr_phone')?.value||'').trim();
+  if(phoneRaw && !/^[+]?[0-9\s\-()+]{9,15}$/.test(phoneRaw)){markFieldError('usr_phone','Format invalide — ex: +243 8XX XXX XXX');return;}
+  const phone=phoneRaw||null;
+  const _norm=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!uid && (DB.users||[]).some(u=>u.role===role&&_norm(u.name)===_norm(name))){
+    markFieldError('usr_name',`Un compte ${ROLE_META[role]?.label||role} avec ce nom existe déjà — ajoutez un prénom ou une initiale`);return;
+  }
+  const data={name,pin,pin_hashed:pinHashed,role,initials,phone,...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
 
   if(uid){
