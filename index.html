@@ -2298,7 +2298,8 @@ function _wrapDark(html){ return `<div class="dark role-dark-page" style="animat
     const tc=$('TC'); if(!tc) return;
     const el=document.createElement('div');
     el.className='toast '+type;
-    el.innerHTML=`<span class="ti">${icons[type]||'ℹ️'}</span>${esc(msg)}`;
+    const ti=document.createElement('span'); ti.className='ti'; ti.textContent=icons[type]||'ℹ��';
+    el.appendChild(ti); el.appendChild(document.createTextNode(msg));
     tc.appendChild(el);
     const dismiss=()=>{ el.style.opacity='0'; setTimeout(()=>{ el.remove(); if(queue.length) show(queue.shift()); },300); };
     setTimeout(dismiss, DURATION);
@@ -3131,9 +3132,12 @@ window.logout = () => {
   if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
   [window._iv_autosave,window._iv_syncui,window._iv_heartbeat,window._iv_clock,window._iv_autoreport].forEach(iv=>{if(iv)clearInterval(iv);});
   window._iv_autosave=window._iv_syncui=window._iv_heartbeat=window._iv_clock=window._iv_autoreport=null;
-  // Purge clés AES de la mémoire et toutes les données sensibles
+  // Purge clés AES, JWT et toutes les données sensibles de la mémoire
   _aesKey = null;
   _msgEncKey = null;
+  window._jwt = null;
+  window._currentSchoolId = '';
+  if (SUPA_KEY) _H.Authorization = 'Bearer ' + SUPA_KEY;
   ['users','students','classes','grades','payments','attendance','scan_log','notifs','aps',
    'conduct','devoirs','rattrapages','cahier_texte','audit_log','convocations','sanctions',
    'daily_records','daily_expenses','daily_reports','journal_entries','versements','fee_types',
