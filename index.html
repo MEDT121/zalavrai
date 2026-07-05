@@ -5234,14 +5234,17 @@ window.genMat = () => {
 R.students = () => {
   const q = (window._studentQ||'').toLowerCase();
   const cf = window._studentCF||'';
-  let list = DB.students;
+  const tab = window._stuTab || 'actifs';
+  const actifs = DB.students.filter(s=>!s.archived);
+  const archives = DB.students.filter(s=>s.archived);
+  let list = tab==='archives' ? archives : actifs;
   if (q) list = list.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q));
-  if (cf) list = list.filter(s=>s.cid===cf);
-  const _totalStu=DB.students.length;
+  if (cf && tab!=='archives') list = list.filter(s=>s.cid===cf);
+  const _totalStu=actifs.length;
   const _nClasses=DB.classes.length;
-  const _withParent=DB.students.filter(s=>s.pid).length;
+  const _withParent=actifs.filter(s=>s.pid).length;
   const _sevenAgo=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
-  const _newStu=DB.students.filter(s=>s.created_at&&s.created_at>=_sevenAgo).length;
+  const _newStu=actifs.filter(s=>s.created_at&&s.created_at>=_sevenAgo).length;
   return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px" onclick="window._studentCF='';render()" role="button" tabindex="0">
@@ -5257,17 +5260,21 @@ R.students = () => {
       <div style="font-size:19px">✨</div><div class="hbig" style="font-size:24px">${_newStu}</div><div class="hsub">cette semaine</div>
     </div>
   </div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button class="pill ${tab==='actifs'?'pill-blue':''}" onclick="window._stuTab='actifs';render()" style="cursor:pointer;border:none">Actifs (${actifs.length})</button>
+    <button class="pill ${tab==='archives'?'pill-orange':''}" onclick="window._stuTab='archives';render()" style="cursor:pointer;border:none">📦 Archivés (${archives.length})</button>
+  </div>
   <div class="ww-toolbar">
     <div class="ww-search" style="flex:1">
       <input id="stu_q" placeholder="Nom ou matricule..." value="${window._studentQ||''}" oninput="window._studentQ=this.value;clearTimeout(window._dT);window._dT=setTimeout(render,300)">
     </div>
-    <button class="btn btn-primary" onclick="openStudentForm()">+ Inscrire</button>
-    <button class="btn btn-outline btn-sm" onclick="openImportCSV()" style="white-space:nowrap">Import CSV</button>
+    ${tab==='actifs'?`<button class="btn btn-primary" onclick="openStudentForm()">+ Inscrire</button>
+    <button class="btn btn-outline btn-sm" onclick="openImportCSV()" style="white-space:nowrap">Import CSV</button>`:''}
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-    <button class="pill ${cf===''?'pill-blue':''}" onclick="window._studentCF='';render()" style="cursor:pointer;border:none">Tous (${DB.students.length})</button>
-    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${c.name} (${DB.students.filter(s=>s.cid===c.id).length})</button>`).join('')}
-  </div>
+  ${tab==='actifs'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="pill ${cf===''?'pill-blue':''}" onclick="window._studentCF='';render()" style="cursor:pointer;border:none">Tous (${actifs.length})</button>
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${c.name} (${actifs.filter(s=>s.cid===c.id).length})</button>`).join('')}
+  </div>`:`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:10px">📦 Élèves archivés — données conservées (paiements, présences, notes). Aucune suppression effectuée.</div>`}
   ${!list.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>${q?'Aucun résultat pour "'+q+'"':'Aucun élève inscrit'}</div>`:`
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${list.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
@@ -5294,9 +5301,12 @@ R.students = () => {
           </div>`:''}
           <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Parent : ${p?p.name:'— Aucun parent'}</div>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">Modifier</button>
-            <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">Dossier</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Suppr.</button>
+            ${tab==='archives'
+              ? `<button class="btn btn-outline btn-sm" style="flex:1;color:#1f9d6b;border-color:#1f9d6b" onclick="restoreStudent('${s.id}')">Restaurer</button>
+                 <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Suppr. déf.</button>`
+              : `<button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">Modifier</button>
+                 <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">Dossier</button>
+                 <button class="btn btn-outline btn-sm" style="color:#d98a2b;border-color:#d98a2b" onclick="archiveStudent('${s.id}')">📦</button>`}
           </div>
         </div>
       </div>`;
@@ -5405,6 +5415,26 @@ window.deleteStudent = (sid) => {
     toast(`🗑️ ${s.name} supprimé`,'info');
     saveToCrypt(); render();
   });
+};
+window.archiveStudent = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  showC(`Archiver ${esc(s.name)} ?`,`L'élève sera retiré des listes actives. Toutes ses données (paiements, présences, notes) sont conservées et il pourra être restauré à tout moment.`,()=>{
+    s.archived=true; s.archived_at=today();
+    pushSync('students','patch',{archived:true,archived_at:today()},'id=eq.'+sid);
+    logAudit('student_archive',`${s.name} — ${s.mat}`,sid);
+    toast(`📦 ${s.name} archivé`,'info');
+    saveToCrypt(); render();
+  });
+};
+window.restoreStudent = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  s.archived=false; s.archived_at=null;
+  pushSync('students','patch',{archived:false,archived_at:null},'id=eq.'+sid);
+  logAudit('student_restore',`${s.name} — ${s.mat}`,sid);
+  toast(`✅ ${s.name} restauré`,'success');
+  saveToCrypt(); render();
 };
 
 // ── TEACHERS / GUARDIANS / PARENTS — CRUD ──
@@ -7160,7 +7190,7 @@ window.signalAbsencesToDir = (cid) => {
 // ── CLÔTURE TRIMESTRE — analyse automatique ────────────────────────────────
 window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
   const cl = gc(cid); if(!cl) return 0;
-  const students = DB.students.filter(s => s.cid === cid);
+  const students = DB.students.filter(s => s.cid === cid && !s.archived);
   const allMatieres = getClassMatieres(cid).filter(m =>
     lang === 'fr' ? (m.lang === 'fr' || m.lang === 'commun') :
     lang === 'en' ? (m.lang === 'en' || m.lang === 'commun') : true
@@ -8724,7 +8754,7 @@ window.openGradePanel = cid => {
     mc.lang === 'fr' ? (m.lang === 'fr' || m.lang === 'commun') :
     mc.lang === 'en' ? (m.lang === 'en' || m.lang === 'commun') : true
   );
-  const students = DB.students.filter(s => s.cid === cid);
+  const students = DB.students.filter(s => s.cid === cid && !s.archived);
   if(!matieres.length){toast(t('Aucune matière configurée','No subjects configured'),'error'); return;}
   window._gradeTrim = window._gradeTrim || DB.settings.currentTrimestre || 'T1';
   window._gradeType = window._gradeType || 'devoir';
