@@ -2258,7 +2258,14 @@ window.saveToCrypt = () => {
       const cipher = await crypto.subtle.encrypt({name:'AES-GCM',iv}, _aesKey, plain);
       const buf = new Uint8Array(12 + cipher.byteLength);
       buf.set(iv); buf.set(new Uint8Array(cipher), 12);
-      localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...buf)));
+      try {
+        localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...buf)));
+      } catch(e) {
+        if(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22) {
+          try { toast('⚠️ Stockage local plein — sauvegarde offline impossible. Libérez de l\'espace ou videz le cache.','error'); } catch(_) {}
+          console.error('[CRYPT] QuotaExceededError — localStorage plein');
+        } else { throw e; }
+      }
       const ts = Date.now();
       localStorage.setItem('schoolsafe_db_ts', ts.toString());
       window._lastCryptWrite = ts;
@@ -5136,7 +5143,7 @@ window.sendUrgentAlert = () => {
 // ── NOTIFICATIONS ──
 R.notifications = () => {
   const uid=S.user.id, role=S.user.role;
-  const ns = role==='direction' ? DB.notifs : DB.notifs.filter(n=>n.uid===uid||n.uid===S.user.id);
+  const ns = DB.notifs.filter(n=>n.uid===uid); // COM-11: chaque rôle (y compris direction) ne voit que ses propres notifications
   const sorted=[...ns].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
   const unread=sorted.filter(n=>!n.read);
   // Mark all as read
