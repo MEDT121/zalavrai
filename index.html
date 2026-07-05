@@ -1160,8 +1160,19 @@ window.classDot = name => {
   const map = {'Petite Section':'petite','Moyenne Section':'moyenne','Grande Section':'grande','CP1':'cp1','CP2':'cp2','CE1':'ce1','CE2':'ce2','CM1':'cm1','CM2':'cm2'};
   return `<span class="cls-dot ${map[name]||''}"></span>`;
 };
-window.gc = id => DB.classes.find(c => c.id === id);
-window.gu = id => DB.users.find(u => u.id === id);
+// Index Maps — O(1) lookups. Reconstruit après chaque load/save. gc/gu tombent en fallback find() si index absent.
+window._rebuildIdx = () => {
+  const _arr = a => a||[];
+  DB._idx = {
+    classesById:  new Map(_arr(DB.classes).map(c=>[c.id,c])),
+    usersById:    new Map(_arr(DB.users).map(u=>[u.id,u])),
+    studentsById: new Map(_arr(DB.students).map(s=>[s.id,s])),
+    gradesBySid:  _arr(DB.grades).reduce((m,g)=>{ if(!m[g.sid]) m[g.sid]=[]; m[g.sid].push(g); return m; }, {}),
+    paysBySid:    _arr(DB.payments).reduce((m,p)=>{ if(!m[p.sid]) m[p.sid]=[]; m[p.sid].push(p); return m; }, {}),
+  };
+};
+window.gc = id => DB._idx?.classesById?.get(id) ?? (DB.classes||[]).find(c=>c.id===id);
+window.gu = id => DB._idx?.usersById?.get(id) ?? (DB.users||[]).find(u=>u.id===id);
 
 // ── WhatsApp helpers ──
 window.waLink = (phone, msg) => {
@@ -1951,6 +1962,7 @@ window.loadFromSupabase = async () => {
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
     DB._sid=(sids.length?Math.max(...sids):0)+1;
     console.log('[SB] ✅',DB.students.length,'élèves',DB.users.length,'users');
+    _rebuildIdx();
     saveToCrypt();
     return true;
   } catch(e) {
@@ -2210,6 +2222,7 @@ function _cryptSnap() {
   };
 }
 window.saveToCrypt = () => {
+  _rebuildIdx(); // index Maps toujours à jour après chaque mutation
   const snap = _cryptSnap(); // capture synchrone — snapshot pris MAINTENANT avant tout await
   (async () => {
     try {
@@ -2235,6 +2248,7 @@ window.loadFromCrypt = async () => {
         const d = JSON.parse(new TextDecoder().decode(plain));
         if (d && d.users) {
           Object.keys(d).forEach(k => { if (k.startsWith('_') && typeof d[k]==='number') DB[k]=d[k]; else if (Array.isArray(d[k])) DB[k]=d[k]; else if (typeof d[k]==='object'&&d[k]) DB[k]=d[k]; });
+          _rebuildIdx();
           return true;
         }
       } catch(_) { /* fall through to legacy */ }
@@ -2246,6 +2260,7 @@ window.loadFromCrypt = async () => {
       if (d && d.users) {
         Object.keys(d).forEach(k => { if (k.startsWith('_') && typeof d[k]==='number') DB[k]=d[k]; else if (Array.isArray(d[k])) DB[k]=d[k]; else if (typeof d[k]==='object'&&d[k]) DB[k]=d[k]; });
         localStorage.removeItem(CRYPT_XOR_LEGACY);
+        _rebuildIdx();
         saveToCrypt();
         return true;
       }
