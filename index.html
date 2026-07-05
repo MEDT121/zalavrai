@@ -12230,22 +12230,8 @@ window._enregistrerMouvement = async (opts) => {
   DB.daily_records.push(rec);
   pushSync('daily_records','post',rec);
 
-  // 3 — ÉCRITURE OHADA AUTOMATIQUE
-  if(!DB.journal_entries) DB.journal_entries=[];
-  const isRecette=mvt_type!=='depense';
-  const ohadaEntry={
-    id:'je_auto_'+versement.id,
-    date:today(),time:nowTime(),
-    libelle:label+(s?' — '+s.name:'')+(note?' ('+note+')':''),
-    debit: isRecette?_tresoCompte(payment_method):compte_cat,
-    credit:isRecette?compte_cat:_tresoCompte(payment_method),
-    montant, type:'auto', ref:versement.id, recu_no,
-    by:S.user.name, school_id:window._currentSchoolId||null,
-  };
-  DB.journal_entries.push(ohadaEntry);
-  pushSync('journal_entries','post',ohadaEntry);
-
-  // 4 — AUTO-SOLDE trimestre (rétrocompat DB.payments)
+  // 3 — AUTO-SOLDE trimestre (rétrocompat DB.payments)
+  // (Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.versements — pas de double écriture ici)
   if(sid && fee_type_id && trimestre){
     const ft=(DB.fee_types||[]).find(f=>f.id===fee_type_id);
     const target=ft?Number(ft.montant_defaut||0):0;
@@ -12258,7 +12244,7 @@ window._enregistrerMouvement = async (opts) => {
     }
   }
 
-  // 5 — NOTIFICATION PARENT
+  // 4 — NOTIFICATION PARENT
   if(sid&&s?.pid){
     const msg=`🧾 Reçu ${recu_no} — ${label} · $${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,
@@ -12269,7 +12255,7 @@ window._enregistrerMouvement = async (opts) => {
     DB.notifs.unshift(n);pushSync('notifs','post',n);
   }
 
-  // 6 — AUDIT + SAVE
+  // 5 — AUDIT + SAVE
   logAudit(mvt_type, `${s?s.name:(uid_perso||'—')} — ${label} — $${montant} (${payment_method})`);
   saveToCrypt();
   return {versement, ok:true};
@@ -12615,15 +12601,7 @@ window.saveDepense = () => {
   if(!DB.daily_expenses) DB.daily_expenses=[];
   DB.daily_expenses.push(exp);
   pushSync('daily_expenses','post',exp);
-  // Écriture OHADA automatique : Débit compte dépense / Crédit compte trésorerie
-  if(!DB.journal_entries) DB.journal_entries=[];
-  const depEntry={id:'je_dep_'+exp.id,date:today(),time:nowTime(),
-    libelle:motif+(beneficiary?' — '+beneficiary:''),
-    debit:category_code,credit:_tresoCompte(payment_method),montant:amount,
-    type:'auto',ref:exp.id,by:S.user.name,
-    school_id:window._currentSchoolId||null};
-  DB.journal_entries.push(depEntry);
-  pushSync('journal_entries','post',depEntry);
+  // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.daily_expenses — pas de double écriture ici
   logAudit('depense',`${motif} — $${amount} (${cat.label}) par ${S.user.name}`);
   toast(`💸 Dépense $${amount} — ${cat.label} enregistrée`,'success');
   saveToCrypt(); render();
@@ -13012,7 +12990,7 @@ window._getJournalAll = () => {
   const entries = [];
 
   // ── 1. Versements parents (toutes sortes : libre, fee_type, cantine...) ──
-  (DB.versements||[]).forEach(v => {
+  (DB.versements||[]).filter(v => !v.annulled).forEach(v => {
     const ft = feeTypes.find(f=>f.id===v.fee_type_id)||{};
     // Priorité : compte_cat sauvé sur le versement, puis déduit du fee_type, puis 708
     let credit = v.compte_cat || '708';
@@ -13103,8 +13081,9 @@ window._getJournalAll = () => {
     });
   });
 
-  // ── 6. Écritures manuelles (les type:'auto' sont déjà couvertes par les étapes 1-5) ──
-  (DB.journal_entries||[]).filter(j=>j.type!=='auto').forEach(j => entries.push({...j, type:'manuel'}));
+  // ── 6. Écritures manuelles (les type:'auto' sont déjà couvertes par les étapes 1-5 ;
+  //       les type:'annulation' sont exclues car les versements annulés sont déjà filtrés à l'étape 1) ──
+  (DB.journal_entries||[]).filter(j=>j.type!=='auto'&&j.type!=='annulation').forEach(j => entries.push({...j, type:'manuel'}));
 
   return entries.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 };
@@ -20800,13 +20779,7 @@ window.saveSalaire = (teacherId, month) => {
     const u=DB.users.find(x=>x.id===teacherId);
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET $${net}`,date:today(),time:nowTime(),read:false,type:'info'};
     DB.notifs.unshift(n);pushSync('notifs','post',n);
-    // Écriture OHADA : Débit 6421 Rémunérations enseignants / Crédit 571 Caisse
-    if(!DB.journal_entries) DB.journal_entries=[];
-    const salEntry={id:'je_sal_'+obj.id,date:today(),time:nowTime(),
-      libelle:`Salaire ${month} — ${u?.name||teacherId}`,
-      debit:'6421',credit:'571',montant:net,
-      type:'auto',ref:obj.id,by:S.user.name,school_id:window._currentSchoolId||null};
-    DB.journal_entries.push(salEntry);pushSync('journal_entries','post',salEntry);
+    // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.salaries — pas de double écriture ici
     logAudit('salaire',`${u?.name||teacherId} — $${net} (${month})`);
   }
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
@@ -20914,13 +20887,7 @@ window.savePersonnelSalaire = (salId) => {
   if(paid) {
     const notifTgt=(DB.users||[]).find(u=>(u.name||'').toLowerCase()===person_name.toLowerCase()&&u.role!=='parent'&&u.role!=='gardien');
     if(notifTgt) { const n={id:'n'+Date.now(),uid:notifTgt.id,msg:`💰 Paiement enregistré : $${net} (${month}) — ${person_role}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null}; DB.notifs.unshift(n);pushSync('notifs','post',n); }
-    // Écriture OHADA : Débit 6422 Personnel non-enseignant / Crédit 571 Caisse
-    if(!DB.journal_entries) DB.journal_entries=[];
-    const pEntry={id:'je_psal_'+obj.id,date:today(),time:nowTime(),
-      libelle:`Salaire ${month} — ${person_name} (${person_role})`,
-      debit:'6422',credit:'571',montant:net,
-      type:'auto',ref:obj.id,by:S.user.name,school_id:window._currentSchoolId||null};
-    DB.journal_entries.push(pEntry);pushSync('journal_entries','post',pEntry);
+    // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.salaries — pas de double écriture ici
     logAudit('salaire',`${person_name} (${person_role}) — $${net} (${month})`);
   }
   saveToCrypt();closeModal();toast(`✅ ${person_name} — $${net} enregistré`,'success');render();
