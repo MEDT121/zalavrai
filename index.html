@@ -3161,6 +3161,32 @@ window.loginAs = async user => {
   const _sc = DB.settings?.school?.country; if(_sc){ const el=document.getElementById('splashCountry'); if(el) el.textContent=_sc; }
 
   setTimeout(()=>{ $('LS').style.display='none'; $('APP').classList.add('active'); buildUI(); updateSyncIndicator(); toast('Bienvenue '+user.name,'success'); history.pushState({page:'dashboard'},'',''); checkRattrapageReminders(); window._startIdleTimer(); if(!window._iv_autosave) window._iv_autosave=setInterval(()=>{if(S.user&&(DB.users||[]).length>0)saveToCrypt();},30000); if(!window._iv_syncui) window._iv_syncui=setInterval(window.updateSyncIndicator,10000); if(!window._iv_heartbeat) window._iv_heartbeat=setInterval(()=>{if(S.user&&$('PC')&&!$('PC').innerHTML.trim()){toast('App rechargée automatiquement','info');render();}},15000); },450);
+  // Web Push : enregistrer la subscription si VAPID configuré
+  if ('serviceWorker' in navigator && 'PushManager' in window && DB.settings?.vapid_public_key) {
+    navigator.serviceWorker.ready.then(async reg => {
+      try {
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const perm = await Notification.requestPermission();
+          if (perm === 'granted') {
+            const raw = DB.settings.vapid_public_key.replace(/-/g,'+').replace(/_/g,'/');
+            const appKey = Uint8Array.from(atob(raw), c => c.charCodeAt(0));
+            sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
+          }
+        }
+        if (sub) {
+          const j = sub.toJSON();
+          pushSync('push_subscriptions','upsert',{
+            id: sub.endpoint.slice(-32),
+            uid: S.user.id, endpoint: sub.endpoint,
+            auth: j.keys?.auth, p256dh: j.keys?.p256dh,
+            ua: navigator.userAgent.slice(0,100), updated_at: today(),
+            school_id: window._currentSchoolId||null
+          });
+        }
+      } catch(e) { console.warn('[PUSH]', e.message); }
+    });
+  }
 };
 window.logout = () => {
   window._stopAppBgRotation&&window._stopAppBgRotation();

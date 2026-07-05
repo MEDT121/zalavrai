@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v9';
+const CACHE = 'schoolsafe-v10';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -124,4 +124,34 @@ self.addEventListener('message', evt => {
   if (evt.data?.type === 'CACHE_BUST') {
     caches.delete(CACHE).then(() => self.skipWaiting());
   }
+});
+
+// ── Web Push : afficher la notification reçue depuis le serveur ──────────────
+self.addEventListener('push', evt => {
+  let data = { title: 'SchoolSafe', body: 'Nouvelle notification', url: './', urgent: false };
+  try { if (evt.data) data = { ...data, ...evt.data.json() }; } catch(_) {}
+  evt.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: data.tag || 'schoolsafe-notif',
+      data: { url: data.url || './' },
+      requireInteraction: !!data.urgent,
+      vibrate: data.urgent ? [200, 100, 200] : [100],
+    })
+  );
+});
+
+// ── Clic sur une notification push : ouvrir ou focuser l'app ────────────────
+self.addEventListener('notificationclick', evt => {
+  evt.notification.close();
+  const url = evt.notification.data?.url || './';
+  evt.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => /index\.html|^\/$/.test(new URL(c.url).pathname));
+      if (existing) { existing.focus(); return; }
+      return clients.openWindow(url);
+    })
+  );
 });
