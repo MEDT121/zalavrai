@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v10';
+const CACHE = 'schoolsafe-v11';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -85,16 +85,19 @@ self.addEventListener('fetch', evt => {
   // Bypass pour les vidéos — toujours chargées du réseau, jamais cachées
   if (BYPASS_EXTENSIONS.some(ext => url.pathname.endsWith(ext))) return;
 
-  // Network-First pour index.html (toujours la version la plus récente)
+  // Stale-While-Revalidate pour index.html — répond du cache immédiatement,
+  // met à jour le cache en arrière-plan (évite 1,54 Mo bloquant à chaque démarrage)
   if (url.pathname.endsWith('/') || url.pathname.endsWith('index.html')) {
     evt.respondWith(
-      fetch(evt.request)
-        .then(response => {
-          const clone = response.clone();
-          caches.open(CACHE).then(cache => cache.put(evt.request, clone));
-          return response;
+      caches.open(CACHE).then(cache =>
+        cache.match(evt.request).then(cached => {
+          const netFetch = fetch(evt.request).then(response => {
+            if (response.ok) cache.put(evt.request, response.clone());
+            return response;
+          }).catch(() => cached);
+          return cached || netFetch;
         })
-        .catch(() => caches.match('./index.html'))
+      )
     );
     return;
   }
