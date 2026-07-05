@@ -2022,6 +2022,7 @@ window.forceSyncNow = async () => {
 // ── ENCRYPTED LOCAL STORAGE (AES-256-GCM) ──
 const CRYPT_STORE = 'schoolsafe_db_v4';
 const CRYPT_KEY_STORE = 'schoolsafe_crypt_key';
+const CRYPT_SALT_STORE = 'schoolsafe_crypt_salt';
 const CRYPT_XOR_LEGACY = 'schoolsafe_db_v3';
 const CRYPT_XOR_KEY = 'SchoolSafe2026!TWSI';
 let _aesKey = null;
@@ -2046,6 +2047,47 @@ function _xorDecryptLegacy(enc) {
     return JSON.parse(decodeURIComponent(r));
   } catch(e) { return null; }
 }
+// Dérive une clé AES-256 depuis le PIN brut via PBKDF2 — le sel est stocké en clair (inoffensif)
+async function _pbkdf2DeriveKey(rawPin) {
+  let salt = localStorage.getItem(CRYPT_SALT_STORE);
+  if (!salt) {
+    const s = crypto.getRandomValues(new Uint8Array(16));
+    salt = btoa(String.fromCharCode(...s));
+    localStorage.setItem(CRYPT_SALT_STORE, salt);
+  }
+  const saltBuf = Uint8Array.from(atob(salt), c => c.charCodeAt(0));
+  const keyMat = await crypto.subtle.importKey('raw', new TextEncoder().encode(rawPin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt:saltBuf, iterations:100000, hash:'SHA-256'},
+    keyMat, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+  );
+}
+// Initialise _aesKey depuis le PIN brut ; migre transparemment l'ancien cache chiffré avec clé aléatoire
+window._initAESKeyFromPIN = async (rawPin) => {
+  if (!rawPin) return;
+  try {
+    const pbKey = await _pbkdf2DeriveKey(rawPin);
+    const oldKeyStr = localStorage.getItem(CRYPT_KEY_STORE);
+    if (oldKeyStr) {
+      try {
+        const oldRaw = Uint8Array.from(atob(oldKeyStr), c => c.charCodeAt(0));
+        const oldKey = await crypto.subtle.importKey('raw', oldRaw, 'AES-GCM', false, ['decrypt']);
+        const enc = localStorage.getItem(CRYPT_STORE);
+        if (enc) {
+          const buf = Uint8Array.from(atob(enc), c => c.charCodeAt(0));
+          const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:buf.slice(0,12)}, oldKey, buf.slice(12));
+          const iv = crypto.getRandomValues(new Uint8Array(12));
+          const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, pbKey, plain);
+          const out = new Uint8Array(12 + cipher.byteLength);
+          out.set(iv); out.set(new Uint8Array(cipher), 12);
+          localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...out)));
+        }
+        localStorage.removeItem(CRYPT_KEY_STORE); // supprimer la clé en clair
+      } catch(me) { console.warn('[CRYPT migrate]', me.message); }
+    }
+    _aesKey = pbKey;
+  } catch(e) { console.warn('[CRYPT PBKDF2]', e.message); }
+};
 function _cryptSnap() {
   return {
     users:DB.users, classes:DB.classes, students:DB.students, payments:DB.payments,
@@ -2845,6 +2887,11 @@ window.tryLogin = async () => {
   if (!pin) { $('PM').textContent='Entrez votre code'; return; }
   // Vérification du lockout (blocage après 5 tentatives)
   if(window._loginLockUntil){const _lkN=name.slice(0,20);if(window._loginLockUntil[_lkN]&&Date.now()<window._loginLockUntil[_lkN]){const _rem=Math.ceil((window._loginLockUntil[_lkN]-Date.now())/60000);$('PM').textContent=`Compte bloqué — réessayez dans ${_rem} min`;return;}}
+  // Support offline post-migration PBKDF2 : si DB.users vide et pas d'ancienne clé aléatoire,
+  // tenter de déchiffrer le cache avec la clé dérivée du PIN saisi.
+  if ((DB.users||[]).length===0 && !localStorage.getItem(CRYPT_KEY_STORE) && localStorage.getItem(CRYPT_STORE)) {
+    try { const _sk=await _pbkdf2DeriveKey(pin); _aesKey=_sk; await loadFromCrypt(); } catch(_) {}
+  }
 
   // ── École migrée au central : login via Edge Function, qui résout SCHOOL_KEY
   //    (license_key public) en school_id réel, vérifie nom+code contre `users`
@@ -2931,6 +2978,7 @@ window.tryLogin = async () => {
   }
   if (!u.pin_hashed) { u.pin=hash; u.pin_hashed=true; pushSync('users','patch',{pin:hash,pin_hashed:true},'id=eq.'+u.id); saveToCrypt(); }
   const _lkOk=(u.name||'').toLowerCase().slice(0,20); if(window._loginFails) window._loginFails[_lkOk]=0;
+  await _initAESKeyFromPIN(pin); // dériver la clé PBKDF2 + migration transparente si ancienne clé présente
   loginAs(u);
 };
 window.loginAs = async user => {
@@ -3167,6 +3215,7 @@ window.saveProfile = async () => {
   if (DB.users.some(x=>x.id!==u.id&&x.pin===npHash)) { toast('Code déjà utilisé','error'); return; }
   u.pin = npHash; u.pin_hashed = true;
   pushSync('users','patch',{pin:npHash,pin_hashed:true},'id=eq.'+u.id);
+  await _initAESKeyFromPIN(np); // re-dériver la clé PBKDF2 avec le nouveau PIN
   saveToCrypt();
   toast('PIN mis à jour ✅','success'); closeModal();
 };
@@ -12701,8 +12750,8 @@ window._getJournalAll = () => {
     });
   });
 
-  // ── 6. Écritures manuelles ──
-  (DB.journal_entries||[]).forEach(j => entries.push({...j, type:'manuel'}));
+  // ── 6. Écritures manuelles (les type:'auto' sont déjà couvertes par les étapes 1-5) ──
+  (DB.journal_entries||[]).filter(j=>j.type!=='auto').forEach(j => entries.push({...j, type:'manuel'}));
 
   return entries.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
 };
@@ -14775,21 +14824,31 @@ window.setCurrentTrimestre = (t) => {
 };
 
 window.openPassageClasse = () => {
-  // Named progression for each cycle — order-independent
   const CLASS_PROG = {'Petite Section':'Moyenne Section','Moyenne Section':'Grande Section','Grande Section':'CP1','CP1':'CP2','CP2':'CE1','CE1':'CE2','CE2':'CM1','CM1':'CM2','CM2':null,'6ème':'5ème','5ème':'4ème','4ème':'3ème','3ème':'2nde','2nde':'1ère','1ère':'Terminale','Terminale':null};
-  // Helper: overall weighted % for a student
   const stuMoy = s => {
     const mats=getClassMatieres(s.cid);
     let tw=0,sw=0;
     mats.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sw+=c;}});
     return sw?Math.round(tw/sw):null;
   };
-  let totalFail=0, totalPass=0;
+  let totalFail=0, totalPass=0, unknownClasses=[];
   const rows=DB.classes.map(cl=>{
     const studs=DB.students.filter(s=>s.cid===cl.id);
     if(!studs.length) return '';
+    // Sécurité : bloquer les classes dont la progression n'est pas définie
+    if(!(cl.name in CLASS_PROG)){
+      unknownClasses.push(esc(cl.name));
+      return `<div style="margin-bottom:14px">
+        <div style="font-weight:700;font-size:13px;padding:8px 10px;background:#fff7ed;border-radius:6px;margin-bottom:4px;border-left:3px solid #ea580c;display:flex;align-items:center;gap:8px">
+          <span style="color:#ea580c">⚠</span>
+          <span style="color:#ea580c">${esc(cl.name)}</span>
+          <span style="font-size:11px;font-weight:400;color:#9a3412;margin-left:4px">— Progression inconnue · Renommer la classe pour correspondre au référentiel</span>
+        </div>
+        <div style="padding:6px 10px;font-size:12px;color:#9a3412;background:#fff7ed;border-radius:0 0 6px 6px">${studs.length} élève(s) non traité(s)</div>
+      </div>`;
+    }
     const nextName=CLASS_PROG[cl.name];
-    const nextCl=nextName!==undefined?(nextName?DB.classes.find(c=>c.name===nextName)||null:null):null;
+    const nextCl=nextName?DB.classes.find(c=>c.name===nextName)||null:null;
     const studRows=studs.map(s=>{
       const moy=stuMoy(s);
       const pass=moy===null||moy>=50;
@@ -14807,7 +14866,12 @@ window.openPassageClasse = () => {
       ${studRows}
     </div>`;
   }).join('');
+  const hasUnknown=unknownClasses.length>0;
   const body=`
+    ${hasUnknown?`<div style="padding:10px 12px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;margin-bottom:14px;font-size:12px;color:#9a3412">
+      <strong>⛔ ${unknownClasses.length} classe(s) bloquante(s) :</strong> ${unknownClasses.join(', ')}<br>
+      Renommez ces classes pour qu'elles correspondent exactement aux noms du référentiel (ex&nbsp;: <em>CE2</em> et non <em>CE2 B</em>), puis relancez le passage.
+    </div>`:''}
     <div style="display:flex;gap:10px;margin-bottom:14px">
       <div style="flex:1;padding:8px;background:#d8f3e6;border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#065f46">${totalPass}</div><div style="font-size:11px;color:#065f46">Admis (≥50%)</div></div>
       <div style="flex:1;padding:8px;background:#fee2e2;border-radius:8px;text-align:center"><div style="font-size:18px;font-weight:800;color:#dc2626">${totalFail}</div><div style="font-size:11px;color:#dc2626">Échec (&lt;50%)</div></div>
@@ -14815,7 +14879,7 @@ window.openPassageClasse = () => {
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Les élèves en <span style="color:#dc2626;font-weight:700">rouge (ÉCHEC)</span> sont décochés par défaut. Cochez-les si la délibération décide de les promouvoir quand même.</p>
     <div style="max-height:55vh;overflow-y:auto">${rows}</div>`;
   openM('Passage de classe', body,
-`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="executePassage()">Valider le passage</button>`);
+`<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" id="btnValiderPassage" onclick="executePassage()" ${hasUnknown?'disabled style="opacity:.4;cursor:not-allowed"':''}>Valider le passage</button>`);
 };
 
 window.executePassage = () => {
