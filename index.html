@@ -5474,7 +5474,7 @@ R.students = () => {
   </div>
   ${tab==='actifs'?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     <button class="pill ${cf===''?'pill-blue':''}" onclick="window._studentCF='';render()" style="cursor:pointer;border:none">Tous (${actifs.length})</button>
-    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${c.name} (${actifs.filter(s=>s.cid===c.id).length})</button>`).join('')}
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._studentCF='${c.id}';render()" style="cursor:pointer;border:none">${esc(c.name)} (${actifs.filter(s=>s.cid===c.id).length})</button>`).join('')}
   </div>`:`<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:8px 10px;background:var(--bg);border-radius:10px">📦 Élèves archivés — données conservées (paiements, présences, notes). Aucune suppression effectuée.</div>`}
   ${!list.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>${q?'Aucun résultat pour "'+q+'"':'Aucun élève inscrit'}</div>`:`
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${_hasMore?`${_displayList.length} sur ${list.length} élève(s) affiché(s)`:`${list.length} élève(s) affiché(s)`}</div>
@@ -5713,7 +5713,7 @@ window.openUserForm = (role, uid) => {
     <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer"><input type="radio" name="usr_lang" id="usr_lang_en" value="en" ${existingLang==='en'?'checked':''} style="accent-color:#2f7bd6"> 🇬🇧 Anglais</label>
   </div>
 </div>
-<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="usr_cid_cb" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2f7bd6"> ${c.name}</label>`;}).join('')}</div></div>` : '';
+<div class="form-group"><label class="form-label">Classes assignées</label><div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">${classes.map(c=>{const assigned=c.teacher_id===uid||c.teacher_id_en===uid;return`<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" class="usr_cid_cb" data-cid="${c.id}" ${assigned?'checked':''} style="accent-color:#2f7bd6"> ${esc(c.name)}</label>`;}).join('')}</div></div>` : '';
   const photoOpts = `<div class="form-group"><label class="form-label">Photo d'identité</label>
     <div style="display:flex;align-items:center;gap:14px">
       <div id="usr_photo_preview" style="width:72px;height:72px;border-radius:50%;background:var(--bg);border:2px solid var(--border);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">
@@ -6061,8 +6061,8 @@ window.openClassForm = (cid) => {
 <div class="form-group" id="cls_titulaire_group" ${isMaternelle?'style="display:none"':''}><label class="form-label">⭐ Titulaire de classe (responsable principal)</label>
   <select class="form-select" id="cls_titulaire">
     <option value="">— Choisir le titulaire —</option>
-    ${[c&&c.teacher_id?`<option value="${c.teacher_id}" ${c.titulaire_id===c.teacher_id?'selected':''}>${DB.users.find(u=>u.id===c.teacher_id)?.name||''} (FR)</option>`:'',
-       c&&c.teacher_id_en?`<option value="${c.teacher_id_en}" ${c.titulaire_id===c.teacher_id_en?'selected':''}>${DB.users.find(u=>u.id===c.teacher_id_en)?.name||''} (EN)</option>`:''
+    ${[c&&c.teacher_id?`<option value="${c.teacher_id}" ${c.titulaire_id===c.teacher_id?'selected':''}>${esc(DB.users.find(u=>u.id===c.teacher_id)?.name||'')} (FR)</option>`:'',
+       c&&c.teacher_id_en?`<option value="${c.teacher_id_en}" ${c.titulaire_id===c.teacher_id_en?'selected':''}>${esc(DB.users.find(u=>u.id===c.teacher_id_en)?.name||'')} (EN)</option>`:''
     ].filter(Boolean).join('')}
   </select>
 </div>`,
@@ -6711,7 +6711,7 @@ R.payments = () => {
     <button class="pill ${pf==='partial'?'pill-blue':''}" onclick="window._payFilterStatus='partial';window._payFilterClass='';render()" style="cursor:pointer;border:none">Partiels</button>
     <button class="pill ${pf==='unpaid'?'pill-red':''}" onclick="window._payFilterStatus='unpaid';window._payFilterClass='';render()" style="cursor:pointer;border:none">Non payés</button>
     <button class="pill ${pf==='blocked'?'pill-red':''}" onclick="window._payFilterStatus='blocked';window._payFilterClass='';render()" style="cursor:pointer;border:none">Bloqués</button>
-    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._payFilterClass='${c.id}';window._payFilterStatus='';render()" style="cursor:pointer;border:none">${c.name}</button>`).join('')}
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._payFilterClass='${c.id}';window._payFilterStatus='';render()" style="cursor:pointer;border:none">${esc(c.name)}</button>`).join('')}
   </div>
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${studs.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
@@ -7318,7 +7318,7 @@ R.attendance = () => {
   const late=students.filter(s=>att.find(a=>a.sid===s.id&&a.status==='late'));
   const absent=students.filter(s=>!att.find(a=>a.sid===s.id));
   const canModify=role==='enseignant';
-  const dirClassFilter=isDir?`<div style="margin-bottom:12px"><select class="form-select" onchange="window._attClassFilter=this.value;render()" style="width:100%"><option value="">Toutes les classes (${DB.students.length} élèves)</option>${DB.classes.map(c=>`<option value="${c.id}" ${window._attClassFilter===c.id?'selected':''}>${c.name} (${DB.students.filter(s=>s.cid===c.id).length})</option>`).join('')}</select></div>`:'';
+  const dirClassFilter=isDir?`<div style="margin-bottom:12px"><select class="form-select" onchange="window._attClassFilter=this.value;render()" style="width:100%"><option value="">Toutes les classes (${DB.students.length} élèves)</option>${DB.classes.map(c=>`<option value="${c.id}" ${window._attClassFilter===c.id?'selected':''}>${esc(c.name)} (${DB.students.filter(s=>s.cid===c.id).length})</option>`).join('')}</select></div>`:'';
 
   // Teacher scan validation block
   let teacherScanBlock='';
@@ -7375,7 +7375,7 @@ R.attendance = () => {
   </div>`;})()}
   ${students.length?'':`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="width:40px;height:40px;border-radius:12px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:16px;height:16px;border-radius:50%;background:#a89c8b"></div></div>Aucun élève dans cette classe</div>`}
   <div class="ww-section">
-    <div class="ww-section-header"><span class="ww-section-title">Présence du jour${isDir&&window._attClassFilter?(()=>{const cl=DB.classes.find(c=>c.id===window._attClassFilter);return cl?' — '+cl.name:'';})():''}</span></div>
+    <div class="ww-section-header"><span class="ww-section-title">Présence du jour${isDir&&window._attClassFilter?(()=>{const cl=DB.classes.find(c=>c.id===window._attClassFilter);return cl?' — '+esc(cl.name):'';})():''}</span></div>
     ${students.map((s,i)=>{
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
       const scanEntry=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
@@ -9690,8 +9690,8 @@ R.devoirs_parent = () => {
               return `<div class="premium-item">
                 <div style="width:34px;height:34px;border-radius:10px;background:${col}18;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:${col}"></div></div>
                 <div style="flex:1;min-width:0">
-                  <div class="pi-title" style="color:${col}">${g.label||g.type} — ${g.matiere}</div>
-                  <div class="pi-sub">${g.date||''} · Trim. ${g.trimester||''} · Coeff. ${g.weight||1}</div>
+                  <div class="pi-title" style="color:${col}">${esc(g.label||g.type)} — ${esc(g.matiere)}</div>
+                  <div class="pi-sub">${esc(g.date||'')} · Trim. ${esc(g.trimester||'')} · Coeff. ${g.weight||1}</div>
                 </div>
                 <span style="font-weight:800;font-size:16px;color:${pct>=50?'#1f9d6b':'#dc2626'}">${note}/${max}</span>
               </div>`;
@@ -11879,7 +11879,7 @@ R.absences = () => {
     <div class="premium-section-title">Soumettre une justification</div>
     ${!kids.length?`<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Aucun enfant lié à votre compte.</div>`:`
     <div class="form-group" style="margin-top:12px"><label class="form-label">Enfant concerné *</label>
-      <select class="form-select" id="abs_sid">${kids.map(k=>`<option value="${k.id}">${k.name}</option>`).join('')}</select>
+      <select class="form-select" id="abs_sid">${kids.map(k=>`<option value="${k.id}">${esc(k.name)}</option>`).join('')}</select>
     </div>
     <div class="form-group"><label class="form-label">Date(s) d'absence *</label>
       <input class="form-input" id="abs_dates" placeholder="Ex: 28/04/2025 ou du 28 au 30/04/2025">
@@ -17983,7 +17983,7 @@ R.mes_absences = () => {
         <div class="ww-item-icon" style="background:#fdeccd">🏠</div>
         <div class="ww-item-content">
           <div class="ww-item-title">${a.date?new Date(a.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—'}</div>
-          <div class="ww-item-sub">${a.motif||'—'}${a.duree?' · '+a.duree:''}</div>
+          <div class="ww-item-sub">${esc(a.motif||'—')}${a.duree?' · '+esc(a.duree):''}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Signalé à ${a.time||'—'}${isToday?' · <strong style="color:#1f9d6b">Aujourd\'hui</strong>':''}</div>
         </div>
         ${isToday?`<span class="pill" style="background:#d8f3e6;color:#065f46;flex-shrink:0">En cours</span>`:''}
@@ -19669,7 +19669,7 @@ window.exportArchivePDF = () => {
     }).sort((a,b)=>b.score-a.score);
     const medals=['🥇','🥈','🥉'];
     return `<div class="section">
-      <div class="section-title">🏫 ${cl.name} <span style="font-weight:400;font-size:10px;opacity:.8">(${studs.length} élèves)</span></div>
+      <div class="section-title">🏫 ${esc(cl.name)} <span style="font-weight:400;font-size:10px;opacity:.8">(${studs.length} élèves)</span></div>
       <table>
         <tr><th>#</th><th>Nom</th><th>Matricule</th><th>Moyenne</th><th>Mention</th><th>Conduite</th></tr>
         ${ranked.map((s,i)=>{
