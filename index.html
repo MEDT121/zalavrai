@@ -2236,7 +2236,7 @@ function _cryptSnap() {
     scan_log:[...(DB.scan_log||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
     conduct:[...(DB.conduct||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500), grades:DB.grades, absences:[...(DB.absences||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
     notifs:[...(DB.notifs||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100), events:DB.events, messages:[...(DB.messages||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100),
-    aps:apsNoPhoto, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
+    aps:apsNoPhoto, devoirs:(DB.devoirs||[]).filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
     approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
     daily_records:[...(DB.daily_records||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500),
     daily_expenses:[...(DB.daily_expenses||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500),
@@ -6304,14 +6304,14 @@ window.approveApr = (id, status) => {
   a.status = status;
   pushSync('approbations','patch',{status},'id=eq.'+id);
   if(a.type==='cahier_texte' && a.data && a.data.ctId) {
-    const ct = DB.cahier_texte.find(x=>x.id===a.data.ctId);
+    const ct = (DB.cahier_texte||[]).find(x=>x.id===a.data.ctId);
     if(ct){ ct.status = status==='approved'?'approved':'refused'; pushSync('cahier_texte','patch',{status:ct.status},'id=eq.'+ct.id); }
     const teacher = gu(a.by);
     if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`${status==='approved'?'✅':'❌'} Cahier de texte ${status==='approved'?'approuvé':'refusé'} — ${a.content.slice(0,60)}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
   if(a.type==='matiere' && status==='approved' && a.data) {
-    const exists = DB.matieres.find(m=>m.cid===a.data.cid&&m.name===a.data.name);
-    if(!exists){ const nm={id:'mat'+Date.now(),cid:a.data.cid,name:a.data.name,lang:a.data.lang,active:true}; DB.matieres.push(nm); pushSync('matieres','post',nm); }
+    const exists = (DB.matieres||[]).find(m=>m.cid===a.data.cid&&m.name===a.data.name);
+    if(!exists){ const nm={id:'mat'+Date.now(),cid:a.data.cid,name:a.data.name,lang:a.data.lang,active:true}; (DB.matieres=DB.matieres||[]).push(nm); pushSync('matieres','post',nm); }
     const teacher = gu(a.by);
     if(teacher){ const n={id:'n'+Date.now(),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
@@ -6368,7 +6368,7 @@ window.validateAbs = (id, status) => {
 };
 
 window.approveDevoir = (did, status) => {
-  const d = DB.devoirs.find(x=>x.id===did); if(!d) return;
+  const d = (DB.devoirs||[]).find(x=>x.id===did); if(!d) return;
   d.status = status==='approved' ? 'published' : 'refused';
   pushSync('devoirs','patch',{status:d.status},'id=eq.'+did);
   const teacher=gu(d.teacher_id);
@@ -7259,7 +7259,7 @@ window.t = (fr, en) => getLang()==='en' ? en : fr;
 window.getClassMatieres = (cid) => {
   const cl=gc(cid); if(!cl) return [];
   // Matières personnalisées approuvées pour cette classe
-  const custom=DB.matieres.filter(m=>m.cid===cid&&m.active!==false);
+  const custom=(DB.matieres||[]).filter(m=>m.cid===cid&&m.active!==false);
   const customLangs=new Set(custom.map(m=>m.lang));
   // Matières par défaut selon le cycle (humanités traité comme secondaire, faute de référentiel dédié)
   let defaults;
@@ -9496,7 +9496,7 @@ R.devoirs_parent = () => {
         </div>
       </div>`;
     const _now=Date.now();
-    const allDevoirs=DB.devoirs.filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const allDevoirs=(DB.devoirs||[]).filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
     const interroList=allDevoirs.filter(d=>d.category==='interro');
     const examenList=allDevoirs.filter(d=>d.category==='examen');
@@ -9843,7 +9843,7 @@ window.previewDevoirPdf = input => {
 
 // Open a PDF devoir in a new tab using a Blob URL (works on all platforms)
 window.openPdfDevoir = (dvId) => {
-  const d = DB.devoirs.find(x => x.id === dvId);
+  const d = (DB.devoirs||[]).find(x => x.id === dvId);
   if(!d || !d.content) { toast('PDF non disponible', 'error'); return; }
   try {
     const b64 = d.content.split(',')[1] || d.content;
@@ -9889,7 +9889,7 @@ window.saveDevoir = () => {
     teacher_id:S.user.id, status:'published',
     expires_at: Date.now() + 90*24*60*60*1000
   };
-  DB.devoirs.unshift(devoir);
+  (DB.devoirs=DB.devoirs||[]).unshift(devoir);
   // PDF content is base64 — too large for Supabase rows, push metadata only
   const syncPayload = type === 'pdf'
     ? {...devoir, content: null, pdf_local_only: true}
@@ -9914,10 +9914,10 @@ window.saveDevoir = () => {
 };
 
 window.deleteDevoir = dvId => {
-  const _dv=DB.devoirs.find(x=>x.id===dvId);
+  const _dv=(DB.devoirs||[]).find(x=>x.id===dvId);
   if(!_dv||!S.user||(S.user.role==='enseignant'?_dv.teacher_id!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   showC('Supprimer ce devoir ?','Cette action est irréversible. Les parents ne verront plus ce devoir.',()=>{
-    DB.devoirs=DB.devoirs.filter(x=>x.id!==dvId);
+    DB.devoirs=(DB.devoirs||[]).filter(x=>x.id!==dvId);
     pushSync('devoirs','delete',{},'id=eq.'+dvId);
     toast('🗑️ Devoir supprimé','info');
     saveToCrypt(); render();
@@ -9925,7 +9925,7 @@ window.deleteDevoir = dvId => {
 };
 
 window.openCorrecteurDevoir = dvId => {
-  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const d=(DB.devoirs||[]).find(x=>x.id===dvId); if(!d) return;
   const mc=getMyClass();
   const students=DB.students.filter(s=>s.cid===d.cid);
   const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Évaluation';
@@ -9977,7 +9977,7 @@ window.openCorrecteurDevoir = dvId => {
 };
 
 window.saveCorrecteurDevoir = dvId => {
-  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const d=(DB.devoirs||[]).find(x=>x.id===dvId); if(!d) return;
   if(!S.user||(S.user.role==='enseignant'?d.teacher_id!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   const trim=document.getElementById('gcTrim')?.value||window._gradeTrim||'T1';
   const max=parseFloat(document.getElementById('gcMax')?.value)||20;
@@ -10044,7 +10044,7 @@ window.saveCorrecteurDevoir = dvId => {
 };
 
 window.confirmDevoir = (dvId, kidId) => {
-  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const d=(DB.devoirs||[]).find(x=>x.id===dvId); if(!d) return;
   const kid=DB.students.find(s=>s.id===kidId);
   if(!S.user||S.user.role!=='parent'||!kid||kid.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   if((d.sigs||[]).some(s=>s.kid_id===kidId&&s.uid===S.user.id)){toast('Vous avez déjà confirmé ce devoir','info');return;}
@@ -10060,7 +10060,7 @@ window.confirmDevoir = (dvId, kidId) => {
 };
 
 window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
-  const d=DB.devoirs.find(x=>x.id===dvId); if(!d) return;
+  const d=(DB.devoirs||[]).find(x=>x.id===dvId); if(!d) return;
   const myGrade=kidId?DB.grades.find(g=>g.devoir_id===dvId&&g.sid===kidId):null;
 
   // Stored PDF: download directly as .pdf
@@ -10241,8 +10241,8 @@ window.checkCahierAlerts = () => {
     teachers.forEach(u=>{
       const key=cl.id+'_'+u.id;
       if(alerted.has(key)) return;
-      const miss0=!DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d0);
-      const miss1=!DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d1);
+      const miss0=!(DB.cahier_texte||[]).some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d0);
+      const miss1=!(DB.cahier_texte||[]).some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d1);
       if(miss0&&miss1){
         DB.users.filter(x=>x.role==='direction'||x.role==='direction2').forEach(dir=>{
           const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:dir.id,
@@ -10281,7 +10281,7 @@ R.cahier_texte = () => {
       html+=`<div class="ww-section" style="margin-bottom:14px">
         <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(cl.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl.cycle}</span></div>`;
       teachers.forEach(({u,lang})=>{
-        const filled=weekDays.map(d=>DB.cahier_texte.some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d));
+        const filled=weekDays.map(d=>(DB.cahier_texte||[]).some(e=>e.cid===cl.id&&e.by===u.id&&e.date===d));
         const total=filled.filter(Boolean).length;
         // Detect 2 consecutive missing days ending on latest day
         const consec2=!filled[filled.length-1]&&!filled[filled.length-2];
@@ -10307,7 +10307,7 @@ R.cahier_texte = () => {
   // ── ENSEIGNANT ─────────────────────────────────────────────────────────────
   if(role==='enseignant') {
     if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📖</div>Aucune classe assignée</div>`;
-    const entries=DB.cahier_texte.filter(e=>e.cid===mc.cl.id&&e.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const entries=(DB.cahier_texte||[]).filter(e=>e.cid===mc.cl.id&&e.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
     return `
     <div class="ww-toolbar">
@@ -10342,7 +10342,7 @@ R.cahier_texte = () => {
   let html=`<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">Cahier de texte</span></div>`;
   kids.forEach(k=>{
     const cl=gc(k.cid); if(!cl) return;
-    const entries=DB.cahier_texte.filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const entries=(DB.cahier_texte||[]).filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
     const upcoming=(DB.cahier_prep||[]).filter(e=>e.cid===k.cid&&e.status!=='fait'&&e.validated).sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
     const [cc]=clsColor(cl.name);
@@ -10427,7 +10427,7 @@ window.saveCahier = () => {
     date, by:S.user.id, status:'published',
     chapitre, devoirs, prochain
   };
-  DB.cahier_texte.unshift(entry);
+  (DB.cahier_texte=DB.cahier_texte||[]).unshift(entry);
   pushSync('cahier_texte','post',entry);
   // Notifier les parents de la classe
   const kids=DB.students.filter(s=>s.cid===mc.cl.id&&s.pid);
@@ -10567,7 +10567,7 @@ window.markCahierPrepDone = (id) => {
     id:'ct'+Date.now(), cid:prep.cid, matiere:prep.matiere, content:prep.content, lang:prep.lang,
     date:today(), by:S.user.id, status:'published'
   };
-  DB.cahier_texte.unshift(ctEntry);
+  (DB.cahier_texte=DB.cahier_texte||[]).unshift(ctEntry);
   prep.ct_id=ctEntry.id;
   pushSync('cahier_prep','patch',prep,'id=eq.'+prep.id);
   pushSync('cahier_texte','post',ctEntry);
@@ -14905,8 +14905,8 @@ R.teacher_activity = () => {
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👨‍🏫</div><div class="hbig" style="font-size:23px">${teachers.length}</div><div class="hsub">enseignants</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">📋</div><div class="hbig" style="font-size:23px">${DB.attendance.filter(a=>a.date===td).length}</div><div class="hsub">présences</div></div>
-    <div class="htile h-pay" style="padding:13px 8px"><div style="font-size:19px">📄</div><div class="hbig" style="font-size:23px">${DB.devoirs.filter(d=>d.date>=weekStr).length}</div><div class="hsub">devoirs / 7j</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📓</div><div class="hbig" style="font-size:23px">${DB.cahier_texte.filter(c=>c.date>=weekStr).length}</div><div class="hsub">cahiers / 7j</div></div>
+    <div class="htile h-pay" style="padding:13px 8px"><div style="font-size:19px">📄</div><div class="hbig" style="font-size:23px">${(DB.devoirs||[]).filter(d=>d.date>=weekStr).length}</div><div class="hsub">devoirs / 7j</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📓</div><div class="hbig" style="font-size:23px">${(DB.cahier_texte||[]).filter(c=>c.date>=weekStr).length}</div><div class="hsub">cahiers / 7j</div></div>
   </div>
   <div class="ww-grid">
     ${teachers.map((u,i)=>{
@@ -14915,8 +14915,8 @@ R.teacher_activity = () => {
       const cl = clFR||clEN;
       const attToday = cl ? DB.attendance.filter(a=>a.date===td&&DB.students.some(s=>s.cid===cl.id&&s.id===a.sid)).length : 0;
       const studCount = cl ? DB.students.filter(s=>s.cid===cl.id).length : 0;
-      const devoirsW = DB.devoirs.filter(d=>d.teacher_id===u.id&&d.date>=weekStr).length;
-      const cahierW = DB.cahier_texte.filter(c=>c.by===u.id&&c.date>=weekStr).length;
+      const devoirsW = (DB.devoirs||[]).filter(d=>d.teacher_id===u.id&&d.date>=weekStr).length;
+      const cahierW = (DB.cahier_texte||[]).filter(c=>c.by===u.id&&c.date>=weekStr).length;
       const lastAtt = DB.attendance.filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
       const daysSince = lastAtt ? Math.floor((Date.now()-new Date(lastAtt.date).getTime())/86400000) : 999;
       const alert = daysSince>3 && cl;
@@ -18647,7 +18647,7 @@ function edtUpcoming(cid, day) {
   const dayN = EDT_DAY_JS[day];
   const now = new Date(); now.setHours(0,0,0,0);
   const in14 = new Date(now); in14.setDate(in14.getDate()+14);
-  return DB.devoirs.filter(d =>
+  return (DB.devoirs||[]).filter(d =>
     d.cid===cid && (d.category==='interro'||d.category==='examen') &&
     d.deadline && (() => { const dd=new Date(d.deadline); return dd>=now && dd<=in14 && dd.getDay()===dayN; })()
   );
