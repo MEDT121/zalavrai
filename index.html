@@ -3831,7 +3831,7 @@ window.showStudentInfo = (sid) => {
   const s = DB.students.find(x => x.id === sid); if (!s) return;
   const cl = DB.classes.find(x => x.id === s.cid);
   const parent = s.pid ? DB.users.find(x => x.id === s.pid) : null;
-  const ta = DB.attendance.find(a => a.sid === sid && a.date === today());
+  const ta = (DB.attendance||[]).find(a => a.sid === sid && a.date === today());
   const ex = (DB.exit_scans||[]).find(e => e.sid === sid && e.date === today());
   const pays = DB.payments.filter(p => p.sid === sid);
   const allPaid = pays.length > 0 && pays.every(p => p.paid);
@@ -5606,7 +5606,7 @@ window.deleteStudent = (sid) => {
     logAudit('student_delete',`${s.name} — ${s.mat}`,sid);
     DB.students=DB.students.filter(x=>x.id!==sid);
     DB.payments=DB.payments.filter(x=>x.sid!==sid);
-    DB.attendance=DB.attendance.filter(x=>x.sid!==sid);
+    DB.attendance=(DB.attendance||[]).filter(x=>x.sid!==sid);
     pushSync('students','delete',{},'id=eq.'+sid);
     pushSync('payments','delete',{},'sid=eq.'+sid);
     DB.grades = (DB.grades||[]).filter(x=>x.sid!==sid);
@@ -6330,10 +6330,10 @@ window.approveApr = (id, status) => {
   if(a.type==='retard_grave' && a.sid) {
     const s=DB.students.find(x=>x.id===a.sid);
     if(status==='approved') {
-      const existing=DB.attendance.find(x=>x.sid===a.sid&&x.date===a.date);
+      const existing=(DB.attendance||[]).find(x=>x.sid===a.sid&&x.date===a.date);
       if(!existing){
         const att={id:_uid('a_'),sid:a.sid,date:a.date||today(),arr_time:a.time||nowTime(),status:'late',school_id:window._currentSchoolId||null};
-        DB.attendance.push(att); pushSync('attendance','post',att);
+        (DB.attendance=DB.attendance||[]).push(att); pushSync('attendance','post',att);
       }
       if(s&&s.pid){ const n={id:'n'+Date.now(),uid:s.pid,msg:`✅ ${s.name} a été autorisé(e) à entrer malgré le retard — décision de la Direction.`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
     } else {
@@ -6351,7 +6351,7 @@ window.validateAbs = (id, status) => {
   pushSync('absences','patch',{status},'id=eq.'+id);
   // If approved, mark matching attendance records as excused
   if(status==='approved') {
-    const affectedAtt = DB.attendance.filter(x=>x.sid===a.sid&&x.status==='late');
+    const affectedAtt = (DB.attendance||[]).filter(x=>x.sid===a.sid&&x.status==='late');
     affectedAtt.forEach(att=>{
       att.excused=true; att.status='excused';
       pushSync('attendance','patch',{excused:true,status:'excused'},'id=eq.'+att.id);
@@ -6511,7 +6511,7 @@ if(!window._iv_autoreport) window._iv_autoreport = setInterval(() => {
     if (window._autoReportSent[sentKey]) return;
     const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id);
     if (already) { window._autoReportSent[sentKey]=true; return; }
-    const todayAtt=DB.attendance.filter(a=>a.date===dateKey);
+    const todayAtt=(DB.attendance||[]).filter(a=>a.date===dateKey);
     const present=todayAtt.filter(a=>a.status==='ontime').length;
     const absent=todayAtt.filter(a=>a.status==='absent').length;
     const rep={id:'rep'+Date.now(),date:dateKey,time:nowTime(),by:S.user.id,status:'pending',records:[],expenses:[],summary:{students:DB.students.length,present,absent}};
@@ -6952,7 +6952,7 @@ R.children = () => {
     const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
     const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
     const debt=totalFees-paidAmt;
-    const ta=DB.attendance.find(a=>a.sid===k.id&&a.date===today());
+    const ta=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
     const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
     let statText,statClr,statBg;
     if(exitScan){statText=`Sorti(e) à ${exitScan.time}`;statClr='#2f7bd6';statBg='#eaf3fc';}
@@ -7038,7 +7038,7 @@ R.children = () => {
           ${SECTION('Présences — 14 derniers jours', clr)}
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             ${days14.map(d=>{
-              const a=DB.attendance.find(x=>x.sid===k.id&&x.date===d);
+              const a=(DB.attendance||[]).find(x=>x.sid===k.id&&x.date===d);
               const isToday=d===today();
               const dot=a?(a.status==='ontime'?{bg:'#2fbf8f',label:'A',tip:"À l'heure"}:a.status==='late'?{bg:'#f59e0b',label:'R',tip:'Retard'}:a.status==='excused'?{bg:'#2f7bd6',label:'J',tip:'Justifié'}:a.status==='sick'?{bg:'#ec4899',label:'M',tip:'Maladie'}:{bg:'#ef5b5b',label:'×',tip:'Refusé'}):{bg:'#efe3d3',label:'—',tip:'Absent'};
               const dayNum=new Date(d).getDate();
@@ -7304,7 +7304,7 @@ R.attendance = () => {
   // Direction: filter by class if selected
   if(isDir && window._attClassFilter) students=DB.students.filter(s=>s.cid===window._attClassFilter);
   if(!students.length && !isDir) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>Aucun élève</div>`;
-  const att=DB.attendance.filter(a=>a.date===today());
+  const att=(DB.attendance||[]).filter(a=>a.date===today());
   const present=students.filter(s=>att.find(a=>a.sid===s.id&&(a.status==='ontime'||a.status==='late')));
   const late=students.filter(s=>att.find(a=>a.sid===s.id&&a.status==='late'));
   const absent=students.filter(s=>!att.find(a=>a.sid===s.id));
@@ -7318,7 +7318,7 @@ R.attendance = () => {
     const scannedSids=todayScans.map(l=>l.sid);
     const myScanned=students.filter(s=>scannedSids.includes(s.id));
     const notScanned=students.filter(s=>!scannedSids.includes(s.id));
-    const validated=DB.attendance.some(a=>a.date===today()&&students.some(s=>s.id===a.sid)&&a.teacher_validated);
+    const validated=(DB.attendance||[]).some(a=>a.date===today()&&students.some(s=>s.id===a.sid)&&a.teacher_validated);
     teacherScanBlock=`
     <div style="background:linear-gradient(135deg,#eaf3fc,#dbeafe);border:1px solid #93c5fd;border-radius:${window.cssRadius||'16px'};padding:16px;margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
@@ -7390,7 +7390,7 @@ window.validateScanPresence = () => {
   const scannedSids=todayScans.map(l=>l.sid);
   let confirmed=0, absentMarked=0;
   students.forEach(s=>{
-    const existing=DB.attendance.find(a=>a.sid===s.id&&a.date===today());
+    const existing=(DB.attendance||[]).find(a=>a.sid===s.id&&a.date===today());
     if(scannedSids.includes(s.id)){
       if(existing){ existing.teacher_validated=true; pushSync('attendance','patch',{teacher_validated:true},'id=eq.'+existing.id); }
       confirmed++;
@@ -7398,7 +7398,7 @@ window.validateScanPresence = () => {
       // Créer une ligne status:'absent' pour pouvoir compter l'absentéisme annuel
       if(!existing){
         const absRec={id:_uid('att_'),sid:s.id,date:today(),arr_time:null,status:'absent',teacher_validated:true,by:S.user.id,cid:mc.cl.id,school_id:window._currentSchoolId||null};
-        DB.attendance.push(absRec);
+        (DB.attendance=DB.attendance||[]).push(absRec);
         pushSync('attendance','post',absRec);
         absentMarked++;
       } else if(existing.status!=='absent'){
@@ -7879,9 +7879,9 @@ window.checkRattrapageAuto = (cid) => {
 };
 
 window.markAttendance = (sid,status) => {
-  let a=DB.attendance.find(x=>x.sid===sid&&x.date===today());
+  let a=(DB.attendance||[]).find(x=>x.sid===sid&&x.date===today());
   if(a){ a.status=status; pushSync('attendance','patch',{status},'id=eq.'+a.id); }
-  else{ a={id:'a'+Date.now(),sid,date:today(),arr_time:nowTime(),status,school_id:window._currentSchoolId||null}; DB.attendance.push(a); pushSync('attendance','post',a); }
+  else{ a={id:'a'+Date.now(),sid,date:today(),arr_time:nowTime(),status,school_id:window._currentSchoolId||null}; (DB.attendance=DB.attendance||[]).push(a); pushSync('attendance','post',a); }
   const s=DB.students.find(x=>x.id===sid);
   const labels={excused:'Absent justifié',sick:'🤒 Sorti pour maladie',ontime:'À l\'heure',late:'⚠️ Retard'};
   toast(`${s?s.name:''} — ${labels[status]||status}`,'info');
@@ -7926,7 +7926,7 @@ R.palmares = () => {
 
     const ranked=students.map(s=>{
       const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
-      const retards=DB.attendance.filter(a=>a.sid===s.id&&a.status==='late').length;
+      const retards=(DB.attendance||[]).filter(a=>a.sid===s.id&&a.status==='late').length;
       let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{
         const a=matAvgPct(s.id,m.name,trimFilter);
@@ -10985,7 +10985,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   }
 
   // Already scanned today?
-  const existing=DB.attendance.find(a=>a.sid===student.id&&a.date===today());
+  const existing=(DB.attendance||[]).find(a=>a.sid===student.id&&a.date===today());
   if(existing){showScanResult('orange','↺','Déjà scanné',student.name,`Enregistré à ${existing.arr_time}`,time);return;}
 
   // ── CONTRÔLE FRAIS SCOLAIRES ──────────────────────────────────────────────
@@ -11033,7 +11033,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   if(res.level===1){
     // Enter + notify parent
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime',school_id:window._currentSchoolId||null};
-    DB.attendance.push(att); pushSync('attendance','post',att);
+    (DB.attendance=DB.attendance||[]).push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
@@ -11046,7 +11046,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // ── NIVEAU 2 : RETARD LÉGER ──
   if(res.level===2){
     const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late',school_id:window._currentSchoolId||null};
-    DB.attendance.push(att); pushSync('attendance','post',att);
+    (DB.attendance=DB.attendance||[]).push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
@@ -14904,7 +14904,7 @@ R.teacher_activity = () => {
   return `
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👨‍🏫</div><div class="hbig" style="font-size:23px">${teachers.length}</div><div class="hsub">enseignants</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">📋</div><div class="hbig" style="font-size:23px">${DB.attendance.filter(a=>a.date===td).length}</div><div class="hsub">présences</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">📋</div><div class="hbig" style="font-size:23px">${(DB.attendance||[]).filter(a=>a.date===td).length}</div><div class="hsub">présences</div></div>
     <div class="htile h-pay" style="padding:13px 8px"><div style="font-size:19px">📄</div><div class="hbig" style="font-size:23px">${(DB.devoirs||[]).filter(d=>d.date>=weekStr).length}</div><div class="hsub">devoirs / 7j</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📓</div><div class="hbig" style="font-size:23px">${(DB.cahier_texte||[]).filter(c=>c.date>=weekStr).length}</div><div class="hsub">cahiers / 7j</div></div>
   </div>
@@ -14913,11 +14913,11 @@ R.teacher_activity = () => {
       const clFR = DB.classes.find(c=>c.teacher_id===u.id);
       const clEN = DB.classes.find(c=>c.teacher_id_en===u.id);
       const cl = clFR||clEN;
-      const attToday = cl ? DB.attendance.filter(a=>a.date===td&&DB.students.some(s=>s.cid===cl.id&&s.id===a.sid)).length : 0;
+      const attToday = cl ? (DB.attendance||[]).filter(a=>a.date===td&&DB.students.some(s=>s.cid===cl.id&&s.id===a.sid)).length : 0;
       const studCount = cl ? DB.students.filter(s=>s.cid===cl.id).length : 0;
       const devoirsW = (DB.devoirs||[]).filter(d=>d.teacher_id===u.id&&d.date>=weekStr).length;
       const cahierW = (DB.cahier_texte||[]).filter(c=>c.by===u.id&&c.date>=weekStr).length;
-      const lastAtt = DB.attendance.filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+      const lastAtt = (DB.attendance||[]).filter(a=>DB.students.some(s=>s.cid===(cl?cl.id:'')&&s.id===a.sid)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
       const daysSince = lastAtt ? Math.floor((Date.now()-new Date(lastAtt.date).getTime())/86400000) : 999;
       const alert = daysSince>3 && cl;
       return `<div class="ww-card" style="animation-delay:${i*.04}s">
@@ -15742,7 +15742,7 @@ window.genererRapportMensuel = (sid, mois) => {
   matieres.forEach(m=>{const a=matAvgPct(sid,m.name,trim);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
   const moy=sumC?Math.round(totalPct/sumC):null;
   // Présences du mois
-  const presences=DB.attendance.filter(a=>a.sid===sid&&a.date&&a.date.slice(0,7)===mois);
+  const presences=(DB.attendance||[]).filter(a=>a.sid===sid&&a.date&&a.date.slice(0,7)===mois);
   const absents=presences.filter(a=>a.status==='absent').length;
   const retards=presences.filter(a=>a.status==='late').length;
   const presents=presences.filter(a=>a.status==='présent').length;
@@ -15992,7 +15992,7 @@ window.exportCSV = (type) => {
   } else if(type==='attendance'){
     filename=`presences_${today()}.csv`;
     rows=[['Date','Matricule','Nom','Classe','Statut','Heure arrivée']];
-    DB.attendance.forEach(a=>{const s=DB.students.find(x=>x.id===a.sid),c=s?gc(s.cid):null;rows.push([a.date,s?s.mat:'',s?s.name:'',c?c.name:'',a.status,a.arr_time||'']);});
+    (DB.attendance||[]).forEach(a=>{const s=DB.students.find(x=>x.id===a.sid),c=s?gc(s.cid):null;rows.push([a.date,s?s.mat:'',s?s.name:'',c?c.name:'',a.status,a.arr_time||'']);});
   } else if(type==='caisse'){
     filename=`caisse_${today()}.csv`;
     rows=[['Date','Heure','Élève','Matricule','Type','Montant','Note','Validé']];
@@ -16274,11 +16274,11 @@ window.printReport = (type) => {
   } else if(type==='attendance'){
     title='Bilan des Présences';
     const byDate={};
-    DB.attendance.forEach(a=>{if(!byDate[a.date])byDate[a.date]=[];byDate[a.date].push(a);});
+    (DB.attendance||[]).forEach(a=>{if(!byDate[a.date])byDate[a.date]=[];byDate[a.date].push(a);});
     const dates=Object.keys(byDate).sort().slice(-30);
-    const totP=DB.attendance.filter(a=>a.status==='ontime'||a.status==='late').length;
-    const totA=DB.attendance.filter(a=>a.status==='sick').length;
-    const totE=DB.attendance.filter(a=>a.status==='excused').length;
+    const totP=(DB.attendance||[]).filter(a=>a.status==='ontime'||a.status==='late').length;
+    const totA=(DB.attendance||[]).filter(a=>a.status==='sick').length;
+    const totE=(DB.attendance||[]).filter(a=>a.status==='excused').length;
     html=`<div class="stats"><div class="stat"><div class="v">${totP}</div><div class="l">Présences</div></div><div class="stat"><div class="v">${totA}</div><div class="l">Malades</div></div><div class="stat"><div class="v">${totE}</div><div class="l">Justifiées</div></div><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div></div><table><tr><th>Date</th><th>Présents</th><th>Malades</th><th>Justifiés</th><th>Taux présence</th></tr>${dates.map(d=>{const e=byDate[d];const p=e.filter(a=>a.status==='ontime'||a.status==='late').length;const ab=e.filter(a=>a.status==='sick').length;const ex=e.filter(a=>a.status==='excused').length;const r=e.length?Math.round(p/e.length*100):0;const rc=r>=80?'paid':r>=60?'warn':'unpaid';return`<tr><td>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="color:#1f9d6b;font-weight:600">${p}</td><td style="color:#dc2626;font-weight:600">${ab}</td><td style="color:#d98a2b;font-weight:600">${ex}</td><td><span class="pill ${rc}">${r}%</span></td></tr>`;}).join('')}</table>`;
 
   } else if(type==='caisse'){
@@ -18213,7 +18213,7 @@ R.scan_history = () => {
     const cl=gc(kid.cid);
     const [cc]=clsColor(cl?cl.name:'');
     const logs=DB.scan_log.filter(l=>l.sid===kid.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
-    const att=DB.attendance.filter(a=>a.sid===kid.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const att=(DB.attendance||[]).filter(a=>a.sid===kid.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={};
     logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
     att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
@@ -20176,7 +20176,7 @@ window.notifyAbsentParents = async (cid) => {
 // ── CORRECTION RÉTROACTIVE PRÉSENCES ──
 window.manualMarkPresent = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const existing=DB.attendance.find(a=>a.sid===sid&&a.date===today());
+  const existing=(DB.attendance||[]).find(a=>a.sid===sid&&a.date===today());
   if(existing){toast(`${s.name} est déjà enregistré(e) comme présent(e)`,'info');return;}
   openM(`✏️ Marquer présent — ${s.name}`,`
   <div style="background:#d8f3e6;border-radius:10px;padding:10px 14px;font-size:13px;color:#065f46;margin-bottom:14px">
@@ -20198,7 +20198,7 @@ window.doManualPresent = async (sid) => {
   const note=document.getElementById('manualArrNote')?.value.trim()||'';
   const att={id:'a'+Date.now(),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined};
   const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
-  DB.attendance.push(att);
+  (DB.attendance=DB.attendance||[]).push(att);
   DB.scan_log.unshift(log);
   await pushSync('attendance','post',att);
   await pushSync('scan_log','post',log);
