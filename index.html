@@ -2709,6 +2709,7 @@ window.go = (p, noHistory) => {
     window._payFilterClass='';window._payFilterStatus='';
     window._msgTab='inbox';window._cardSysInited=false;window._profilePhoto=null;window._userPhoto=null;
     window._absMainTab=null;window._convTab=null;window._sanctFilter=null;
+    window._notifPage=1;
   }
   S.page = p;
   closeSB();
@@ -5157,6 +5158,7 @@ window.sendUrgentAlert = () => {
 };
 
 // ── NOTIFICATIONS ──
+window._notifPage = window._notifPage || 1;
 R.notifications = () => {
   const uid=S.user.id, role=S.user.role;
   const ns = DB.notifs.filter(n=>n.uid===uid); // COM-11: chaque rôle (y compris direction) ne voit que ses propres notifications
@@ -5173,16 +5175,21 @@ R.notifications = () => {
   const typeIcon=Object.fromEntries(Object.entries(typeColor).map(([k,v])=>[k,`<div style="width:10px;height:10px;border-radius:50%;background:${v}"></div>`]));
   const typeBg={academic:'#dbeafe',alert:'#fee2e2',urgent:'#fef2f2',approval:'#fdeccd',receipt:'#d8f3e6',report:'#f0e9fa',info:'#f6ede0',correction:'#d8f3e6',correction_dir:'#f0e9fa',message:'#dbeafe'};
   const typeBorder={urgent:'#ef5b5b',alert:'#fca5a5'};
+  const PAGE_SIZE=25;
+  const _np=window._notifPage||1;
+  const paginated=sorted.slice(0,_np*PAGE_SIZE);
+  const hasMore=sorted.length>paginated.length;
+  const remaining=sorted.length-paginated.length;
   return `
   <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">Notifications</span>
+    <span style="font-size:16px;font-weight:700">Notifications${sorted.length>0?` <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${sorted.length})</span>`:''}</span>
     <div style="display:flex;gap:6px;align-items:center">
       ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
       ${role==='direction'?`<button class="btn btn-primary btn-sm" onclick="openBroadcastM()" style="font-size:11px;padding:4px 10px">📣 Annonce</button>`:''}
       ${sorted.length?`<button class="btn btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:11px;padding:4px 10px">🗑️ Effacer tout</button>`:''}
     </div>
   </div>
-  <div class="ww-section">${sorted.length ? sorted.map((n,i)=>`
+  <div class="ww-section">${sorted.length ? paginated.map((n,i)=>`
   <div class="ww-item notif-drop" ${!n.read?'data-unread="true"':''} style="animation-delay:${i*.04}s;${typeBorder[n.type]?'border-left:4px solid '+typeBorder[n.type]+';border-radius:0 10px 10px 0':''}">
     <div class="ww-item-icon" style="background:${typeBg[n.type]||'#f6ede0'}">${typeIcon[n.type]||'●'}</div>
     <div class="ww-item-content">
@@ -5197,7 +5204,9 @@ R.notifications = () => {
       </div>`:''}
       <div class="ww-item-sub">${n.date||''} ${n.time||''}</div>
     </div>
-  </div>`).join('') : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>Aucune notification</div>'}</div>`;
+  </div>`).join('')+
+  (hasMore?`<div style="text-align:center;padding:16px 0 8px"><button class="btn btn-outline btn-sm" onclick="window._notifPage=(window._notifPage||1)+1;render()" style="font-size:12px">Voir plus (${remaining} restante${remaining>1?'s':''})</button></div>`:'')
+  : '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#efe3d3;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#a89c8b"></div></div>Aucune notification</div>'}</div>`;
 };
 window.clearAllNotifs = () => {
   const uid=S.user.id;
@@ -5210,12 +5219,22 @@ window.clearAllNotifs = () => {
   });
 };
 
-window.openBroadcastM = () => openM('📣 Envoyer une annonce',`
+window.openBroadcastM = () => {
+  const cycles=[...new Set(DB.classes.map(c=>c.cycle).filter(Boolean))];
+  const cycleLabels={maternelle:'🧸 Maternelle',primaire:'📚 Primaire',secondaire:'🎓 Secondaire',humanites:'🏛️ Humanités'};
+  openM('📣 Envoyer une annonce',`
 <div class="form-group"><label class="form-label">Destinataires *</label>
-  <select class="form-select" id="bc_target">
+  <select class="form-select" id="bc_target" onchange="window._bcTargetChange(this.value)">
     <option value="parents">Tous les parents</option>
     <option value="enseignants">Tous les enseignants</option>
     <option value="all">📣 Tout le monde (parents + enseignants)</option>
+    ${cycles.map(c=>`<option value="cycle_${c}">Parents — ${cycleLabels[c]||c}</option>`).join('')}
+    <option value="classe">Parents — Classe spécifique</option>
+  </select>
+</div>
+<div class="form-group" id="bc_classe_wrap" style="display:none"><label class="form-label">Classe</label>
+  <select class="form-select" id="bc_classe">
+    ${DB.classes.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
   </select>
 </div>
 <div class="form-group"><label class="form-label">Message *</label>
@@ -5223,15 +5242,33 @@ window.openBroadcastM = () => openM('📣 Envoyer une annonce',`
 </div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
  <button class="btn btn-primary" onclick="sendBroadcast()">📣 Envoyer</button>`);
+};
+
+window._bcTargetChange = (val) => {
+  const wrap=document.getElementById('bc_classe_wrap');
+  if(wrap) wrap.style.display=val==='classe'?'':'none';
+};
 
 window.sendBroadcast = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const target=($('bc_target')?.value||'').trim();
   const msg=($('bc_msg')?.value||'').trim();
   if(!msg){toast('Message requis','error');return;}
-  const roles={parents:['parent'],enseignants:['enseignant'],all:['parent','enseignant']};
-  const targetRoles=roles[target]||['parent'];
-  const recipients=DB.users.filter(u=>targetRoles.includes(u.role));
+  let recipients=[];
+  if(target==='parents'){ recipients=DB.users.filter(u=>u.role==='parent'); }
+  else if(target==='enseignants'){ recipients=DB.users.filter(u=>u.role==='enseignant'); }
+  else if(target==='all'){ recipients=DB.users.filter(u=>u.role==='parent'||u.role==='enseignant'); }
+  else if(target.startsWith('cycle_')){
+    const cycle=target.slice(6);
+    const classCids=DB.classes.filter(c=>c.cycle===cycle).map(c=>c.id);
+    const pids=new Set(DB.students.filter(s=>classCids.includes(s.cid)&&s.pid).map(s=>s.pid));
+    recipients=DB.users.filter(u=>pids.has(u.id));
+  } else if(target==='classe'){
+    const cid=$('bc_classe')?.value;
+    if(!cid){toast('Sélectionnez une classe','error');return;}
+    const pids=new Set(DB.students.filter(s=>s.cid===cid&&s.pid).map(s=>s.pid));
+    recipients=DB.users.filter(u=>pids.has(u.id));
+  }
   if(!recipients.length){toast('Aucun destinataire trouvé','error');return;}
   recipients.forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
