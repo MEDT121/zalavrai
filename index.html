@@ -6600,14 +6600,16 @@ R.payments = () => {
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
   const pd=DB.payments.filter(p=>p.paid).length, tt=DB.payments.length, pct=tt?Math.round(pd/tt*100):0;
   const totalEncaisse=DB.daily_records.filter(r=>r.validated).reduce((s,r)=>s+Number(r.amount||0),0);
-  const totalDette=DB.students.reduce((s,st)=>s+getStudentBalance(st.id).debt,0);
+  // PERF: compute all balances once to avoid O(N²) re-scan per student
+  const _balMap={}; DB.students.forEach(st=>{_balMap[st.id]=getStudentBalance(st.id);});
+  const totalDette=DB.students.reduce((s,st)=>s+(_balMap[st.id]?.debt||0),0);
   const cf=window._payFilterClass||'';
   const pf=window._payFilterStatus||'';
   let studs=DB.students;
   if(cf) studs=studs.filter(s=>s.cid===cf);
-  if(pf==='paid') studs=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return total>0&&paid>=total;});
-  if(pf==='partial') studs=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return paid>0&&paid<total;});
-  if(pf==='unpaid') studs=studs.filter(s=>{const {paid}=getStudentBalance(s.id);return paid===0;});
+  if(pf==='paid') studs=studs.filter(s=>{const b=_balMap[s.id];return b&&b.total>0&&b.paid>=b.total;});
+  if(pf==='partial') studs=studs.filter(s=>{const b=_balMap[s.id];return b&&b.paid>0&&b.paid<b.total;});
+  if(pf==='unpaid') studs=studs.filter(s=>{const b=_balMap[s.id];return !b||b.paid===0;});
   if(pf==='blocked') studs=studs.filter(s=>s.access_blocked);
   const blockedCount=DB.students.filter(s=>s.access_blocked).length;
   const ringR = 38, ringC = 2*Math.PI*ringR, ringDash = Math.round(pct/100*ringC);
@@ -6654,7 +6656,7 @@ R.payments = () => {
   <div class="ww-grid">
     ${studs.map((s,i)=>{
       const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
-      const {debt,paid:paidAmt,total:totalAmt,byTrim}=getStudentBalance(s.id);
+      const {debt,paid:paidAmt,total:totalAmt,byTrim}=_balMap[s.id]||{debt:0,paid:0,total:0,byTrim:{}};
       const paidPct=totalAmt>0?Math.round(paidAmt/totalAmt*100):0;
       const [cc,cbg]=clsColor(c?c.name:'');
       const barColor=s.access_blocked?'#9b6fd4':paidPct===100?'#2fbf8f':paidPct>0?'#f59e0b':'#ef5b5b';
@@ -6681,7 +6683,7 @@ R.payments = () => {
           </div>
           <div id="ps${i}" style="display:none;gap:6px;margin-top:6px;animation:slideUp .2s ease both">
             <button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px" onclick="downloadRecuPaiement('${s.id}')">Reçu PDF</button>
-            ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de $'+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;background:#25D366;color:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">💬 SMS</a>`:'';})()}
+            ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de '+_cur()+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;background:#25D366;color:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">💬 SMS</a>`:'';})()}
           </div>
         </div>
       </div>`;
@@ -11862,11 +11864,13 @@ R.caisse_paiement = () => {
     ${(()=>{
       const classes=(DB.classes||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
       if(!classes.length) return `<div style="text-align:center;padding:30px;color:var(--text-muted)">Aucune classe configurée</div>`;
+      // PERF: pre-compute all balances once
+      const _cb={}; (DB.students||[]).forEach(st=>{_cb[st.id]=getStudentBalance(st.id);});
       return classes.map(cl=>{
         const studs=(DB.students||[]).filter(s=>s.cid===cl.id).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
         if(!studs.length) return '';
         const [cc,cbg]=clsColor(cl.name);
-        const paidCount=studs.filter(s=>{const {paid,total}=getStudentBalance(s.id);return total>0&&paid>=total;}).length;
+        const paidCount=studs.filter(s=>{const b=_cb[s.id];return b&&b.total>0&&b.paid>=b.total;}).length;
         return `<div style="border-radius:16px;overflow:hidden;background:var(--bg-card);border:1.5px solid var(--border);margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)">
           <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg,${cbg}22,${cbg}11);border-bottom:1.5px solid var(--border)">
             <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0">${esc(cl.name.slice(0,3))}</div>
@@ -11875,7 +11879,7 @@ R.caisse_paiement = () => {
           </div>
           <div style="display:flex;flex-direction:column;gap:0">
             ${studs.map((s,si)=>{
-              const {paid,total,debt}=getStudentBalance(s.id);
+              const {paid,total,debt}=_cb[s.id]||{paid:0,total:0,debt:0};
               const pct=total>0?Math.min(100,Math.round(paid/total*100)):0;
               const status=total>0&&paid>=total?'solde':paid>0?'partiel':'nonpaye';
               const sc={solde:{dot:'#1f9d6b',bg:'#f0fdf4',txt:'#065f46',label:'Soldé'},partiel:{dot:'#f59e0b',bg:'#fffbeb',txt:'#92400e',label:`${_cur()}${debt} restant`},nonpaye:{dot:'#ef5b5b',bg:'#fff1f0',txt:'#991b1b',label:'Non commencé'}}[status];
@@ -12799,9 +12803,11 @@ R.etat_financier = () => {
     if(catTotal>0) byCat[cat].types.push({label:ft.label,total:catTotal,count:catCount});
   });
   const totalRecettes=Object.values(byCat).reduce((s,c)=>s+c.total,0);
+  // PERF: pre-compute all balances once for O(N) total vs O(N²)
+  const _tbm={}; DB.students.forEach(st=>{_tbm[st.id]=getStudentBalance(st.id);});
   // Frais scolaires attendus
-  const totalAttendu=DB.students.reduce((s,st)=>{const {total}=getStudentBalance(st.id);return s+total;},0);
-  const totalDette=DB.students.reduce((s,st)=>{const {debt}=getStudentBalance(st.id);return s+debt;},0);
+  const totalAttendu=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);
+  const totalDette=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.debt||0),0);
   // ── Dépenses ──
   const totalDepenses=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
   const depByMotif={};
@@ -12811,8 +12817,8 @@ R.etat_financier = () => {
   // ── Classement par classe ──
   const byClass=DB.classes.map(cl=>{
     const studs=DB.students.filter(s=>s.cid===cl.id);
-    const total=studs.reduce((s,st)=>{const {total}=getStudentBalance(st.id);return s+total;},0);
-    const paid=studs.reduce((s,st)=>{const {paid}=getStudentBalance(st.id);return s+paid;},0);
+    const total=studs.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);
+    const paid=studs.reduce((s,st)=>s+(_tbm[st.id]?.paid||0),0);
     const pct=total>0?Math.round(paid/total*100):0;
     return {cl,studs:studs.length,total,paid,pct};
   }).sort((a,b)=>b.pct-a.pct);
@@ -12923,9 +12929,9 @@ window.exportEtatFinancierPDF = () => {
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>État Financier — ${school}</title><style>${CSS}</style></head><body><div class="page">
     <div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);float:right">`:''}<h1>État Financier — ${esc(school)}</h1><p>Généré le ${printDate} · Année ${DB.settings.year||''}</p></div>
-    <div class="kpi"><div class="kpi-cell"><div class="kv" style="color:#1f9d6b">${_cur()}${totalRecettes}</div><div class="kl">Encaissé</div></div><div class="kpi-cell"><div class="kv" style="color:#dc2626">${_cur()}${DB.students.reduce((s,st)=>{const {debt}=getStudentBalance(st.id);return s+debt;},0)}</div><div class="kl">Reste dû</div></div><div class="kpi-cell"><div class="kv" style="color:#b45309">${_cur()}${totalDepenses}</div><div class="kl">Dépenses</div></div><div class="kpi-cell"><div class="kv" style="color:${soldeNet>=0?'#2f7bd6':'#dc2626'}">${_cur()}${soldeNet}</div><div class="kl">Solde net</div></div></div>
+    <div class="kpi"><div class="kpi-cell"><div class="kv" style="color:#1f9d6b">${_cur()}${totalRecettes}</div><div class="kl">Encaissé</div></div><div class="kpi-cell"><div class="kv" style="color:#dc2626">${_cur()}${totalDette}</div><div class="kl">Reste dû</div></div><div class="kpi-cell"><div class="kv" style="color:#b45309">${_cur()}${totalDepenses}</div><div class="kl">Dépenses</div></div><div class="kpi-cell"><div class="kv" style="color:${soldeNet>=0?'#2f7bd6':'#dc2626'}">${_cur()}${soldeNet}</div><div class="kl">Solde net</div></div></div>
     <div class="sec"><h2>📥 Recettes par catégorie</h2>${Object.values(byCat).map(c=>`<div class="row"><span class="lbl">${esc(c.label)}</span><span class="val" style="color:#1f9d6b">${_cur()}${c.total} (${c.count} versement${c.count>1?'s':''})</span></div>`).join('')}</div>
-    <div class="sec"><h2>🏫 Recouvrement par classe</h2>${DB.classes.map(cl=>{const studs=DB.students.filter(s=>s.cid===cl.id);const paid=studs.reduce((s,st)=>{const {paid}=getStudentBalance(st.id);return s+paid;},0);const total=studs.reduce((s,st)=>{const {total}=getStudentBalance(st.id);return s+total;},0);const pct=total>0?Math.round(paid/total*100):0;return`<div class="row"><span class="lbl">${esc(cl.name)}</span><span class="val">${pct}% · ${_cur()}${paid}/${_cur()}${total}</span></div>`;}).join('')}</div>
+    <div class="sec"><h2>🏫 Recouvrement par classe</h2>${DB.classes.map(cl=>{const studs=DB.students.filter(s=>s.cid===cl.id);const paid=studs.reduce((s,st)=>s+(_tbm[st.id]?.paid||0),0);const total=studs.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);const pct=total>0?Math.round(paid/total*100):0;return`<div class="row"><span class="lbl">${esc(cl.name)}</span><span class="val">${pct}% · ${_cur()}${paid}/${_cur()}${total}</span></div>`;}).join('')}</div>
     <div class="sec"><h2>💸 Dépenses</h2>${exps.slice(0,20).map(e=>`<div class="row"><span class="lbl">${esc(e.motif||'?')} · ${e.date||''}</span><span class="val" style="color:#dc2626">${_cur()}${e.amount}</span></div>`).join('') || '<div style="color:#9ca3af;font-size:12px">Aucune dépense</div>'}</div>
     <div class="footer">${esc(school)} · SchoolSafe · ${printDate}</div>
     <button class="pbtn" onclick="window.print()" style="display:block;margin:16px auto;padding:10px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨️ Imprimer</button>
@@ -15640,12 +15646,13 @@ window.exportCSV = (type) => {
     filename=`paiements_${DB.settings.year||'2025-2026'}.csv`;
     const fees=getFees();
     rows=[['Matricule','Nom','Classe','T1','T2','T3','Total payé ('+_cur()+')','Reste ('+_cur()+')']];
+    const _expBal={}; DB.students.forEach(st=>{_expBal[st.id]=getStudentBalance(st.id);});
     DB.students.forEach(s=>{
       const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);
       const t1=pays.find(p=>p.t==='T1')?.paid?'Payé':'Non payé';
       const t2=pays.find(p=>p.t==='T2')?.paid?'Payé':'Non payé';
       const t3=pays.find(p=>p.t==='T3')?.paid?'Payé':'Non payé';
-      const {paid,debt}=getStudentBalance(s.id);
+      const {paid,debt}=_expBal[s.id]||{paid:0,debt:0};
       rows.push([s.mat,s.name,c?c.name:'',t1,t2,t3,paid,debt]);
     });
   } else if(type==='attendance'){
