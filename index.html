@@ -4987,7 +4987,7 @@ R.cards = () => {
   <div class="premium-section-title">🪪 Identités élèves — Commander une carte</div>
   <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Vérifiez l'identité complète de chaque élève, puis envoyez la demande à APKart.</div>
   <div class="ww-toolbar" style="margin-bottom:12px">
-    <input class="ww-search" placeholder="Rechercher élève ou matricule…" oninput="window._cardNameSearch=this.value;render()" value="${esc(window._cardNameSearch||'')}">
+    <input class="ww-search" placeholder="Rechercher élève ou matricule…" oninput="window._cardNameSearch=this.value;clearTimeout(window._crdT);window._crdT=setTimeout(render,300)" value="${esc(window._cardNameSearch||'')}">
     <select class="form-select" style="flex-shrink:0;width:auto;min-width:120px;font-size:13px" onchange="window._cardClassFilter=this.value;render()">
       <option value="">Toutes les classes</option>
       ${(DB.classes||[]).map(cl=>`<option value="${cl.id}" ${classFilter===cl.id?'selected':''}>${esc(cl.name)}</option>`).join('')}
@@ -6706,16 +6706,16 @@ R.payments = () => {
     <button class="btn btn-sm" style="background:#d8f3e6;color:#065f46;border:1px solid #95ddbb" onclick="unblockAll()">Débloquer tous</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-    <button class="pill ${cf===''&&pf===''?'pill-blue':''}" onclick="window._payFilterClass='';window._payFilterStatus='';render()" style="cursor:pointer;border:none">Tous</button>
-    <button class="pill ${pf==='paid'?'pill-green':''}" onclick="window._payFilterStatus='paid';window._payFilterClass='';render()" style="cursor:pointer;border:none">Soldés</button>
-    <button class="pill ${pf==='partial'?'pill-blue':''}" onclick="window._payFilterStatus='partial';window._payFilterClass='';render()" style="cursor:pointer;border:none">Partiels</button>
-    <button class="pill ${pf==='unpaid'?'pill-red':''}" onclick="window._payFilterStatus='unpaid';window._payFilterClass='';render()" style="cursor:pointer;border:none">Non payés</button>
-    <button class="pill ${pf==='blocked'?'pill-red':''}" onclick="window._payFilterStatus='blocked';window._payFilterClass='';render()" style="cursor:pointer;border:none">Bloqués</button>
-    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._payFilterClass='${c.id}';window._payFilterStatus='';render()" style="cursor:pointer;border:none">${esc(c.name)}</button>`).join('')}
+    <button class="pill ${cf===''&&pf===''?'pill-blue':''}" onclick="window._payFilterClass='';window._payFilterStatus='';window._payShowAll=false;render()" style="cursor:pointer;border:none">Tous</button>
+    <button class="pill ${pf==='paid'?'pill-green':''}" onclick="window._payFilterStatus='paid';window._payFilterClass='';window._payShowAll=false;render()" style="cursor:pointer;border:none">Soldés</button>
+    <button class="pill ${pf==='partial'?'pill-blue':''}" onclick="window._payFilterStatus='partial';window._payFilterClass='';window._payShowAll=false;render()" style="cursor:pointer;border:none">Partiels</button>
+    <button class="pill ${pf==='unpaid'?'pill-red':''}" onclick="window._payFilterStatus='unpaid';window._payFilterClass='';window._payShowAll=false;render()" style="cursor:pointer;border:none">Non payés</button>
+    <button class="pill ${pf==='blocked'?'pill-red':''}" onclick="window._payFilterStatus='blocked';window._payFilterClass='';window._payShowAll=false;render()" style="cursor:pointer;border:none">Bloqués</button>
+    ${DB.classes.map(c=>`<button class="pill ${cf===c.id?'pill-blue':''}" onclick="window._payFilterClass='${c.id}';window._payFilterStatus='';window._payShowAll=false;render()" style="cursor:pointer;border:none">${esc(c.name)}</button>`).join('')}
   </div>
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${studs.length} élève(s) affiché(s)</div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${window._payShowAll||studs.length<=50?studs.length:50} / ${studs.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
-    ${studs.map((s,i)=>{
+    ${(window._payShowAll||studs.length<=50?studs:studs.slice(0,50)).map((s,i)=>{
       const c=gc(s.cid); const pays=(DB.payments||[]).filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
       const {debt,paid:paidAmt,total:totalAmt,byTrim}=_balMap[s.id]||{debt:0,paid:0,total:0,byTrim:{}};
       const paidPct=totalAmt>0?Math.round(paidAmt/totalAmt*100):0;
@@ -6749,7 +6749,8 @@ R.payments = () => {
         </div>
       </div>`;
     }).join('')}
-  </div>`;
+  </div>
+  ${!window._payShowAll&&studs.length>50?`<div style="text-align:center;margin-top:14px"><button class="btn btn-outline btn-sm" onclick="window._payShowAll=true;render()">Voir tous (${studs.length})</button></div>`:''}`;
 };
 
 window._payFilterClass='';
