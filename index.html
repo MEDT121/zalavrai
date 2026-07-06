@@ -1339,7 +1339,7 @@ window.SCHOOL_SIGNATURE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABBYAAAF
 window.runAutoCleanup = async (force=false) => {
   if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)) return;
   const ret=DB.settings.retention||{};
-  const cutoffFor=d=>{const dt=new Date();dt.setDate(dt.getDate()-d);return dt.toISOString().slice(0,10);};
+  const cutoffFor=d=>{const [y,mo,dd]=today().split('-').map(Number);const dt=new Date(y,mo-1,dd);dt.setDate(dt.getDate()-d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');};
   const c_scan=cutoffFor(ret.scan_log||365);
   const c_audit=cutoffFor(ret.audit_log||180);
   const c_notifs=cutoffFor(ret.notifs||30);
@@ -1347,7 +1347,7 @@ window.runAutoCleanup = async (force=false) => {
   const c_msg=cutoffFor(ret.messages||30);
   const c_msg_unread=cutoffFor(ret.messages_unread||60);
   const c_conv=cutoffFor(ret.convocations||90);
-  const now_iso=new Date().toISOString().slice(0,10);
+  const now_iso=today();
   const _del = async (url) => { try { const r=await fetch(url,{method:'DELETE',headers:_H}); return r.ok; } catch(_){ return false; } };
   const tables=[
     {t:'scan_log',col:'date',cutoff:c_scan},
@@ -5435,7 +5435,7 @@ R.students = () => {
   const _totalStu=actifs.length;
   const _nClasses=DB.classes.length;
   const _withParent=actifs.filter(s=>s.pid).length;
-  const _sevenAgo=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const _sevenAgo=(()=>{const [y,m,d]=today().split('-').map(Number);const dt=new Date(y,m-1,d);dt.setDate(dt.getDate()-7);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');})();
   const _newStu=actifs.filter(s=>s.created_at&&s.created_at>=_sevenAgo).length;
   return _wrapDark(`
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
@@ -6961,7 +6961,7 @@ R.children = () => {
     else if(ta&&ta.status==='sick'){statText='Absent(e) pour maladie';statClr='#ec4899';statBg='#fdf2f8';}
     else if(ta&&ta.status==='excused'){statText='Absent(e) — justifié';statClr='#2f7bd6';statBg='#eaf3fc';}
     else{statText="Pas encore arrivé(e)";statClr='#a89c8b';statBg='#fff5ea';}
-    const days14=Array.from({length:14},(_,j)=>{const d=new Date();d.setDate(d.getDate()-j);return d.toISOString().slice(0,10);}).reverse();
+    const days14=Array.from({length:14},(_,j)=>{const [y,m,d]=today().split('-').map(Number);const dt=new Date(y,m-1,d);dt.setDate(dt.getDate()-j);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}).reverse();
     const profFR=c&&c.teacher_id?gu(c.teacher_id):null;
     const profEN=c&&c.teacher_id_en?gu(c.teacher_id_en):null;
     const titulaireProf=c&&c.titulaire_id?gu(c.titulaire_id):null;
