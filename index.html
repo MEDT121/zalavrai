@@ -7174,7 +7174,7 @@ R.children = () => {
               <div style="width:30px;height:30px;border-radius:8px;background:${bgs[c.score]||'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${colors[c.score]||'#6f6557'};flex-shrink:0">${(c.score||'?').slice(0,2)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:12px;font-weight:700;color:${colors[c.score]||'#2a2622'}">${c.score||'—'}</div>
-                ${c.remark?`<div style="font-size:11px;color:#a89c8b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.remark}</div>`:''}
+                ${c.remark?`<div style="font-size:11px;color:#a89c8b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.remark)}</div>`:''}
               </div>
               <div style="font-size:10px;color:#a89c8b;flex-shrink:0">${c.date?new Date(c.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'—'}</div>
             </div>`).join('')}
@@ -10735,7 +10735,7 @@ R.teacher_comm = () => {
         <div style="width:36px;height:36px;border-radius:10px;background:${isMe?'#dbeafe':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${author?ini(author.name):'?'}</div>
         <div class="ww-item-content">
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((n.expires_at-Date.now())/3600000))}${t('h restantes','h remaining')}`:''}</div>
-          <div style="font-size:14px;line-height:1.6">${n.content}</div>
+          <div style="font-size:14px;line-height:1.6">${esc(n.content)}</div>
           ${n.sid?`<div style="font-size:11px;color:var(--primary);margin-top:4px">👤 ${t('Concerne:','Re:')} ${DB.students.find(s=>s.id===n.sid)?.name||''}</div>`:''}
         </div>
       </div>`;
@@ -15785,9 +15785,9 @@ window.genererRapportMensuel = (sid, mois) => {
   <div class="section">
     <div class="section-title">😊 Comportement</div>
     <div class="row"><span>Conduite générale</span><span class="badge ${condAvg>=3?'green':condAvg>=2?'orange':'red'}">${condLabel}</span></div>
-    ${conduites.slice(-3).map(c=>`<div class="row"><span>${c.date} — ${c.remark||c.score}</span><span class="badge">${c.score}</span></div>`).join('')}
+    ${conduites.slice(-3).map(c=>`<div class="row"><span>${c.date} — ${esc(c.remark||c.score)}</span><span class="badge">${esc(c.score)}</span></div>`).join('')}
   </div>
-  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe · ${DB.settings?.school?.name||''}</div>
+  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe · ${esc(DB.settings?.school?.name||'')}</div>
   </body></html>`;
   dlPDF(htmlStr, `Rapport_${s.name.replace(/\s+/g,'_')}_${mois}.pdf`);
 };
@@ -21393,7 +21393,7 @@ window.printFichePaie = (teacherId, month) => {
     <tr><td>Salaire de base</td><td style="text-align:right" class="plus">${_cur()}${sal.amount||0}</td></tr>
     ${ratPrime?`<tr><td>🔄 Prime rattrapages (${ratCount} cours × ${_cur()}${rate})</td><td style="text-align:right" class="rat">+${_cur()}${ratPrime}</td></tr>`:''}
     ${sal.bonus?`<tr><td>Autres primes / bonus</td><td style="text-align:right" class="plus">+${_cur()}${sal.bonus}</td></tr>`:''}
-    ${advList.map(a=>`<tr><td>💸 Avance du ${a.date}${a.reason?' — '+a.reason:''}</td><td style="text-align:right" class="minus">-${_cur()}${a.amount}</td></tr>`).join('')}
+    ${advList.map(a=>`<tr><td>💸 Avance du ${a.date}${a.reason?' — '+esc(a.reason):''}</td><td style="text-align:right" class="minus">-${_cur()}${a.amount}</td></tr>`).join('')}
     ${sal.deductions?`<tr><td>Retenues (absences, etc.)</td><td style="text-align:right" class="minus">-${_cur()}${sal.deductions}</td></tr>`:''}
     <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right;font-size:18px">${_cur()}${sal.net}</td></tr>
   </table>
