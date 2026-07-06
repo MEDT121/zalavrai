@@ -2357,6 +2357,15 @@ function dlPDF(htmlStr, filename){
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   }).save().catch(()=>toast(t('Erreur lors de la génération du PDF','Error generating PDF'),'error')).finally(()=>container.remove());
 }
+function _officialFooter(name, role){
+  const n=esc(name||'');
+  const r=esc(role||'');
+  return `<div style="margin-top:28px;padding-top:14px;border-top:2px dashed #efe3d3;display:flex;justify-content:space-between;gap:16px">
+  <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Signature &amp; cachet<br><strong style="font-size:12px;color:#2a2622">${n}</strong><br><span style="font-size:10px">${r}</span></div></div>
+  <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Lu et approuvé<br><strong style="font-size:12px;color:#2a2622">……………………………</strong><br><span style="font-size:10px">Bénéficiaire / Destinataire</span></div></div>
+  </div>
+  <div style="text-align:center;font-size:10px;color:#a89c8b;margin-top:10px">Document officiel — SchoolSafe v3.0 · Généré le ${today()}</div>`;
+}
 // Habillage permanent sombre pour une page entière (section "Personnes") — sans bouton bascule
 function _wrapDark(html){ return `<div class="dark role-dark-page" style="animation:fadeInUp .3s ease both">${html}</div>`; }
 // Toast avec file d'attente — max 3 visibles simultanément
@@ -15265,7 +15274,7 @@ window.downloadConvocationPDF = (cid) => {
     Nous vous remercions de vous présenter muni(e) de ce document.
     En cas d'empêchement, veuillez nous contacter dans les plus brefs délais.
   </p>
-  ${_officialFooter(dirUser?esc(dirUser.name):'Direction','Direction Générale')}
+  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale')}
   </body></html>`;
   dlPDF(html,`Convocation-${s?(s.name.replace(/\s+/g,'_')):'eleve'}-${today()}.pdf`);
 };
@@ -15308,7 +15317,7 @@ window.downloadCommuniquePDF = (mid) => {
   <div class="subject">${esc(m.subject||'Communiqué')}</div>
   <div class="meta">📢 Destinataires : ${targetLabel} · Année ${yr}</div>
   <div class="body-text">${esc(m.body||'')}</div>
-  ${_officialFooter(dirUser?esc(dirUser.name):'Direction','Direction Générale')}
+  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale')}
   </body></html>`;
   dlPDF(html,`Communique-${(m.subject||'').replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()||today()}.pdf`);
 };
@@ -21126,7 +21135,7 @@ window.openAvanceForm = (teacherId, month) => {
     <input class="form-input" id="adv_reason" placeholder="Ex: Urgence médicale, transport...">
   </div>
   <div style="background:#fdeccd;border-radius:8px;padding:10px 12px;font-size:12px;color:#78350f">
-    ⚠️ Cette avance sera <strong>déduite automatiquement</strong> du net de ${u.name} pour le mois sélectionné. Visible uniquement par la Direction et l'enseignant concerné.
+    ⚠️ Cette avance sera <strong>déduite automatiquement</strong> du net de ${esc(u.name)} pour le mois sélectionné. Visible uniquement par la Direction et l'enseignant concerné.
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-danger" onclick="saveAvance('${teacherId}','${month}')">💸 Accorder l'avance</button>`);
@@ -21373,7 +21382,7 @@ window.printFichePaie = (teacherId, month) => {
   const [yr2,mo]=month.split('-');
   const monthLabel=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][parseInt(mo)-1]+' '+yr2;
   const sc=DB.settings.school||{};
-  const _ficheHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche de paie — ${u.name} — ${monthLabel}</title>
+  const _ficheHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fiche de paie — ${esc(u.name)} — ${monthLabel}</title>
   <style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#2a2622;background:#fff5ea;margin:0}.page{max-width:680px;margin:0 auto;padding:20px}.dl-bar{background:linear-gradient(135deg,#1f9d6b,#047857);color:#fff;border-radius:14px;padding:18px 22px;text-align:center;margin-bottom:20px}.dl-bar h3{margin:0 0 6px;font-size:16px}.dl-bar p{margin:0 0 12px;font-size:12px;opacity:.85}.dl-btn{background:#fff;color:#1f9d6b;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #243a6b;padding-bottom:12px;margin-bottom:16px}.badge{background:#243a6b;color:#fff;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700}.emp-box{background:#eaf3fc;border-radius:10px;padding:12px 16px;margin-bottom:16px}.tbl{width:100%;border-collapse:collapse;margin:0;border-radius:10px;overflow:hidden}.tbl td{padding:10px 14px;border-bottom:1px solid #efe3d3;font-size:14px}.tbl .plus{color:#1f9d6b;font-weight:700}.tbl .minus{color:#dc2626;font-weight:700}.tbl .rat{color:#9b6fd4;font-weight:700}.total-row td{background:#243a6b;color:#fff;font-weight:700;padding:14px 16px;font-size:16px}.status{text-align:center;font-size:12px;color:#6f6557;background:#f6ede0;padding:8px;border-radius:8px;margin:14px 0}.sig{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:36px;text-align:center}.sig-line{border-top:2px solid #2a2622;padding-top:8px;font-size:12px}.conf{font-size:11px;color:#a89c8b;text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #efe3d3}@media print{.dl-bar{display:none!important}.page{padding:0;max-width:100%}body{background:#fff}}</style>
   </head><body><div class="page">
   <div class="dl-bar">
@@ -21382,11 +21391,11 @@ window.printFichePaie = (teacherId, month) => {
     <button class="dl-btn" onclick="window.print()">💾 Télécharger / Imprimer PDF</button>
   </div>
   <div class="header">
-    <div><div style="font-weight:800;font-size:16px;color:#243a6b">${sc.name||'SchoolSafe'}</div><div style="font-size:12px;color:#6f6557;margin-top:2px">${sc.address||sc.sub||''}</div></div>
+    <div><div style="font-weight:800;font-size:16px;color:#243a6b">${esc(sc.name||'SchoolSafe')}</div><div style="font-size:12px;color:#6f6557;margin-top:2px">${esc(sc.address||sc.sub||'')}</div></div>
     <div style="text-align:right"><div class="badge">FICHE DE PAIE</div><div style="font-size:13px;margin-top:6px;color:#6f6557;font-weight:600">${monthLabel}</div></div>
   </div>
   <div class="emp-box">
-    <div style="font-weight:700;font-size:16px">${u.name}</div>
+    <div style="font-weight:700;font-size:16px">${esc(u.name)}</div>
     <div style="font-size:13px;color:#6f6557">Enseignant · Année ${DB.settings.year||'2025-2026'}</div>
   </div>
   <table class="tbl">
@@ -21397,11 +21406,11 @@ window.printFichePaie = (teacherId, month) => {
     ${sal.deductions?`<tr><td>Retenues (absences, etc.)</td><td style="text-align:right" class="minus">-${_cur()}${sal.deductions}</td></tr>`:''}
     <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right;font-size:18px">${_cur()}${sal.net}</td></tr>
   </table>
-  ${sal.notes?`<div style="background:#fdeccd;border-radius:8px;padding:10px 14px;font-size:12px;margin:12px 0"><strong>Note :</strong> ${sal.notes}</div>`:''}
+  ${sal.notes?`<div style="background:#fdeccd;border-radius:8px;padding:10px 14px;font-size:12px;margin:12px 0"><strong>Note :</strong> ${esc(sal.notes)}</div>`:''}
   <div class="status">Statut : ${sal.paid?`✅ PAYÉ le ${sal.paid_date}`:'⏳ EN ATTENTE DE PAIEMENT'}</div>
   <div class="sig">
-    <div><div style="height:44px"></div><div class="sig-line">Bénéficiaire — ${u.name}</div></div>
-    <div><div style="height:44px"></div><div class="sig-line">Direction — ${sc.name||''}</div></div>
+    <div><div style="height:44px"></div><div class="sig-line">Bénéficiaire — ${esc(u.name)}</div></div>
+    <div><div style="height:44px"></div><div class="sig-line">Direction — ${esc(sc.name||'')}</div></div>
   </div>
   <div class="conf">🔒 Document confidentiel — SchoolSafe v3.0 · Généré le ${today()}</div>
   </div></body></html>`;
@@ -21464,11 +21473,11 @@ window.printRapportSecope = () => {
   </div>
   <h2>I. EFFECTIFS PAR CLASSE</h2>
   <table><thead><tr><th>#</th><th>Classe</th><th>Cycle</th><th>Enseignant(s)</th><th>Effectif</th></tr></thead>
-  <tbody>${classes.map((cl,i)=>{const n=studs.filter(s=>s.cid===cl.id).length;const t1=(DB.users||[]).find(u=>u.id===cl.teacher_id);const t2=(DB.users||[]).find(u=>u.id===cl.teacher_id_en);return`<tr><td>${i+1}</td><td>${cl.name}</td><td>${cl.cycle||'primaire'}</td><td>${[t1,t2].filter(Boolean).map(u=>u.name).join(' / ')||'—'}</td><td><strong>${n}</strong></td></tr>`;}).join('')}</tbody>
+  <tbody>${classes.map((cl,i)=>{const n=studs.filter(s=>s.cid===cl.id).length;const t1=(DB.users||[]).find(u=>u.id===cl.teacher_id);const t2=(DB.users||[]).find(u=>u.id===cl.teacher_id_en);return`<tr><td>${i+1}</td><td>${esc(cl.name)}</td><td>${esc(cl.cycle||'primaire')}</td><td>${[t1,t2].filter(Boolean).map(u=>esc(u.name)).join(' / ')||'—'}</td><td><strong>${n}</strong></td></tr>`;}).join('')}</tbody>
   <tfoot><tr style="background:#f6ede0;font-weight:700"><td colspan="4">TOTAL</td><td>${studs.length}</td></tr></tfoot></table>
   <h2>II. CORPS ENSEIGNANT</h2>
   <table><thead><tr><th>#</th><th>Nom</th><th>Classe(s)</th><th>Contact</th></tr></thead>
-  <tbody>${teachers.map((u,i)=>{const cls=classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<tr><td>${i+1}</td><td>${u.name}</td><td>${cls.map(c=>c.name).join(', ')||'—'}</td><td>${u.phone||'—'}</td></tr>`;}).join('')}</tbody></table>
+  <tbody>${teachers.map((u,i)=>{const cls=classes.filter(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return`<tr><td>${i+1}</td><td>${esc(u.name)}</td><td>${cls.map(c=>esc(c.name)).join(', ')||'—'}</td><td>${esc(u.phone||'—')}</td></tr>`;}).join('')}</tbody></table>
   <h2>III. SITUATION FINANCIÈRE</h2>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead>
   <tbody>
