@@ -11067,7 +11067,7 @@ window.zoomAuthPhoto = idx => {
 };
 
 window.confirmExitWith = async (sid,personIdx) => {
-  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const a=window._exitAps[personIdx]; if(!a) return;
   const time=nowTime();
@@ -11080,7 +11080,7 @@ window.confirmExitWith = async (sid,personIdx) => {
 };
 
 window.confirmExitAlone = async sid => {
-  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const time=nowTime();
   const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
@@ -11118,7 +11118,7 @@ window.previewRefPhoto = (input) => {
   r.readAsDataURL(f);
 };
 window.doExitRefused = async (sid) => {
-  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const desc=(document.getElementById('refDesc')?.value||'').trim();
   if(!desc){toast('Décrivez la personne','error');return;}
@@ -19692,7 +19692,7 @@ window.lockdownEmergencyExit = (sid) => {
 };
 
 window.doEmergencyExit = async (sid) => {
-  if(!S.user||!['gardien','enseignant'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const motif=document.getElementById('emMotif')?.value||'Urgence';
   const note=(document.getElementById('emNote')?.value||'').trim();
