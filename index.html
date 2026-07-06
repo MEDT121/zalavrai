@@ -9154,7 +9154,7 @@ window.openStudentGrades = (sid, cid) => {
     return `
     <div style="margin-bottom:12px;background:var(--bg-card);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border)">
-        <span style="font-weight:700;font-size:13px">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</span>
+        <span style="font-weight:700;font-size:13px">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</span>
         <span style="font-size:12px">${t('Moy.','Avg.')} ${avgDisp}</span>
       </div>
       ${gs.length ? gs.map(g => {
@@ -9167,7 +9167,7 @@ window.openStudentGrades = (sid, cid) => {
         <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border-light)">
           <span style="font-size:16px">${ico}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:600;color:${col}">${g.label||g.type} · ${g.trimester||''}</div>
+            <div style="font-size:12px;font-weight:600;color:${col}">${esc(g.label||g.type)} · ${esc(g.trimester||'')}</div>
             <div style="font-size:11px;color:var(--text-muted)">${g.date||''} · Coeff. ${g.weight||1}</div>
           </div>
           <span style="font-weight:700;font-size:15px;color:${pct>=50?'#1f9d6b':'#dc2626'}">${note}/${max}</span>
@@ -14599,10 +14599,10 @@ window.replyToParent = (mid) => {
     <div style="font-size:12px;color:#6b7280;margin-top:4px">${esc(m.body.slice(0,120))}${m.body.length>120?'…':''}</div>
   </div>
   <div class="form-group"><label class="form-label">Objet</label>
-    <input class="form-input" id="msg_subject" value="Re: ${m.subject}">
+    <input class="form-input" id="msg_subject" value="Re: ${esc(m.subject)}">
   </div>
   <div class="form-group"><label class="form-label">Votre réponse *</label>
-    <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Réponse à ${parent.name}..."></textarea>
+    <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Réponse à ${esc(parent.name)}..."></textarea>
   </div>
   <select id="msg_to" style="display:none"><option value="uid:${parent.id}" selected></option></select>
   <select id="msg_type" style="display:none"><option value="normal" selected></option></select>`,
@@ -14622,7 +14622,7 @@ window.replyToDirection = (mid) => {
   <div class="form-group"><label class="form-label">Votre réponse *</label>
     <textarea class="form-input" id="msg_body" rows="5" style="resize:vertical" placeholder="Réponse à la Direction..."></textarea>
   </div>
-  <input type="hidden" id="msg_subject" value="Re: ${m.subject}">
+  <input type="hidden" id="msg_subject" value="Re: ${esc(m.subject)}">
   <select id="msg_to" style="display:none"><option value="uid:${dirUser.id}" selected></option></select>
   <select id="msg_type" style="display:none"><option value="normal" selected></option></select>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
@@ -16225,14 +16225,14 @@ window.printReport = (type) => {
       const t1=matAvgPct(k.id,m.name,'T1'),t2=matAvgPct(k.id,m.name,'T2'),t3=matAvgPct(k.id,m.name,'T3');
       const avg=matAvgPct(k.id,m.name);
       const col=avg===null?'#666':avg>=70?'#1f9d6b':avg>=50?'#d98a2b':'#dc2626';
-      return `<tr><td>${flag} ${m.name}</td><td style="text-align:center">${t1!==null?t1+'%':'—'}</td><td style="text-align:center">${t2!==null?t2+'%':'—'}</td><td style="text-align:center">${t3!==null?t3+'%':'—'}</td><td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td></tr>`;
+      return `<tr><td>${flag} ${esc(m.name)}</td><td style="text-align:center">${t1!==null?t1+'%':'—'}</td><td style="text-align:center">${t2!==null?t2+'%':'—'}</td><td style="text-align:center">${t3!==null?t3+'%':'—'}</td><td style="text-align:center;font-weight:800;color:${col}">${avg!==null?avg+'%':'—'}</td></tr>`;
     }).join('');
 
     const frMats=matieres.filter(m=>m.lang==='fr'||((!isBilingual)&&m.lang!=='en'));
     const enMats=matieres.filter(m=>m.lang==='en');
     const coMats=matieres.filter(m=>m.lang==='commun');
 
-    title=`Bulletin de ${k.name}`;
+    title=`Bulletin de ${esc(k.name)}`;
     html=`
     <div style="display:flex;align-items:center;gap:20px;padding:16px;background:#f8faff;border:1px solid #dde5f0;border-radius:10px;margin-bottom:18px">
       <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;background:#efe3d3;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;flex-shrink:0;border:3px solid #243a6b">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:#6f6557">'+ini(k.name)+'</span>'}</div>
@@ -17671,7 +17671,7 @@ window.printSanctionLetter = (id) => {
   const typeLabels={avertissement_oral:'AVERTISSEMENT ORAL',avertissement_ecrit:'AVERTISSEMENT ÉCRIT',blame:'BLÂME',renvoi:'RENVOI TEMPORAIRE',exclusion:'EXCLUSION DÉFINITIVE'};
   const typeLabel=typeLabels[sanc.type]||sanc.type.toUpperCase();
   const d=new Date(sanc.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const _sanctionHtmlStart=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sanction — ${s.name}</title>
+  const _sanctionHtmlStart=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sanction — ${esc(s.name)}</title>
   <style>
     body{font-family:'Times New Roman',serif;margin:0;padding:40px;color:#111;max-width:700px;margin:0 auto}
     .header{text-align:center;border-bottom:2px solid #111;padding-bottom:16px;margin-bottom:24px}
@@ -18230,7 +18230,7 @@ R.scan_history = () => {
     const statusColor={ontime:'#1f9d6b',late:'#d98a2b',excused:'#2f7bd6',sick:'#ec4899'};
     const statusLabel={ontime:'À l\'heure',late:'Retard',excused:'Justifié',sick:'Maladie'};
     html+=`<div class="ww-section" style="margin-bottom:18px">
-      <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${kid.name}</span><span style="font-size:11px;color:var(--text-muted)">${cl?cl.name:''} · 30 derniers jours</span></div>
+      <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(kid.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl?esc(cl.name):''} · 30 derniers jours</span></div>
       ${dates.length?dates.map(date=>{
         const {logs:dl,att:a}=byDate[date];
         const entry=dl.find(l=>l.type==='entry');
@@ -19694,7 +19694,7 @@ window.exportArchivePDF = () => {
   const payHtml = DB.classes.map(cl=>{
     const studs = DB.students.filter(s=>s.cid===cl.id);
     if(!studs.length) return '';
-    return `<div class="section-title" style="font-size:11px;padding:6px 10px;margin-bottom:6px">🏫 ${cl.name}</div>
+    return `<div class="section-title" style="font-size:11px;padding:6px 10px;margin-bottom:6px">🏫 ${esc(cl.name)}</div>
     <table style="margin-bottom:14px">
       <tr><th>Élève</th><th>Matricule</th><th>T1</th><th>T2</th><th>T3</th><th>Statut</th></tr>
       ${studs.map(s=>{
@@ -20007,7 +20007,7 @@ window.messageTeacher = (uid, kidId) => {
     ℹ️ Votre message sera transmis à la <strong>Direction</strong> qui le relayera au professeur après validation.
   </div>
   <div style="background:#dbeafe;border-radius:10px;padding:10px 14px;font-size:13px;color:#205fae;margin-bottom:14px">
-    À : <strong>${teacher.name}</strong>${kid?' · Concernant : '+kid.name:''}
+    À : <strong>${esc(teacher.name)}</strong>${kid?' · Concernant : '+esc(kid.name):''}
   </div>
   <div class="form-group"><label class="form-label">Votre message *</label>
     <textarea class="form-input" id="msgToTeacher" rows="5" placeholder="Bonjour, je voulais vous contacter au sujet de..."></textarea>
