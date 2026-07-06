@@ -11755,9 +11755,9 @@ window.planifierConvocation = (cid) => {
   const s=DB.students.find(x=>x.id===conv.sid);
   const parent=s?gu(s.pid):null;
   openM(`📅 Fixer un RDV — ${s?s.name:''}`,`
-  ${conv.auto_generated?`<div style="background:#fdeccd;border-radius:10px;padding:10px;font-size:12px;color:#92400e;margin-bottom:10px">⚡ Convocation générée automatiquement après clôture ${conv.trimestre||''} · ${conv.weak_mats||conv.reason||''}</div>`:''}
+  ${conv.auto_generated?`<div style="background:#fdeccd;border-radius:10px;padding:10px;font-size:12px;color:#92400e;margin-bottom:10px">⚡ Convocation générée automatiquement après clôture ${esc(conv.trimestre||'')} · ${esc(conv.weak_mats||conv.reason||'')}</div>`:''}
   <div style="background:#dbeafe;border-radius:10px;padding:10px;font-size:13px;color:#205fae;margin-bottom:10px">
-    Parent : <strong>${parent?parent.name:'—'}</strong>${parent&&parent.phone?' · '+parent.phone:''}
+    Parent : <strong>${parent?esc(parent.name):'—'}</strong>${parent&&parent.phone?' · '+esc(parent.phone):''}
   </div>
   ${conv.body?`<div class="form-group"><label class="form-label">Contenu de la convocation (pré-rempli)</label><textarea class="form-input" id="rdv_body" rows="7" style="font-size:12px;font-family:monospace">${esc(conv.body)}</textarea></div>`:''}
   <div class="form-group"><label class="form-label">Date du rendez-vous *</label>
@@ -13072,7 +13072,7 @@ R.etat_financier = () => {
       return `<div style="margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
           <span style="font-size:18px">${c.icon}</span>
-          <div style="flex:1"><div style="font-size:13px;font-weight:700">${c.label}</div>
+          <div style="flex:1"><div style="font-size:13px;font-weight:700">${esc(c.label)}</div>
             ${c.types.map(t=>`<div style="font-size:11px;color:var(--text-muted)">${esc(t.label)} · ${t.count} versement(s)</div>`).join('')}
           </div>
           <div style="text-align:right"><div style="font-size:15px;font-weight:800;color:#1f9d6b">${_cur()}${c.total}</div><div style="font-size:10px;color:var(--text-muted)">${pct}% du total</div></div>
@@ -17472,7 +17472,7 @@ R.sanctions = () => {
             ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-            <span style="font-size:11px;font-weight:700;color:${ti.color};background:${ti.bg};padding:2px 8px;border-radius:8px">${ti.icon} ${ti.label}</span>
+            <span style="font-size:11px;font-weight:700;color:${ti.color};background:${ti.bg};padding:2px 8px;border-radius:8px">${ti.icon} ${esc(ti.label)}</span>
             ${sanc.duration_days?`<span style="font-size:11px;color:var(--text-muted)">${sanc.duration_days} jour(s)${sanc.return_date?' · Retour: '+sanc.return_date:''}</span>`:''}
             ${sanc.lifted?`<span style="font-size:10px;font-weight:700;background:#d8f3e6;color:#065f46;padding:1px 6px;border-radius:6px">Levée</span>`:''}
           </div>
