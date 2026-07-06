@@ -2453,9 +2453,9 @@ window.initParticles = () => {
 window.getPendingCount = () => {
   if(S.user&&S.user.role==='parent'){
     const uid=S.user.id;
-    const unreadNotifs=DB.notifs.filter(n=>n.uid===uid&&!n.read).length;
-    const unreadMsgs=DB.messages.filter(m=>(m.to===uid||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==uid).length;
-    const pendingRat=DB.rattrapages.filter(r=>{
+    const unreadNotifs=(DB.notifs||[]).filter(n=>n.uid===uid&&!n.read).length;
+    const unreadMsgs=(DB.messages||[]).filter(m=>(m.to===uid||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==uid).length;
+    const pendingRat=(DB.rattrapages||[]).filter(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
       return s&&s.pid===uid&&r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled;
     }).length;
@@ -5864,7 +5864,7 @@ R.parents = () => {
           : kids.map(s=>{
               const cl = gc(s.cid);
               const [cc,cbg] = clsColor(cl?cl.name:'');
-              const tuts = DB.aps.filter(a=>a.sid===s.id);
+              const tuts = (DB.aps||[]).filter(a=>a.sid===s.id);
               const activeTuts = tuts.filter(a=>a.active!==false);
               return `<div style="background:rgba(37,99,235,.04);border:1px solid rgba(37,99,235,.14);border-left:3px solid #5c92ff;border-radius:12px;padding:12px;margin-bottom:8px">
                 <!-- Info élève -->
@@ -6085,14 +6085,14 @@ window.deleteClass = (cid) => {
 R.approbations = () => {
   const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const isD2 = S.user.role==='direction2';
-  const pabs = DB.absences.filter(a=>a.status==='pending');
-  const apr = DB.approbations.filter(a=>a.status==='pending'&&a.type!=='cahier_texte');
-  const pendingReports = isD2 ? [] : DB.daily_reports.filter(r=>r.status==='pending');
-  const pendingMsgs = DB.messages.filter(m=>m.status==='pending');
+  const pabs = (DB.absences||[]).filter(a=>a.status==='pending');
+  const apr = (DB.approbations||[]).filter(a=>a.status==='pending'&&a.type!=='cahier_texte');
+  const pendingReports = isD2 ? [] : (DB.daily_reports||[]).filter(r=>r.status==='pending');
+  const pendingMsgs = (DB.messages||[]).filter(m=>m.status==='pending');
   const pendingRats = isD2
-    ? DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated)
-    : DB.rattrapages.filter(r=>r.status==='pending'&&!r.validated_by);
-  const pendingConvs = DB.convocations.filter(c=>c.status==='pending'||c.status==='scheduled');
+    ? (DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by&&!r.d2_validated)
+    : (DB.rattrapages||[]).filter(r=>r.status==='pending'&&!r.validated_by);
+  const pendingConvs = (DB.convocations||[]).filter(c=>c.status==='pending'||c.status==='scheduled');
   const total = pabs.length + apr.length + pendingReports.length + pendingMsgs.length + pendingRats.length + pendingConvs.length;
   if (!total) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#d8f3e6;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#1f9d6b"></div></div>Aucune demande en attente<br><span style="font-size:12px">Tout est à jour !</span></div>`;
   return `
@@ -6187,8 +6187,8 @@ R.approbations = () => {
   </div>`:''}
   ${(()=>{
     if(isD2) return '';
-    const signaled=DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by&&r.payment_signaled);
-    const waiting=DB.rattrapages.filter(r=>r.status==='pending'&&r.validated_by&&!r.payment_signaled);
+    const signaled=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&r.validated_by&&r.payment_signaled);
+    const waiting=(DB.rattrapages||[]).filter(r=>r.status==='pending'&&r.validated_by&&!r.payment_signaled);
     if(!signaled.length&&!waiting.length) return '';
     const renderRat=(r,priority)=>{
       const s=DB.students.find(x=>x.id===r.sid);
@@ -7004,7 +7004,7 @@ R.children = () => {
 
         <!-- ANALYSE RATTRAPAGE -->
         ${(()=>{
-          const rats=DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
+          const rats=(DB.rattrapages||[]).filter(r=>r.sid===k.id&&r.status!=='archived');
           if(rats.length) return '';
           const grades=DB.grades.filter(g=>g.sid===k.id);
           if(!grades.length) return '';
@@ -7034,7 +7034,7 @@ R.children = () => {
 
         <!-- PERSONNES AUTORISÉES -->
         ${(()=>{
-          const tuts=DB.aps.filter(a=>a.sid===k.id&&a.active!==false);
+          const tuts=(DB.aps||[]).filter(a=>a.sid===k.id&&a.active!==false);
           if(!tuts.length) return `
           <div style="border-left:4px solid #a89c8b;background:#fff5ea;border-radius:16px;padding:14px 16px;margin-bottom:12px">
             ${SECTION('Personnes autorisées pour la sortie', '#a89c8b')}
@@ -7059,7 +7059,7 @@ R.children = () => {
 
         <!-- CONVOCATION -->
         ${(()=>{
-          const convs=DB.convocations.filter(c=>c.sid===k.id&&c.status==='scheduled');
+          const convs=(DB.convocations||[]).filter(c=>c.sid===k.id&&c.status==='scheduled');
           if(!convs.length) return '';
           return convs.map(c=>`
           <div style="border-radius:14px;padding:14px 16px;background:#fef2f2;border-left:4px solid #dc2626;margin-bottom:12px">
@@ -7076,7 +7076,7 @@ R.children = () => {
 
         <!-- RATTRAPAGE -->
         ${(()=>{
-          const rats=DB.rattrapages.filter(r=>r.sid===k.id&&r.status!=='archived');
+          const rats=(DB.rattrapages||[]).filter(r=>r.sid===k.id&&r.status!=='archived');
           if(!rats.length) return '';
           return `
           <div style="border-left:4px solid #f59e0b;background:#fffbeb;border-radius:16px;padding:14px 16px;margin-bottom:12px">
@@ -7095,7 +7095,7 @@ R.children = () => {
               </div>`:''}
               <div style="font-size:12px;color:#6f6557">${esc(r.motif)}</div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-                <span style="font-weight:700;color:${paid?'#1f9d6b':'#d98a2b'}">${paid?'Payé ($'+r.amount+')':r.amount?'$'+r.amount+' à régler':'Montant à fixer'}</span>
+                <span style="font-weight:700;color:${paid?'#1f9d6b':'#d98a2b'}">${paid?'Payé ('+_cur()+r.amount+')':r.amount?_cur()+r.amount+' à régler':'Montant à fixer'}</span>
                 ${r.status==='pending'&&r.amount?`<span class="pill" style="background:#fdeccd;color:#92400e">À régler</span>`:paid?`<span class="pill" style="background:#d8f3e6;color:#065f46">Payé</span>`:`<span class="pill" style="background:#fee2e2;color:#dc2626">En attente</span>`}
               </div>
               ${r.status==='pending'&&r.amount>0&&r.validated_by&&!r.payment_signaled?`<button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="signalerPaiementRattrapage('${r.id}')">Signaler mon paiement à la Direction</button>`:''}
@@ -11623,7 +11623,7 @@ R.absences = () => {
   const role = S.user.role;
   // Direction: voir toutes les justifications
   if (role === 'direction' || role === 'direction2') {
-    const all = DB.absences.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const all = (DB.absences||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune justification soumise</div>`;
     const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
     const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
@@ -11682,7 +11682,7 @@ R.absences = () => {
   }
   // Parent: soumettre justification
   const kids = DB.students.filter(s=>s.pid===S.user.id);
-  const myAbs = DB.absences.filter(a=>a.pid===S.user.id).slice().sort((a,b)=>(b.submitted||'').localeCompare(a.submitted||''));
+  const myAbs = (DB.absences||[]).filter(a=>a.pid===S.user.id).slice().sort((a,b)=>(b.submitted||'').localeCompare(a.submitted||''));
   const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
   const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
   return `
@@ -14804,14 +14804,15 @@ R.convocations = () => {
   const tab=window._convTab||'convocations';
   const filter=window._convFilter||'active';
   const myKidIds=role==='parent'?DB.students.filter(s=>s.pid===S.user.id).map(s=>s.id):null;
-  const all=(myKidIds?DB.convocations.filter(c=>myKidIds.includes(c.sid)):DB.convocations).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const _allConv=(DB.convocations||[]);
+  const all=(myKidIds?_allConv.filter(c=>myKidIds.includes(c.sid)):_allConv).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const statusLabel={pending:'À planifier',scheduled:'RDV fixé',completed:'Parent venu',missed:'Absent au RDV',confirmed_parent:'📬 Reçu (parent)'};
   const statusColor={pending:'#f59e0b',scheduled:'#2f7bd6',completed:'#1f9d6b',missed:'#dc2626',confirmed_parent:'#9b6fd4'};
   const active=all.filter(c=>c.status==='pending'||c.status==='scheduled');
   const closed=all.filter(c=>c.status==='completed'||c.status==='missed');
   const shown=filter==='active'?active:filter==='closed'?closed:all;
   // Communiqués: messages with type communique
-  const communiques=DB.messages.filter(m=>m.type==='communique').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const communiques=(DB.messages||[]).filter(m=>m.type==='communique').slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const _active=all.filter(c=>c.status==='pending'||c.status==='scheduled').length;
   const _done=all.filter(c=>c.status==='completed').length;
   const _missed=all.filter(c=>c.status==='missed').length;
