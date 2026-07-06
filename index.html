@@ -12534,11 +12534,27 @@ window.annulerVersement = (vid) => {
   const v=(DB.versements||[]).find(x=>x.id===vid);
   if(!v){toast('Versement introuvable','error');return;}
   if(v.annulled){toast('Déjà annulé','info');return;}
-  showC('Annuler ce versement ?',
-    `${_cur()}${v.montant} — ${v.fee_label||v.motif||'?'} — ${v.student_name||'?'} (${v.date})\n\nUne contre-écriture OHADA sera créée automatiquement.\nLe versement sera marqué annulé mais conservé pour l'historique.`,
-    ()=>{
-      v.annulled=true; v.annulled_by=S.user.id; v.annulled_date=today(); v.annulled_by_name=S.user.name;
-      pushSync('versements','patch',{annulled:true,annulled_by:S.user.id,annulled_date:today(),annulled_by_name:S.user.name},'id=eq.'+vid);
+  openM('Annuler ce versement ?',`
+  <div style="padding:10px 0 6px;font-size:13px;color:var(--text-secondary)">
+    <strong>${esc(v.student_name||'?')}</strong> — ${esc(v.fee_label||v.motif||'?')} — <strong>${_cur()}${v.montant}</strong> (${v.date||''})
+  </div>
+  <div style="font-size:12px;color:#f59e0b;margin-bottom:12px;padding:8px;background:#fef9c3;border-radius:8px">
+    ⚠️ Une contre-écriture OHADA sera créée. Le versement reste dans l'historique.
+  </div>
+  <div class="form-group"><label class="form-label">Motif d'annulation *</label>
+    <input class="form-input" id="annul_reason" placeholder="Ex: Erreur de saisie, doublon, annulation client..." style="font-size:13px">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-danger" onclick="window._doAnnulerVersement('${vid}')">✕ Confirmer l'annulation</button>`);
+};
+window._doAnnulerVersement = (vid) => {
+  const v=(DB.versements||[]).find(x=>x.id===vid);
+  if(!v||v.annulled){closeModal();return;}
+  const reason=($('annul_reason')?.value||'').trim();
+  if(!reason){toast('Motif requis','error');return;}
+  closeModal();
+  v.annulled=true; v.annulled_by=S.user.id; v.annulled_date=today(); v.annulled_by_name=S.user.name; v.annulled_reason=reason;
+  pushSync('versements','patch',{annulled:true,annulled_by:S.user.id,annulled_date:today(),annulled_by_name:S.user.name,annulled_reason:reason},'id=eq.'+vid);
       // Contre-écriture OHADA (inverse du débit/crédit original)
       if(!DB.journal_entries) DB.journal_entries=[];
       const isRecette=(v.mvt_type||'recette')!=='depense';
@@ -12562,13 +12578,11 @@ window.annulerVersement = (vid) => {
           }
         }
       }
-      logAudit('annulation_paiement',`${v.student_name||'?'} — ${v.fee_label||v.motif||'?'} — $${v.montant} (${v.recu_no||vid})`);
-      saveToCrypt();
-      toast('Versement annulé — contre-écriture OHADA créée','info');
-      if(window._tl?.sid===v.sid) openTrimLedger(v.sid,v.trimestre);
-      else render();
-    }
-  );
+  logAudit('annulation_paiement',`${v.student_name||'?'} — ${v.fee_label||v.motif||'?'} — ${_cur()}${v.montant} (${v.recu_no||vid})`);
+  saveToCrypt();
+  toast('Versement annulé — contre-écriture OHADA créée','info');
+  if(window._tl?.sid===v.sid) openTrimLedger(v.sid,v.trimestre);
+  else render();
 };
 
 // ── RECHERCHE RAPIDE DE VERSEMENTS ──
