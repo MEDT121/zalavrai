@@ -11309,30 +11309,49 @@ function showExitDone(color,icon,title,name,sub,time) {
 R.scan_log = () => {
   const isDir=S.user.role==='direction'||S.user.role==='direction2';
   const selDate=isDir?(window._scanLogDate||today()):today();
-  const logs=DB.scan_log.filter(l=>l.date===selDate).slice().reverse();
-  const entries=logs.filter(l=>l.type==='entry');
-  const exits=logs.filter(l=>l.type==='exit');
+  const rawLogs=DB.scan_log.filter(l=>l.date===selDate).slice().reverse();
+  // PORT-08: filters
+  const q=(window._scanLogQ||'').toLowerCase();
+  const tf=window._scanLogTypeFilter||'all';
+  const logs=rawLogs.filter(l=>{
+    if(q&&!(l.name||'').toLowerCase().includes(q)&&!(l.by_name||'').toLowerCase().includes(q)) return false;
+    if(tf==='entry'&&l.type!=='entry') return false;
+    if(tf==='exit'&&l.type!=='exit') return false;
+    if(tf==='incidents'&&l.status!=='unauthorized'&&l.status!=='refused') return false;
+    return true;
+  });
+  const entries=rawLogs.filter(l=>l.type==='entry');
+  const exits=rawLogs.filter(l=>l.type==='exit');
   const ontime=entries.filter(l=>l.status==='ontime').length;
   const late=entries.filter(l=>l.status==='late').length;
-  const refused=entries.filter(l=>l.status==='refused').length;
+  const refused=rawLogs.filter(l=>l.status==='unauthorized'||l.status==='refused').length;
   const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',authorized:'pill-green',unauthorized:'pill-red'};
   const typeIcon={entry:'📥',exit:'🚪'};
-  const datePicker=isDir?`<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px"><input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;render()" style="flex:1;max-width:180px"><span style="font-size:13px;color:var(--text-muted)">${selDate===today()?'Aujourd\'hui':new Date(selDate).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>`:''
-  const incidents=logs.filter(l=>l.status==='unauthorized'||l.status==='refused');
+  const incidents=rawLogs.filter(l=>l.status==='unauthorized'||l.status==='refused');
   return _wrapDark(`
-  ${datePicker}
+  ${isDir?`<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;window._scanLogQ='';render()" style="width:auto;min-width:140px;flex:0">
+    <input class="form-input" placeholder="🔍 Nom élève ou gardien…" value="${esc(window._scanLogQ||'')}" oninput="window._scanLogQ=this.value;clearTimeout(window._slT);window._slT=setTimeout(render,250)" style="flex:1;min-width:120px">
+    <select class="form-select" style="width:auto;min-width:110px;flex:0" onchange="window._scanLogTypeFilter=this.value;render()">
+      <option value="all" ${tf==='all'?'selected':''}>Tout</option>
+      <option value="entry" ${tf==='entry'?'selected':''}>📥 Entrées</option>
+      <option value="exit" ${tf==='exit'?'selected':''}>🚪 Sorties</option>
+      <option value="incidents" ${tf==='incidents'?'selected':''}>🚨 Incidents</option>
+    </select>
+    <button class="btn btn-outline btn-sm" style="white-space:nowrap;flex:0" onclick="exportScanLogCSV('${selDate}')">⬇️ CSV</button>
+  </div>`:``}
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">🟢</div><div class="hbig">${ontime}</div><div class="hsub">à l'heure</div></div>
     <div class="htile h-pay"><div class="hic">⏰</div><div class="hbig">${late}</div><div class="hsub">retards</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff"><div class="hic">⛔</div><div class="hbig">${refused}</div><div class="hsub">refusés</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff"><div class="hic">⛔</div><div class="hbig">${refused}</div><div class="hsub">incidents</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">🚪</div><div class="hbig">${exits.length}</div><div class="hsub">sorties</div></div>
   </div>
   ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
-  ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité aujourd'hui (${incidents.length})</div>
+  ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length&&tf!=='incidents'?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité (${incidents.length})</div>
     ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${esc(l.label||l.status)} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#f87171">${esc(l.time)}</span></div>`).join('')}
   </div>`:''}
   ${logs.length?`
-  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} scan${logs.length>1?'s':''} aujourd'hui</div>
+  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} résultat${logs.length>1?'s':''} (${rawLogs.length} total)</div>
   <div class="ww-section">
     ${logs.map((l,i)=>{
       const byUser=l.by_uid?(DB.users||[]).find(u=>u.id===l.by_uid):null;
@@ -11351,7 +11370,29 @@ R.scan_log = () => {
         <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
       </div>`;}).join('')}
   </div>`:
-  '<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>Aucun scan aujourd\'hui</div>'}`);
+  `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>${q||tf!=='all'?'Aucun résultat pour ce filtre':'Aucun scan aujourd\'hui'}</div>`}`);
+};
+
+// PORT-08: CSV export of scan log
+window.exportScanLogCSV = (date) => {
+  const rows=DB.scan_log.filter(l=>l.date===date);
+  if(!rows.length){toast('Aucun scan pour cette date','info');return;}
+  const header='Date,Heure,Nom,Type,Statut,Libellé,Scanné par';
+  const lines=rows.map(l=>[
+    l.date,l.time||'',
+    (l.name||'').replace(/,/g,' '),
+    l.type==='entry'?'Entrée':'Sortie',
+    l.status||'',
+    (l.label||'').replace(/,/g,' '),
+    (l.by_name||'').replace(/,/g,' ')
+  ].join(','));
+  const csv=[header,...lines].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`ScanLog-${date}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  toast('Export CSV téléchargé','success');
 };
 
 window.sendAttendanceList = async () => {
