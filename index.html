@@ -6586,7 +6586,7 @@ R.payments = () => {
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:${partial?'6px':'0'}">
                 <div style="width:9px;height:9px;border-radius:50%;background:${done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b'};flex-shrink:0"></div>
                 <div style="flex:1;font-size:13px;font-weight:700;color:#241f1a">${pLabel}</div>
-                <span style="font-size:12px;font-weight:700;color:${done?'#065f46':partial?'#92400e':'#991b1b'}">${done?'Soldé':partial?`${_cur()}${paidAmt} / ${_cur()}${target}`:'À payer — $'+target}</span>
+                <span style="font-size:12px;font-weight:700;color:${done?'#065f46':partial?'#92400e':'#991b1b'}">${done?'Soldé':partial?`${_cur()}${paidAmt} / ${_cur()}${target}`:'À payer — '+_cur()+target}</span>
               </div>
               ${partial?`<div style="height:4px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden"><div style="height:100%;width:${pct}%;background:#f59e0b;border-radius:4px;transition:width .5s ease"></div></div>`:''}
             </div>`;
@@ -6952,13 +6952,13 @@ R.children = () => {
               return `<div style="flex:1;padding:10px 8px;border-radius:12px;background:${paid?'#dcfce7':'#fee2e2'};text-align:center;border:1.5px solid ${paid?'#86efac':'#fca5a5'}">
                 <div style="font-size:11px;font-weight:800;color:${paid?'#15603f':'#991b1b'};margin-bottom:3px">${t}</div>
                 <div style="font-size:12px;font-weight:700;color:${paid?'#1f9d6b':'#dc2626'}">${paid?'Payé':'Dû'}</div>
-                <div style="font-size:11px;color:#6f6557;margin-top:2px">${fees[t]?'$'+fees[t]:'—'}</div>
+                <div style="font-size:11px;color:#6f6557;margin-top:2px">${fees[t]?_cur()+fees[t]:'—'}</div>
               </div>`;
             }).join('')}
           </div>
           ${totalFees>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 12px;background:${debt>0?'#fee2e2':'#dcfce7'};border-radius:10px;margin-bottom:${paidAmt>0?10:0}px">
             <span style="font-weight:600;color:${debt>0?'#991b1b':'#15603f'}">${debt>0?'Solde dû':'Tout payé'}</span>
-            <span style="font-weight:900;color:${debt>0?'#dc2626':'#1f9d6b'}">${debt>0?'$'+debt:'$0'}</span>
+            <span style="font-weight:900;color:${debt>0?'#dc2626':'#1f9d6b'}">${debt>0?_cur()+debt:_cur()+'0'}</span>
           </div>`:'<div style="font-size:12px;color:#a89c8b">Montants non configurés par la Direction</div>'}
           ${paidAmt>0?BTN('#f6ede0','#2a2622','Reçu de paiement',"printReport('recu','"+k.id+"')"):''}
         </div>
@@ -10874,7 +10874,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
         DB.notifs.unshift(n); pushSync('notifs','post',n);
       });
       if(student.pid) await pushNotif(student.pid,`🔴 ${student.name} n'a pas pu entrer à l'école — Frais ${fc.trimestre} non réglés. Veuillez régulariser.`);
-      showScanResult('red','$','FRAIS NON RÉGLÉS',student.name,`Frais ${fc.trimestre} non payés — Entrée refusée`,time);
+      showScanResult('red',_cur(),'FRAIS NON RÉGLÉS',student.name,`Frais ${fc.trimestre} non payés — Entrée refusée`,time);
       saveToCrypt();
       return;
     }
@@ -12055,7 +12055,7 @@ window.caisseSelectStudent = (sid) => {
             <div style="font-size:12px;font-weight:700">${esc(f.label)}</div>
             <div style="height:3px;border-radius:3px;background:#e5e7eb;margin-top:4px"><div style="height:3px;border-radius:3px;background:${col};width:${pct}%"></div></div>
           </div>
-          <span style="font-size:12px;font-weight:800;color:${col}">${f.done?'✅':'$'+f.paid+' / $'+f.target}</span>
+          <span style="font-size:12px;font-weight:800;color:${col}">${f.done?'✅':_cur()+f.paid+' / '+_cur()+f.target}</span>
         </div>`;
       }).join('')}
     </div>`:''}
@@ -12679,7 +12679,7 @@ R.fee_types = () => {
           <div class="pi-icon" style="background:${f.active===false?'#e5e7eb':'#dbeafe'};color:${f.active===false?'#9ca3af':'#1d4ed8'};font-size:17px">${cat==='scolaire'?'🎓':cat==='sortie'?'🚌':cat==='cantine'?'🍽':'📋'}</div>
           <div style="flex:1">
             <div class="pi-title">${esc(f.label)}</div>
-            <div class="pi-sub">${f.montant_defaut?'$'+f.montant_defaut+' par élève':f.trimestre?'Tranche '+f.trimestre:'Montant libre'} ${f.active===false?'· <span style="color:#ef5b5b">Désactivé</span>':''}</div>
+            <div class="pi-sub">${f.montant_defaut?_cur()+f.montant_defaut+' par élève':f.trimestre?'Tranche '+f.trimestre:'Montant libre'} ${f.active===false?'· <span style="color:#ef5b5b">Désactivé</span>':''}</div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn btn-outline btn-sm" onclick="editFeeType('${f.id}')">Modifier</button>
@@ -13334,8 +13334,8 @@ R.comptabilite = () => {
             return `<tr style="border-top:1px solid var(--border)">
               <td style="padding:5px 8px;white-space:nowrap;color:var(--text-muted)">${e.date}</td>
               <td style="padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.libelle)}</td>
-              <td style="padding:5px 8px;text-align:right;color:#065f46">${isD?'$'+e.montant:''}</td>
-              <td style="padding:5px 8px;text-align:right;color:#1d4ed8">${!isD?'$'+e.montant:''}</td>
+              <td style="padding:5px 8px;text-align:right;color:#065f46">${isD?_cur()+e.montant:''}</td>
+              <td style="padding:5px 8px;text-align:right;color:#1d4ed8">${!isD?_cur()+e.montant:''}</td>
               <td style="padding:5px 8px;text-align:right;font-weight:700;color:${running>=0?'#1f9d6b':'#dc2626'}">${_cur()}${running}</td>
             </tr>`;
           }).join('')}
@@ -13365,10 +13365,10 @@ R.comptabilite = () => {
         return `<tr style="border-top:1px solid var(--border);background:${i%2?'transparent':'rgba(0,0,0,.015)'}">
           <td style="padding:6px 10px"><span style="font-size:11px;font-weight:800;background:#f0f4ff;color:#243a6b;padding:2px 6px;border-radius:5px">${b.num}</span></td>
           <td style="padding:6px 10px;font-weight:${b.debit||b.credit?700:400};color:${b.debit||b.credit?'inherit':'var(--text-muted)'}">${b.icon} ${b.n}</td>
-          <td style="padding:6px 10px;text-align:right;color:#065f46">${b.debit?'$'+b.debit:''}</td>
-          <td style="padding:6px 10px;text-align:right;color:#1d4ed8">${b.credit?'$'+b.credit:''}</td>
-          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#1f9d6b">${sd?'$'+sd:''}</td>
-          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#2f7bd6">${sc?'$'+sc:''}</td>
+          <td style="padding:6px 10px;text-align:right;color:#065f46">${b.debit?_cur()+b.debit:''}</td>
+          <td style="padding:6px 10px;text-align:right;color:#1d4ed8">${b.credit?_cur()+b.credit:''}</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#1f9d6b">${sd?_cur()+sd:''}</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;color:#2f7bd6">${sc?_cur()+sc:''}</td>
         </tr>`;
       }).join('')}
       </tbody>
@@ -15639,7 +15639,7 @@ window.exportCSV = (type) => {
   } else if(type==='payments'){
     filename=`paiements_${DB.settings.year||'2025-2026'}.csv`;
     const fees=getFees();
-    rows=[['Matricule','Nom','Classe','T1','T2','T3','Total payé ($)','Reste ($)']];
+    rows=[['Matricule','Nom','Classe','T1','T2','T3','Total payé ('+_cur()+')','Reste ('+_cur()+')']];
     DB.students.forEach(s=>{
       const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);
       const t1=pays.find(p=>p.t==='T1')?.paid?'Payé':'Non payé';
