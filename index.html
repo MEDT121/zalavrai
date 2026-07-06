@@ -1140,7 +1140,7 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 window.$ = id => document.getElementById(id);
 window._serverTimeOffset = 0; // ms correction vs horloge serveur
 window._serverNow = () => new Date(Date.now() + window._serverTimeOffset);
-window.today = () => window._serverNow().toISOString().slice(0, 10);
+window.today = () => { const d=window._serverNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 window.nowTime = () => { const d = window._serverNow(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
 // Identifiant universel — UUID v4 si disponible, fallback timestamp+aléatoire
 window._uid = (p='') => p+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
