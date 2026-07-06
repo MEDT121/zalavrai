@@ -7063,7 +7063,7 @@ R.children = () => {
           const grades=DB.grades.filter(g=>g.sid===k.id);
           if(!grades.length) return '';
           const avg=Math.round(grades.reduce((a,g)=>a+gradePct(g),0)/grades.length);
-          const conds=DB.conduct.filter(c=>c.sid===k.id).slice(0,10);
+          const conds=(DB.conduct||[]).filter(c=>c.sid===k.id).slice(0,10);
           const condMap2={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
           const condAvg2=conds.length?conds.reduce((a,c)=>a+(condMap2[c.score]||0),0)/conds.length:null;
           const needsRat=avg<60;
@@ -7162,7 +7162,7 @@ R.children = () => {
 
         <!-- CONDUITE -->
         ${(()=>{
-          const conds=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+          const conds=(DB.conduct||[]).filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
           if(!conds.length) return '';
           const colors={Excellent:'#1f9d6b',Bien:'#205fae',Moyen:'#d98a2b',Mauvais:'#dc2626'};
           const bgs={Excellent:'#d8f3e6',Bien:'#dbeafe',Moyen:'#fdeccd',Mauvais:'#fee2e2'};
@@ -7925,7 +7925,7 @@ R.palmares = () => {
     const avgCouv=couvertures.length?Math.round(couvertures.reduce((s,p)=>s+(p.pourcentage||0),0)/couvertures.length):null;
 
     const ranked=students.map(s=>{
-      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const retards=DB.attendance.filter(a=>a.sid===s.id&&a.status==='late').length;
       let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{
@@ -8056,7 +8056,7 @@ R.palmares_parent = () => {
       let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{const a=matAvgPct(s.id,m.name,trimFilter);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}});
       const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
-      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
       const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
@@ -8937,7 +8937,7 @@ window.getRankInClass = (sid) => {
     let tw=0,sc=0;
     matieres.forEach(m=>{const a=matAvgPct(x.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sc+=c;}});
     const moy=sc?Math.round(tw/sc):0;
-    const cond=DB.conduct.filter(c=>c.sid===x.id);
+    const cond=(DB.conduct||[]).filter(c=>c.sid===x.id);
     const cAvg=cond.length?cond.reduce((a,c)=>a+(condMap[c.score]||0),0)/cond.length:3; // défaut "Bien" si aucune conduite — ne pas pénaliser
     return Math.round(moy*0.85+Math.round(cAvg*25)*0.15);
   };
@@ -9500,7 +9500,7 @@ R.devoirs_parent = () => {
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
     const interroList=allDevoirs.filter(d=>d.category==='interro');
     const examenList=allDevoirs.filter(d=>d.category==='examen');
-    const conduites=DB.conduct.filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
+    const conduites=(DB.conduct||[]).filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
     // Analyse rattrapage auto
     const myGrades=DB.grades.filter(g=>g.sid===k.id);
     const avgNote=myGrades.length?Math.round(myGrades.reduce((a,g)=>a+gradePct(g),0)/myGrades.length):null;
@@ -11127,7 +11127,7 @@ window.scanExit = () => {
   // Parent principal + tutelles secondaires liées à l'élève
   const aps=[];
   if(parent) aps.push({name:parent.name,relation:'👑 Parent principal',photo:parent.photo_url||null,active:true,phone:parent.phone||null});
-  DB.aps.filter(a=>a.sid===s.id&&a.active!==false).forEach(a=>aps.push(a));
+  (DB.aps||[]).filter(a=>a.sid===s.id&&a.active!==false).forEach(a=>aps.push(a));
 
   window._exitStudent=s;
   window._exitAps=aps;
@@ -11439,7 +11439,7 @@ R.authorized = () => {
       ${studs.map(s=>{
         const c=gc(s.cid); const parent=gu(s.pid);
         const [cc,cbg]=clsColor(c?c.name:'');
-        const tuts=DB.aps.filter(a=>a.sid===s.id);
+        const tuts=(DB.aps||[]).filter(a=>a.sid===s.id);
         return `<div class="premium-section" style="margin-bottom:0">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
             <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">
@@ -11489,7 +11489,7 @@ R.authorized = () => {
       🔑 Vous pouvez ajouter jusqu'à <strong>3 tutelles</strong> par enfant et activer/désactiver leur autorisation de récupérer votre enfant.
     </div>
     ${myKids.map(s=>{
-      const tuts = DB.aps.filter(a=>a.sid===s.id);
+      const tuts = (DB.aps||[]).filter(a=>a.sid===s.id);
       const parent = gu(s.pid);
       const c = gc(s.cid); const [cc,cbg] = clsColor(c?c.name:'');
       return `<div class="premium-section" style="margin-bottom:14px">
@@ -11573,7 +11573,7 @@ R.authorized = () => {
     Vérifiez ici les personnes autorisées <strong>avant de laisser sortir un enfant</strong>. Seules les personnes avec un badge <span style="color:#1f9d6b;font-weight:700">vert</span> peuvent récupérer l'enfant.
   </div>
   ${studsToShow.map(s=>{
-    const tuts=DB.aps.filter(a=>a.sid===s.id&&a.active!==false);
+    const tuts=(DB.aps||[]).filter(a=>a.sid===s.id&&a.active!==false);
     const parent=gu(s.pid);
     const c=gc(s.cid); const [cc,cbg]=clsColor(c?c.name:'');
     const totalAps = (parent?1:0) + tuts.length;
@@ -11619,8 +11619,8 @@ window.openTutelleForm = (sid, tid) => {
   // Contrôle accès : direction peut tout modifier, parent uniquement ses propres enfants
   const isParent = S.user.role==='parent';
   if(isParent && s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
-  const t=tid?DB.aps.find(x=>x.id===tid):null;
-  const existing=DB.aps.filter(a=>a.sid===sid);
+  const t=tid?(DB.aps||[]).find(x=>x.id===tid):null;
+  const existing=(DB.aps||[]).filter(a=>a.sid===sid);
   if(!t && existing.length>=3){toast('Maximum 3 tutelles par élève','error');return;}
   const RELATIONS=['Père','Mère','Grand-père','Grand-mère','Oncle','Tante','Frère','Sœur','Tuteur légal','Autre'];
   openM(t?`✏️ Modifier tutelle — ${s.name}`:`➕ Ajouter tutelle — ${s.name}`,`
@@ -11680,12 +11680,12 @@ window.saveTutelle = () => {
   if(!photo) toast('⚠️ Sans photo, l\'identification au portail sera difficile','info');
   const data={sid,name,relation,phone,photo,active:true};
   if(tid){
-    const t=DB.aps.find(x=>x.id===tid); if(t) Object.assign(t,data);
+    const t=(DB.aps||[]).find(x=>x.id===tid); if(t) Object.assign(t,data);
     pushSync('aps','upsert',{id:tid,...data});
     toast(`${name} mis à jour`,'success');
   } else {
     const nt={id:_uid('ap_'),...data};
-    DB.aps.push(nt);
+    (DB.aps=DB.aps||[]).push(nt);
     pushSync('aps','upsert',nt);
     toast(`✅ ${name} enregistré comme tutelle`,'success');
   }
@@ -11693,14 +11693,14 @@ window.saveTutelle = () => {
 };
 
 window.deleteTutelle = (tid) => {
-  const t=DB.aps.find(x=>x.id===tid); if(!t) return;
+  const t=(DB.aps||[]).find(x=>x.id===tid); if(!t) return;
   // Contrôle accès : direction ou parent de l'enfant
   if(S.user.role==='parent'){
     const s=DB.students.find(x=>x.id===t.sid);
     if(!s||s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   }
   showC(`Supprimer ${t.name} ?`,'Cette personne ne pourra plus récupérer l\'enfant.',()=>{
-    DB.aps=DB.aps.filter(x=>x.id!==tid);
+    DB.aps=(DB.aps||[]).filter(x=>x.id!==tid);
     pushSync('aps','delete',{},'id=eq.'+tid);
     toast(`🗑️ ${t.name} supprimé`,'info');
     saveToCrypt(); render();
@@ -11708,7 +11708,7 @@ window.deleteTutelle = (tid) => {
 };
 
 window.toggleTutelle = (tid, newActive) => {
-  const t = DB.aps.find(x=>x.id===tid); if(!t) return;
+  const t = (DB.aps||[]).find(x=>x.id===tid); if(!t) return;
   const s = DB.students.find(x=>x.id===t.sid);
   if(!s || s.pid !== S.user.id){ toast('Accès non autorisé','error'); return; }
   t.active = newActive;
@@ -15092,7 +15092,7 @@ window.saveConductEntry = () => {
   const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
   if(!sid||!score||!date){toast('Remplir tous les champs','error');return;}
   const entry={id:'cd'+Date.now(),sid,score,remark,date,by:S.user.id};
-  DB.conduct.push(entry);
+  (DB.conduct=DB.conduct||[]).push(entry);
   pushSync('conduct','post',entry);
   logAudit('conduct_add', `${DB.students.find(x=>x.id===sid)?.name||''} · ${score}${remark?' — '+remark:''}`, entry.id);
   saveToCrypt(); toast('📊 Note de conduite enregistrée','success'); closeModal(); render();
@@ -15102,7 +15102,7 @@ window.deleteConductEntry = (cid) => {
   showC('Supprimer cette note de conduite ?','',()=>{
     logAudit('conduct_delete', `Conduite supprimée`, cid);
     pushSync('conduct','delete',{},'id=eq.'+cid);
-    DB.conduct=DB.conduct.filter(c=>c.id!==cid);
+    DB.conduct=(DB.conduct||[]).filter(c=>c.id!==cid);
     saveToCrypt(); toast('🗑️ Supprimé','info'); render();
   });
 };
@@ -15747,7 +15747,7 @@ window.genererRapportMensuel = (sid, mois) => {
   const retards=presences.filter(a=>a.status==='late').length;
   const presents=presences.filter(a=>a.status==='présent').length;
   // Conduite
-  const conduites=DB.conduct.filter(c=>c.sid===sid);
+  const conduites=(DB.conduct||[]).filter(c=>c.sid===sid);
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condAvg=conduites.length?conduites.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduites.length:0;
   const condLabel=['—','Mauvais','Moyen','Bien','Excellent'][Math.round(condAvg)]||'—';
@@ -15823,7 +15823,7 @@ window.genererPalmaresAnnuel = () => {
       let totalPct=0,sumC=0;
       matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
       const moyPct=sumC?Math.round(totalPct/sumC):0;
-      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
       const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
@@ -16111,7 +16111,7 @@ window.printPVDeliberation = () => {
       let tw=0,sw=0;
       mats.forEach(m=>{const a=matAvgPct(s.id,m.name,trim);if(a!==null){const c=m.coeff||1;tw+=a*c;sw+=c;}});
       const moy=sw?Math.round(tw/sw):0;
-      const conds=DB.conduct.filter(c=>c.sid===s.id);
+      const conds=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const cAvg=conds.length?conds.reduce((a,c)=>a+(condMap[c.score]||0),0)/conds.length:0;
       const total=Math.round(moy*0.85+Math.round(cAvg*25)*0.15);
       const mention=moy>=80?'Grande Distinction':moy>=70?'Distinction':moy>=60?'Satisfaction':moy>=50?'Avertissement':'Échec';
@@ -16201,7 +16201,7 @@ window.printReport = (type) => {
     const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
     const ranked=students.map(s=>{
       const moy=studentAvgPct(s.id,matieres);
-      const conduct=DB.conduct.filter(c=>c.sid===s.id);
+      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
       const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
       return{id:s.id,moy,cond:Math.round(cAvg*25)};
@@ -16241,7 +16241,7 @@ window.printReport = (type) => {
     <table><tr><th>Matière</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th></tr>
       ${isBilingual?`${frMats.length?`<tr><td colspan="5" style="background:#f0fdf4;font-weight:700;color:#065f46;padding:6px">🇫🇷 Bulletin Français</td></tr>${sectionRows(frMats,'🇫🇷')}`:''} ${enMats.length?`<tr><td colspan="5" style="background:#eaf3fc;font-weight:700;color:#205fae;padding:6px">🇬🇧 Bulletin Anglais</td></tr>${sectionRows(enMats,'🇬🇧')}`:''} ${coMats.length?`<tr><td colspan="5" style="background:#fafafa;font-weight:700;color:#374151;padding:6px">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:sectionRows(matieres,'')}
     </table>
-    ${(()=>{const conduct=DB.conduct.filter(c=>c.sid===k.id);if(!conduct.length)return '';const lbl={Excellent:'#1f9d6b',Bien:'#205fae',Moyen:'#d98a2b',Mauvais:'#dc2626'};const latest=conduct[conduct.length-1];return`<table><tr><th colspan="3">📊 Conduite & comportement</th></tr><tr><td>Note de conduite</td><td>${conduct.length} évaluation${conduct.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`})()}
+    ${(()=>{const conduct=(DB.conduct||[]).filter(c=>c.sid===k.id);if(!conduct.length)return '';const lbl={Excellent:'#1f9d6b',Bien:'#205fae',Moyen:'#d98a2b',Mauvais:'#dc2626'};const latest=conduct[conduct.length-1];return`<table><tr><th colspan="3">📊 Conduite & comportement</th></tr><tr><td>Note de conduite</td><td>${conduct.length} évaluation${conduct.length>1?'s':''}</td><td style="font-weight:800;color:${lbl[latest.score]||'#666'}">${latest.score}</td></tr></table>`})()}
     <div style="margin-top:24px;display:grid;grid-template-columns:1fr 1fr;gap:30px">
       <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Cachet et signature Direction</div></div>
       <div style="text-align:center"><div style="height:60px;border-bottom:1px solid #aaa;margin-bottom:6px"></div><div style="font-size:11px;color:#666">Signature Parent / Tuteur</div></div>
@@ -16402,7 +16402,7 @@ window.downloadBulletin = (sid) => {
   const ranked=students.map(s=>{
     let tw=0,sw=0;
     matieres.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){const c=m.coeff||1;tw+=a*c;sw+=c;}});
-    const conds=DB.conduct.filter(c=>c.sid===s.id);
+    const conds=(DB.conduct||[]).filter(c=>c.sid===s.id);
     const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
     const cAvg=conds.length?conds.reduce((a,c)=>a+(cm[c.score]||0),0)/conds.length:0;
     return{id:s.id,moy:sw?Math.round(tw/sw):0,cond:Math.round(cAvg*25)};
@@ -16447,7 +16447,7 @@ window.downloadBulletin = (sid) => {
   // Appréciation du titulaire déjà enregistrée (pré-remplissage)
   const appEntry=cl?(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cl.id&&a.trim===trim):null;
   // Conduct
-  const conducts=DB.conduct.filter(x=>x.sid===k.id);
+  const conducts=(DB.conduct||[]).filter(x=>x.sid===k.id);
   const condLabel={Excellent:'🌟 Excellent',Bien:'😊 Bien',Moyen:'😐 Moyen',Mauvais:'😞 À améliorer'};
   const condColor={Excellent:'#1f9d6b',Bien:'#205fae',Moyen:'#d98a2b',Mauvais:'#dc2626'};
   const latestCond=conducts.length?conducts[conducts.length-1]:null;
@@ -19654,7 +19654,7 @@ window.exportArchivePDF = () => {
       let tot=0,cnt=0;
       mats.forEach(m=>{const a=matAvgPct(s.id,m.name);if(a!==null){tot+=a;cnt++;}});
       const moy = cnt?Math.round(tot/cnt):0;
-      const cond = DB.conduct.filter(c=>c.sid===s.id);
+      const cond = (DB.conduct||[]).filter(c=>c.sid===s.id);
       const cAvg = cond.length?cond.reduce((a,c)=>a+({Excellent:4,Bien:3,Moyen:2,Mauvais:1}[c.score]||0),0)/cond.length:3; // défaut "Bien" si aucune conduite — ne pas pénaliser
       return {...s, moy, score:Math.round(moy*0.85+Math.round(cAvg*25)*0.15)};
     }).sort((a,b)=>b.score-a.score);
@@ -19666,7 +19666,7 @@ window.exportArchivePDF = () => {
         ${ranked.map((s,i)=>{
           const mention = s.moy>=90?'Excellent':s.moy>=75?'Très Bien':s.moy>=60?'Bien':s.moy>=50?'Passable':'À améliorer';
           const mCol = s.moy>=75?'green':s.moy>=50?'yellow':'red';
-          const condEl = DB.conduct.filter(c=>c.sid===s.id);
+          const condEl = (DB.conduct||[]).filter(c=>c.sid===s.id);
           const condScore = condEl.length?condEl[condEl.length-1].score:'—';
           return `<tr>
             <td style="font-size:11px;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</td>
