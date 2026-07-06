@@ -11045,6 +11045,9 @@ window.scanExit = () => {
   if(!s){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">✕</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${esc(code)}</div></div>`;return;}
   if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">●</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${esc(s.name)}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">Exception urgence médicale</button></div>`;return;}
 
+  // PORT-05: check if already exited today
+  const todayExitLog=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='exit'&&l.status!=='unauthorized');
+
   const c=gc(s.cid);
   const parent=gu(s.pid);
   // Parent principal + tutelles secondaires liées à l'élève
@@ -11068,6 +11071,7 @@ window.scanExit = () => {
 
   $('exitResult').innerHTML=`
   <div style="text-align:center;animation:popIn .3s ease">
+    ${todayExitLog?`<div class="scan-result orange" style="padding:10px 14px;margin-bottom:10px;font-size:13px">⚠️ Déjà sorti aujourd'hui à ${esc(todayExitLog.time||'?')} — ${esc(todayExitLog.label||'Sortie enregistrée')}</div>`:''}
     <div class="scan-result green" style="padding:14px;margin-bottom:12px">
       <div style="font-size:20px;font-weight:700">${esc(s.name)}</div>
       <div style="font-size:13px;opacity:.9">${c?esc(c.name):''} — ${esc(s.mat)}</div>
@@ -11123,6 +11127,9 @@ window.confirmExitWith = async (sid,personIdx) => {
   if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const a=window._exitAps[personIdx]; if(!a) return;
+  // PORT-06: block duplicate exit within 2-minute window (race condition between guardians)
+  const recentExit=(DB.scan_log||[]).find(l=>l.sid===sid&&l.type==='exit'&&l.date===today()&&l.status!=='unauthorized');
+  if(recentExit){const [rH,rM]=(recentExit.time||'00:00').split(':').map(Number);const [nH,nM]=nowTime().split(':').map(Number);if((nH*60+nM)-(rH*60+rM)<2){toast('Sortie déjà enregistrée récemment (doublon évité)','warning');return;}}
   const time=nowTime();
   const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
@@ -11135,6 +11142,9 @@ window.confirmExitWith = async (sid,personIdx) => {
 window.confirmExitAlone = async sid => {
   if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  // PORT-06: block duplicate exit within 2-minute window
+  const recentExit=(DB.scan_log||[]).find(l=>l.sid===sid&&l.type==='exit'&&l.date===today()&&l.status!=='unauthorized');
+  if(recentExit){const [rH,rM]=(recentExit.time||'00:00').split(':').map(Number);const [nH,nM]=nowTime().split(':').map(Number);if((nH*60+nM)-(rH*60+rM)<2){toast('Sortie déjà enregistrée récemment (doublon évité)','warning');return;}}
   const time=nowTime();
   const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
