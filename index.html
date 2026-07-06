@@ -3757,8 +3757,8 @@ function dashboardDirection() {
     </div>
     <div class="htile h-cash" onclick="go('payments')" role="button" tabindex="0">
       <div class="hlab" style="color:#a89c8b">Solde du jour</div>
-      <div class="hbig" style="color:${net>=0?'#1f9d6b':'#ef5b5b'}">${net>=0?'+':'−'}$${Math.abs(net).toLocaleString()}</div>
-      <div class="hsub" style="color:#a89c8b">+$${recT} · −$${expT}</div>
+      <div class="hbig" style="color:${net>=0?'#1f9d6b':'#ef5b5b'}">${net>=0?'+':'−'}${_cur()}${Math.abs(net).toLocaleString()}</div>
+      <div class="hsub" style="color:#a89c8b">+${_cur()}${recT} · −${_cur()}${expT}</div>
     </div>
     <div class="htile h-acct" onclick="go('accounts')" role="button" tabindex="0">
       <div class="hic">👥</div><div class="hbig">${(DB.users||[]).length}</div>
@@ -4254,9 +4254,9 @@ function dashboardDirection3() {
     <div class="dhl-body">
       <div style="font-size:var(--text-sm);color:var(--text-2);margin-bottom:var(--sp-3)">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>
       <div class="dhl-stats">
-        <div><div class="dhl-stat-n">$${totalIn}</div><div class="dhl-stat-l">Encaissé</div></div>
-        <div><div class="dhl-stat-n">$${totalOut}</div><div class="dhl-stat-l">Dépensé</div></div>
-        <div><div class="dhl-stat-n" style="color:${net>=0?'var(--green)':'var(--pink)'}">${net>=0?'+':''}$${net}</div><div class="dhl-stat-l">Solde</div></div>
+        <div><div class="dhl-stat-n">${_cur()}${totalIn}</div><div class="dhl-stat-l">Encaissé</div></div>
+        <div><div class="dhl-stat-n">${_cur()}${totalOut}</div><div class="dhl-stat-l">Dépensé</div></div>
+        <div><div class="dhl-stat-n" style="color:${net>=0?'var(--green)':'var(--pink)'}">${net>=0?'+':''}${_cur()}${net}</div><div class="dhl-stat-l">Solde</div></div>
       </div>
     </div>
   </div>
@@ -4266,17 +4266,17 @@ function dashboardDirection3() {
   <div class="dp-stats-grid" style="animation:fadeInUp .35s .08s ease both">
     <div class="dp-stat-card" style="--accent-color:var(--green)" onclick="go('caisse_paiement')">
       <div class="dp-stat-icon">💵</div>
-      <div class="dp-stat-num">$${allIn}</div>
+      <div class="dp-stat-num">${_cur()}${allIn}</div>
       <div class="dp-stat-label">Total encaissé</div>
     </div>
     <div class="dp-stat-card" style="--accent-color:var(--pink)" onclick="go('caisse_depense')">
       <div class="dp-stat-icon">📤</div>
-      <div class="dp-stat-num">$${allOut}</div>
+      <div class="dp-stat-num">${_cur()}${allOut}</div>
       <div class="dp-stat-label">Total dépensé</div>
     </div>
     <div class="dp-stat-card" style="--accent-color:${allNet>=0?'var(--green)':'var(--pink)'}">
       <div class="dp-stat-icon">🏦</div>
-      <div class="dp-stat-num">${allNet>=0?'+':''}$${Math.abs(allNet)}</div>
+      <div class="dp-stat-num">${allNet>=0?'+':''}${_cur()}${Math.abs(allNet)}</div>
       <div class="dp-stat-label">Solde net</div>
     </div>
     <div class="dp-stat-card" style="--accent-color:var(--gold)" onclick="go('caisse_rapport')">
@@ -4316,7 +4316,7 @@ function dashboardDirection3() {
     ${recs.slice(-4).reverse().map(r=>`<div class="dp-list-item">
       <div class="dp-list-avatar" style="background:rgba(56,230,165,.12);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
       <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(r.student_name||'—')}</div><div class="dp-list-sub">${esc(r.type_label||'')}${r.time?' · '+r.time:''}</div></div>
-      <span class="dp-badge" style="background:rgba(56,230,165,.12);color:var(--green)">$${r.amount}</span>
+      <span class="dp-badge" style="background:rgba(56,230,165,.12);color:var(--green)">${_cur()}${r.amount}</span>
     </div>`).join('')}
   </div>`:''}
 
@@ -5191,7 +5191,7 @@ R.notifications = () => {
       ${n.receipt?`<div style="margin-top:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px">
         <div style="font-size:12px;font-weight:700;color:#065f46;margin-bottom:4px">🧾 ${esc(n.receipt.num)}</div>
         <div style="font-size:12px;color:#374151"><strong>${esc(n.receipt.student)}</strong>${n.receipt.mat?' · '+esc(n.receipt.mat):''}</div>
-        <div style="font-size:12px;color:#374151">${esc(n.receipt.type_label)}${n.receipt.trimestre?' · '+esc(n.receipt.trimestre):''} · <strong style="color:#065f46">$${n.receipt.amount}</strong></div>
+        <div style="font-size:12px;color:#374151">${esc(n.receipt.type_label)}${n.receipt.trimestre?' · '+esc(n.receipt.trimestre):''} · <strong style="color:#065f46">${_cur()}${n.receipt.amount}</strong></div>
         <div style="font-size:11px;color:#6b7280;margin-top:2px">Reçu par : ${esc(n.receipt.by)}</div>
         <button onclick="viewReceipt('${n.id}')" style="margin-top:8px;width:100%;padding:8px;background:#243a6b;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">📄 Voir le bordereau</button>
       </div>`:''}
@@ -6116,7 +6116,7 @@ R.approbations = () => {
         <div class="pi-icon" style="background:#d8f3e6">📊</div>
         <div style="flex:1;min-width:150px">
           <div class="pi-title">${sender?esc(sender.name):'?'} — ${rep.date}</div>
-          <div class="pi-sub">${rep.records?rep.records.length:0} paiements · ${rep.expenses?rep.expenses.length:0} dépenses · Solde: $${totalIn-totalOut}</div>
+          <div class="pi-sub">${rep.records?rep.records.length:0} paiements · ${rep.expenses?rep.expenses.length:0} dépenses · Solde: ${_cur()}${totalIn-totalOut}</div>
         </div>
         <div style="display:flex;gap:6px;width:100%">
           <button class="btn btn-outline btn-sm" style="flex:1" onclick="viewDailyReport('${rep.id}')">👁️ Voir</button>
@@ -6200,7 +6200,7 @@ R.approbations = () => {
             <div class="pi-title">${s?esc(s.name):'?'}</div>
             ${priority?`<span style="font-size:10px;background:#d8f3e6;color:#065f46;padding:2px 7px;border-radius:10px;font-weight:700">💰 Parent dit : payé</span>`:''}
           </div>
-          <div class="pi-sub">${esc(r.matiere)} · <strong>$${r.amount}</strong> · Prof: ${t?esc(t.name):'?'}</div>
+          <div class="pi-sub">${esc(r.matiere)} · <strong>${_cur()}${r.amount}</strong> · Prof: ${t?esc(t.name):'?'}</div>
           <div style="font-size:11px;color:var(--text-muted)">Notifié le ${r.validated_date||r.date}</div>
         </div>
         <div style="display:flex;gap:6px;flex-direction:column">
@@ -6404,12 +6404,12 @@ window.viewDailyReport = (rid) => {
   const body=`
     <div style="margin-bottom:12px;padding:12px;background:#f0fdf4;border-radius:10px">
       <div style="font-weight:700">${sender?esc(sender.name):'?'} — ${rep.date} à ${rep.time}</div>
-      <div style="font-size:13px;color:#065f46;margin-top:4px">Encaissé: $${totalIn} &nbsp;|&nbsp; Dépensé: $${totalOut} &nbsp;|&nbsp; Solde: $${totalIn-totalOut}</div>
+      <div style="font-size:13px;color:#065f46;margin-top:4px">Encaissé: ${_cur()}${totalIn} &nbsp;|&nbsp; Dépensé: ${_cur()}${totalOut} &nbsp;|&nbsp; Solde: ${_cur()}${totalIn-totalOut}</div>
     </div>
     ${rep.records&&rep.records.length?`<div style="font-weight:700;margin-bottom:6px">Paiements (${rep.records.length})</div>
-    ${rep.records.map(r=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(r.student_name)} — ${esc(r.type_label)}${r.note?' ('+esc(r.note)+')':''}: <strong>$${r.amount}</strong> à ${r.time}</div>`).join('')}`:''}
+    ${rep.records.map(r=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(r.student_name)} — ${esc(r.type_label)}${r.note?' ('+esc(r.note)+')':''}: <strong>${_cur()}${r.amount}</strong> à ${r.time}</div>`).join('')}`:''}
     ${rep.expenses&&rep.expenses.length?`<div style="font-weight:700;margin:10px 0 6px">Dépenses (${rep.expenses.length})</div>
-    ${rep.expenses.map(e=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(e.motif)}: <strong>$${e.amount}</strong> à ${e.time}</div>`).join('')}`:''}`;
+    ${rep.expenses.map(e=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)">${esc(e.motif)}: <strong>${_cur()}${e.amount}</strong> à ${e.time}</div>`).join('')}`:''}`;
   openM(`Rapport du ${rep.date}`, body, `<button class="btn btn-success" onclick="validateDailyReport('${rep.id}');closeModal()">Valider</button><button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
 };
 
@@ -6571,7 +6571,7 @@ R.payments = () => {
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1.5px solid #efe3d3">
           <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
           <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
-          ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'✓ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">$${paid} / $${total}</div></div>`:''}
+          ${total>0?`<div style="text-align:right"><div style="font-weight:700;font-size:15px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-'+_cur()+debt:'✓ Soldé'}</div><div style="font-size:11px;color:var(--text-muted)">${_cur()}${paid} / ${_cur()}${total}</div></div>`:''}
         </div>
         <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
           ${pays.map(p=>{
@@ -6586,7 +6586,7 @@ R.payments = () => {
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:${partial?'6px':'0'}">
                 <div style="width:9px;height:9px;border-radius:50%;background:${done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b'};flex-shrink:0"></div>
                 <div style="flex:1;font-size:13px;font-weight:700;color:#241f1a">${pLabel}</div>
-                <span style="font-size:12px;font-weight:700;color:${done?'#065f46':partial?'#92400e':'#991b1b'}">${done?'Soldé':partial?`$${paidAmt} / $${target}`:'À payer — $'+target}</span>
+                <span style="font-size:12px;font-weight:700;color:${done?'#065f46':partial?'#92400e':'#991b1b'}">${done?'Soldé':partial?`${_cur()}${paidAmt} / ${_cur()}${target}`:'À payer — $'+target}</span>
               </div>
               ${partial?`<div style="height:4px;border-radius:4px;background:rgba(0,0,0,.08);overflow:hidden"><div style="height:100%;width:${pct}%;background:#f59e0b;border-radius:4px;transition:width .5s ease"></div></div>`:''}
             </div>`;
@@ -6624,10 +6624,10 @@ R.payments = () => {
       </div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff" onclick="window._payFilterStatus='unpaid';render()" role="button" tabindex="0">
-      <div class="hic">📉</div><div class="hbig" style="font-size:24px">$${totalDette}</div><div class="hsub">dette totale</div>
+      <div class="hic">📉</div><div class="hbig" style="font-size:24px">${_cur()}${totalDette}</div><div class="hsub">dette totale</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff" onclick="go('caisse_paiement')" role="button" tabindex="0">
-      <div class="hic">📈</div><div class="hbig" style="font-size:24px">$${totalEncaisse}</div><div class="hsub">encaissé</div>
+      <div class="hic">📈</div><div class="hbig" style="font-size:24px">${_cur()}${totalEncaisse}</div><div class="hsub">encaissé</div>
     </div>
     <div class="htile h-acct" onclick="window._payFilterStatus='blocked';render()" role="button" tabindex="0">
       <div class="hic">🔒</div><div class="hbig">${blockedCount}</div><div class="hsub">accès bloqués</div>
@@ -6636,7 +6636,7 @@ R.payments = () => {
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
     <button class="btn btn-outline btn-sm" onclick="openFeesConfig()">Configurer frais</button>
     <button class="btn btn-outline btn-sm" onclick="openVersementSearch()">🔍 Rechercher versement</button>
-    <span style="font-size:12px;color:var(--text-muted)">T1:$${fees.T1||'?'} · T2:$${fees.T2||'?'} · T3:$${fees.T3||'?'} · Total/élève: $${totalFees}</span>
+    <span style="font-size:12px;color:var(--text-muted)">T1:${_cur()}${fees.T1||'?'} · T2:${_cur()}${fees.T2||'?'} · T3:${_cur()}${fees.T3||'?'} · Total/élève: ${_cur()}${totalFees}</span>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
     <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:1px solid #fca5a5" onclick="blockAllUnpaid()">Bloquer non-payés</button>
@@ -6664,10 +6664,10 @@ R.payments = () => {
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <div style="width:44px;height:44px;border-radius:13px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;flex-shrink:0">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
             <div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div><div style="font-size:11px;color:var(--text-secondary)">${classDot(c?c.name:'')}${c?esc(c.name):''}</div></div>
-            ${s.access_blocked?`<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:#f0e9fa;color:#6f44ab;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:800;font-size:13px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-$'+debt:'✓'}</div>`:'')}
+            ${s.access_blocked?`<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:#f0e9fa;color:#6f44ab;font-weight:700">Bloqué</span>`:(totalFees>0?`<div style="font-weight:800;font-size:13px;color:${debt>0?'#ef5b5b':'#1f9d6b'}">${debt>0?'-'+_cur()+debt:'✓'}</div>`:'')}
           </div>
           <div style="display:flex;gap:5px;margin-bottom:8px">
-            ${pays.map(p=>{const bt=byTrim&&byTrim[p.t];const done=p.paid||(bt&&bt.target>0&&bt.paid>=bt.target);const partial=!done&&bt&&bt.target>0&&bt.paid>0;const col=done?'#065f46':partial?'#92400e':'#991b1b';const bg=done?'#d8f3e6':partial?'#fef3c7':'#fee2e2';const bc=done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b';const lbl=bt&&bt.target>0?`$${bt.paid}/$${bt.target}`:`$${fees[p.t]||'?'}`;return`<button onclick="openTrimLedger('${s.id}','${p.t}')" title="${done?'Soldé — voir détail':partial?'Acompte en cours — ajouter':'Aucun paiement — commencer'}" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;flex:1;padding:6px 4px;border-radius:10px;cursor:pointer;border:1.5px solid ${bc};background:${bg}"><span style="font-size:11px;font-weight:800;color:${col}">${p.t}</span><span style="font-size:9px;font-weight:700;color:${col};line-height:1.2">${lbl}</span></button>`;}).join('')}
+            ${pays.map(p=>{const bt=byTrim&&byTrim[p.t];const done=p.paid||(bt&&bt.target>0&&bt.paid>=bt.target);const partial=!done&&bt&&bt.target>0&&bt.paid>0;const col=done?'#065f46':partial?'#92400e':'#991b1b';const bg=done?'#d8f3e6':partial?'#fef3c7':'#fee2e2';const bc=done?'#1f9d6b':partial?'#f59e0b':'#ef5b5b';const lbl=bt&&bt.target>0?`${_cur()}${bt.paid}/${_cur()}${bt.target}`:`${_cur()}${fees[p.t]||'?'}`;return`<button onclick="openTrimLedger('${s.id}','${p.t}')" title="${done?'Soldé — voir détail':partial?'Acompte en cours — ajouter':'Aucun paiement — commencer'}" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;flex:1;padding:6px 4px;border-radius:10px;cursor:pointer;border:1.5px solid ${bc};background:${bg}"><span style="font-size:11px;font-weight:800;color:${col}">${p.t}</span><span style="font-size:9px;font-weight:700;color:${col};line-height:1.2">${lbl}</span></button>`;}).join('')}
           </div>
           <div style="height:6px;border-radius:6px;background:#efe3d3;overflow:hidden;margin-bottom:10px">
             <div style="height:100%;width:${paidPct}%;background:${barColor};border-radius:6px;transition:width .5s ease"></div>
@@ -6805,11 +6805,11 @@ window.downloadRecuPaiement = (sid) => {
     <div style="font-weight:700;font-size:12px;color:#6f6557;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Détail des frais scolaires</div>
     ${pays.map(p=>`<div class="row">
       <span>Frais ${p.t} <span class="${p.paid?'paid':'unpaid'}">${p.paid?'Payé':'Non payé'}</span></span>
-      <span style="font-weight:${p.paid?700:400};color:${p.paid?'#1f9d6b':'#a89c8b'}">$${fees[p.t]||0}</span>
+      <span style="font-weight:${p.paid?700:400};color:${p.paid?'#1f9d6b':'#a89c8b'}">${_cur()}${fees[p.t]||0}</span>
     </div>`).join('')}
     <div class="total">
       <span>TOTAL PAYÉ</span>
-      <span>$${totalPaid} / $${totalDue}</span>
+      <span>${_cur()}${totalPaid} / ${_cur()}${totalDue}</span>
     </div>
     ${_officialFooter(S.user.name, S.user.role==='direction3'?'Caisse':'Direction')}
   </div>
@@ -6855,7 +6855,7 @@ window.openAssignCaissePayment = (sid) => {
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`Affecter paiement — ${s.name}`,`
 <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez le trimestre à marquer comme payé grâce aux paiements enregistrés par la caisse.</p>
-${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary)">Paiements caisse validés disponibles :</div>${unassigned.map(r=>`<div class="premium-item" style="padding:8px 12px"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${r.type_label} — $${r.amount}</div><div class="pi-sub">${r.date} à ${r.time}</div></div></div>`).join('')}</div>`:'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Aucun paiement caisse non affecté pour cet élève.</div>'}
+${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary)">Paiements caisse validés disponibles :</div>${unassigned.map(r=>`<div class="premium-item" style="padding:8px 12px"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${r.type_label} — ${_cur()}${r.amount}</div><div class="pi-sub">${r.date} à ${r.time}</div></div></div>`).join('')}</div>`:'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Aucun paiement caisse non affecté pour cet élève.</div>'}
 <div class="form-group"><label class="form-label">Marquer comme payé :</label><select class="form-select" id="assign_t">${pays.map(p=>`<option value="${p.t}">Trimestre ${p.t}</option>`).join('')}</select></div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="assignTrimestre('${sid}')">Affecter</button>`);
 };
@@ -8190,7 +8190,7 @@ window.downloadRecuFrais = (sid) => {
   if(!pays.length){toast('Aucun frais payé pour cet élève','info');return;}
   const dir=DB.users.find(u=>u.role==='direction');
   const labels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre',inscription:'Inscription'};
-  const rows=pays.map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${labels[p.t]||p.t}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">$${fees[p.t]||0}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${p.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${p.by?esc(DB.users.find(u=>u.id===p.by)?.name||p.by):'—'}</td></tr>`).join('');
+  const rows=pays.map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${labels[p.t]||p.t}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">${_cur()}${fees[p.t]||0}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${p.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${p.by?esc(DB.users.find(u=>u.id===p.by)?.name||p.by):'—'}</td></tr>`).join('');
   const total=pays.reduce((a,p)=>a+(fees[p.t]||0),0);
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
@@ -8212,7 +8212,7 @@ window.downloadRecuFrais = (sid) => {
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
       <thead><tr style="background:#243a6b;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Trimestre</th><th style="padding:10px 12px;text-align:right">Montant</th><th style="padding:10px 12px;text-align:left">Date</th><th style="padding:10px 12px;text-align:left;border-radius:0 8px 0 0">Encaissé par</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">$${total}</td><td colspan="2"></td></tr></tfoot>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">${_cur()}${total}</td><td colspan="2"></td></tr></tfoot>
     </table>
     ${_officialFooter(dir?.name||'Direction','Direction Générale')}
   </div>`;
@@ -8227,7 +8227,7 @@ window.downloadRecuRattrapage = (sid) => {
   const dir=DB.users.find(u=>u.role==='direction');
   const rows=rats.map(r=>{
     const prof=DB.users.find(u=>u.id===r.teacher_id);
-    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${esc(r.matiere||'—')}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">$${r.amount||0}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${r.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${prof?esc(prof.name):'—'}</td></tr>`;
+    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${esc(r.matiere||'—')}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">${_cur()}${r.amount||0}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${r.date||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${prof?esc(prof.name):'—'}</td></tr>`;
   }).join('');
   const total=rats.reduce((a,r)=>a+(r.amount||0),0);
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
@@ -8250,7 +8250,7 @@ window.downloadRecuRattrapage = (sid) => {
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
       <thead><tr style="background:#243a6b;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Matière</th><th style="padding:10px 12px;text-align:right">Montant</th><th style="padding:10px 12px;text-align:left">Date</th><th style="padding:10px 12px;text-align:left;border-radius:0 8px 0 0">Enseignant</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">$${total}</td><td colspan="2"></td></tr></tfoot>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="1" style="padding:10px 12px;font-weight:700">TOTAL PAYÉ</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">${_cur()}${total}</td><td colspan="2"></td></tr></tfoot>
     </table>
     ${_officialFooter(dir?.name||'Direction','Direction Générale')}
   </div>`;
@@ -8285,7 +8285,7 @@ window.downloadRecuCantine = (sid) => {
     <div style="border:1.5px solid #efe3d3;border-radius:12px;padding:20px;margin-bottom:20px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div><div style="font-size:11px;font-weight:700;color:#6f6557;margin-bottom:4px">TYPE D'ABONNEMENT</div><div style="font-weight:700;font-size:16px">${typeLabel[ins.type]||ins.type||'—'}</div></div>
-        <div><div style="font-size:11px;font-weight:700;color:#6f6557;margin-bottom:4px">MONTANT MENSUEL</div><div style="font-weight:900;font-size:22px;color:#1f9d6b">$${ins.amount||0}</div></div>
+        <div><div style="font-size:11px;font-weight:700;color:#6f6557;margin-bottom:4px">MONTANT MENSUEL</div><div style="font-weight:900;font-size:22px;color:#1f9d6b">${_cur()}${ins.amount||0}</div></div>
         <div><div style="font-size:11px;font-weight:700;color:#6f6557;margin-bottom:4px">DATE D'INSCRIPTION</div><div style="font-weight:700">${ins.date_inscription?new Date(ins.date_inscription).toLocaleDateString('fr-FR'):'—'}</div></div>
         <div><div style="font-size:11px;font-weight:700;color:#6f6557;margin-bottom:4px">ENCAISSÉ PAR</div><div style="font-weight:700">${encaisseur?esc(encaisseur.name):'—'}</div></div>
       </div>
@@ -8303,7 +8303,7 @@ window.downloadRecuActivites = (sid) => {
   const dir=DB.users.find(u=>u.role==='direction');
   const rows=insActs.map(i=>{
     const act=(DB.activites||[]).find(a=>a.id===i.act_id); if(!act) return '';
-    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${act.emoji||'·'} ${esc(act.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${act.jour||'—'} ${act.heure||''}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${act.lieu||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">$${act.frais||0}/mois</td></tr>`;
+    return `<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${act.emoji||'·'} ${esc(act.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${act.jour||'—'} ${act.heure||''}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${act.lieu||'—'}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700">${_cur()}${act.frais||0}/mois</td></tr>`;
   }).join('');
   const totalMensuel=insActs.reduce((a,i)=>{const act=(DB.activites||[]).find(x=>x.id===i.act_id);return a+(act?.frais||0);},0);
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
@@ -8326,7 +8326,7 @@ window.downloadRecuActivites = (sid) => {
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
       <thead><tr style="background:#243a6b;color:#fff"><th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">Activité</th><th style="padding:10px 12px;text-align:left">Horaire</th><th style="padding:10px 12px;text-align:left">Lieu</th><th style="padding:10px 12px;text-align:right;border-radius:0 8px 0 0">Frais/mois</th></tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr style="background:#f0fdf4"><td colspan="3" style="padding:10px 12px;font-weight:700">TOTAL MENSUEL</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">$${totalMensuel}/mois</td></tr></tfoot>
+      <tfoot><tr style="background:#f0fdf4"><td colspan="3" style="padding:10px 12px;font-weight:700">TOTAL MENSUEL</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">${_cur()}${totalMensuel}/mois</td></tr></tfoot>
     </table>
     ${_officialFooter(dir?.name||'Direction','Direction Générale')}
   </div>`;
@@ -8356,7 +8356,7 @@ R.recus_parent = () => {
       <div style="background:linear-gradient(135deg,#243a6b,#1f4da0);padding:16px 18px;display:flex;align-items:center;gap:12px">
         <div style="width:50px;height:50px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;overflow:hidden">${k.photo?`<img src="${k.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(k.name)}</div>
         <div style="flex:1"><div style="font-size:16px;font-weight:800;color:#fff">${esc(k.name)}</div><div style="font-size:11px;color:rgba(255,255,255,.7)">${cl?esc(cl.name):''} ${k.mat?'· '+esc(k.mat):''}</div></div>
-        <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:${debt>0?'#fca5a5':'#6ee7b7'}">${debt>0?'-$'+debt:'✓ Soldé'}</div><div style="font-size:11px;color:rgba(255,255,255,.6)">$${totalPaid} / $${totalDue}</div></div>
+        <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:${debt>0?'#fca5a5':'#6ee7b7'}">${debt>0?'-'+_cur()+debt:'✓ Soldé'}</div><div style="font-size:11px;color:rgba(255,255,255,.6)">${_cur()}${totalPaid} / ${_cur()}${totalDue}</div></div>
       </div>
       <!-- Barre de progression globale -->
       <div style="height:8px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct===100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .6s ease"></div></div>
@@ -8379,16 +8379,16 @@ R.recus_parent = () => {
             <div style="width:38px;height:38px;border-radius:10px;background:${fDone?'#d8f3e6':fPartial?'#fef3c7':'#efe3d3'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(ft.label)}</div>
-              <div style="font-size:11px;color:${fDone?'#1f9d6b':fPartial?'#92400e':'#9b7b5c'};font-weight:600">${fDone?'✅ Soldé':fPartial?`${fPct}% versé — reste $${fTarget-fPaid}`:`À payer — cible $${fTarget}`}</div>
+              <div style="font-size:11px;color:${fDone?'#1f9d6b':fPartial?'#92400e':'#9b7b5c'};font-weight:600">${fDone?'✅ Soldé':fPartial?`${fPct}% versé — reste ${_cur()}${fTarget-fPaid}`:`À payer — cible ${_cur()}${fTarget}`}</div>
             </div>
-            <div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:800;color:${fDone?'#1f9d6b':fPartial?'#b45309':'#ef5b5b'}">$${fPaid}</div>${fTarget>0?`<div style="font-size:10px;color:var(--text-muted)">sur $${fTarget}</div>`:''}</div>
+            <div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:800;color:${fDone?'#1f9d6b':fPartial?'#b45309':'#ef5b5b'}">${_cur()}${fPaid}</div>${fTarget>0?`<div style="font-size:10px;color:var(--text-muted)">sur ${_cur()}${fTarget}</div>`:''}</div>
           </div>
           ${fTarget>0?`<div style="height:5px;border-radius:5px;background:rgba(0,0,0,.1);overflow:hidden;margin-bottom:8px"><div style="height:100%;width:${fPct}%;background:${fDone?'#1f9d6b':'#f59e0b'};border-radius:5px;transition:width .5s ease"></div></div>`:''}
           ${fVers.length?`<div style="display:flex;flex-direction:column;gap:5px">
             ${fVers.map((v,vi)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06)">
               <div style="width:32px;height:32px;border-radius:8px;background:#d8f3e6;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">💵</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:700">$${v.montant} <span style="font-weight:400;color:var(--text-muted)">· ${v.date||''} ${v.time?v.time.slice(0,5):''}</span></div>
+                <div style="font-size:12px;font-weight:700">${_cur()}${v.montant} <span style="font-weight:400;color:var(--text-muted)">· ${v.date||''} ${v.time?v.time.slice(0,5):''}</span></div>
                 <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.motif||'')} ${v.recu_no?'· N° '+esc(v.recu_no):''}</div>
               </div>
               <button onclick="printVersementRecu('${v.id}')" style="flex-shrink:0;padding:5px 10px;border-radius:8px;border:1px solid #1f9d6b;background:#d8f3e6;color:#065f46;font-size:11px;font-weight:700;cursor:pointer">🖨️ Reçu</button>
@@ -8446,8 +8446,8 @@ R._recus_parent_legacy = () => {
             <div style="width:42px;height:42px;border-radius:12px;background:${pays.length?'#1f9d6b':'#efe3d3'};display:flex;align-items:center;justify-content:center;font-size:22px">📚</div>
             <div>
               <div style="font-weight:700;font-size:14px">Frais Scolaires</div>
-              ${pays.length?`<div style="font-size:12px;color:#1f9d6b;font-weight:600">${pays.length} paiement(s) · Total : $${totalFrais}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${pays.map(p=>`<span class="pill pill-green" style="font-size:10px">${trimLabels[p.t]||p.t} · $${fees[p.t]||0}</span>`).join('')}</div>`
+              ${pays.length?`<div style="font-size:12px;color:#1f9d6b;font-weight:600">${pays.length} paiement(s) · Total : ${_cur()}${totalFrais}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${pays.map(p=>`<span class="pill pill-green" style="font-size:10px">${trimLabels[p.t]||p.t} · ${_cur()}${fees[p.t]||0}</span>`).join('')}</div>`
               :`<div style="font-size:12px;color:#a89c8b">Aucun paiement enregistré</div>`}
             </div>
           </div>
@@ -8462,8 +8462,8 @@ R._recus_parent_legacy = () => {
             <div style="width:42px;height:42px;border-radius:12px;background:${rats.length?'#2f7bd6':'#efe3d3'};display:flex;align-items:center;justify-content:center;font-size:22px">📖</div>
             <div>
               <div style="font-weight:700;font-size:14px">Cours de Rattrapage</div>
-              ${rats.length?`<div style="font-size:12px;color:#205fae;font-weight:600">${rats.length} cours payé(s) · Total : $${totalRat}</div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${rats.map(r=>`<span class="pill pill-blue" style="font-size:10px">${esc(r.matiere||'—')} · $${r.amount}</span>`).join('')}</div>`
+              ${rats.length?`<div style="font-size:12px;color:#205fae;font-weight:600">${rats.length} cours payé(s) · Total : ${_cur()}${totalRat}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${rats.map(r=>`<span class="pill pill-blue" style="font-size:10px">${esc(r.matiere||'—')} · ${_cur()}${r.amount}</span>`).join('')}</div>`
               :`<div style="font-size:12px;color:#a89c8b">Aucun rattrapage payé</div>`}
             </div>
           </div>
@@ -8478,7 +8478,7 @@ R._recus_parent_legacy = () => {
             <div style="width:42px;height:42px;border-radius:12px;background:${insC?'#b45309':'#efe3d3'};display:flex;align-items:center;justify-content:center;font-size:22px">🍽️</div>
             <div>
               <div style="font-weight:700;font-size:14px">Cantine Scolaire</div>
-              ${insC?`<div style="font-size:12px;color:#b45309;font-weight:600">Inscrit · ${insC.type==='jour'?'Journalier':insC.type==='mois'?'Mensuel':'Annuel'} · $${insC.amount||0}/mois</div>
+              ${insC?`<div style="font-size:12px;color:#b45309;font-weight:600">Inscrit · ${insC.type==='jour'?'Journalier':insC.type==='mois'?'Mensuel':'Annuel'} · ${_cur()}${insC.amount||0}/mois</div>
               <div style="font-size:11px;color:#6f6557;margin-top:2px">Depuis le ${insC.date_inscription?new Date(insC.date_inscription).toLocaleDateString('fr-FR'):'—'}</div>`
               :`<div style="font-size:12px;color:#a89c8b">Non inscrit(e) à la cantine</div>`}
             </div>
@@ -8494,7 +8494,7 @@ R._recus_parent_legacy = () => {
             <div style="width:42px;height:42px;border-radius:12px;background:${insActs.length?'#8255c4':'#efe3d3'};display:flex;align-items:center;justify-content:center;font-size:22px">🎭</div>
             <div>
               <div style="font-weight:700;font-size:14px">Activités Extrascolaires</div>
-              ${insActs.length?`<div style="font-size:12px;color:#8255c4;font-weight:600">${insActs.length} activité(s) · $${totalAct}/mois</div>
+              ${insActs.length?`<div style="font-size:12px;color:#8255c4;font-weight:600">${insActs.length} activité(s) · ${_cur()}${totalAct}/mois</div>
               <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${insActs.map(i=>{const act=(DB.activites||[]).find(a=>a.id===i.act_id);return act?`<span class="pill" style="background:#f0e9fa;color:#6f44ab;font-size:10px">${act.emoji||'·'} ${esc(act.name)}</span>`:''}).join('')}</div>`
               :`<div style="font-size:12px;color:#a89c8b">Aucune activité inscrite</div>`}
             </div>
@@ -8545,7 +8545,7 @@ R.cantine = () => {
       <div style="font-size:11px;opacity:.9">Présents aujourd'hui</div>
     </div>
     ${S.user.role==='direction2'?`<div style="background:linear-gradient(135deg,#a89c8b,#6f6557);border-radius:14px;padding:14px;color:#fff;text-align:center"><div style="font-size:28px;font-weight:900">${presAuj.filter(p=>!p.present).length}</div><div style="font-size:11px;opacity:.9">Absents auj.</div></div>`:
-    `<div style="background:linear-gradient(135deg,#f59e0b,#d98a2b);border-radius:14px;padding:14px;color:#fff;text-align:center"><div style="font-size:28px;font-weight:900">$${inscrits.reduce((s,c)=>s+Number(c.amount||0),0)}</div><div style="font-size:11px;opacity:.9">Recettes / mois</div></div>`}
+    `<div style="background:linear-gradient(135deg,#f59e0b,#d98a2b);border-radius:14px;padding:14px;color:#fff;text-align:center"><div style="font-size:28px;font-weight:900">${_cur()}${inscrits.reduce((s,c)=>s+Number(c.amount||0),0)}</div><div style="font-size:11px;opacity:.9">Recettes / mois</div></div>`}
   </div>
 
   <!-- Menu du jour -->
@@ -8557,7 +8557,7 @@ R.cantine = () => {
       ${menuAuj.plat?`<div class="premium-item"><span class="pi-icon">${menuEmojiAuj}</span><div class="pi-title">Plat principal</div><div class="pi-sub">${esc(menuAuj.plat)}</div></div>`:''}
       ${menuAuj.dessert?`<div class="premium-item"><span class="pi-icon">🍮</span><div class="pi-title">Dessert</div><div class="pi-sub">${esc(menuAuj.dessert)}</div></div>`:''}
       ${menuAuj.boisson?`<div class="premium-item"><span class="pi-icon">🥤</span><div class="pi-title">Boisson</div><div class="pi-sub">${esc(menuAuj.boisson)}</div></div>`:''}
-      ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon" style="background:#d8f3e6"><div style="width:10px;height:10px;border-radius:50%;background:#1f9d6b"></div></span><div class="pi-title">Prix</div><div class="pi-sub">$${menuAuj.prix} / repas</div></div>`:''}
+      ${menuAuj.prix?`<div class="premium-item"><span class="pi-icon" style="background:#d8f3e6"><div style="width:10px;height:10px;border-radius:50%;background:#1f9d6b"></div></span><div class="pi-title">Prix</div><div class="pi-sub">${_cur()}${menuAuj.prix} / repas</div></div>`:''}
     </div>
     <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="openCantinaMenu('${menuAuj.id}')">✏️ Modifier le menu</button>
     `:`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu publié pour aujourd'hui</div>
@@ -8769,7 +8769,7 @@ R.cantine_parent = () => {
         <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:capitalize">${dateStr}</div>
         <div style="font-size:13px;font-weight:700;margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.plat||'—')}</div>
         ${m.dessert?`<div style="font-size:12px;color:var(--text-muted)">🍮 ${esc(m.dessert)}</div>`:''}
-        ${m.prix?`<span class="pill pill-green" style="font-size:10px;margin-top:2px">$${m.prix}/repas</span>`:''}
+        ${m.prix?`<span class="pill pill-green" style="font-size:10px;margin-top:2px">${_cur()}${m.prix}/repas</span>`:''}
       </div>
     </div>`;
   }).join(''):`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu disponible</div>`;
@@ -8791,7 +8791,7 @@ R.cantine_parent = () => {
       ${menuAuj.plat?`<div class="premium-item" style="border-radius:12px;background:#fffbeb"><span class="pi-icon" style="background:#fdeccd">${menuAuj.emoji||'🍲'}</span><span class="pi-title">Plat principal</span><span class="pi-sub">${esc(menuAuj.plat)}</span></div>`:''}
       ${menuAuj.dessert?`<div class="premium-item" style="border-radius:12px"><span class="pi-icon">🍮</span><span class="pi-title">Dessert</span><span class="pi-sub">${esc(menuAuj.dessert)}</span></div>`:''}
       ${menuAuj.boisson?`<div class="premium-item" style="border-radius:12px"><span class="pi-icon">🥤</span><span class="pi-title">Boisson</span><span class="pi-sub">${esc(menuAuj.boisson)}</span></div>`:''}
-      ${menuAuj.prix?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#d8f3e6;color:#065f46;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700"><span>$</span> $${menuAuj.prix} / repas</div>`:''}
+      ${menuAuj.prix?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:#d8f3e6;color:#065f46;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700"><span>$</span> ${_cur()}${menuAuj.prix} / repas</div>`:''}
     </div>`:`<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px"><div style="font-size:40px;margin-bottom:8px">🕐</div>Aucun menu publié pour aujourd'hui</div>`}
   </div>`;
 
@@ -8810,7 +8810,7 @@ R.cantine_parent = () => {
           <div style="width:44px;height:44px;border-radius:12px;background:#1f9d6b;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 3px 10px rgba(5,150,105,.3)">🍱</div>
           <div>
             <div style="font-weight:700;font-size:14px;color:#065f46">Inscrit(e) à la cantine</div>
-            <div style="font-size:12px;color:#047857">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'} — $${ins.amount}/mois · Depuis le ${new Date(ins.date_inscription).toLocaleDateString('fr-FR')}</div>
+            <div style="font-size:12px;color:#047857">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'} — ${_cur()}${ins.amount}/mois · Depuis le ${new Date(ins.date_inscription).toLocaleDateString('fr-FR')}</div>
           </div>
         </div>
         <button class="btn btn-sm pp-btn" style="background:#1f9d6b;color:#fff;border:none;flex-shrink:0;border-radius:12px;box-shadow:0 2px 8px rgba(5,150,105,.3)" onclick="downloadRecuCantine('${k.id}')">⬇️ Reçu PDF</button>
@@ -11839,7 +11839,7 @@ R.caisse_paiement = () => {
       <div style="font-size:19px">📥</div><div class="hbig" style="font-size:24px">${_todayCount}</div><div class="hsub">versements / jour</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
-      <div style="font-size:19px">💰</div><div class="hbig" style="font-size:20px">$${_todayTotal}</div><div class="hsub">encaissé / jour</div>
+      <div style="font-size:19px">💰</div><div class="hbig" style="font-size:20px">${_cur()}${_todayTotal}</div><div class="hsub">encaissé / jour</div>
     </div>
   </div>
   <div class="premium-section">
@@ -11878,7 +11878,7 @@ R.caisse_paiement = () => {
               const {paid,total,debt}=getStudentBalance(s.id);
               const pct=total>0?Math.min(100,Math.round(paid/total*100)):0;
               const status=total>0&&paid>=total?'solde':paid>0?'partiel':'nonpaye';
-              const sc={solde:{dot:'#1f9d6b',bg:'#f0fdf4',txt:'#065f46',label:'Soldé'},partiel:{dot:'#f59e0b',bg:'#fffbeb',txt:'#92400e',label:`$${debt} restant`},nonpaye:{dot:'#ef5b5b',bg:'#fff1f0',txt:'#991b1b',label:'Non commencé'}}[status];
+              const sc={solde:{dot:'#1f9d6b',bg:'#f0fdf4',txt:'#065f46',label:'Soldé'},partiel:{dot:'#f59e0b',bg:'#fffbeb',txt:'#92400e',label:`${_cur()}${debt} restant`},nonpaye:{dot:'#ef5b5b',bg:'#fff1f0',txt:'#991b1b',label:'Non commencé'}}[status];
               return `<div onclick="caisseSelectStudent('${s.id}')" style="display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;background:transparent;border-bottom:${si<studs.length-1?'1px solid var(--border)':'none'};transition:background .12s" onmouseenter="this.style.background='${sc.bg}'" onmouseleave="this.style.background='transparent'">
                 <div style="width:36px;height:36px;border-radius:10px;background:${sc.bg};border:2px solid ${sc.dot};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${sc.dot};flex-shrink:0;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`:ini(s.name)}</div>
                 <div style="flex:1;min-width:0">
@@ -11886,7 +11886,7 @@ R.caisse_paiement = () => {
                   <div style="font-size:11px;color:var(--text-muted)">${esc(s.mat||'')}</div>
                 </div>
                 ${total>0?`<div style="text-align:right;flex-shrink:0">
-                  <div style="font-size:12px;font-weight:800;color:${sc.dot}">$${paid}<span style="font-weight:400;color:var(--text-muted);font-size:10px"> / $${total}</span></div>
+                  <div style="font-size:12px;font-weight:800;color:${sc.dot}">${_cur()}${paid}<span style="font-weight:400;color:var(--text-muted);font-size:10px"> / ${_cur()}${total}</span></div>
                   <div style="font-size:10px;font-weight:600;color:${sc.txt}">${sc.label}</div>
                 </div>`:'<div style="font-size:11px;color:var(--text-muted)">→</div>'}
               </div>`;
@@ -11923,7 +11923,7 @@ R.caisse_paiement = () => {
         <label class="form-label">Relier à un type de frais connu <span style="font-size:10px;color:var(--text-muted)">(optionnel — pour suivi solde)</span></label>
         <select id="caisse_type" class="form-select" onchange="caisseTypeChanged()">
           <option value="">— Sans lien (paiement libre) —</option>
-          ${feeTypes.map(f=>`<option value="${f.id}" data-target="${f.montant_defaut||0}">${esc(f.label)}${f.montant_defaut?` ($${f.montant_defaut})`:''}  </option>`).join('')}
+          ${feeTypes.map(f=>`<option value="${f.id}" data-target="${f.montant_defaut||0}">${esc(f.label)}${f.montant_defaut?` (${_cur()}${f.montant_defaut})`:''}  </option>`).join('')}
         </select>
       </div>
       <div id="caisse_solde_row" style="display:none;margin-bottom:10px">
@@ -11964,9 +11964,9 @@ window.caisseTypeChanged = () => {
   const solde = Math.max(0, target - typePaid);
   if(row) row.style.display='';
   if(txt) txt.innerHTML = solde>0
-    ? `Versé : <b>$${typePaid}</b> / $${target} — <b style="color:#ef5b5b">Solde restant : $${solde}</b>`
-    : `<b style="color:#1f9d6b">✅ Totalement soldé ($${target})</b>`;
-  if($('caisse_amount')&&solde>0) $('caisse_amount').placeholder=`Solde restant : $${solde}`;
+    ? `Versé : <b>${_cur()}${typePaid}</b> / ${_cur()}${target} — <b style="color:#ef5b5b">Solde restant : ${_cur()}${solde}</b>`
+    : `<b style="color:#1f9d6b">✅ Totalement soldé (${_cur()}${target})</b>`;
+  if($('caisse_amount')&&solde>0) $('caisse_amount').placeholder=`Solde restant : ${_cur()}${solde}`;
 };
 window.caisseSearch = () => {
   const q = ($('caisse_search').value||'').trim().toLowerCase();
@@ -11987,7 +11987,7 @@ window.caisseSearch = () => {
     return `<div class="premium-item" style="cursor:pointer" onclick="caisseSelectStudent('${s.id}')">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
-      <div style="text-align:right"><div style="font-weight:800;font-size:13px;color:${status}">$${paid}</div><div style="font-size:10px;color:var(--text-muted)">/ $${total}</div></div>
+      <div style="text-align:right"><div style="font-weight:800;font-size:13px;color:${status}">${_cur()}${paid}</div><div style="font-size:10px;color:var(--text-muted)">/ ${_cur()}${total}</div></div>
     </div>`;
   }).join('');
 };
@@ -12022,7 +12022,7 @@ window.caisseSelectStudent = (sid) => {
     <div class="premium-item" style="background:${cbg}22;border:1px solid ${cc}33;margin-bottom:12px">
       <div class="pi-icon" style="background:${cbg};color:${cc};overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:13px">`:ini(s.name)}</div>
       <div style="flex:1"><div class="pi-title">${esc(s.name)}</div><div class="pi-sub">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div></div>
-      <span class="premium-badge" style="background:#d8f3e6;color:#065f46;font-size:12px">$${totalVersStu} total versé</span>
+      <span class="premium-badge" style="background:#d8f3e6;color:#065f46;font-size:12px">${_cur()}${totalVersStu} total versé</span>
     </div>
     <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Frais scolaires — Cliquez pour payer</div>
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
@@ -12039,7 +12039,7 @@ window.caisseSelectStudent = (sid) => {
           </div>
           <div style="height:6px;border-radius:6px;background:rgba(0,0,0,.08);margin-bottom:5px"><div style="height:6px;border-radius:6px;background:${col};width:${pct}%;transition:width .5s ease"></div></div>
           <div style="font-size:11px">
-            ${f.done?`<span style="font-weight:700;color:#065f46">Soldé ✓ $${f.target}</span>`:f.unconfigured?`<span style="color:#6b7280">Versé : $${f.paid} — montant total non configuré</span>`:`<span style="font-weight:700;color:${col}">$${f.paid} / $${f.target}</span>${f.remaining?` <span style="color:#6b7280"> · reste <strong>$${f.remaining}</strong></span>`:''}`}
+            ${f.done?`<span style="font-weight:700;color:#065f46">Soldé ✓ ${_cur()}${f.target}</span>`:f.unconfigured?`<span style="color:#6b7280">Versé : ${_cur()}${f.paid} — montant total non configuré</span>`:`<span style="font-weight:700;color:${col}">${_cur()}${f.paid} / ${_cur()}${f.target}</span>${f.remaining?` <span style="color:#6b7280"> · reste <strong>${_cur()}${f.remaining}</strong></span>`:''}`}
           </div>
         </div>`;
       }).join('')}
@@ -12063,7 +12063,7 @@ window.caisseSelectStudent = (sid) => {
     <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px">
       ${recentVers.map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
         <div style="min-width:0;flex:1"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.fee_label||v.motif||'?')}</div><div style="color:var(--text-muted);font-size:11px">${v.date||''}</div></div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-weight:700;color:#1f9d6b">+$${v.montant}</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="printVersementRecu('${v.id}')">🖨</button></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-weight:700;color:#1f9d6b">+${_cur()}${v.montant}</span><button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 7px" onclick="printVersementRecu('${v.id}')">🖨</button></div>
       </div>`).join('')}
     </div>`:''}
     <div style="font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:1px solid var(--border)">Cliquez sur un frais ci-dessus ou remplissez le formulaire pour un paiement libre</div>`;
@@ -12102,10 +12102,10 @@ window.caisseQuickPay = (feeTypeId, trimestre) => {
   if(target>0&&row&&txt){
     row.style.display='';
     if(remaining>0){
-      txt.innerHTML=`Versé : <b>$${paid}</b> / $${target} — <b style="color:#ef5b5b">Solde restant : $${remaining}</b>`;
-      if(amtEl){amtEl.placeholder=`Reste à payer : $${remaining}`;}
+      txt.innerHTML=`Versé : <b>${_cur()}${paid}</b> / ${_cur()}${target} — <b style="color:#ef5b5b">Solde restant : ${_cur()}${remaining}</b>`;
+      if(amtEl){amtEl.placeholder=`Reste à payer : ${_cur()}${remaining}`;}
     } else {
-      txt.innerHTML=`<b style="color:#1f9d6b">✅ ${esc(label)} — Entièrement soldé ($${target})</b>`;
+      txt.innerHTML=`<b style="color:#1f9d6b">✅ ${esc(label)} — Entièrement soldé (${_cur()}${target})</b>`;
     }
   } else if(row){row.style.display='none';}
   caisseTypeChanged();
@@ -12145,12 +12145,12 @@ window.openTrimLedger = (sid, trimestre) => {
       <div style="font-size:12px;opacity:.75;margin-bottom:4px">${esc(s.name)} · ${esc(s.mat)} · ${cl?esc(cl.name):''}</div>
       <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px">
         <div>
-          <div style="font-size:26px;font-weight:900;line-height:1">$${totalPaid.toLocaleString()}</div>
-          <div style="font-size:12px;opacity:.8">versé sur $${target>0?target.toLocaleString():'?'} attendu</div>
+          <div style="font-size:26px;font-weight:900;line-height:1">${_cur()}${totalPaid.toLocaleString()}</div>
+          <div style="font-size:12px;opacity:.8">versé sur ${_cur()}${target>0?target.toLocaleString():'?'} attendu</div>
         </div>
         <div style="text-align:right">
           <div style="font-size:32px;font-weight:900;line-height:1">${pct}%</div>
-          ${soldé?`<div style="font-size:11px;color:#86efac;font-weight:700">✅ Soldé</div>`:`<div style="font-size:11px;opacity:.75">Reste : <strong>$${remaining.toLocaleString()}</strong></div>`}
+          ${soldé?`<div style="font-size:11px;color:#86efac;font-weight:700">✅ Soldé</div>`:`<div style="font-size:11px;opacity:.75">Reste : <strong>${_cur()}${remaining.toLocaleString()}</strong></div>`}
         </div>
       </div>
       <div style="height:10px;border-radius:10px;background:rgba(255,255,255,.2)">
@@ -12166,7 +12166,7 @@ window.openTrimLedger = (sid, trimestre) => {
           <div style="width:28px;height:28px;border-radius:8px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">${i+1}</div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:14px;font-weight:800;color:#1f9d6b">+$${Number(v.montant).toLocaleString()}</span>
+              <span style="font-size:14px;font-weight:800;color:#1f9d6b">+${_cur()}${Number(v.montant).toLocaleString()}</span>
               <span style="font-size:10px;color:var(--text-muted)">${v.date||''} à ${v.time||'?'}</span>
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:1px">
@@ -12175,14 +12175,14 @@ window.openTrimLedger = (sid, trimestre) => {
           </div>
           <div style="text-align:right;flex-shrink:0">
             <div style="font-size:10px;color:var(--text-muted)">Cumulé</div>
-            <div style="font-size:12px;font-weight:700;color:${target>0&&cumul>=target?'#1f9d6b':cumul>0?'#f59e0b':'#6b7280'}">$${cumul.toLocaleString()}</div>
+            <div style="font-size:12px;font-weight:700;color:${target>0&&cumul>=target?'#1f9d6b':cumul>0?'#f59e0b':'#6b7280'}">${_cur()}${cumul.toLocaleString()}</div>
           </div>
           <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="printVersementRecu('${v.id}')">🖨</button>
           ${['direction','direction3'].includes(S.user?.role)?`<button onclick="annulerVersement('${v.id}')" style="flex-shrink:0;width:24px;height:24px;border:1px solid #fca5a5;border-radius:6px;background:#fee2e2;color:#991b1b;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Annuler ce versement">✕</button>`:''}
         </div>`;
       }).join('')}
       ${vers.length>0&&target>0?`<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;background:${soldé?'#d8f3e6':'#fff8f0'};font-size:12px;font-weight:700">
-        <span>Total versé</span><span style="color:${col}">$${totalPaid.toLocaleString()} / $${target.toLocaleString()}</span>
+        <span>Total versé</span><span style="color:${col}">${_cur()}${totalPaid.toLocaleString()} / ${_cur()}${target.toLocaleString()}</span>
       </div>`:''}
     </div>
     ${!soldé?`
@@ -12193,7 +12193,7 @@ window.openTrimLedger = (sid, trimestre) => {
           <label class="form-label">Montant ($) *</label>
           <input class="form-input" id="tl_amount" type="number" min="1" step="1"
             value="${remaining>0&&remaining<=target?remaining:''}"
-            placeholder="${remaining>0?`Reste : $${remaining.toLocaleString()}`:'Montant'}">
+            placeholder="${remaining>0?`Reste : ${_cur()}${remaining.toLocaleString()}`:'Montant'}">
         </div>
         <div class="form-group" style="flex:1">
           <label class="form-label">Mode de paiement</label>
@@ -12291,7 +12291,7 @@ window._enregistrerMouvement = async (opts) => {
 
   // 4 — NOTIFICATION PARENT
   if(sid&&s?.pid){
-    const msg=`🧾 Reçu ${recu_no} — ${label} · $${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
+    const msg=`🧾 Reçu ${recu_no} — ${label} · ${_cur()}${montant}\n👶 ${s.name} · ${cl?cl.name:'?'}\n💵 ${S.user.name} · ${today()}`;
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:s.pid,
       msg,time:nowTime(),date:today(),read:false,type:'receipt',
       receipt:{num:recu_no,student:s.name,mat:s.mat,classe:cl?cl.name:'',
@@ -12327,7 +12327,7 @@ window.saveTrimLedger = async () => {
   };
   try{ await _doSaveTL(); }
   catch(e){
-    if(e.isDuplicate) showC('Doublon détecté',`Un versement de $${montant} pour ce même trimestre a été enregistré il y a moins de 2 minutes (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveTL(true));
+    if(e.isDuplicate) showC('Doublon détecté',`Un versement de ${_cur()}${montant} pour ce même trimestre a été enregistré il y a moins de 2 minutes (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveTL(true));
     else toast('Erreur : '+e.message,'error');
   }
 };
@@ -12338,7 +12338,7 @@ window.showPaymentStamp = (name, amount, typeLbl, trimestre) => {
   el.innerHTML=`<div class="pay-stamp-card">
     <div style="font-size:11px;font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Paiement enregistré</div>
     <div style="font-size:17px;font-weight:800;margin-bottom:4px;color:#1a1a1a">${esc(name)}</div>
-    <div style="font-size:28px;font-weight:900;color:#1f9d6b;margin:6px 0">$${amount}</div>
+    <div style="font-size:28px;font-weight:900;color:#1f9d6b;margin:6px 0">${_cur()}${amount}</div>
     <div style="font-size:12px;color:#9b7b5c;margin-bottom:14px">${esc(typeLbl+tLabel)}</div>
     <span class="pay-stamp-seal">✅</span>
     <div style="font-size:11px;color:#9ca3af;margin-top:14px">Reçu envoyé au parent</div>
@@ -12374,7 +12374,7 @@ window.caisseSavePaiement = async () => {
   };
   try{ await _doSaveCP(); }
   catch(e){
-    if(e.isDuplicate) showC('Doublon détecté',`Un versement de $${montant} a été enregistré il y a moins de 2 minutes pour cet élève (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveCP(true));
+    if(e.isDuplicate) showC('Doublon détecté',`Un versement de ${_cur()}${montant} a été enregistré il y a moins de 2 minutes pour cet élève (Reçu ${e.ref}).\nEnregistrer quand même ?`,()=>_doSaveCP(true));
     else toast('Erreur : '+e.message,'error');
   }
 };
@@ -12422,8 +12422,8 @@ ${(()=>{
     const target=Number(ftt.montant_defaut);
     const totalSoFar=(DB.versements||[]).filter(x=>x.sid===v.sid&&x.fee_type_id===v.fee_type_id).reduce((a,x)=>a+(Number(x.montant)||0),0);
     const remaining=Math.max(0,target-totalSoFar);
-    if(remaining>0) return `<div style="background:#fff8f0;border:1.5px solid #f59e0b;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px"><div style="font-weight:700;color:#92400e;margin-bottom:3px">📋 Suivi — ${esc(ftt.label)}</div><div style="display:flex;justify-content:space-between"><span>Total versé</span><span style="font-weight:700">$${totalSoFar}</span></div><div style="display:flex;justify-content:space-between"><span>Total attendu</span><span style="font-weight:700">$${target}</span></div><div style="display:flex;justify-content:space-between;border-top:1px solid #fde68a;margin-top:5px;padding-top:5px"><span style="color:#b45309;font-weight:700">Solde restant dû</span><span style="font-weight:800;color:#ef5b5b">$${remaining}</span></div></div>`;
-    return `<div style="background:#d8f3e6;border:1.5px solid #86efac;border-radius:8px;padding:8px 14px;margin:10px 0;font-size:12px;text-align:center;font-weight:700;color:#065f46">✅ ${esc(ftt.label)} — Entièrement soldé ($${target})</div>`;
+    if(remaining>0) return `<div style="background:#fff8f0;border:1.5px solid #f59e0b;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:12px"><div style="font-weight:700;color:#92400e;margin-bottom:3px">📋 Suivi — ${esc(ftt.label)}</div><div style="display:flex;justify-content:space-between"><span>Total versé</span><span style="font-weight:700">${_cur()}${totalSoFar}</span></div><div style="display:flex;justify-content:space-between"><span>Total attendu</span><span style="font-weight:700">${_cur()}${target}</span></div><div style="display:flex;justify-content:space-between;border-top:1px solid #fde68a;margin-top:5px;padding-top:5px"><span style="color:#b45309;font-weight:700">Solde restant dû</span><span style="font-weight:800;color:#ef5b5b">${_cur()}${remaining}</span></div></div>`;
+    return `<div style="background:#d8f3e6;border:1.5px solid #86efac;border-radius:8px;padding:8px 14px;margin:10px 0;font-size:12px;text-align:center;font-weight:700;color:#065f46">✅ ${esc(ftt.label)} — Entièrement soldé (${_cur()}${target})</div>`;
   })()}
 <div class="stamp"><span class="ic">✅</span><div class="tx">Versement enregistré dans SchoolSafe<br>${esc(school)} — ${DB.settings?.year||''}</div></div>
 ${_officialFooter(v.by_name||v.by,'Caisse')}
@@ -12438,7 +12438,7 @@ window.sendCaisseReceipt = async (student, rec) => {
   const cl=gc(student.cid);
   const receiptNum='REC-'+Date.now().toString().slice(-6);
   const triLabel=rec.trimestre?` · ${rec.trimestre}`:'';
-  const msg=`🧾 Bordereau #${receiptNum} — ${rec.type_label}${triLabel} · $${rec.amount}\n👶 ${student.name} · ${cl?cl.name:'?'}\n💵 Reçu par : ${S.user.name}\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}`;
+  const msg=`🧾 Bordereau #${receiptNum} — ${rec.type_label}${triLabel} · ${_cur()}${rec.amount}\n👶 ${student.name} · ${cl?cl.name:'?'}\n💵 Reçu par : ${S.user.name}\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}`;
   const notif={id:'n'+Date.now(),uid:student.pid,msg,time:rec.time,date:today(),read:false,type:'receipt',
     receipt:{num:receiptNum,student:student.name,mat:student.mat,classe:cl?cl.name:'',
       type_label:rec.type_label,trimestre:rec.trimestre||null,amount:rec.amount,
@@ -12478,7 +12478,7 @@ window.annulerVersement = (vid) => {
   if(!v){toast('Versement introuvable','error');return;}
   if(v.annulled){toast('Déjà annulé','info');return;}
   showC('Annuler ce versement ?',
-    `$${v.montant} — ${v.fee_label||v.motif||'?'} — ${v.student_name||'?'} (${v.date})\n\nUne contre-écriture OHADA sera créée automatiquement.\nLe versement sera marqué annulé mais conservé pour l'historique.`,
+    `${_cur()}${v.montant} — ${v.fee_label||v.motif||'?'} — ${v.student_name||'?'} (${v.date})\n\nUne contre-écriture OHADA sera créée automatiquement.\nLe versement sera marqué annulé mais conservé pour l'historique.`,
     ()=>{
       v.annulled=true; v.annulled_by=S.user.id; v.annulled_date=today(); v.annulled_by_name=S.user.name;
       pushSync('versements','patch',{annulled:true,annulled_by:S.user.id,annulled_date:today(),annulled_by_name:S.user.name},'id=eq.'+vid);
@@ -12536,7 +12536,7 @@ window._renderVS = () => {
         <div style="font-size:11px;color:var(--text-muted)">${esc(v.fee_label||v.motif||'?')} · ${v.date||''} · ${esc(v.by_name||'?')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-weight:800;color:#1f9d6b">$${v.montant}</div>
+        <div style="font-weight:800;color:#1f9d6b">${_cur()}${v.montant}</div>
         <div style="font-size:10px;color:var(--text-muted)">${esc(v.recu_no||'')}</div>
       </div>
       <button onclick="printVersementRecu('${v.id}')" style="flex-shrink:0;padding:5px 10px;border:1px solid #1f9d6b;border-radius:8px;background:#d8f3e6;color:#065f46;font-size:11px;cursor:pointer">🖨</button>
@@ -12555,7 +12555,7 @@ R.caisse_depense = () => {
   ${_helpBanner('caisse_depense','Enregistrez chaque sortie d\'argent (fournitures, salaires, autres) — la catégorie OHADA est appliquée automatiquement. Les dépenses non validées apparaissent ici jusqu\'à validation par la Direction 1.')}
   <div class="hbento" style="grid-template-columns:repeat(2,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#ef5b5b);color:#fff;padding:13px 10px">
-      <div style="font-size:19px">📉</div><div class="hbig" style="font-size:22px">$${todayTotal}</div><div class="hsub">Dépenses non validées</div>
+      <div style="font-size:19px">📉</div><div class="hbig" style="font-size:22px">${_cur()}${todayTotal}</div><div class="hsub">Dépenses non validées</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#7c3aed,#9b59b6);color:#fff;padding:13px 10px">
       <div style="font-size:19px">💸</div><div class="hbig" style="font-size:22px">${todayExp.length}</div><div class="hsub">Opérations du jour</div>
@@ -12600,7 +12600,7 @@ R.caisse_depense = () => {
   <div class="premium-section">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div class="premium-section-title" style="margin:0">📋 Dépenses du jour</div>
-      <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">Total : $${allTodayTotal}</span>
+      <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">Total : ${_cur()}${allTodayTotal}</span>
     </div>
     ${todayExp.map(e=>{
       const cat=_EXP_CATS.find(c=>c.code===e.category_code)||{icon:'💸',label:e.category_code||'Dépense'};
@@ -12611,7 +12611,7 @@ R.caisse_depense = () => {
           <div class="pi-sub">${cat.label}${e.beneficiary?' · '+esc(e.beneficiary):''}${e.payment_method?' · '+esc(e.payment_method):''}</div>
           <div class="pi-sub" style="font-size:10px">${e.time||''}${e.invoice_ref?' · Réf: '+esc(e.invoice_ref):''}</div>
         </div>
-        <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">$${e.amount}</span>
+        <span class="premium-badge" style="background:#fee2e2;color:#991b1b;font-size:13px">${_cur()}${e.amount}</span>
       </div>`;
     }).join('')}
   </div>`:''}`;
@@ -12825,25 +12825,25 @@ R.etat_financier = () => {
     const lbl=m.slice(5);
     return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" fill="#1f9d6b" opacity="${.5+.5*(monthly[m]/maxM)}"/>
     <text x="${x+barW/2}" y="${svgH-6}" text-anchor="middle" font-size="9" fill="#9b7b5c">${lbl}</text>
-    <text x="${x+barW/2}" y="${y-3}" text-anchor="middle" font-size="8" fill="#1f9d6b" font-weight="700">$${monthly[m]}</text>`;
+    <text x="${x+barW/2}" y="${y-3}" text-anchor="middle" font-size="8" fill="#1f9d6b" font-weight="700">${_cur()}${monthly[m]}</text>`;
   }).join('');
   return `
   <!-- KPIs -->
   <div class="hbento" style="margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#047857);color:#fff;cursor:default">
-      <div class="hic">💰</div><div class="hbig">$${totalRecettes}</div><div class="hsub">total encaissé</div>
+      <div class="hic">💰</div><div class="hbig">${_cur()}${totalRecettes}</div><div class="hsub">total encaissé</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#dc2626,#f2716b);color:#fff;cursor:default">
-      <div class="hic">📉</div><div class="hbig">$${totalDette}</div><div class="hsub">reste dû</div>
+      <div class="hic">📉</div><div class="hbig">${_cur()}${totalDette}</div><div class="hsub">reste dû</div>
     </div>
     <div class="htile" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;cursor:default">
-      <div class="hic">💸</div><div class="hbig">$${totalDepenses}</div><div class="hsub">dépenses</div>
+      <div class="hic">💸</div><div class="hbig">${_cur()}${totalDepenses}</div><div class="hsub">dépenses</div>
     </div>
     <div class="htile" style="background:${soldeNet>=0?'linear-gradient(135deg,#2f7bd6,#5b6fd6)':'linear-gradient(135deg,#dc2626,#f2716b)'};color:#fff;cursor:default">
-      <div class="hic">${soldeNet>=0?'📈':'⚠️'}</div><div class="hbig">$${soldeNet}</div><div class="hsub">solde net cumulé${soldeOuverture?` (dont $${soldeOuverture} report)`:''}</div>
+      <div class="hic">${soldeNet>=0?'📈':'⚠️'}</div><div class="hbig">${_cur()}${soldeNet}</div><div class="hsub">solde net cumulé${soldeOuverture?` (dont ${_cur()}${soldeOuverture} report)`:''}</div>
     </div>
   </div>
-  ${soldeOuverture?`<div style="font-size:11px;color:var(--text-secondary);margin:-8px 0 12px;padding:0 2px">Report à-nouveau exercice précédent : <strong>$${soldeOuverture}</strong></div>`:''}
+  ${soldeOuverture?`<div style="font-size:11px;color:var(--text-secondary);margin:-8px 0 12px;padding:0 2px">Report à-nouveau exercice précédent : <strong>${_cur()}${soldeOuverture}</strong></div>`:''}
 
   <!-- Graphique mensuel -->
   ${months.length?`<div class="premium-section" style="margin-bottom:14px">
@@ -12864,7 +12864,7 @@ R.etat_financier = () => {
           <div style="flex:1"><div style="font-size:13px;font-weight:700">${c.label}</div>
             ${c.types.map(t=>`<div style="font-size:11px;color:var(--text-muted)">${esc(t.label)} · ${t.count} versement(s)</div>`).join('')}
           </div>
-          <div style="text-align:right"><div style="font-size:15px;font-weight:800;color:#1f9d6b">$${c.total}</div><div style="font-size:10px;color:var(--text-muted)">${pct}% du total</div></div>
+          <div style="text-align:right"><div style="font-size:15px;font-weight:800;color:#1f9d6b">${_cur()}${c.total}</div><div style="font-size:10px;color:var(--text-muted)">${pct}% du total</div></div>
         </div>
         <div style="height:5px;border-radius:5px;background:#efe3d3;overflow:hidden"><div style="height:100%;width:${pct}%;background:#1f9d6b;border-radius:5px"></div></div>
       </div>`;
@@ -12874,13 +12874,13 @@ R.etat_financier = () => {
   <!-- Dépenses -->
   <div class="premium-section" style="margin-bottom:14px">
     <div class="premium-section-title" style="display:flex;justify-content:space-between;align-items:center">
-      <span>💸 Dépenses totales — $${totalDepenses}</span>
+      <span>💸 Dépenses totales — ${_cur()}${totalDepenses}</span>
       <button class="btn btn-sm btn-outline" onclick="go('caisse_depense')">+ Dépense</button>
     </div>
     ${Object.entries(depByMotif).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([m,a])=>`<div class="premium-item">
       <div class="pi-icon" style="background:#fee2e2">💸</div>
       <div class="pi-title">${esc(m)}</div>
-      <span style="font-size:13px;font-weight:700;color:#dc2626">$${a}</span>
+      <span style="font-size:13px;font-weight:700;color:#dc2626">${_cur()}${a}</span>
     </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px;padding:12px 0">Aucune dépense enregistrée</div>'}
   </div>
 
@@ -12890,7 +12890,7 @@ R.etat_financier = () => {
     ${byClass.filter(c=>c.studs>0).map(c=>`<div style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         <div style="flex:1;font-size:13px;font-weight:700">${esc(c.cl.name)}<span style="font-weight:400;color:var(--text-muted);font-size:11px"> · ${c.studs} élèves</span></div>
-        <div style="font-size:12px;font-weight:700;color:${c.pct===100?'#1f9d6b':c.pct>50?'#f59e0b':'#ef5b5b'}">${c.pct}% · $${c.paid}/$${c.total}</div>
+        <div style="font-size:12px;font-weight:700;color:${c.pct===100?'#1f9d6b':c.pct>50?'#f59e0b':'#ef5b5b'}">${c.pct}% · ${_cur()}${c.paid}/${_cur()}${c.total}</div>
       </div>
       <div style="height:6px;border-radius:6px;background:#efe3d3;overflow:hidden"><div style="height:100%;width:${c.pct}%;background:${c.pct===100?'#1f9d6b':c.pct>50?'#f59e0b':'#ef5b5b'};border-radius:6px"></div></div>
     </div>`).join('') || '<div style="color:var(--text-muted);font-size:13px">Aucune classe</div>'}
@@ -12919,10 +12919,10 @@ window.exportEtatFinancierPDF = () => {
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>État Financier — ${school}</title><style>${CSS}</style></head><body><div class="page">
     <div class="hdr">${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);float:right">`:''}<h1>État Financier — ${esc(school)}</h1><p>Généré le ${printDate} · Année ${DB.settings.year||''}</p></div>
-    <div class="kpi"><div class="kpi-cell"><div class="kv" style="color:#1f9d6b">$${totalRecettes}</div><div class="kl">Encaissé</div></div><div class="kpi-cell"><div class="kv" style="color:#dc2626">$${DB.students.reduce((s,st)=>{const {debt}=getStudentBalance(st.id);return s+debt;},0)}</div><div class="kl">Reste dû</div></div><div class="kpi-cell"><div class="kv" style="color:#b45309">$${totalDepenses}</div><div class="kl">Dépenses</div></div><div class="kpi-cell"><div class="kv" style="color:${soldeNet>=0?'#2f7bd6':'#dc2626'}">$${soldeNet}</div><div class="kl">Solde net</div></div></div>
-    <div class="sec"><h2>📥 Recettes par catégorie</h2>${Object.values(byCat).map(c=>`<div class="row"><span class="lbl">${esc(c.label)}</span><span class="val" style="color:#1f9d6b">$${c.total} (${c.count} versement${c.count>1?'s':''})</span></div>`).join('')}</div>
-    <div class="sec"><h2>🏫 Recouvrement par classe</h2>${DB.classes.map(cl=>{const studs=DB.students.filter(s=>s.cid===cl.id);const paid=studs.reduce((s,st)=>{const {paid}=getStudentBalance(st.id);return s+paid;},0);const total=studs.reduce((s,st)=>{const {total}=getStudentBalance(st.id);return s+total;},0);const pct=total>0?Math.round(paid/total*100):0;return`<div class="row"><span class="lbl">${esc(cl.name)}</span><span class="val">${pct}% · $${paid}/$${total}</span></div>`;}).join('')}</div>
-    <div class="sec"><h2>💸 Dépenses</h2>${exps.slice(0,20).map(e=>`<div class="row"><span class="lbl">${esc(e.motif||'?')} · ${e.date||''}</span><span class="val" style="color:#dc2626">$${e.amount}</span></div>`).join('') || '<div style="color:#9ca3af;font-size:12px">Aucune dépense</div>'}</div>
+    <div class="kpi"><div class="kpi-cell"><div class="kv" style="color:#1f9d6b">${_cur()}${totalRecettes}</div><div class="kl">Encaissé</div></div><div class="kpi-cell"><div class="kv" style="color:#dc2626">${_cur()}${DB.students.reduce((s,st)=>{const {debt}=getStudentBalance(st.id);return s+debt;},0)}</div><div class="kl">Reste dû</div></div><div class="kpi-cell"><div class="kv" style="color:#b45309">${_cur()}${totalDepenses}</div><div class="kl">Dépenses</div></div><div class="kpi-cell"><div class="kv" style="color:${soldeNet>=0?'#2f7bd6':'#dc2626'}">${_cur()}${soldeNet}</div><div class="kl">Solde net</div></div></div>
+    <div class="sec"><h2>📥 Recettes par catégorie</h2>${Object.values(byCat).map(c=>`<div class="row"><span class="lbl">${esc(c.label)}</span><span class="val" style="color:#1f9d6b">${_cur()}${c.total} (${c.count} versement${c.count>1?'s':''})</span></div>`).join('')}</div>
+    <div class="sec"><h2>🏫 Recouvrement par classe</h2>${DB.classes.map(cl=>{const studs=DB.students.filter(s=>s.cid===cl.id);const paid=studs.reduce((s,st)=>{const {paid}=getStudentBalance(st.id);return s+paid;},0);const total=studs.reduce((s,st)=>{const {total}=getStudentBalance(st.id);return s+total;},0);const pct=total>0?Math.round(paid/total*100):0;return`<div class="row"><span class="lbl">${esc(cl.name)}</span><span class="val">${pct}% · ${_cur()}${paid}/${_cur()}${total}</span></div>`;}).join('')}</div>
+    <div class="sec"><h2>💸 Dépenses</h2>${exps.slice(0,20).map(e=>`<div class="row"><span class="lbl">${esc(e.motif||'?')} · ${e.date||''}</span><span class="val" style="color:#dc2626">${_cur()}${e.amount}</span></div>`).join('') || '<div style="color:#9ca3af;font-size:12px">Aucune dépense</div>'}</div>
     <div class="footer">${esc(school)} · SchoolSafe · ${printDate}</div>
     <button class="pbtn" onclick="window.print()" style="display:block;margin:16px auto;padding:10px 32px;background:#243a6b;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨️ Imprimer</button>
   </div></body></html>`;
@@ -12934,7 +12934,7 @@ window.notifyClassFee = (feeTypeId) => {
   const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId); if(!ft){toast('Type de frais introuvable','error');return;}
   const classes=DB.classes;
   openM('📢 Informer une classe',`
-    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Envoie une notification aux parents d'une classe pour ce frais : <strong>${esc(ft.label)}</strong> ($${ft.montant_defaut||0}).</p>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Envoie une notification aux parents d'une classe pour ce frais : <strong>${esc(ft.label)}</strong> (${_cur()}${ft.montant_defaut||0}).</p>
     <div class="form-group"><label class="form-label">Classe *</label>
       <select class="form-select" id="nfc_class">
         <option value="">— Sélectionner —</option>
@@ -13188,19 +13188,19 @@ R.tresorerie = () => {
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
     <div style="background:linear-gradient(135deg,#d1fae5,#a7f3d0);border-radius:12px;padding:14px;text-align:center">
-      <div style="font-size:20px;font-weight:800;color:#065f46">$${totalRecettes.toLocaleString()}</div>
+      <div style="font-size:20px;font-weight:800;color:#065f46">${_cur()}${totalRecettes.toLocaleString()}</div>
       <div style="font-size:11px;color:#047857;font-weight:600">📥 Recettes</div>
     </div>
     <div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border-radius:12px;padding:14px;text-align:center">
-      <div style="font-size:20px;font-weight:800;color:#7f1d1d">$${totalDepenses.toLocaleString()}</div>
+      <div style="font-size:20px;font-weight:800;color:#7f1d1d">${_cur()}${totalDepenses.toLocaleString()}</div>
       <div style="font-size:11px;color:#991b1b;font-weight:600">📤 Dépenses</div>
     </div>
     <div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;padding:14px;text-align:center">
-      <div style="font-size:20px;font-weight:800;color:#1e3a8a">$${totalSalaires.toLocaleString()}</div>
+      <div style="font-size:20px;font-weight:800;color:#1e3a8a">${_cur()}${totalSalaires.toLocaleString()}</div>
       <div style="font-size:11px;color:#1d4ed8;font-weight:600">👥 Salaires payés</div>
     </div>
     <div style="background:linear-gradient(135deg,${solde>=0?'#d1fae5,#a7f3d0':'#fee2e2,#fecaca'});border-radius:12px;padding:14px;text-align:center">
-      <div style="font-size:20px;font-weight:800;color:${solde>=0?'#065f46':'#7f1d1d'}">${solde>=0?'+':'-'}$${Math.abs(solde).toLocaleString()}</div>
+      <div style="font-size:20px;font-weight:800;color:${solde>=0?'#065f46':'#7f1d1d'}">${solde>=0?'+':'-'}${_cur()}${Math.abs(solde).toLocaleString()}</div>
       <div style="font-size:11px;color:${solde>=0?'#047857':'#991b1b'};font-weight:600">💰 Solde net</div>
     </div>
   </div>
@@ -13211,7 +13211,7 @@ R.tresorerie = () => {
       ${Object.entries(byMethod).sort((a,b)=>b[1]-a[1]).map(([m,t])=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-color);font-size:12px">
           <span>${esc(m)}</span>
-          <span style="font-weight:700;color:#065f46">$${t.toLocaleString()}</span>
+          <span style="font-weight:700;color:#065f46">${_cur()}${t.toLocaleString()}</span>
         </div>`).join('')}
     </div>
     <div class="premium-section" style="padding:14px">
@@ -13220,7 +13220,7 @@ R.tresorerie = () => {
       ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([c,t])=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border-color);font-size:12px">
           <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c)}</span>
-          <span style="font-weight:700;color:#991b1b">$${t.toLocaleString()}</span>
+          <span style="font-weight:700;color:#991b1b">${_cur()}${t.toLocaleString()}</span>
         </div>`).join('')}
     </div>
   </div>
@@ -13237,7 +13237,7 @@ R.tresorerie = () => {
           <div style="font-size:12px;font-weight:600">${esc(mv.label)}</div>
           <div style="font-size:10px;color:var(--text-muted)">${mv.date}${mv.time?' '+mv.time:''} — ${esc(mv.method)}</div>
         </div>
-        <div style="font-size:13px;font-weight:800;color:${col}">${sign}$${mv.amount.toLocaleString()}</div>
+        <div style="font-size:13px;font-weight:800;color:${col}">${sign}${_cur()}${mv.amount.toLocaleString()}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -13297,15 +13297,15 @@ R.comptabilite = () => {
           <td style="padding:7px 10px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.libelle)}">${esc(e.libelle)}</td>
           <td style="padding:7px 10px;text-align:center"><span title="${dAcc.n}" style="font-size:11px;font-weight:700;color:#1f9d6b;background:#d8f3e6;padding:2px 6px;border-radius:5px">${e.debit}</span></td>
           <td style="padding:7px 10px;text-align:center"><span title="${cAcc.n}" style="font-size:11px;font-weight:700;color:#1d4ed8;background:#dbeafe;padding:2px 6px;border-radius:5px">${e.credit}</span></td>
-          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#065f46">$${e.montant}</td>
-          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#1d4ed8">$${e.montant}</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#065f46">${_cur()}${e.montant}</td>
+          <td style="padding:7px 10px;text-align:right;font-weight:700;color:#1d4ed8">${_cur()}${e.montant}</td>
         </tr>`;
       }).join(''):'<tr><td colspan="6" style="padding:30px;text-align:center;color:var(--text-muted)">Aucune écriture pour cette période</td></tr>'}
       </tbody>
       <tfoot><tr style="background:#f8f3ec;border-top:2px solid var(--border)">
         <td colspan="4" style="padding:8px 10px;font-weight:700;font-size:12px">TOTAUX</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">$${filtered.reduce((s,e)=>s+e.montant,0)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">$${filtered.reduce((s,e)=>s+e.montant,0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">${_cur()}${filtered.reduce((s,e)=>s+e.montant,0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">${_cur()}${filtered.reduce((s,e)=>s+e.montant,0)}</td>
       </tr></tfoot>
     </table></div>`;
   }
@@ -13319,8 +13319,8 @@ R.comptabilite = () => {
       return `<div style="margin-bottom:16px;border-radius:12px;overflow:hidden;border:1px solid var(--border)">
         <div style="background:${b.cl===7?'linear-gradient(135deg,#1f9d6b,#047857)':b.cl===6?'linear-gradient(135deg,#dc2626,#b91c1c)':'linear-gradient(135deg,#243a6b,#1f4da0)'};padding:10px 14px;display:flex;align-items:center;gap:8px">
           <span style="font-size:18px">${b.icon}</span>
-          <div style="flex:1;color:#fff"><div style="font-size:13px;font-weight:800">${b.num} — ${b.n}</div><div style="font-size:10px;opacity:.8">${b.debit} D · ${b.credit} C · Solde: $${b.solde}</div></div>
-          <span style="font-size:14px;font-weight:900;color:${b.cl===7?'#6ee7b7':b.cl===6?'#fca5a5':'#93c5fd'}">${b.cl===7?'+':'-'}$${b.solde}</span>
+          <div style="flex:1;color:#fff"><div style="font-size:13px;font-weight:800">${b.num} — ${b.n}</div><div style="font-size:10px;opacity:.8">${b.debit} D · ${b.credit} C · Solde: ${_cur()}${b.solde}</div></div>
+          <span style="font-size:14px;font-weight:900;color:${b.cl===7?'#6ee7b7':b.cl===6?'#fca5a5':'#93c5fd'}">${b.cl===7?'+':'-'}${_cur()}${b.solde}</span>
         </div>
         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead><tr style="background:#f8f3ec"><th style="padding:5px 8px;text-align:left">Date</th><th style="padding:5px 8px">Libellé</th><th style="padding:5px 8px;text-align:right;color:#1f9d6b">Débit</th><th style="padding:5px 8px;text-align:right;color:#2f7bd6">Crédit</th><th style="padding:5px 8px;text-align:right">Solde</th></tr></thead>
@@ -13332,7 +13332,7 @@ R.comptabilite = () => {
               <td style="padding:5px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.libelle)}</td>
               <td style="padding:5px 8px;text-align:right;color:#065f46">${isD?'$'+e.montant:''}</td>
               <td style="padding:5px 8px;text-align:right;color:#1d4ed8">${!isD?'$'+e.montant:''}</td>
-              <td style="padding:5px 8px;text-align:right;font-weight:700;color:${running>=0?'#1f9d6b':'#dc2626'}">$${running}</td>
+              <td style="padding:5px 8px;text-align:right;font-weight:700;color:${running>=0?'#1f9d6b':'#dc2626'}">${_cur()}${running}</td>
             </tr>`;
           }).join('')}
           </tbody>
@@ -13370,13 +13370,13 @@ R.comptabilite = () => {
       </tbody>
       <tfoot><tr style="background:#f8f3ec;border-top:2px solid var(--border)">
         <td colspan="2" style="padding:8px 10px;font-weight:800">TOTAUX</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">$${totD}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">$${totC}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1f9d6b">$${rows.reduce((s,b)=>s+(b.sens==='debit'?Math.max(0,b.solde):0),0)}</td>
-        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2f7bd6">$${rows.reduce((s,b)=>s+(b.sens==='credit'?Math.max(0,b.solde):0),0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#065f46">${_cur()}${totD}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1d4ed8">${_cur()}${totC}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#1f9d6b">${_cur()}${rows.reduce((s,b)=>s+(b.sens==='debit'?Math.max(0,b.solde):0),0)}</td>
+        <td style="padding:8px 10px;text-align:right;font-weight:800;color:#2f7bd6">${_cur()}${rows.reduce((s,b)=>s+(b.sens==='credit'?Math.max(0,b.solde):0),0)}</td>
       </tr></tfoot>
     </table></div>
-    ${totD===totC?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#065f46;text-align:center">✅ Balance équilibrée — Débit = Crédit = $${totD}</div>`:`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center">⚠️ Balance déséquilibrée — écart de $${Math.abs(totD-totC)}</div>`}
+    ${totD===totC?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#065f46;text-align:center">✅ Balance équilibrée — Débit = Crédit = ${_cur()}${totD}</div>`:`<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-top:10px;font-weight:700;color:#991b1b;text-align:center">⚠️ Balance déséquilibrée — écart de ${_cur()}${Math.abs(totD-totC)}</div>`}
     <button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px;width:100%;margin-top:10px;padding:10px" onclick="exportBalancePDF()">⬇️ Balance Générale PDF (SYSCOHADA)</button>`;
   }
 
@@ -13389,9 +13389,9 @@ R.comptabilite = () => {
         <div style="background:#f0fdf4">
         ${produits.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #d8f3e6">
           <span style="font-size:12px">${b.icon} ${b.n}</span>
-          <span style="font-size:13px;font-weight:700;color:#065f46">$${b.solde}</span>
+          <span style="font-size:13px;font-weight:700;color:#065f46">${_cur()}${b.solde}</span>
         </div>`).join('')}
-        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#d8f3e6;font-weight:800"><span>TOTAL</span><span style="color:#065f46">$${totalProduits}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#d8f3e6;font-weight:800"><span>TOTAL</span><span style="color:#065f46">${_cur()}${totalProduits}</span></div>
         </div>
       </div>
       <div style="border-radius:14px;overflow:hidden;border:1.5px solid #fca5a5">
@@ -13399,16 +13399,16 @@ R.comptabilite = () => {
         <div style="background:#fff5f5">
         ${charges.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #fecaca">
           <span style="font-size:12px">${b.icon} ${b.n}</span>
-          <span style="font-size:13px;font-weight:700;color:#991b1b">$${b.solde}</span>
+          <span style="font-size:13px;font-weight:700;color:#991b1b">${_cur()}${b.solde}</span>
         </div>`).join('')}
-        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#fee2e2;font-weight:800"><span>TOTAL</span><span style="color:#991b1b">$${totalCharges}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#fee2e2;font-weight:800"><span>TOTAL</span><span style="color:#991b1b">${_cur()}${totalCharges}</span></div>
         </div>
       </div>
     </div>
     <div style="border-radius:14px;padding:18px;text-align:center;background:${resultat>=0?'linear-gradient(135deg,#1f9d6b,#047857)':'linear-gradient(135deg,#dc2626,#b91c1c)'};color:#fff">
       <div style="font-size:12px;opacity:.8;margin-bottom:6px">${resultat>=0?'✅ RÉSULTAT NET BÉNÉFICIAIRE':'⚠️ RÉSULTAT NET DÉFICITAIRE'}</div>
-      <div style="font-size:36px;font-weight:900">$${Math.abs(resultat)}</div>
-      <div style="font-size:12px;opacity:.8;margin-top:4px">Produits ($${totalProduits}) — Charges ($${totalCharges})</div>
+      <div style="font-size:36px;font-weight:900">${_cur()}${Math.abs(resultat)}</div>
+      <div style="font-size:12px;opacity:.8;margin-top:4px">Produits (${_cur()}${totalProduits}) — Charges (${_cur()}${totalCharges})</div>
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:12px;padding:13px;font-weight:700" onclick="exportComptabilitePDF()">⬇️ Exporter Compte de Résultat PDF</button>`;
   }
@@ -13424,9 +13424,9 @@ R.comptabilite = () => {
   </div>
   <!-- Résumé rapide -->
   <div class="hbento" style="margin-bottom:12px">
-    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#047857);color:#fff;cursor:default"><div class="hic">📈</div><div class="hbig" style="font-size:18px">$${totalProduits}</div><div class="hsub">Produits</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;cursor:default"><div class="hic">📉</div><div class="hbig" style="font-size:18px">$${totalCharges}</div><div class="hsub">Charges</div></div>
-    <div class="htile" style="background:${resultat>=0?'linear-gradient(135deg,#243a6b,#1f4da0)':'linear-gradient(135deg,#7c2d12,#9a3412)'};color:#fff;cursor:default"><div class="hic">${resultat>=0?'✅':'⚠️'}</div><div class="hbig" style="font-size:18px">${resultat>=0?'+':'-'}$${Math.abs(resultat)}</div><div class="hsub">Résultat</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#047857);color:#fff;cursor:default"><div class="hic">📈</div><div class="hbig" style="font-size:18px">${_cur()}${totalProduits}</div><div class="hsub">Produits</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;cursor:default"><div class="hic">📉</div><div class="hbig" style="font-size:18px">${_cur()}${totalCharges}</div><div class="hsub">Charges</div></div>
+    <div class="htile" style="background:${resultat>=0?'linear-gradient(135deg,#243a6b,#1f4da0)':'linear-gradient(135deg,#7c2d12,#9a3412)'};color:#fff;cursor:default"><div class="hic">${resultat>=0?'✅':'⚠️'}</div><div class="hbig" style="font-size:18px">${resultat>=0?'+':'-'}${_cur()}${Math.abs(resultat)}</div><div class="hsub">Résultat</div></div>
   </div>
   <!-- Onglets -->
   <div style="display:flex;gap:4px;background:var(--bg-card);border-radius:12px;padding:4px;margin-bottom:14px;border:1px solid var(--border)">
@@ -13917,10 +13917,10 @@ R.caisse_rapport = () => {
     <button class="btn btn-outline" style="width:100%;margin-top:8px" onclick="printReport('caisse')">💾 Télécharger en PDF</button>
   </div>
   ${recs.length?`<div class="premium-section"><div class="premium-section-title">💵 Paiements (${recs.length})</div>
-    ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${esc(r.student_name)}</div><div class="pi-sub">${esc(r.type_label||'')}${r.note?' · '+esc(r.note):''} — ${r.time}</div></div><span class="premium-badge" style="background:#d8f3e6;color:#065f46">$${r.amount}</span></div>`).join('')}
+    ${recs.map(r=>`<div class="premium-item"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${esc(r.student_name)}</div><div class="pi-sub">${esc(r.type_label||'')}${r.note?' · '+esc(r.note):''} — ${r.time}</div></div><span class="premium-badge" style="background:#d8f3e6;color:#065f46">${_cur()}${r.amount}</span></div>`).join('')}
   </div>`:''}
   ${exps.length?`<div class="premium-section"><div class="premium-section-title">💸 Dépenses (${exps.length})</div>
-    ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">$${e.amount}</span></div>`).join('')}
+    ${exps.map(e=>`<div class="premium-item"><div class="pi-icon" style="background:#fee2e2">💸</div><div style="flex:1"><div class="pi-title">${esc(e.motif)}</div><div class="pi-sub">${e.time}</div></div><span class="premium-badge" style="background:#fee2e2;color:#991b1b">${_cur()}${e.amount}</span></div>`).join('')}
   </div>`:''}
   ${(()=>{
     const past7=DB.daily_reports.filter(r=>r.by===S.user.id&&r.status==='validated').slice(0,7);
@@ -13932,7 +13932,7 @@ R.caisse_rapport = () => {
         return `<div class="premium-item"><div class="pi-icon" style="background:#f6ede0">📋</div>
           <div style="flex:1"><div class="pi-title">${rep.date}</div>
           <div class="pi-sub">${(rep.records||[]).length} paiements · ${(rep.expenses||[]).length} dépenses</div></div>
-          <div style="text-align:right"><div style="font-size:12px;color:#1f9d6b;font-weight:700">+$${tIn}</div><div style="font-size:11px;color:#ef5b5b">-$${tOut}</div></div>
+          <div style="text-align:right"><div style="font-size:12px;color:#1f9d6b;font-weight:700">+${_cur()}${tIn}</div><div style="font-size:11px;color:#ef5b5b">-${_cur()}${tOut}</div></div>
         </div>`;
       }).join('')}
     </div>`;
@@ -14548,13 +14548,13 @@ R.statistiques = () => {
     <div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
         <span style="font-weight:700">${p.t} — ${p.paid}/${p.total} élèves payés</span>
-        <span style="font-weight:800;color:${p.pct>=80?'#1f9d6b':p.pct>=60?'#d98a2b':'#dc2626'}">${p.pct}% · $${p.amount.toLocaleString()}</span>
+        <span style="font-weight:800;color:${p.pct>=80?'#1f9d6b':p.pct>=60?'#d98a2b':'#dc2626'}">${p.pct}% · ${_cur()}${p.amount.toLocaleString()}</span>
       </div>
       <div style="background:#e5e7eb;border-radius:8px;height:12px;overflow:hidden"><div ${barW(p.pct)}></div></div>
     </div>`).join('')}
     <div style="padding:10px;background:#d8f3e6;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin-top:4px">
       <span style="font-weight:700;color:#065f46">Total encaissé (tous trimestres)</span>
-      <span style="font-weight:800;font-size:16px;color:#1f9d6b">$${payStats.reduce((s,p)=>s+p.amount,0).toLocaleString()}</span>
+      <span style="font-weight:800;font-size:16px;color:#1f9d6b">${_cur()}${payStats.reduce((s,p)=>s+p.amount,0).toLocaleString()}</span>
     </div>
     <div style="margin-top:8px;text-align:right"><button class="btn btn-outline btn-sm" onclick="go('payments')">Gérer paiements →</button></div>
   </div>
@@ -14564,8 +14564,8 @@ R.statistiques = () => {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div style="background:#dbeafe;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#205fae">${rats.length}</div><div style="font-size:11px;color:#205fae">Signalés</div></div>
       <div style="background:#d8f3e6;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${ratsValidated}</div><div style="font-size:11px;color:#065f46">Validés</div></div>
-      <div style="background:#fdeccd;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#92400e">$${primesDue}</div><div style="font-size:11px;color:#92400e">Primes dues</div></div>
-      <div style="background:#d8f3e6;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">$${primesVersees}</div><div style="font-size:11px;color:#065f46">Primes versées</div></div>
+      <div style="background:#fdeccd;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#92400e">${_cur()}${primesDue}</div><div style="font-size:11px;color:#92400e">Primes dues</div></div>
+      <div style="background:#d8f3e6;border-radius:10px;padding:10px;text-align:center"><div style="font-weight:800;font-size:18px;color:#065f46">${_cur()}${primesVersees}</div><div style="font-size:11px;color:#065f46">Primes versées</div></div>
     </div>
     <button class="btn btn-outline" style="width:100%" onclick="go('primes')">💎 Voir détail primes →</button>
   </div>
@@ -14651,10 +14651,10 @@ R.primes = () => {
 
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💎 Primes Enseignants</span><button class="btn btn-outline btn-sm" onclick="openPrimeForm()">➕ Prime directe</button></div>
-  ${(()=>{const dp=(DB.direct_primes||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!dp.length)return'';return`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p=>{const u2=gu(p.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p.motif||'—')} · ${p.date}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">$${p.amount}</span>${S.user.role==='direction'?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`;})()}
+  ${(()=>{const dp=(DB.direct_primes||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));if(!dp.length)return'';return`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p=>{const u2=gu(p.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p.motif||'—')} · ${p.date}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">${_cur()}${p.amount}</span>${S.user.role==='direction'?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`;})()}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
-    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">$${totalDue}</div><div class="hsub">versées</div></div>
-    <div class="htile h-pay"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">$${totalPending}</div><div class="hsub">dues</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">${_cur()}${totalDue}</div><div class="hsub">versées</div></div>
+    <div class="htile h-pay"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">${_cur()}${totalPending}</div><div class="hsub">dues</div></div>
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">🔁</div><div class="hbig" style="font-size:24px">${allRats.length}</div><div class="hsub">rattrapages</div></div>
   </div>
   <div class="ww-grid">
@@ -14682,11 +14682,11 @@ R.primes = () => {
               <div style="font-weight:700;font-size:15px">${esc(u.name)}</div>
               <div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div>
             </div>
-            ${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ $${due}</span>`:''}
+            ${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
-            <div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">$${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div>
-            <div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">$${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div>
+            <div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div>
+            <div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div>
             <div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div>
           </div>
           ${rats.slice(0,3).map(r=>{
@@ -14695,7 +14695,7 @@ R.primes = () => {
             const stText=r.paid?'Versé':r.validated_by?'⏳ À verser':'En attente';
             return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)">
               <div style="font-size:12px;flex:1"><span style="font-weight:600">${s?esc(s.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r.matiere)}</span></div>
-              <span style="font-size:11px;font-weight:700;color:#1f9d6b">$${r.amount}</span>
+              <span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r.amount}</span>
               <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>
               ${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}
             </div>`;
@@ -15910,7 +15910,7 @@ window.printReport = (type) => {
     title='Tableau des Paiements';
     const fees=getFees();
     const allPaidCount=DB.students.filter(s=>['T1','T2','T3'].every(t=>DB.payments.find(p=>p.sid===s.id&&p.t===t)?.paid)).length;
-    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 ($${fees.T1||'?'})</th><th>T2 ($${fees.T2||'?'})</th><th>T3 ($${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td>${c?esc(c.name):''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-$${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
+    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 (${_cur()}${fees.T1||'?'})</th><th>T2 (${_cur()}${fees.T2||'?'})</th><th>T3 (${_cur()}${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td>${c?esc(c.name):''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-${_cur()}${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
 
   } else if(type==='palmares'){
     title='Palmarès Général';
@@ -15944,16 +15944,16 @@ window.printReport = (type) => {
     const solde=totalIn-totalOut;
     const caissier=S.user.name;
     html=`<div class="stats">
-      <div class="stat"><div class="v" style="color:#1f9d6b">+$${totalIn}</div><div class="l">Encaissé</div></div>
-      <div class="stat"><div class="v" style="color:#dc2626">-$${totalOut}</div><div class="l">Dépensé</div></div>
-      <div class="stat"><div class="v" style="color:${solde>=0?'#1f9d6b':'#dc2626'}">$${solde}</div><div class="l">Solde net</div></div>
+      <div class="stat"><div class="v" style="color:#1f9d6b">+${_cur()}${totalIn}</div><div class="l">Encaissé</div></div>
+      <div class="stat"><div class="v" style="color:#dc2626">-${_cur()}${totalOut}</div><div class="l">Dépensé</div></div>
+      <div class="stat"><div class="v" style="color:${solde>=0?'#1f9d6b':'#dc2626'}">${_cur()}${solde}</div><div class="l">Solde net</div></div>
     </div>
     <div style="font-size:12px;color:#666;margin-bottom:14px">Caissier : <strong>${esc(caissier)}</strong> · ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
-    ${recs.length?`<div class="ch">💵 Paiements reçus (${recs.length})</div><table><tr><th>#</th><th>Élève</th><th>Type</th><th>Heure</th><th>Montant</th></tr>${recs.map((r,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(r.student_name)}</td><td>${esc(r.type_label||'—')}</td><td>${r.time}</td><td style="font-weight:700;color:#1f9d6b">$${r.amount}</td></tr>`).join('')}</table>`:''}
-    ${exps.length?`<div class="ch">💸 Dépenses (${exps.length})</div><table><tr><th>#</th><th>Motif</th><th>Heure</th><th>Montant</th></tr>${exps.map((e,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td>${esc(e.motif)}</td><td>${e.time}</td><td style="font-weight:700;color:#dc2626">$${e.amount}</td></tr>`).join('')}</table>`:''}
+    ${recs.length?`<div class="ch">💵 Paiements reçus (${recs.length})</div><table><tr><th>#</th><th>Élève</th><th>Type</th><th>Heure</th><th>Montant</th></tr>${recs.map((r,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(r.student_name)}</td><td>${esc(r.type_label||'—')}</td><td>${r.time}</td><td style="font-weight:700;color:#1f9d6b">${_cur()}${r.amount}</td></tr>`).join('')}</table>`:''}
+    ${exps.length?`<div class="ch">💸 Dépenses (${exps.length})</div><table><tr><th>#</th><th>Motif</th><th>Heure</th><th>Montant</th></tr>${exps.map((e,i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td>${esc(e.motif)}</td><td>${e.time}</td><td style="font-weight:700;color:#dc2626">${_cur()}${e.amount}</td></tr>`).join('')}</table>`:''}
     <div style="margin-top:16px;padding:12px;background:#f0fdf4;border:2px solid #1f9d6b;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-weight:700;font-size:14px">Solde final du jour</span>
-      <span style="font-weight:800;font-size:20px;color:${solde>=0?'#1f9d6b':'#dc2626'}">$${solde}</span>
+      <span style="font-weight:800;font-size:20px;color:${solde>=0?'#1f9d6b':'#dc2626'}">${_cur()}${solde}</span>
     </div>`;
   } else if(type==='recu'){
     const sid=arguments[1];
@@ -15994,15 +15994,15 @@ window.printReport = (type) => {
         </div>
       </div>
       <table><tr><th>Trimestre</th><th>Frais</th><th>Statut</th><th style="text-align:right">Montant payé</th></tr>
-      ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const paid=p&&p.paid;return`<tr><td style="font-weight:700">${t}</td><td style="color:#555">$${fees[t]||0}</td><td><span class="pill ${paid?'paid':'unpaid'}">${paid?'Réglé':'— Non réglé'}</span></td><td style="text-align:right;font-weight:700;color:${paid?'#1f9d6b':'#a89c8b'}">$${paid?fees[t]||0:0}</td></tr>`;}).join('')}
+      ${['T1','T2','T3'].map(t=>{const p=pays.find(x=>x.t===t);const paid=p&&p.paid;return`<tr><td style="font-weight:700">${t}</td><td style="color:#555">${_cur()}${fees[t]||0}</td><td><span class="pill ${paid?'paid':'unpaid'}">${paid?'Réglé':'— Non réglé'}</span></td><td style="text-align:right;font-weight:700;color:${paid?'#1f9d6b':'#a89c8b'}">${_cur()}${paid?fees[t]||0:0}</td></tr>`;}).join('')}
       </table>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f0fdf4;border-radius:8px;border:1.5px solid #86efac;margin-top:4px">
         <span style="font-weight:700;color:#065f46">Total des frais payés</span>
-        <span style="font-weight:800;font-size:18px;color:#1f9d6b">$${paidAmt}</span>
+        <span style="font-weight:800;font-size:18px;color:#1f9d6b">${_cur()}${paidAmt}</span>
       </div>
       ${balance>0?`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#fff1f2;border-radius:8px;border:1.5px solid #fca5a5;margin-top:6px">
         <span style="font-weight:700;color:#991b1b">Solde restant à régler</span>
-        <span style="font-weight:800;font-size:16px;color:#dc2626">$${balance}</span>
+        <span style="font-weight:800;font-size:16px;color:#dc2626">${_cur()}${balance}</span>
       </div>`:''}
       ${balance===0?`<div style="text-align:center;margin-top:12px;padding:10px;background:#d8f3e6;border-radius:8px;font-size:13px;font-weight:700;color:#065f46">🎉 Tous les frais scolaires ont été réglés</div>`:''}
     </div>
@@ -17532,8 +17532,8 @@ R.mes_primes = () => {
   return `
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">💰 Mes primes — Rattrapages</span></div>
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
-    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">$${earned}</div><div class="hsub">reçues</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">$${due}</div><div class="hsub">à percevoir</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">${_cur()}${earned}</div><div class="hsub">reçues</div></div>
+    <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">${_cur()}${due}</div><div class="hsub">à percevoir</div></div>
     <div class="htile h-pay"><div class="hic">🔁</div><div class="hbig" style="font-size:24px">${activeRats.length}</div><div class="hsub">en cours</div></div>
   </div>
   ${pending>0?`<div style="padding:12px 14px;background:#fdeccd;border-radius:10px;font-size:13px;color:#92400e;margin-bottom:14px">⏳ ${pending} signalement${pending>1?'s':''} en attente de validation par la Direction</div>`:''}
@@ -17550,7 +17550,7 @@ R.mes_primes = () => {
           <div class="ww-item-sub">${r.date||''}${r.score!=null?' · Moy: '+r.score+'%':''}</div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:${statusBg[st]};color:${statusColor[st]}">${statusLabel[st]}</span>
-            ${r.amount>0?`<span style="font-size:12px;font-weight:800;color:${st==='paid'?'#1f9d6b':'#205fae'}">$${r.amount}</span>`:'<span style="font-size:11px;color:var(--text-muted)">Montant non fixé</span>'}
+            ${r.amount>0?`<span style="font-size:12px;font-weight:800;color:${st==='paid'?'#1f9d6b':'#205fae'}">${_cur()}${r.amount}</span>`:'<span style="font-size:11px;color:var(--text-muted)">Montant non fixé</span>'}
           </div>
           ${sessInfo}${doneInfo}
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
@@ -17571,7 +17571,7 @@ R.mes_primes = () => {
         <div class="ww-item-icon" style="background:#f6ede0"><span>📦</span></div>
         <div class="ww-item-content">
           <div class="ww-item-title">${s?esc(s.name):'?'} — ${esc(r.matiere||'—')}</div>
-          <div class="ww-item-sub">${r.date||''} · ${r.amount>0?`$${r.amount}`:'Sans frais'}${r.done?' · ✅ Séance effectuée':''}</div>
+          <div class="ww-item-sub">${r.date||''} · ${r.amount>0?`${_cur()}${r.amount}`:'Sans frais'}${r.done?' · ✅ Séance effectuée':''}</div>
         </div>
       </div>`;
     }).join('')}
@@ -17785,12 +17785,12 @@ R.profil_enseignant = () => {
             <span class="pill ${sal.paid?'pill-green':'pill-orange'}">${sal.paid?'Payé':'En attente'}</span>
           </div>
           <div style="font-size:12px">
-            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5"><span style="color:#8a93a6">Salaire de base</span><span style="font-weight:600">$${sal.amount||0}</span></div>
-            ${rp?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#9b6fd4"><span>Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+$${rp}</span></div>`:''}
-            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#1f9d6b"><span>Primes / bonus</span><span style="font-weight:600">+$${sal.bonus}</span></div>`:''}
-            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#dc2626"><span>Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-$${a.amount}</span></div>`).join('')}
-            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#ff7a4d"><span>Retenues</span><span style="font-weight:600">-$${sal.deductions}</span></div>`:''}
-            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid #eef0f5;margin-top:4px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#1f9d6b':'#dc2626'}">$${sal.net||0}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5"><span style="color:#8a93a6">Salaire de base</span><span style="font-weight:600">${_cur()}${sal.amount||0}</span></div>
+            ${rp?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#9b6fd4"><span>Prime rattrapages (${rc} cours)</span><span style="font-weight:600">+${_cur()}${rp}</span></div>`:''}
+            ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#1f9d6b"><span>Primes / bonus</span><span style="font-weight:600">+${_cur()}${sal.bonus}</span></div>`:''}
+            ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#dc2626"><span>Avance ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:600">-${_cur()}${a.amount}</span></div>`).join('')}
+            ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef0f5;color:#ff7a4d"><span>Retenues</span><span style="font-weight:600">-${_cur()}${sal.deductions}</span></div>`:''}
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:800;font-size:14px;border-top:2px solid #eef0f5;margin-top:4px"><span>NET</span><span style="color:${(sal.net||0)>=0?'#1f9d6b':'#dc2626'}">${_cur()}${sal.net||0}</span></div>
           </div>
         </div>`;
       }).join(''):`<div class="pt-light-card" style="text-align:center;padding:40px;color:#8a93a6">
@@ -18062,7 +18062,7 @@ R.profil_parent = () => {
       ${SECTION('Frais scolaires', payClr)}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
-          <div style="font-size:30px;font-weight:900;color:${payClr};letter-spacing:-1px">$${paidAmt}</div>
+          <div style="font-size:30px;font-weight:900;color:${payClr};letter-spacing:-1px">${_cur()}${paidAmt}</div>
           <div style="font-size:13px;color:#6f6557;font-weight:600;margin-top:2px">${paidCount} trimestre${paidCount!==1?'s':''} payé${paidCount!==1?'s':''} sur 3</div>
         </div>
         <svg width="68" height="68" viewBox="0 0 68 68" style="flex-shrink:0;overflow:visible">
@@ -18077,7 +18077,7 @@ R.profil_parent = () => {
       <div style="height:8px;border-radius:10px;background:${payClr}18;overflow:hidden;margin-bottom:${totalFees>0&&paidAmt<totalFees?10:paidAmt>0?10:0}px">
         <div style="height:100%;width:${payPct}%;background:linear-gradient(90deg,${payClr},${payClr}bb);border-radius:10px;transform-origin:left;animation:progressFill .9s cubic-bezier(.4,0,.2,1) both;animation-delay:.35s;box-shadow:0 0 8px ${payClr}66"></div>
       </div>
-      ${totalFees>0&&paidAmt<totalFees?`<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${payClr};font-weight:600;margin-bottom:12px"><div style="width:8px;height:8px;border-radius:50%;background:${payClr}"></div>Reste à payer : $${totalFees-paidAmt}</div>`:''}
+      ${totalFees>0&&paidAmt<totalFees?`<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${payClr};font-weight:600;margin-bottom:12px"><div style="width:8px;height:8px;border-radius:50%;background:${payClr}"></div>Reste à payer : ${_cur()}${totalFees-paidAmt}</div>`:''}
       ${paidAmt>0?BTN(payClr,'#fff','Télécharger le reçu',"downloadRecuFrais('"+kid.id+"')"):''}
     </div>
 
@@ -19366,7 +19366,7 @@ window.exportArchivePDF = () => {
     <div class="stats">
       <div class="stat"><div class="v">${totalPaid}</div><div class="l">Trimesters payés</div></div>
       <div class="stat"><div class="v">${totalPayments-totalPaid}</div><div class="l">Impayés</div></div>
-      <div class="stat"><div class="v">$${(fees.T1||0)+(fees.T2||0)+(fees.T3||0)}</div><div class="l">Frais/élève</div></div>
+      <div class="stat"><div class="v">${_cur()}${(fees.T1||0)+(fees.T2||0)+(fees.T3||0)}</div><div class="l">Frais/élève</div></div>
     </div>
     ${payHtml||'<p style="color:#9ca3af;padding:20px;text-align:center">Aucun paiement enregistré</p>'}
   </div>
@@ -20283,7 +20283,7 @@ R.activites = () => {
         <button class="action-btn" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626" onclick="deleteActivite('${act.id}')">Suppr.</button>
       </div>
       ${act.description?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;padding:8px 12px;background:var(--bg);border-radius:8px">${esc(act.description)}</div>`:''}
-      ${act.frais&&S.user.role!=='direction2'?`<div style="font-size:13px;font-weight:600;color:#1f9d6b;margin-bottom:10px">💵 Frais : $${act.frais}/mois</div>`:''}
+      ${act.frais&&S.user.role!=='direction2'?`<div style="font-size:13px;font-weight:600;color:#1f9d6b;margin-bottom:10px">💵 Frais : ${_cur()}${act.frais}/mois</div>`:''}
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px">ÉLÈVES INSCRITS</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
         ${inscrits.map(i=>{
@@ -20431,7 +20431,7 @@ R.activites_parent = () => {
           <div style="width:44px;height:44px;border-radius:12px;background:${insKid.length?'linear-gradient(135deg,#8255c4,#9b6fd4)':'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:${insKid.length?'0 3px 10px rgba(109,40,217,.3)':'none'}">👶</div>
           <div>
             <div style="font-weight:700;font-size:16px">${esc(k.name)}</div>
-            ${insKid.length?`<div style="font-size:12px;color:#8255c4;font-weight:600">${insKid.length} activité(s) · $${totalAct}/mois</div>`:'<div style="font-size:12px;color:var(--text-muted)">Aucune inscription</div>'}
+            ${insKid.length?`<div style="font-size:12px;color:#8255c4;font-weight:600">${insKid.length} activité(s) · ${_cur()}${totalAct}/mois</div>`:'<div style="font-size:12px;color:var(--text-muted)">Aucune inscription</div>'}
           </div>
         </div>
         ${insKid.length?`<button class="btn btn-sm pp-btn" style="background:linear-gradient(135deg,#8255c4,#6f44ab);color:#fff;border:none;border-radius:12px;box-shadow:0 2px 8px rgba(109,40,217,.3)" onclick="downloadRecuActivites('${k.id}')">⬇️ Reçu PDF</button>`:''}
@@ -20446,7 +20446,7 @@ R.activites_parent = () => {
             <div style="font-weight:700;font-size:14px;color:${ac}">${esc(act.name)}</div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
           </div>
-          ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">$${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
+          ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">${_cur()}${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
         </div>`;
       }).join(''):`<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px"><div style="font-size:36px;margin-bottom:8px">🎨</div>Pas encore inscrit(e) dans une activité</div>`}
     </div>`;
@@ -20469,7 +20469,7 @@ R.activites_parent = () => {
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
           ${act.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-style:italic">${esc(act.description)}</div>`:''}
         </div>
-        ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">$${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
+        ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">${_cur()}${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
       </div>`;
     }).join('')}
     </div>`;
@@ -20638,10 +20638,10 @@ R.salaires = () => {
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="max-width:180px" onchange="window._salMonth=this.value;render()">
       <div style="flex:1;min-width:120px;background:#d8f3e6;border-radius:10px;padding:8px 14px;text-align:center">
-        <div style="font-size:18px;font-weight:800;color:#1f9d6b">$${totalNet}</div>
+        <div style="font-size:18px;font-weight:800;color:#1f9d6b">${_cur()}${totalNet}</div>
         <div style="font-size:11px;color:#6b7280">Masse salariale nette</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrapage${rate?` ($${rate})`:''}</button>
+      <button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrapage${rate?` (${_cur()}${rate})`:''}</button>
     </div>
   </div>
   ${teachers.map((u,i)=>{
@@ -20657,7 +20657,7 @@ R.salaires = () => {
         <div style="width:44px;height:44px;border-radius:12px;background:#d8f3e6;color:#1f9d6b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0">${ini(u.name)}</div>
         <div style="flex:1">
           <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
-          <div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#1f9d6b':'#dc2626'}">$${net}</strong> — ${sal.paid?'Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</strong> — ${sal.paid?'Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div>
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
           <button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸 Avance</button>
@@ -20667,12 +20667,12 @@ R.salaires = () => {
         </div>
       </div>
       ${hasSal?`<div style="background:#fff5ea;border-radius:10px;padding:10px 12px;font-size:12px">
-        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#374151">Salaire de base</span><span style="font-weight:700">$${sal.amount}</span></div>
-        ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">🔄 Prime rattrapages (${ratCount}×$${rate})</span><span style="font-weight:700;color:#9b6fd4">+$${ratPrime}</span></div>`:''}
-        ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#1f9d6b">Autres primes</span><span style="font-weight:700;color:#1f9d6b">+$${sal.bonus}</span></div>`:''}
-        ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#dc2626">💸 Avance du ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:700;color:#dc2626">-$${a.amount}</span></div>`).join('')}
-        ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#ff7a4d">Retenues</span><span style="font-weight:700;color:#ff7a4d">-$${sal.deductions}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">$${net}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#374151">Salaire de base</span><span style="font-weight:700">${_cur()}${sal.amount}</span></div>
+        ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">🔄 Prime rattrapages (${ratCount}×${_cur()}${rate})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${ratPrime}</span></div>`:''}
+        ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#1f9d6b">Autres primes</span><span style="font-weight:700;color:#1f9d6b">+${_cur()}${sal.bonus}</span></div>`:''}
+        ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#dc2626">💸 Avance du ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:700;color:#dc2626">-${_cur()}${a.amount}</span></div>`).join('')}
+        ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#ff7a4d">Retenues</span><span style="font-weight:700;color:#ff7a4d">-${_cur()}${sal.deductions}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</span></div>
       </div>`:''}
     </div>`;
   }).join('')}
@@ -20684,7 +20684,7 @@ R.salaires = () => {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div class="premium-section-title" style="color:#2563eb;margin-bottom:0">👔 Personnel non-enseignant — ${monthLabel}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="background:#dbeafe;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#1d4ed8">Masse : $${totalNT}</div>
+          <div style="background:#dbeafe;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#1d4ed8">Masse : ${_cur()}${totalNT}</div>
           ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openPersonnelSalaireForm(null,'${selMonth}')">➕ Ajouter</button>`:''}
         </div>
       </div>
@@ -20699,7 +20699,7 @@ R.salaires = () => {
               <div style="font-size:11px;color:var(--text-muted)">${esc(r.person_role||'Personnel')} — ${r.paid?'<span style="color:#1f9d6b">✅ Payé</span>':'<span style="color:#f59e0b">⏳ Non payé</span>'}</div>
             </div>
             <div style="text-align:right;min-width:80px">
-              <div style="font-size:16px;font-weight:800;color:${net>=0?'#1d4ed8':'#dc2626'}">$${net}</div>
+              <div style="font-size:16px;font-weight:800;color:${net>=0?'#1d4ed8':'#dc2626'}">${_cur()}${net}</div>
               <div style="font-size:10px;color:var(--text-muted)">${r.payment_method||'Espèces'}</div>
             </div>
             <div style="display:flex;gap:5px;flex-wrap:wrap">
@@ -20740,8 +20740,8 @@ window.openAvanceForm = (teacherId, month) => {
   openM(`💸 Avance sur salaire — ${u.name}`,`
   ${existing.length?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px">
     <div style="font-weight:700;color:#991b1b;margin-bottom:6px">Avances déjà accordées ce mois :</div>
-    ${existing.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:#dc2626">$${a.amount}</span><button onclick="deleteAdvance('${a.id}')" style="font-size:10px;padding:2px 7px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer">🗑️</button></div></div>`).join('')}
-    <div style="border-top:1px solid #fca5a5;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total</span><span style="color:#dc2626">$${existing.reduce((s,a)=>s+a.amount,0)}</span></div>
+    ${existing.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:#dc2626">${_cur()}${a.amount}</span><button onclick="deleteAdvance('${a.id}')" style="font-size:10px;padding:2px 7px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer">🗑️</button></div></div>`).join('')}
+    <div style="border-top:1px solid #fca5a5;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total</span><span style="color:#dc2626">${_cur()}${existing.reduce((s,a)=>s+a.amount,0)}</span></div>
   </div>`:''}
   <div class="form-group"><label class="form-label">Montant de l'avance ($) *</label>
     <input class="form-input" id="adv_amount" type="number" min="1" step="1" placeholder="Ex: 50">
@@ -20794,15 +20794,15 @@ window.openSalaireForm = (teacherId, month) => {
     <input class="form-input" id="sal_amount" type="number" min="0" step="1" value="${sal.amount||''}" placeholder="Ex: 250">
   </div>
   ${ratPrime?`<div style="background:#f0e9fa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
-    <span style="color:#5e3a92">🔄 Prime rattrapages auto (${ratCount} cours validés × $${DB.settings.rattrapage_rate||0})</span>
-    <strong style="color:#9b6fd4">+$${ratPrime}</strong>
+    <span style="color:#5e3a92">🔄 Prime rattrapages auto (${ratCount} cours validés × ${_cur()}${DB.settings.rattrapage_rate||0})</span>
+    <strong style="color:#9b6fd4">+${_cur()}${ratPrime}</strong>
   </div>`:''}
   <div class="form-group"><label class="form-label">Autres primes / bonus ($)</label>
     <input class="form-input" id="sal_bonus" type="number" min="0" step="1" value="${sal.bonus||0}">
   </div>
   ${advTotal?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
     <span style="color:#991b1b">💸 Avances accordées ce mois</span>
-    <strong style="color:#dc2626">-$${advTotal}</strong>
+    <strong style="color:#dc2626">-${_cur()}${advTotal}</strong>
   </div>`:''}
   <div class="form-group"><label class="form-label">Retenues supplémentaires ($) <span style="font-size:11px;color:var(--text-muted)">(absences, etc.)</span></label>
     <input class="form-input" id="sal_deductions" type="number" min="0" step="1" value="${sal.deductions||0}">
@@ -20972,10 +20972,10 @@ window.printPersonnelFichePaie = (salId) => {
   <div class="emp"><strong style="font-size:15px">${esc(sal.person_name)}</strong><br>
   <span style="font-size:12px;color:#6b7280">${esc(sal.person_role)} · Année scolaire ${DB.settings.year||''}</span></div>
   <table class="tbl">
-    <tr><td>Salaire de base</td><td style="text-align:right;font-weight:700;color:#065f46">$${sal.amount||0}</td></tr>
-    ${sal.bonus?`<tr><td>Primes / Bonus</td><td style="text-align:right;font-weight:700;color:#065f46">+$${sal.bonus}</td></tr>`:''}
-    ${sal.deductions?`<tr><td>Retenues / Déductions</td><td style="text-align:right;font-weight:700;color:#dc2626">-$${sal.deductions}</td></tr>`:''}
-    <tr class="tot"><td>NET À PAYER</td><td style="text-align:right">$${sal.net}</td></tr>
+    <tr><td>Salaire de base</td><td style="text-align:right;font-weight:700;color:#065f46">${_cur()}${sal.amount||0}</td></tr>
+    ${sal.bonus?`<tr><td>Primes / Bonus</td><td style="text-align:right;font-weight:700;color:#065f46">+${_cur()}${sal.bonus}</td></tr>`:''}
+    ${sal.deductions?`<tr><td>Retenues / Déductions</td><td style="text-align:right;font-weight:700;color:#dc2626">-${_cur()}${sal.deductions}</td></tr>`:''}
+    <tr class="tot"><td>NET À PAYER</td><td style="text-align:right">${_cur()}${sal.net}</td></tr>
   </table>
   <div style="margin:12px 0;font-size:12px"><strong>Mode de paiement :</strong> ${esc(sal.payment_method||'Espèces')} &nbsp;|&nbsp; <strong>Statut :</strong> ${sal.paid?'✅ PAYÉ le '+sal.paid_date:'⏳ En attente'}</div>
   ${sal.notes?`<div style="background:#fef3c7;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px"><strong>Note :</strong> ${esc(sal.notes)}</div>`:''}
@@ -21014,12 +21014,12 @@ window.printFichePaie = (teacherId, month) => {
     <div style="font-size:13px;color:#6f6557">Enseignant · Année ${DB.settings.year||'2025-2026'}</div>
   </div>
   <table class="tbl">
-    <tr><td>Salaire de base</td><td style="text-align:right" class="plus">$${sal.amount||0}</td></tr>
-    ${ratPrime?`<tr><td>🔄 Prime rattrapages (${ratCount} cours × $${rate})</td><td style="text-align:right" class="rat">+$${ratPrime}</td></tr>`:''}
-    ${sal.bonus?`<tr><td>Autres primes / bonus</td><td style="text-align:right" class="plus">+$${sal.bonus}</td></tr>`:''}
-    ${advList.map(a=>`<tr><td>💸 Avance du ${a.date}${a.reason?' — '+a.reason:''}</td><td style="text-align:right" class="minus">-$${a.amount}</td></tr>`).join('')}
-    ${sal.deductions?`<tr><td>Retenues (absences, etc.)</td><td style="text-align:right" class="minus">-$${sal.deductions}</td></tr>`:''}
-    <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right;font-size:18px">$${sal.net}</td></tr>
+    <tr><td>Salaire de base</td><td style="text-align:right" class="plus">${_cur()}${sal.amount||0}</td></tr>
+    ${ratPrime?`<tr><td>🔄 Prime rattrapages (${ratCount} cours × ${_cur()}${rate})</td><td style="text-align:right" class="rat">+${_cur()}${ratPrime}</td></tr>`:''}
+    ${sal.bonus?`<tr><td>Autres primes / bonus</td><td style="text-align:right" class="plus">+${_cur()}${sal.bonus}</td></tr>`:''}
+    ${advList.map(a=>`<tr><td>💸 Avance du ${a.date}${a.reason?' — '+a.reason:''}</td><td style="text-align:right" class="minus">-${_cur()}${a.amount}</td></tr>`).join('')}
+    ${sal.deductions?`<tr><td>Retenues (absences, etc.)</td><td style="text-align:right" class="minus">-${_cur()}${sal.deductions}</td></tr>`:''}
+    <tr class="total-row"><td>NET À PAYER</td><td style="text-align:right;font-size:18px">${_cur()}${sal.net}</td></tr>
   </table>
   ${sal.notes?`<div style="background:#fdeccd;border-radius:8px;padding:10px 14px;font-size:12px;margin:12px 0"><strong>Note :</strong> ${sal.notes}</div>`:''}
   <div class="status">Statut : ${sal.paid?`✅ PAYÉ le ${sal.paid_date}`:'⏳ EN ATTENTE DE PAIEMENT'}</div>
@@ -21096,11 +21096,11 @@ window.printRapportSecope = () => {
   <h2>III. SITUATION FINANCIÈRE</h2>
   <table><thead><tr><th>Description</th><th>Montant</th></tr></thead>
   <tbody>
-    <tr><td>Frais T1 / élève</td><td>$${fees.T1||0}</td></tr>
-    <tr><td>Frais T2 / élève</td><td>$${fees.T2||0}</td></tr>
-    <tr><td>Frais T3 / élève</td><td>$${fees.T3||0}</td></tr>
-    ${fees.inscription?`<tr><td>Frais d'inscription / élève</td><td>$${fees.inscription}</td></tr>`:''}
-    <tr><td>Total recouvré</td><td style="font-weight:700;color:#1f9d6b">$${totalPaid}</td></tr>
+    <tr><td>Frais T1 / élève</td><td>${_cur()}${fees.T1||0}</td></tr>
+    <tr><td>Frais T2 / élève</td><td>${_cur()}${fees.T2||0}</td></tr>
+    <tr><td>Frais T3 / élève</td><td>${_cur()}${fees.T3||0}</td></tr>
+    ${fees.inscription?`<tr><td>Frais d'inscription / élève</td><td>${_cur()}${fees.inscription}</td></tr>`:''}
+    <tr><td>Total recouvré</td><td style="font-weight:700;color:#1f9d6b">${_cur()}${totalPaid}</td></tr>
   </tbody></table>
   <div style="margin-top:6px;font-size:12px;color:#6f6557">Document généré le ${today()} — SchoolSafe v3.0</div>
   <div class="sig">
