@@ -5175,11 +5175,14 @@ R.notifications = () => {
   const uid=S.user.id, role=S.user.role;
   const ns = DB.notifs.filter(n=>n.uid===uid); // COM-11: chaque rôle (y compris direction) ne voit que ses propres notifications
   const sorted=[...ns].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
-  const unread=sorted.filter(n=>!n.read);
-  // Mark all as read
-  unread.forEach(n=>{ n.read=true; });
-  if(unread.length) {
-    const _nids=unread.map(n=>n.id).join(',');
+  const PAGE_SIZE=25;
+  const _np=window._notifPage||1;
+  const paginated=sorted.slice(0,_np*PAGE_SIZE);
+  // Only mark VISIBLE (paginated) unread notifications as read — not hidden pages
+  const unreadVisible=paginated.filter(n=>!n.read);
+  unreadVisible.forEach(n=>{ n.read=true; });
+  if(unreadVisible.length) {
+    const _nids=unreadVisible.map(n=>n.id).join(',');
     pushSync('notifs','patch',{read:true},'id=in.('+_nids+')');
     setTimeout(()=>render(),300);
   }
@@ -5187,16 +5190,15 @@ R.notifications = () => {
   const typeIcon=Object.fromEntries(Object.entries(typeColor).map(([k,v])=>[k,`<div style="width:10px;height:10px;border-radius:50%;background:${v}"></div>`]));
   const typeBg={academic:'#dbeafe',alert:'#fee2e2',urgent:'#fef2f2',approval:'#fdeccd',receipt:'#d8f3e6',report:'#f0e9fa',info:'#f6ede0',correction:'#d8f3e6',correction_dir:'#f0e9fa',message:'#dbeafe'};
   const typeBorder={urgent:'#ef5b5b',alert:'#fca5a5'};
-  const PAGE_SIZE=25;
-  const _np=window._notifPage||1;
-  const paginated=sorted.slice(0,_np*PAGE_SIZE);
+  // unreadTotal = all unread (including hidden pages), for badge display
+  const unreadTotal=sorted.filter(n=>!n.read).length;
   const hasMore=sorted.length>paginated.length;
   const remaining=sorted.length-paginated.length;
   return `
   <div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">Notifications${sorted.length>0?` <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${sorted.length})</span>`:''}</span>
     <div style="display:flex;gap:6px;align-items:center">
-      ${unread.length?`<span class="pill pill-blue">${unread.length} nouvelles</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
+      ${unreadTotal>0?`<span class="pill pill-blue">${unreadTotal} nouvelle${unreadTotal>1?'s':''}</span>`:'<span style="font-size:12px;color:var(--text-muted)">Tout lu</span>'}
       ${role==='direction'?`<button class="btn btn-primary btn-sm" onclick="openBroadcastM()" style="font-size:11px;padding:4px 10px">📣 Annonce</button>`:''}
       ${sorted.length?`<button class="btn btn-outline btn-sm" onclick="clearAllNotifs()" style="font-size:11px;padding:4px 10px">🗑️ Effacer tout</button>`:''}
     </div>
