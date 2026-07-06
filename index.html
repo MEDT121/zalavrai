@@ -6376,7 +6376,7 @@ window.validateDailyReport = (rid) => {
         const stu=DB.students.find(x=>x.id===r.sid);
         if(stu&&stu.pid){
           const fees=getFees();
-          const pNotif={id:'n'+Date.now(),uid:stu.pid,msg:`Paiement validé — ${stu.name} · ${r.trimestre} réglé ($${fees[r.trimestre]||r.amount}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
+          const pNotif={id:'n'+Date.now(),uid:stu.pid,msg:`Paiement validé — ${stu.name} · ${r.trimestre} réglé (${_cur()}${fees[r.trimestre]||r.amount}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
           DB.notifs.unshift(pNotif);
           pushSync('notifs','post',pNotif);
         }
@@ -6432,7 +6432,7 @@ window.sendDailyReportNow = () => {
   window._autoReportSent['d3_'+dateKey]=true;
   localStorage.setItem('d3_report_'+S.user.id+'_'+dateKey,'1');
   DB.users.filter(u=>u.role==='direction').forEach(u=>{
-    const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: $${totalIn} · Dépensé: $${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
+    const notif={id:'n'+Date.now(),uid:u.id,msg:`📊 Rapport Caisse du ${dateKey} — ${recs.length} paiement(s) · ${exps.length} dépense(s) · Encaissé: ${_cur()}${totalIn} · Dépensé: ${_cur()}${totalOut}`,time:nowTime(),date:dateKey,read:false,type:'report'};
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   });
@@ -6479,6 +6479,8 @@ if(!window._iv_autoreport) window._iv_autoreport = setInterval(() => {
 // ── PAYMENTS (Direction) ──
 // ── Fees config helper ──
 window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0,inscription:0};
+// FIN-06: dynamic currency symbol — reads DB.settings.school.devise at call-time
+const _cur = () => DB.settings?.school?.devise || '$';
 window.getStudentBalance = (sid) => {
   const fees=getFees();
   const pays=(DB.payments||[]).filter(p=>p.sid===sid);
@@ -6869,7 +6871,7 @@ window.assignTrimestre = (sid) => {
   toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
   if(s&&s.pid){
     const fees=getFees();
-    const notif={id:'n'+Date.now(),uid:s.pid,msg:`Paiement validé — ${s.name} · Trimestre ${t} réglé ($${fees[t]||'?'}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
+    const notif={id:'n'+Date.now(),uid:s.pid,msg:`Paiement validé — ${s.name} · Trimestre ${t} réglé (${_cur()}${fees[t]||'?'}) · Approuvé par Direction 1`,time:nowTime(),date:today(),read:false,type:'info'};
     DB.notifs.unshift(notif);
     pushSync('notifs','post',notif);
   }
@@ -7629,12 +7631,12 @@ window.confirmerRattrapage = (rid) => {
   // Notifier le parent
   if(s&&s.pid){
     const notif={id:'n'+Date.now(),uid:s.pid,
-      msg:`📚 Cours de rattrapage — ${s.name} · ${r.matiere} · $${amount} à régler à la Direction. Raison : ${r.motif}`,
+      msg:`📚 Cours de rattrapage — ${s.name} · ${r.matiere} · ${_cur()}${amount} à régler à la Direction. Raison : ${r.motif}`,
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(notif); pushSync('notifs','post',notif);
   }
   logAudit('rattrapage_validate', `${s?s.name:''} · ${r.matiere} · $${amount}`, rid);
-  toast(`✅ Parent notifié — $${amount} de rattrapage pour ${s?s.name:''}`, 'success');
+  toast(`✅ Parent notifié — ${_cur()}${amount} de rattrapage pour ${s?s.name:''}`, 'success');
   closeModal(); saveToCrypt(); render();
 };
 
@@ -7649,7 +7651,7 @@ window.marquerRattrapage = (rid, paid) => {
     const teacher=gu(r.teacher_id);
     if(teacher){
       const notif={id:'n'+Date.now(),uid:teacher.id,
-        msg:`💰 Prime de rattrapage — $${r.amount} ajoutée à votre prime pour ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere})`,
+        msg:`💰 Prime de rattrapage — ${_cur()}${r.amount} ajoutée à votre prime pour ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere})`,
         time:nowTime(),date:today(),read:false,type:'info'};
       DB.notifs.unshift(notif); pushSync('notifs','post',notif);
     }
@@ -7747,7 +7749,7 @@ window.checkRattrapageReminders = () => {
     const s=DB.students.find(x=>x.id===r.sid); if(!s?.pid) return;
     r.reminder_sent=true;
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
-      msg:`⏰ Rappel — Frais de rattrapage non réglés : ${s.name} · ${r.matiere} · $${r.amount}. Merci de régulariser à la Direction.`,
+      msg:`⏰ Rappel — Frais de rattrapage non réglés : ${s.name} · ${r.matiere} · ${_cur()}${r.amount}. Merci de régulariser à la Direction.`,
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
     pushSync('rattrapages','patch',{reminder_sent:true},'id=eq.'+r.id);
@@ -8705,7 +8707,7 @@ window.saveInscrireEleve = () => {
   const s=DB.students.find(x=>x.id===sid);
   logAudit('cantine_inscription',`${s?s.name:sid} — ${type} — $${amount}`,ins.id);
   if(s?.pid){
-    const n={id:'n'+Date.now(),uid:s.pid,msg:`🍽️ ${s.name} est maintenant inscrit(e) à la cantine (${type}) — $${amount}/mois`,date:today(),time:nowTime(),read:false,type:'info'};
+    const n={id:'n'+Date.now(),uid:s.pid,msg:`🍽️ ${s.name} est maintenant inscrit(e) à la cantine (${type}) — ${_cur()}${amount}/mois`,date:today(),time:nowTime(),read:false,type:'info'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   }
   closeModal(); saveToCrypt(); render();
@@ -10808,6 +10810,8 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   if(window._scanBusy) return; // anti-doublon
   window._scanBusy = true;
   try {
+  // PORT-03: block all entries during lockdown
+  if(S.lockdown){ showScanResult('red','🔴','LOCKDOWN','École verrouillée','Aucune entrée autorisée',''); return; }
   const student=DB.students.find(s=>s.mat===code);
   if(!student){
     window._badScans=window._badScans||{};
@@ -11547,7 +11551,7 @@ window.signalerPaiementRattrapage = (rid) => {
   // Notifier la Direction
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-      msg:`💰 Paiement signalé — ${s.name} · Rattrapage ${r.matiere} · $${r.amount} · À confirmer`,
+      msg:`💰 Paiement signalé — ${s.name} · Rattrapage ${r.matiere} · ${_cur()}${r.amount} · À confirmer`,
       time:nowTime(),date:today(),read:false,type:'alert'};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
@@ -12318,7 +12322,7 @@ window.saveTrimLedger = async () => {
       compte_cat:tl.trimestre==='inscription'?'707':'706',
       force,
     });
-    toast(`✅ $${montant} enregistré — ${tl.label}`,'success');
+    toast(`✅ ${_cur()}${montant} enregistré — ${tl.label}`,'success');
     setTimeout(()=>{ printVersementRecu(versement.id); openTrimLedger(tl.sid,tl.trimestre); if(window._caisseStudent?.id===tl.sid) caisseSelectStudent(tl.sid); },300);
   };
   try{ await _doSaveTL(); }
@@ -12644,7 +12648,7 @@ window.saveDepense = () => {
   pushSync('daily_expenses','post',exp);
   // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.daily_expenses — pas de double écriture ici
   logAudit('depense',`${motif} — $${amount} (${cat.label}) par ${S.user.name}`);
-  toast(`💸 Dépense $${amount} — ${cat.label} enregistrée`,'success');
+  toast(`💸 Dépense ${_cur()}${amount} — ${cat.label} enregistrée`,'success');
   saveToCrypt(); render();
 };
 
@@ -12961,7 +12965,7 @@ window.sendClassFeeNotif = (feeTypeId) => {
   const schoolId=window._currentSchoolId||null;
   parents.forEach(p=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:p.id,
-      msg:`💳 Frais à régler : ${ft.label}\n💵 Montant : $${ft.montant_defaut||0}\n📅 Paiement par acomptes possible à la caisse scolaire${extra?'\n\n'+extra:''}`,
+      msg:`💳 Frais à régler : ${ft.label}\n💵 Montant : ${_cur()}${ft.montant_defaut||0}\n📅 Paiement par acomptes possible à la caisse scolaire${extra?'\n\n'+extra:''}`,
       date:today(),time:nowTime(),read:false,type:'info',school_id:schoolId};
     DB.notifs.unshift(n); pushSync('notifs','post',n);
   });
@@ -14734,9 +14738,9 @@ window.savePrime = () => {
   DB.direct_primes.push(obj);
   pushSync('direct_primes','post',obj);
   const u2=DB.users.find(x=>x.id===tid);
-  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:tid,msg:`💎 Prime accordée : $${amount} — ${motif}`,date:today(),time:nowTime(),read:false,type:'info'};
+  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:tid,msg:`💎 Prime accordée : ${_cur()}${amount} — ${motif}`,date:today(),time:nowTime(),read:false,type:'info'};
   DB.notifs.unshift(n);pushSync('notifs','post',n);
-  saveToCrypt();closeModal();render();toast(`Prime de $${amount} accordée à ${u2?.name||'?'}`,'success');
+  saveToCrypt();closeModal();render();toast(`Prime de ${_cur()}${amount} accordée à ${u2?.name||'?'}`,'success');
 };
 window.deletePrime = (id) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
@@ -20713,7 +20717,7 @@ window.saveRatRate = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   DB.settings.rattrapage_rate=parseFloat($('rat_rate')?.value)||0;
   pushSync('settings','upsert',DB.settings);saveToCrypt();
-  toast(`✅ Taux rattrapage : $${DB.settings.rattrapage_rate} / cours`,'success');
+  toast(`✅ Taux rattrapage : ${_cur()}${DB.settings.rattrapage_rate} / cours`,'success');
   closeModal();render();
 };
 
@@ -20748,11 +20752,11 @@ window.saveAvance = (teacherId, month) => {
   pushSync('advances','upsert',obj);
   const u=DB.users.find(x=>x.id===teacherId);
   // Notif privée à l'enseignant
-  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`💸 Avance sur salaire accordée : $${amount}${obj.reason?' ('+obj.reason+')':''}`,date:today(),time:nowTime(),read:false,type:'info'};
+  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`💸 Avance sur salaire accordée : ${_cur()}${amount}${obj.reason?' ('+obj.reason+')':''}`,date:today(),time:nowTime(),read:false,type:'info'};
   DB.notifs.unshift(n);pushSync('notifs','post',n);
-  logAudit('avance_salaire',`${u?.name} — $${amount} — ${month}`);
+  logAudit('avance_salaire',`${u?.name} — ${_cur()}${amount} — ${month}`);
   saveToCrypt();
-  toast(`✅ Avance de $${amount} accordée à ${u?.name}`,'success');
+  toast(`✅ Avance de ${_cur()}${amount} accordée à ${u?.name}`,'success');
   closeModal();render();
 };
 
@@ -20818,10 +20822,10 @@ window.saveSalaire = (teacherId, month) => {
   pushSync('salaries','upsert',obj);
   if(paid){
     const u=DB.users.find(x=>x.id===teacherId);
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET $${net}`,date:today(),time:nowTime(),read:false,type:'info'};
+    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET ${_cur()}${net}`,date:today(),time:nowTime(),read:false,type:'info'};
     DB.notifs.unshift(n);pushSync('notifs','post',n);
     // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.salaries — pas de double écriture ici
-    logAudit('salaire',`${u?.name||teacherId} — $${net} (${month})`);
+    logAudit('salaire',`${u?.name||teacherId} — ${_cur()}${net} (${month})`);
   }
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
 };
@@ -20927,11 +20931,11 @@ window.savePersonnelSalaire = (salId) => {
   pushSync('salaries','upsert',obj);
   if(paid) {
     const notifTgt=(DB.users||[]).find(u=>(u.name||'').toLowerCase()===person_name.toLowerCase()&&u.role!=='parent'&&u.role!=='gardien');
-    if(notifTgt) { const n={id:'n'+Date.now(),uid:notifTgt.id,msg:`💰 Paiement enregistré : $${net} (${month}) — ${person_role}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null}; DB.notifs.unshift(n);pushSync('notifs','post',n); }
+    if(notifTgt) { const n={id:'n'+Date.now(),uid:notifTgt.id,msg:`💰 Paiement enregistré : ${_cur()}${net} (${month}) — ${person_role}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null}; DB.notifs.unshift(n);pushSync('notifs','post',n); }
     // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.salaries — pas de double écriture ici
-    logAudit('salaire',`${person_name} (${person_role}) — $${net} (${month})`);
+    logAudit('salaire',`${person_name} (${person_role}) — ${_cur()}${net} (${month})`);
   }
-  saveToCrypt();closeModal();toast(`✅ ${person_name} — $${net} enregistré`,'success');render();
+  saveToCrypt();closeModal();toast(`✅ ${person_name} — ${_cur()}${net} enregistré`,'success');render();
 };
 window.deletePersonnelSalaire = (id) => {
   if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
