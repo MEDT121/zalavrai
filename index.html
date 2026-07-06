@@ -2231,7 +2231,7 @@ function _cryptSnap() {
     // not the oldest ones (mutations push() to end of array, breaking load order)
     attendance:[...(DB.attendance||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,300),
     scan_log:[...(DB.scan_log||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
-    conduct:DB.conduct.slice(0,500), grades:DB.grades, absences:[...(DB.absences||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
+    conduct:[...(DB.conduct||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500), grades:DB.grades, absences:[...(DB.absences||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
     notifs:[...(DB.notifs||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100), events:DB.events, messages:[...(DB.messages||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100),
     aps:apsNoPhoto, devoirs:DB.devoirs.filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
     approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
@@ -2258,8 +2258,8 @@ function _cryptSnap() {
     medical_visits:DB.medical_visits||[],
     inscriptions:DB.inscriptions||[],
     fee_types:DB.fee_types||[],
-    versements:(DB.versements||[]).slice(0,1000),
-    journal_entries:(DB.journal_entries||[]).slice(0,500),
+    versements:[...(DB.versements||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,2000),
+    journal_entries:[...(DB.journal_entries||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500),
     _uid:DB._uid, _sid:DB._sid, _apid:DB._apid, _ts:Date.now()
   };
 }
@@ -2319,7 +2319,14 @@ window.loadFromCrypt = async () => {
     return false;
   } catch(e) { return false; }
 };
-if(!window._iv_autosave) window._iv_autosave = setInterval(() => { if (S.user && (DB.users||[]).length > 0) saveToCrypt(); }, 30000);
+if(!window._iv_autosave) window._iv_autosave = setInterval(() => {
+  if (!S.user || !(DB.users||[]).length) return;
+  // Skip if an explicit saveToCrypt() already ran in the last 25s (mutation-driven save)
+  if ((Date.now() - (window._lastCryptWrite||0)) < 25000) return;
+  // Defer to browser idle time to avoid UI jank
+  if ('requestIdleCallback' in window) { requestIdleCallback(saveToCrypt, {timeout:5000}); }
+  else saveToCrypt();
+}, 30000);
 
 // Coordination inter-onglets : si un autre onglet écrit un snapshot plus récent, on converge
 window.addEventListener('storage', async (e) => {
@@ -3025,14 +3032,17 @@ window.showLogin = () => {
   if(ls){ ls.style.transition='none'; ls.style.display='flex'; ls.style.opacity='1'; ls.style.pointerEvents=''; ls.classList.remove('hidden'); }
   setTimeout(()=>{ const ln=$('LN'); if(ln) ln.focus(); },350);
 
-  // Timer d'inactivité (sur le formulaire)
-  const resetTimer=()=>{ window._resetLoginIdleTimer&&window._resetLoginIdleTimer(); };
-  const ln=$('LN'), lp=$('LP'), lsEl=$('LS');
-  ['input','keydown','click','focus'].forEach(ev=>{
-    if(ln) ln.addEventListener(ev,resetTimer,{passive:true});
-    if(lp) lp.addEventListener(ev,resetTimer,{passive:true});
-  });
-  if(lsEl) lsEl.addEventListener('touchstart',resetTimer,{passive:true});
+  // Timer d'inactivité (sur le formulaire) — guard pour ne pas dupliquer à chaque showLogin()
+  if(!window._loginIdleListenersAdded){
+    window._loginIdleListenersAdded=true;
+    const resetTimer=()=>{ window._resetLoginIdleTimer&&window._resetLoginIdleTimer(); };
+    const ln=$('LN'), lp=$('LP'), lsEl=$('LS');
+    ['input','keydown','click','focus'].forEach(ev=>{
+      if(ln) ln.addEventListener(ev,resetTimer,{passive:true});
+      if(lp) lp.addEventListener(ev,resetTimer,{passive:true});
+    });
+    if(lsEl) lsEl.addEventListener('touchstart',resetTimer,{passive:true});
+  }
   window._startLoginIdleTimer&&window._startLoginIdleTimer();
   window._startLoginHeroRotation&&window._startLoginHeroRotation();
 };
