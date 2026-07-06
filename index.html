@@ -6625,10 +6625,10 @@ R.payments = () => {
     return kids.map(s=>{
       const c=gc(s.cid); const pays=(DB.payments||[]).filter(p=>p.sid===s.id);
       const {paid,total,debt,byTrim}=getStudentBalance(s.id);
-      const pPct=total>0?Math.round(paid/total*100):0;
+      const pPct=total>0?Math.min(100,Math.round(paid/total*100)):0;
       const [cc,cbg]=clsColor(c?c.name:'');
       return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;border:1.5px solid #efe3d3;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.05)">
-        <div style="height:5px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct===100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .5s ease;border-radius:5px"></div></div>
+        <div style="height:5px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct>=100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .5s ease;border-radius:5px"></div></div>
         <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1.5px solid #efe3d3">
           <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden">${s.photo?`<img src="${s.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`:ini(s.name)}</div>
           <div style="flex:1"><div style="font-size:16px;font-weight:700">${esc(s.name)}</div><div style="font-size:13px;color:var(--text-secondary)">${c?esc(c.name):''}</div></div>
@@ -6718,9 +6718,9 @@ R.payments = () => {
     ${(window._payShowAll||studs.length<=50?studs:studs.slice(0,50)).map((s,i)=>{
       const c=gc(s.cid); const pays=(DB.payments||[]).filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
       const {debt,paid:paidAmt,total:totalAmt,byTrim}=_balMap[s.id]||{debt:0,paid:0,total:0,byTrim:{}};
-      const paidPct=totalAmt>0?Math.round(paidAmt/totalAmt*100):0;
+      const paidPct=totalAmt>0?Math.min(100,Math.round(paidAmt/totalAmt*100)):0;
       const [cc,cbg]=clsColor(c?c.name:'');
-      const barColor=s.access_blocked?'#9b6fd4':paidPct===100?'#2fbf8f':paidPct>0?'#f59e0b':'#ef5b5b';
+      const barColor=s.access_blocked?'#9b6fd4':paidPct>=100?'#2fbf8f':paidPct>0?'#f59e0b':'#ef5b5b';
       return `<div style="border-radius:20px;overflow:hidden;background:#fff5ea;box-shadow:0 3px 14px rgba(0,0,0,.06);animation:fadeInUp .3s ease both;animation-delay:${i*.03}s;border:1.5px solid ${s.access_blocked?'#d0c2f2':'#efe3d3'}">
         <div style="height:4px;background:${barColor}"></div>
         <div style="padding:14px 16px">
@@ -8416,7 +8416,7 @@ R.recus_parent = () => {
     const cl=gc(k.cid);
     const kVers=(DB.versements||[]).filter(v=>v.sid===k.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
     const {paid:totalPaid,total:totalDue,debt,byTrim}=getStudentBalance(k.id);
-    const pPct=totalDue>0?Math.round(totalPaid/totalDue*100):0;
+    const pPct=totalDue>0?Math.min(100,Math.round(totalPaid/totalDue*100)):0;
     html+=`<div style="border-radius:20px;overflow:hidden;background:var(--bg-card);border:1.5px solid var(--border);margin-bottom:18px;box-shadow:0 4px 18px rgba(0,0,0,.07);animation:fadeInUp .35s ease both;animation-delay:calc(${ki}*.1s)">
       <!-- En-tête élève -->
       <div style="background:linear-gradient(135deg,#243a6b,#1f4da0);padding:16px 18px;display:flex;align-items:center;gap:12px">
@@ -8425,7 +8425,7 @@ R.recus_parent = () => {
         <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:${debt>0?'#fca5a5':'#6ee7b7'}">${debt>0?'-'+_cur()+debt:'✓ Soldé'}</div><div style="font-size:11px;color:rgba(255,255,255,.6)">${_cur()}${totalPaid} / ${_cur()}${totalDue}</div></div>
       </div>
       <!-- Barre de progression globale -->
-      <div style="height:8px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct===100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .6s ease"></div></div>
+      <div style="height:8px;background:#efe3d3"><div style="height:100%;width:${pPct}%;background:${pPct>=100?'#1f9d6b':pPct>0?'#f59e0b':'#ef5b5b'};transition:width .6s ease"></div></div>
       <div style="padding:14px 16px">
       <!-- Par type de frais -->
       ${feeTypes.length===0?`<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Aucun type de frais configuré</div>`:''}
@@ -8933,7 +8933,7 @@ window.studentAvgPct = (sid, matieres, trimester) => {
     const a = matAvgPct(sid, m.name, trimester);
     if(a !== null){ const c = m.coeff||1; totalW += a*c; sumCoeff += c; }
   });
-  return sumCoeff ? Math.round(totalW / sumCoeff) : 0;
+  return sumCoeff ? Math.round(totalW / sumCoeff) : null;
 };
 
 // Rank of a student within their class (1 = best). Returns {pos, total} or null
@@ -10997,6 +10997,8 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // Already scanned today?
   const existing=(DB.attendance||[]).find(a=>a.sid===student.id&&a.date===today());
   if(existing){showScanResult('orange','↺','Déjà scanné',student.name,`Enregistré à ${existing.arr_time}`,time);return;}
+  const existingRefused=(DB.scan_log||[]).find(l=>l.sid===student.id&&l.date===today()&&l.status==='refused');
+  if(existingRefused){showScanResult('red','✕','Déjà refusé',student.name,`Retard grave — refusé à ${existingRefused.time}`,time);return;}
 
   // ── CONTRÔLE FRAIS SCOLAIRES ──────────────────────────────────────────────
   const fc=DB.settings.feesControl||{};
@@ -11084,11 +11086,9 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
       </div>
     </div>`;
     // Store pending for Direction to see
-    DB.approbations.push({
-      id:'apr'+Date.now(), type:'retard_grave', status:'pending',
-      content:`${student.name} — Retard grave à ${time}`,
-      sid:student.id, date:today(), time, by:S.user.id
-    });
+    const _aprObj={id:'apr'+Date.now(), type:'retard_grave', status:'pending', content:`${student.name} — Retard grave à ${time}`, sid:student.id, date:today(), time, by:S.user.id};
+    DB.approbations.push(_aprObj);
+    pushSync('approbations','post',_aprObj);
   }
   saveToCrypt();
   } finally { setTimeout(()=>{window._scanBusy=false;},1500); }
@@ -14704,7 +14704,7 @@ R.statistiques = () => {
   const classPerfStats = (DB.classes||[]).map(cl=>{
     const studs=(DB.students||[]).filter(s=>s.cid===cl.id);
     const mats=getClassMatieres(cl.id);
-    const avgs=studs.map(s=>studentAvgPct(s.id,mats)).filter(a=>a>0);
+    const avgs=studs.map(s=>studentAvgPct(s.id,mats)).filter(a=>a!==null);
     const clAvg=avgs.length?Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length):null;
     const passing=avgs.filter(a=>a>=50).length;
     const paidCount=studs.filter(s=>(DB.payments||[]).some(p=>p.sid===s.id&&p.paid)).length;
