@@ -16128,7 +16128,7 @@ window.printPVDeliberation = () => {
       <tr class="${s.decision==='AJOURNÉ(E)'?'fail':''}">
         <td>${i+1}</td>
         <td><strong>${esc(s.name)}</strong></td>
-        <td style="font-size:11px;color:#666">${s.mat}</td>
+        <td style="font-size:11px;color:#666">${esc(s.mat)}</td>
         <td style="font-weight:800;color:${s.moy>=70?'#1f9d6b':s.moy>=50?'#d98a2b':'#dc2626'}">${s.moy}%</td>
         <td style="font-size:11px">${s.mention}</td>
         <td class="${s.decision==='ADMIS(E)'?'pass':'fail-txt'}" style="font-weight:700">${s.decision}</td>
@@ -19670,8 +19670,8 @@ window.exportArchivePDF = () => {
           const condScore = condEl.length?condEl[condEl.length-1].score:'—';
           return `<tr>
             <td style="font-size:11px;font-weight:700">${i<3?medals[i]:'#'+(i+1)}</td>
-            <td style="font-weight:${i<3?700:400}">${s.name}</td>
-            <td style="font-family:monospace;font-size:10px;color:#6b7280">${s.mat}</td>
+            <td style="font-weight:${i<3?700:400}">${esc(s.name)}</td>
+            <td style="font-family:monospace;font-size:10px;color:#6b7280">${esc(s.mat)}</td>
             <td style="text-align:center"><span class="pill ${mCol}" style="font-size:11px;font-weight:800">${s.moy}%</span></td>
             <td><span class="pill ${mCol}">${mention}</span></td>
             <td style="text-align:center;font-size:11px">${condScore}</td>
@@ -19693,8 +19693,8 @@ window.exportArchivePDF = () => {
         const t1=pays.find(p=>p.t==='T1'),t2=pays.find(p=>p.t==='T2'),t3=pays.find(p=>p.t==='T3');
         const allPaid = [t1,t2,t3].every(p=>p&&p.paid);
         return `<tr>
-          <td>${s.name}</td>
-          <td style="font-family:monospace;font-size:10px">${s.mat}</td>
+          <td>${esc(s.name)}</td>
+          <td style="font-family:monospace;font-size:10px">${esc(s.mat)}</td>
           <td style="text-align:center"><span class="pill ${t1?.paid?'green':'red'}">${t1?.paid?'✅':'❌'}</span></td>
           <td style="text-align:center"><span class="pill ${t2?.paid?'green':'red'}">${t2?.paid?'✅':'❌'}</span></td>
           <td style="text-align:center"><span class="pill ${t3?.paid?'green':'red'}">${t3?.paid?'✅':'❌'}</span></td>
@@ -20464,7 +20464,7 @@ window.printTenafepList = () => {
       <div class="stat"><div class="stat-n" style="color:#f59e0b">${allCM2.length-admis-echoue}</div><div class="stat-l">En attente ⏳</div></div>
     </div>
     <table><thead><tr><th>#</th><th>Nom complet</th><th>Matricule</th><th>Classe</th><th>N° Inscription</th><th>Score</th><th>Résultat</th></tr></thead>
-    <tbody>${allCM2.map((s,i)=>{const r=ten.find(t=>t.sid===s.id)||{};const cl=gc(s.cid);return`<tr><td style="color:#6f6557">${i+1}</td><td style="font-weight:600">${s.name}</td><td style="font-family:monospace;font-size:11px">${s.mat}</td><td>${cl?cl.name:''}</td><td>${r.registration_num||'—'}</td><td>${r.score!=null?`<strong>${r.score}%</strong>`:'—'}</td><td class="${r.result||'pending'}">${r.result==='admis'?'Admis':r.result==='echoue'?'❌ Échoué':'⏳ En attente'}</td></tr>`;}).join('')}</tbody></table>
+    <tbody>${allCM2.map((s,i)=>{const r=ten.find(t=>t.sid===s.id)||{};const cl=gc(s.cid);return`<tr><td style="color:#6f6557">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td style="font-family:monospace;font-size:11px">${esc(s.mat)}</td><td>${cl?esc(cl.name):''}</td><td>${r.registration_num||'—'}</td><td>${r.score!=null?`<strong>${r.score}%</strong>`:'—'}</td><td class="${r.result||'pending'}">${r.result==='admis'?'Admis':r.result==='echoue'?'❌ Échoué':'⏳ En attente'}</td></tr>`;}).join('')}</tbody></table>
     <div class="sigs">
       <div><div style="height:50px"></div><div class="sig-line">Le Directeur / La Directrice</div></div>
       <div><div style="height:50px"></div><div class="sig-line">Responsable pédagogique</div></div>
