@@ -6822,10 +6822,10 @@ window.openFeesConfig = () => {
   openM('Configurer les frais scolaires',`
 <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Définissez le montant attendu par trimestre (en $). Ces montants servent à calculer la dette de chaque élève.</p>
 <div class="form-row">
-  <div class="form-group"><label class="form-label">Trimestre 1 ($)</label><input class="form-input" id="fee_t1" type="number" min="0" value="${f.T1||0}"></div>
-  <div class="form-group"><label class="form-label">Trimestre 2 ($)</label><input class="form-input" id="fee_t2" type="number" min="0" value="${f.T2||0}"></div>
-  <div class="form-group"><label class="form-label">Trimestre 3 ($)</label><input class="form-input" id="fee_t3" type="number" min="0" value="${f.T3||0}"></div>
-  <div class="form-group"><label class="form-label">Frais d'inscription ($)</label><input class="form-input" id="fee_ins" type="number" min="0" value="${f.inscription||0}"></div>
+  <div class="form-group"><label class="form-label">Trimestre 1 (${_cur()})</label><input class="form-input" id="fee_t1" type="number" min="0" value="${f.T1||0}"></div>
+  <div class="form-group"><label class="form-label">Trimestre 2 (${_cur()})</label><input class="form-input" id="fee_t2" type="number" min="0" value="${f.T2||0}"></div>
+  <div class="form-group"><label class="form-label">Trimestre 3 (${_cur()})</label><input class="form-input" id="fee_t3" type="number" min="0" value="${f.T3||0}"></div>
+  <div class="form-group"><label class="form-label">Frais d'inscription (${_cur()})</label><input class="form-input" id="fee_ins" type="number" min="0" value="${f.inscription||0}"></div>
 </div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveFeesConfig()">Sauvegarder</button>`);
 };
@@ -7608,7 +7608,7 @@ window.validerRattrapage = (rid, noPayment) => {
     saveToCrypt(); render(); return;
   }
   openM(`📚 Valider rattrapage — ${s?s.name:''}`,`
-  <div class="form-group"><label class="form-label">Montant du cours de rattrapage ($) *</label>
+  <div class="form-group"><label class="form-label">Montant du cours de rattrapage (${_cur()}) *</label>
     <input class="form-input" id="rat_amount" type="number" min="0" placeholder="Ex: 25">
   </div>
   <div style="font-size:13px;color:var(--text-secondary);padding:10px;background:var(--bg);border-radius:10px">
@@ -8634,7 +8634,7 @@ window.openCantinaMenu = (mid) => {
   <div class="form-group"><label class="form-label">Boisson</label>
     <input class="form-input" id="cmBoisson" placeholder="Ex: Eau minérale, jus naturel" value="${esc(m?.boisson||'')}">
   </div>
-  <div class="form-group"><label class="form-label">Prix par repas ($)</label>
+  <div class="form-group"><label class="form-label">Prix par repas (${_cur()})</label>
     <input class="form-input" id="cmPrix" type="number" min="0" step="0.5" placeholder="Ex: 2.5" value="${m?.prix||''}">
   </div>
   <div class="form-group"><label class="form-label">📷 Photo du plat (URL image)</label>
@@ -8687,7 +8687,7 @@ window.openInscrireEleve = () => {
       <option value="annee">Annuel</option>
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Montant mensuel ($) *</label>
+  <div class="form-group"><label class="form-label">Montant mensuel (${_cur()}) *</label>
     <input class="form-input" id="caAmount" type="number" min="0" placeholder="Ex: 30">
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
@@ -12190,7 +12190,7 @@ window.openTrimLedger = (sid, trimestre) => {
       <div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">➕ Nouveau versement</div>
       <div class="form-row">
         <div class="form-group" style="flex:1">
-          <label class="form-label">Montant ($) *</label>
+          <label class="form-label">Montant (${_cur()}) *</label>
           <input class="form-input" id="tl_amount" type="number" min="1" step="1"
             value="${remaining>0&&remaining<=target?remaining:''}"
             placeholder="${remaining>0?`Reste : ${_cur()}${remaining.toLocaleString()}`:'Montant'}">
@@ -12710,7 +12710,7 @@ R.fee_types = () => {
         </select>
       </div>
       <div class="form-group" style="flex:1">
-        <label class="form-label">Montant par défaut ($)</label>
+        <label class="form-label">Montant par défaut (${_cur()})</label>
         <input class="form-input" id="ft_montant" type="number" min="0" step="0.5" placeholder="0 = libre">
       </div>
     </div>
@@ -13450,7 +13450,7 @@ window.openManualEntry = () => {
       <div class="form-group" style="flex:1"><label class="form-label">Compte débité *</label><select class="form-select" id="je_debit">${pcOpts}</select></div>
       <div class="form-group" style="flex:1"><label class="form-label">Compte crédité *</label><select class="form-select" id="je_credit">${pcOpts.replace('<option value="571"','<option value="571" selected')}</select></div>
     </div>
-    <div class="form-group"><label class="form-label">Montant ($) *</label><input class="form-input" id="je_montant" type="number" min="0" step="0.01" placeholder="0.00"></div>`,
+    <div class="form-group"><label class="form-label">Montant (${_cur()}) *</label><input class="form-input" id="je_montant" type="number" min="0" step="0.01" placeholder="0.00"></div>`,
     `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
      <button class="btn btn-primary" onclick="saveManualEntry()">Enregistrer</button>`);
 };
@@ -14716,7 +14716,7 @@ window.openPrimeForm = () => {
       ${teachers.map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Montant ($) *</label>
+  <div class="form-group"><label class="form-label">Montant (${_cur()}) *</label>
     <input class="form-input" id="pr_amount" type="number" min="1" step="1" placeholder="Ex: 20">
   </div>
   <div class="form-group"><label class="form-label">Motif *</label>
@@ -18818,7 +18818,7 @@ R.accounts = () => {
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px">${esc(u.name)}</div>
             <div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.phone||'—')}</div>
-            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">${_isDirRole(u.role)?'Mdp':'PIN'}: ${u.pin_hashed?'••••••':u.pin}</span>
+            <span class="pill pill-blue" style="font-family:monospace;font-size:11px">${_isDirRole(u.role)?'Mdp':'PIN'}: ••••••</span>
           </div>
           <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
             ${u.phone?waBtn(u.phone,u.name):''}
@@ -20325,7 +20325,7 @@ window.openActiviteForm = (aid) => {
     <div class="form-group"><label class="form-label">Lieu</label>
       <input class="form-input" id="aLieu" placeholder="Ex: Terrain de sport" value="${esc(act?.lieu||'')}">
     </div>
-    <div class="form-group"><label class="form-label">Frais ($)</label>
+    <div class="form-group"><label class="form-label">Frais (${_cur()})</label>
       <input class="form-input" id="aFrais" type="number" min="0" placeholder="0" value="${act?.frais||''}">
     </div>
   </div>`,
@@ -20720,7 +20720,7 @@ window.openRatRateConfig = () => {
   <div style="background:#f0e9fa;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:#5e3a92">
     🔄 Ce montant est automatiquement ajouté par cours de rattrapage <strong>validé</strong> par la Direction dans le mois. Mettez 0 pour désactiver.
   </div>
-  <div class="form-group"><label class="form-label">Montant par rattrapage validé ($)</label>
+  <div class="form-group"><label class="form-label">Montant par rattrapage validé (${_cur()})</label>
     <input class="form-input" id="rat_rate" type="number" min="0" step="1" value="${DB.settings.rattrapage_rate||0}" placeholder="Ex: 5">
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
@@ -20743,7 +20743,7 @@ window.openAvanceForm = (teacherId, month) => {
     ${existing.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0"><span>${a.date}${a.reason?' — '+esc(a.reason):''}</span><div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:#dc2626">${_cur()}${a.amount}</span><button onclick="deleteAdvance('${a.id}')" style="font-size:10px;padding:2px 7px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer">🗑️</button></div></div>`).join('')}
     <div style="border-top:1px solid #fca5a5;margin-top:6px;padding-top:6px;display:flex;justify-content:space-between;font-weight:700"><span>Total</span><span style="color:#dc2626">${_cur()}${existing.reduce((s,a)=>s+a.amount,0)}</span></div>
   </div>`:''}
-  <div class="form-group"><label class="form-label">Montant de l'avance ($) *</label>
+  <div class="form-group"><label class="form-label">Montant de l'avance (${_cur()}) *</label>
     <input class="form-input" id="adv_amount" type="number" min="1" step="1" placeholder="Ex: 50">
   </div>
   <div class="form-group"><label class="form-label">Motif</label>
@@ -20790,21 +20790,21 @@ window.openSalaireForm = (teacherId, month) => {
   const [mo,yr2]=[parseInt(month.split('-')[1]),month.split('-')[0]];
   const monthLbl=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mo-1]+' '+yr2;
   openM(`💶 Salaire — ${u.name} — ${monthLbl}`,`
-  <div class="form-group"><label class="form-label">Salaire de base ($) *</label>
+  <div class="form-group"><label class="form-label">Salaire de base (${_cur()}) *</label>
     <input class="form-input" id="sal_amount" type="number" min="0" step="1" value="${sal.amount||''}" placeholder="Ex: 250">
   </div>
   ${ratPrime?`<div style="background:#f0e9fa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
     <span style="color:#5e3a92">🔄 Prime rattrapages auto (${ratCount} cours validés × ${_cur()}${DB.settings.rattrapage_rate||0})</span>
     <strong style="color:#9b6fd4">+${_cur()}${ratPrime}</strong>
   </div>`:''}
-  <div class="form-group"><label class="form-label">Autres primes / bonus ($)</label>
+  <div class="form-group"><label class="form-label">Autres primes / bonus (${_cur()})</label>
     <input class="form-input" id="sal_bonus" type="number" min="0" step="1" value="${sal.bonus||0}">
   </div>
   ${advTotal?`<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
     <span style="color:#991b1b">💸 Avances accordées ce mois</span>
     <strong style="color:#dc2626">-${_cur()}${advTotal}</strong>
   </div>`:''}
-  <div class="form-group"><label class="form-label">Retenues supplémentaires ($) <span style="font-size:11px;color:var(--text-muted)">(absences, etc.)</span></label>
+  <div class="form-group"><label class="form-label">Retenues supplémentaires (${_cur()}) <span style="font-size:11px;color:var(--text-muted)">(absences, etc.)</span></label>
     <input class="form-input" id="sal_deductions" type="number" min="0" step="1" value="${sal.deductions||0}">
   </div>
   <div class="form-group"><label class="form-label">Statut paiement</label>
@@ -20878,15 +20878,15 @@ window.openPersonnelSalaireForm = (salId) => {
   </div>
   <div class="form-row">
     <div class="form-group" style="flex:1">
-      <label class="form-label">Salaire de base ($)</label>
+      <label class="form-label">Salaire de base (${_cur()})</label>
       <input class="form-input" id="psal_base" type="number" min="0" step="0.5" value="${existing?.amount||''}" oninput="psalCalcNet()">
     </div>
     <div class="form-group" style="flex:1">
-      <label class="form-label">Primes / Bonus ($)</label>
+      <label class="form-label">Primes / Bonus (${_cur()})</label>
       <input class="form-input" id="psal_bonus" type="number" min="0" step="0.5" value="${existing?.bonus||0}" oninput="psalCalcNet()">
     </div>
     <div class="form-group" style="flex:1">
-      <label class="form-label">Retenues / Déduc. ($)</label>
+      <label class="form-label">Retenues / Déduc. (${_cur()})</label>
       <input class="form-input" id="psal_deduct" type="number" min="0" step="0.5" value="${existing?.deductions||0}" oninput="psalCalcNet()">
     </div>
   </div>
