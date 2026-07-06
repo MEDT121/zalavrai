@@ -5125,7 +5125,7 @@ window.toggleFeesControl = () => {
 
 // ── ALERT URGENT (Gardien) ──
 R.alert_urgent = () => {
-  const recent = DB.notifs.filter(n=>n.type==='urgent'&&n.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,5);
+  const recent = (DB.notifs||[]).filter(n=>n.type==='urgent'&&n.by===S.user.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,5);
   return _wrapDark(`
 <div class="premium-section" style="border-left:4px solid #dc2626">
   <div style="text-align:center;padding:20px 0 12px">
@@ -5174,7 +5174,7 @@ window.sendUrgentAlert = () => {
 window._notifPage = window._notifPage || 1;
 R.notifications = () => {
   const uid=S.user.id, role=S.user.role;
-  const ns = DB.notifs.filter(n=>n.uid===uid); // COM-11: chaque rôle (y compris direction) ne voit que ses propres notifications
+  const ns = (DB.notifs||[]).filter(n=>n.uid===uid); // COM-11: chaque rôle (y compris direction) ne voit que ses propres notifications
   const sorted=[...ns].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
   const PAGE_SIZE=25;
   const _np=window._notifPage||1;
@@ -5226,10 +5226,10 @@ R.notifications = () => {
 window.clearAllNotifs = () => {
   const uid=S.user.id;
   // Direction efface uniquement ses propres notifications — pas celles de toute l'école
-  const toDelete = DB.notifs.filter(n=>n.uid===uid);
+  const toDelete = (DB.notifs||[]).filter(n=>n.uid===uid);
   showC('Effacer mes notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} personnelles seront supprimées.`,()=>{
     if(toDelete.length){const _ids=toDelete.map(n=>n.id).join(',');pushSync('notifs','delete',{},'id=in.('+_ids+')');}
-    DB.notifs=DB.notifs.filter(n=>n.uid!==uid);
+    DB.notifs=(DB.notifs||[]).filter(n=>n.uid!==uid);
     saveToCrypt(); toast('🗑️ Notifications effacées','info'); render();
   });
 };
@@ -7060,7 +7060,7 @@ R.children = () => {
         ${(()=>{
           const rats=(DB.rattrapages||[]).filter(r=>r.sid===k.id&&r.status!=='archived');
           if(rats.length) return '';
-          const grades=DB.grades.filter(g=>g.sid===k.id);
+          const grades=(DB.grades||[]).filter(g=>g.sid===k.id);
           if(!grades.length) return '';
           const avg=Math.round(grades.reduce((a,g)=>a+gradePct(g),0)/grades.length);
           const conds=(DB.conduct||[]).filter(c=>c.sid===k.id).slice(0,10);
@@ -8105,7 +8105,7 @@ R.palmares_parent = () => {
     // Trimester evolution (rename loop var to avoid shadowing global t())
     const trimEvo=(()=>{
       const trimData=['T1','T2','T3'].map(tr=>{
-        const gs=DB.grades.filter(g=>g.sid===k.id&&g.trimester===tr);
+        const gs=(DB.grades||[]).filter(g=>g.sid===k.id&&g.trimester===tr);
         if(!gs.length) return {tr,avg:null};
         const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);
         return {tr,avg};
@@ -8908,7 +8908,7 @@ window.gradePct = g => g.note !== undefined && g.note !== null
 
 // Weighted average pct for one student + one matière (all trimesters unless specified)
 window.matAvgPct = (sid, matiere, trimester) => {
-  let gs = DB.grades.filter(x => x.sid === sid && x.matiere === matiere);
+  let gs = (DB.grades||[]).filter(x => x.sid === sid && x.matiere === matiere);
   if(trimester) gs = gs.filter(x => x.trimester === trimester);
   if(!gs.length) return null;
   let sumWN = 0, sumW = 0;
@@ -9109,7 +9109,7 @@ window.saveGradePanel = cid => {
       pct: Math.round((note / gradeMax) * 100),
       school_id: window._currentSchoolId||null
     };
-    DB.grades.push(g);
+    (DB.grades=DB.grades||[]).push(g);
     pushSync('grades', 'post', g);
     saved++;
   });
@@ -9132,7 +9132,7 @@ window.openStudentGrades = (sid, cid) => {
     mc.lang === 'fr' ? (m.lang === 'fr' || m.lang === 'commun') :
     mc.lang === 'en' ? (m.lang === 'en' || m.lang === 'commun') : true
   );
-  const allGrades = DB.grades.filter(g => g.sid === sid).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const allGrades = (DB.grades||[]).filter(g => g.sid === sid).sort((a,b) => (b.date||'').localeCompare(a.date||''));
   const typeIcon = {devoir:'📚', interro:'⚠️', examen:'📝'};
   const typeCol  = {devoir:'#9b6fd4', interro:'#f59e0b', examen:'#dc2626'};
 
@@ -9179,11 +9179,11 @@ window.openStudentGrades = (sid, cid) => {
 };
 
 window.deleteGrade = (gid, sid, cid) => {
-  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const g=(DB.grades||[]).find(x=>x.id===gid); if(!g) return;
   const s=DB.students.find(x=>x.id===g.sid);
   if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
   showC('Supprimer cette note ?','Cette action est irréversible.',()=>{
-    DB.grades = DB.grades.filter(x => x.id !== gid);
+    DB.grades = (DB.grades||[]).filter(x => x.id !== gid);
     pushSync('grades','delete',{},'id=eq.'+gid);
     toast('🗑️ Note supprimée','info');
     saveToCrypt(); render();
@@ -9194,7 +9194,7 @@ window.deleteGrade = (gid, sid, cid) => {
 
 // PED-11: edit an individual grade
 window.editGrade = (gid, sid, cid) => {
-  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const g=(DB.grades||[]).find(x=>x.id===gid); if(!g) return;
   const s=DB.students.find(x=>x.id===g.sid);
   if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
   const max=g.max||20;
@@ -9215,7 +9215,7 @@ window.editGrade = (gid, sid, cid) => {
    <button class="btn btn-primary" onclick="window._doEditGrade('${gid}','${sid}','${cid}',${max})">${t('✅ Corriger','✅ Correct')}</button>`);
 };
 window._doEditGrade = (gid, sid, cid, max) => {
-  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const g=(DB.grades||[]).find(x=>x.id===gid); if(!g) return;
   const s=DB.students.find(x=>x.id===g.sid);
   if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
   const newNote=parseFloat($('editGradeVal')?.value);
@@ -9390,7 +9390,7 @@ R.devoirs = () => {
         </div>`:''}
         ${d.deadline?`<div style="font-size:12px;color:var(--text-muted);margin-top:10px">📅 À rendre le ${new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</div>`:''}
         ${(()=>{
-          const corrCount=DB.grades.filter(g=>g.devoir_id===d.id).length;
+          const corrCount=(DB.grades||[]).filter(g=>g.devoir_id===d.id).length;
           const classSize=DB.students.filter(s=>s.cid===d.cid).length;
           return `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
             ${isTeacher&&d.teacher_id===S.user.id?`<button onclick="openCorrecteurDevoir('${d.id}')" style="flex:1;padding:9px;background:#2f7bd6;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">✏️ Corriger — saisir les côtes</button>`:''}
@@ -9446,7 +9446,7 @@ R.devoirs_parent = () => {
           <div style="font-size:13px;color:var(--text);line-height:1.7;white-space:pre-wrap">${esc(d.chapters||d.description)}</div>
         </div>`:''}
         ${(()=>{
-          const g=kidId&&canSeeCorr?DB.grades.find(x=>x.devoir_id===d.id&&x.sid===kidId):null;
+          const g=kidId&&canSeeCorr?(DB.grades||[]).find(x=>x.devoir_id===d.id&&x.sid===kidId):null;
           if(!g) return '';
           const pct=Math.round(g.note/(g.max||20)*100);
           const col=pct>=70?'#1f9d6b':pct>=50?'#d98a2b':'#dc2626';
@@ -9502,7 +9502,7 @@ R.devoirs_parent = () => {
     const examenList=allDevoirs.filter(d=>d.category==='examen');
     const conduites=(DB.conduct||[]).filter(c=>c.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
     // Analyse rattrapage auto
-    const myGrades=DB.grades.filter(g=>g.sid===k.id);
+    const myGrades=(DB.grades||[]).filter(g=>g.sid===k.id);
     const avgNote=myGrades.length?Math.round(myGrades.reduce((a,g)=>a+gradePct(g),0)/myGrades.length):null;
     const condMap2={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
     const condAvg2=conduites.length?conduites.reduce((a,c)=>a+(condMap2[c.score]||0),0)/conduites.length:null;
@@ -9532,7 +9532,7 @@ R.devoirs_parent = () => {
       if(!d.deadline) return false;
       const dl=new Date(d.deadline).getTime();
       if(dl>=nowTs) return false;
-      const gradeExists=DB.grades.some(g=>g.devoir_id===d.id&&g.sid===k.id);
+      const gradeExists=(DB.grades||[]).some(g=>g.devoir_id===d.id&&g.sid===k.id);
       return !gradeExists;
     });
     if(overdueDevoirs.length){
@@ -9576,7 +9576,7 @@ R.devoirs_parent = () => {
     </div>`;
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
-      const recentGrades=DB.grades.filter(g=>g.sid===k.id&&(g.type==='devoir'||g.type==='interro'||g.type==='examen')).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
+      const recentGrades=(DB.grades||[]).filter(g=>g.sid===k.id&&(g.type==='devoir'||g.type==='interro'||g.type==='examen')).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8);
       
       const tCol2={devoir:'#205fae',interro:'#b45309',examen:'#8255c4'};
       const gradeRows=recentGrades.map(g=>{
@@ -9670,7 +9670,7 @@ R.devoirs_parent = () => {
         <div class="premium-section" style="margin-bottom:10px;border-left:4px solid #9b6fd4">
           <div class="premium-section-title">Détail des évaluations</div>
           ${(()=>{
-            const allG = DB.grades.filter(g=>g.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+            const allG = (DB.grades||[]).filter(g=>g.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
             if(!allG.length) return '<div style="padding:14px;text-align:center;color:var(--text-muted);font-size:13px">Aucune évaluation enregistrée</div>';
             const tCol ={devoir:'#9b6fd4',interro:'#f59e0b',examen:'#dc2626'};
             return allG.map(g=>{
@@ -9930,7 +9930,7 @@ window.openCorrecteurDevoir = dvId => {
   const students=DB.students.filter(s=>s.cid===d.cid);
   const catLabel={devoir:'Devoir',interro:'Interrogation',examen:'Examen'}[d.category]||'Évaluation';
   const catCol={devoir:'#2f7bd6',interro:'#f59e0b',examen:'#9b6fd4'}[d.category]||'#2f7bd6';
-  const existingGrades=DB.grades.filter(g=>g.devoir_id===dvId);
+  const existingGrades=(DB.grades||[]).filter(g=>g.devoir_id===dvId);
   window._gradeTrim=d.trimester||DB.settings.currentTrimestre||'T1';
   openM(`✏️ Corriger — ${catLabel}`,`
   <div style="padding:10px 14px;background:${catCol}18;border-radius:10px;border-left:4px solid ${catCol};margin-bottom:14px">
@@ -9991,7 +9991,7 @@ window.saveCorrecteurDevoir = dvId => {
     const note=parseFloat(raw);
     if(isNaN(note)||note<0||note>max) return;
     const comment=(document.querySelector('.gc-comment[data-sid="'+sid+'"]')?.value||'').trim();
-    const existing=DB.grades.find(g=>g.devoir_id===dvId&&g.sid===sid);
+    const existing=(DB.grades||[]).find(g=>g.devoir_id===dvId&&g.sid===sid);
     if(existing){
       existing.note=note;existing.max=max;existing.weight=coef;existing.trimester=trim;
       existing.comment=comment;existing.corrected_at=corrected_at;
@@ -10001,7 +10001,7 @@ window.saveCorrecteurDevoir = dvId => {
         type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
         date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id,
         comment,corrected_at,school_id:window._currentSchoolId||null};
-      DB.grades.push(g); pushSync('grades','post',g);
+      (DB.grades=DB.grades||[]).push(g); pushSync('grades','post',g);
     }
     saved++;
   });
@@ -10061,7 +10061,7 @@ window.confirmDevoir = (dvId, kidId) => {
 
 window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   const d=(DB.devoirs||[]).find(x=>x.id===dvId); if(!d) return;
-  const myGrade=kidId?DB.grades.find(g=>g.devoir_id===dvId&&g.sid===kidId):null;
+  const myGrade=kidId?(DB.grades||[]).find(g=>g.devoir_id===dvId&&g.sid===kidId):null;
 
   // Stored PDF: download directly as .pdf
   if(d.type==='pdf' && d.content) {
@@ -12633,7 +12633,7 @@ window.sendCaisseReceipt = async (student, rec) => {
 };
 
 window.viewReceipt = (nid) => {
-  const n=DB.notifs.find(x=>x.id===nid); if(!n||!n.receipt) return;
+  const n=(DB.notifs||[]).find(x=>x.id===nid); if(!n||!n.receipt) return;
   const r=n.receipt;
   const sc=DB.settings.school||{};
   const school=sc.name||'SchoolSafe';
@@ -15737,7 +15737,7 @@ window.genererRapportMensuel = (sid, mois) => {
   const matieres=getClassMatieres(cl.id);
   const trim=DB.settings?.currentTrimestre||'T1';
   // Notes du mois (approx = trimestre actif)
-  const grades=DB.grades.filter(g=>g.sid===sid&&g.trimester===trim);
+  const grades=(DB.grades||[]).filter(g=>g.sid===sid&&g.trimester===trim);
   let totalPct=0,sumC=0;
   matieres.forEach(m=>{const a=matAvgPct(sid,m.name,trim);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
   const moy=sumC?Math.round(totalPct/sumC):null;
@@ -16000,7 +16000,7 @@ window.exportCSV = (type) => {
   } else if(type==='grades'){
     filename=`notes_${DB.settings.year||'2025-2026'}.csv`;
     rows=[['Élève','Classe','Matière','Trimestre','Type','Libellé','Note','Sur','Coefficient','Pct (%)']];
-    DB.grades.forEach(g=>{const s=DB.students.find(x=>x.id===g.sid),c=s?gc(s.cid):null;rows.push([s?s.name:'',c?c.name:'',g.matiere,g.trimester||'',g.type||'',g.label||'',g.note!==undefined?g.note:'',g.max||20,g.weight||1,gradePct(g)]);});
+    (DB.grades||[]).forEach(g=>{const s=DB.students.find(x=>x.id===g.sid),c=s?gc(s.cid):null;rows.push([s?s.name:'',c?c.name:'',g.matiere,g.trimester||'',g.type||'',g.label||'',g.note!==undefined?g.note:'',g.max||20,g.weight||1,gradePct(g)]);});
   } else if(type==='scans'){
     filename=`scans_portail_${today()}.csv`;
     rows=[['Date','Heure','Matricule','Élève','Classe','Type','Statut','Autorisé par']];
@@ -16212,7 +16212,7 @@ window.printReport = (type) => {
     const mColor=me&&me.moy>=75?'#1f9d6b':me&&me.moy>=50?'#d98a2b':'#dc2626';
 
     const sectionRows=(mats,flag)=>mats.map(m=>{
-      const grades=DB.grades.filter(g=>g.sid===k.id&&g.matiere===m.name);
+      const grades=(DB.grades||[]).filter(g=>g.sid===k.id&&g.matiere===m.name);
       const t1=matAvgPct(k.id,m.name,'T1'),t2=matAvgPct(k.id,m.name,'T2'),t3=matAvgPct(k.id,m.name,'T3');
       const avg=matAvgPct(k.id,m.name);
       const col=avg===null?'#666':avg>=70?'#1f9d6b':avg>=50?'#d98a2b':'#dc2626';
@@ -16264,7 +16264,7 @@ window.printReport = (type) => {
       const studs=DB.students.filter(s=>s.cid===cl.id);
       if(!studs.length) return '';
       const clMats=getClassMatieres(cl.id);
-      const gradeMatSet=new Set(DB.grades.filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere));
+      const gradeMatSet=new Set((DB.grades||[]).filter(g=>studs.some(s=>s.id===g.sid)).map(g=>g.matiere));
       const mats=clMats.filter(m=>gradeMatSet.has(m.name));
       const matNames=mats.map(m=>m.name);
       const ranked=studs.map(s=>{const avg=studentAvgPct(s.id,mats);return{s,avg};}).sort((a,b)=>b.avg-a.avg);
@@ -16366,7 +16366,7 @@ window.printReport = (type) => {
     const pass=50;
     const sections=DB.classes.map(cl=>{
       const studs=DB.students.filter(s=>s.cid===cl.id);
-      const fail=studs.filter(s=>{const gs=DB.grades.filter(g=>g.sid===s.id);if(!gs.length)return false;return gs.reduce((a,g)=>a+gradePct(g),0)/gs.length<pass;}).map(s=>{const gs=DB.grades.filter(g=>g.sid===s.id);const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);const weak=[...new Set(gs.filter(g=>gradePct(g)<pass).map(g=>g.matiere))];return{s,avg,weak};});
+      const fail=studs.filter(s=>{const gs=(DB.grades||[]).filter(g=>g.sid===s.id);if(!gs.length)return false;return gs.reduce((a,g)=>a+gradePct(g),0)/gs.length<pass;}).map(s=>{const gs=(DB.grades||[]).filter(g=>g.sid===s.id);const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);const weak=[...new Set(gs.filter(g=>gradePct(g)<pass).map(g=>g.matiere))];return{s,avg,weak};});
       if(!fail.length) return '';
       return `<div class="ch">📚 ${esc(cl.name)} — ${fail.length} élève(s)</div><table><tr><th>#</th><th>Nom</th><th>Moyenne</th><th>Matières insuffisantes</th></tr>${fail.map(({s,avg,weak},i)=>`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td><span class="pill unpaid">${avg}%</span></td><td style="color:#dc2626">${weak.map(w=>esc(w)).join(' · ')||'—'}</td></tr>`).join('')}</table>`;
     }).join('');
