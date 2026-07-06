@@ -1347,27 +1347,29 @@ window.runAutoCleanup = async (force=false) => {
   const c_msg_unread=cutoffFor(ret.messages_unread||60);
   const c_conv=cutoffFor(ret.convocations||90);
   const now_iso=new Date().toISOString().slice(0,10);
+  const _del = async (url) => { try { const r=await fetch(url,{method:'DELETE',headers:_H}); return r.ok; } catch(_){ return false; } };
   const tables=[
     {t:'scan_log',col:'date',cutoff:c_scan},
     {t:'audit_log',col:'date',cutoff:c_audit},
     {t:'notifs',col:'date',cutoff:c_notifs},
   ];
+  const _tOk={};
   for(const {t,col,cutoff} of tables){
-    await fetch(`${SUPA_URL}/rest/v1/${t}?${col}=lt.${cutoff}`,{method:'DELETE',headers:_H});
+    _tOk[t]=await _del(`${SUPA_URL}/rest/v1/${t}?${col}=lt.${cutoff}`);
   }
-  await fetch(`${SUPA_URL}/rest/v1/approbations?status=eq.done&date=lt.${c_appro}`,{method:'DELETE',headers:_H});
-  await fetch(`${SUPA_URL}/rest/v1/messages?read=eq.true&date=lt.${c_msg}`,{method:'DELETE',headers:_H});
-  await fetch(`${SUPA_URL}/rest/v1/messages?read=eq.false&date=lt.${c_msg_unread}`,{method:'DELETE',headers:_H});
-  await fetch(`${SUPA_URL}/rest/v1/convocations?status=eq.done&date=lt.${c_conv}`,{method:'DELETE',headers:_H});
-  await fetch(`${SUPA_URL}/rest/v1/devoirs?expires_at=lt.${now_iso}`,{method:'DELETE',headers:_H});
+  const _aproOk=await _del(`${SUPA_URL}/rest/v1/approbations?status=eq.done&date=lt.${c_appro}`);
+  const _msgOk=await _del(`${SUPA_URL}/rest/v1/messages?read=eq.true&date=lt.${c_msg}`)
+            && await _del(`${SUPA_URL}/rest/v1/messages?read=eq.false&date=lt.${c_msg_unread}`);
+  const _convOk=await _del(`${SUPA_URL}/rest/v1/convocations?status=eq.done&date=lt.${c_conv}`);
+  const _dvOk=await _del(`${SUPA_URL}/rest/v1/devoirs?expires_at=lt.${now_iso}`);
   const prev={s:(DB.scan_log||[]).length,a:(DB.audit_log||[]).length,n:(DB.notifs||[]).length,m:(DB.messages||[]).length,cv:(DB.convocations||[]).length,dv:(DB.devoirs||[]).length};
-  DB.scan_log=(DB.scan_log||[]).filter(l=>l.date>=c_scan);
-  DB.audit_log=(DB.audit_log||[]).filter(l=>l.date>=c_audit);
-  DB.notifs=(DB.notifs||[]).filter(n=>n.date>=c_notifs);
-  DB.approbations=(DB.approbations||[]).filter(a=>a.status!=='done'||a.date>=c_appro);
-  DB.messages=(DB.messages||[]).filter(m=>m.read?m.date>=c_msg:m.date>=c_msg_unread);
-  DB.convocations=(DB.convocations||[]).filter(cv=>cv.status!=='done'||cv.date>=c_conv);
-  DB.devoirs=(DB.devoirs||[]).filter(dv=>!dv.expires_at||dv.expires_at>=now_iso);
+  if(_tOk['scan_log']) DB.scan_log=(DB.scan_log||[]).filter(l=>l.date>=c_scan);
+  if(_tOk['audit_log']) DB.audit_log=(DB.audit_log||[]).filter(l=>l.date>=c_audit);
+  if(_tOk['notifs']) DB.notifs=(DB.notifs||[]).filter(n=>n.date>=c_notifs);
+  if(_aproOk) DB.approbations=(DB.approbations||[]).filter(a=>a.status!=='done'||a.date>=c_appro);
+  if(_msgOk) DB.messages=(DB.messages||[]).filter(m=>m.read?m.date>=c_msg:m.date>=c_msg_unread);
+  if(_convOk) DB.convocations=(DB.convocations||[]).filter(cv=>cv.status!=='done'||cv.date>=c_conv);
+  if(_dvOk) DB.devoirs=(DB.devoirs||[]).filter(dv=>!dv.expires_at||dv.expires_at>=now_iso);
   const removed=(prev.s-(DB.scan_log||[]).length)+(prev.a-(DB.audit_log||[]).length)+(prev.n-(DB.notifs||[]).length)+(prev.m-(DB.messages||[]).length)+(prev.cv-(DB.convocations||[]).length)+(prev.dv-(DB.devoirs||[]).length);
   saveToCrypt();
   if(force) toast('🧹 '+(removed||'Aucune')+' entrée'+(removed>1?'s':'')+' supprimée'+(removed>1?'s':''),'success');
@@ -17563,25 +17565,51 @@ window.prefillRDCHolidays = () => {
 window.openCalM = () => openM('Ajouter un événement',`
 <div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="ft2" placeholder="Ex: Réunion parents"></div>
 <div class="form-row"><div class="form-group"><label class="form-label">Date</label><input class="form-input" id="fd" type="date"></div>
-<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="fty">
+<div class="form-group"><label class="form-label">Type</label><select class="form-select" id="fty" onchange="window._calTypeChange(this.value)">
   <option value="event">📌 Événement</option>
   <option value="holiday">🎉 Jour férié</option>
   <option value="vacation">🌴 Vacances</option>
   <option value="exam_period">📝 Période d'examens</option>
   <option value="reunion">🤝 Réunion parents</option>
-</select></div></div>`,
+</select></div></div>
+<div class="form-group" style="margin-top:6px">
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+    <input type="checkbox" id="cal_notify_ens" style="width:16px;height:16px">
+    Notifier les enseignants
+  </label>
+  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-top:6px" id="cal_notify_par_wrap">
+    <input type="checkbox" id="cal_notify_par" style="width:16px;height:16px">
+    Notifier les parents
+  </label>
+</div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="saveCal()">Ajouter</button>`);
+window._calTypeChange = (ty) => {
+  const ensChk=document.getElementById('cal_notify_ens');
+  const parWrap=document.getElementById('cal_notify_par_wrap');
+  const parChk=document.getElementById('cal_notify_par');
+  if(ty==='reunion'){if(ensChk)ensChk.checked=true;if(parChk)parChk.checked=true;}
+  if(ty==='exam_period'){if(ensChk)ensChk.checked=true;}
+  if(parWrap) parWrap.style.display=(ty==='reunion'||ty==='holiday'||ty==='vacation')?'':'none';
+};
 window.saveCal = () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const t=$('ft2').value.trim(),d=$('fd').value,ty=$('fty').value;
   if(!t||!d){toast('Remplir tous les champs','error');return;}
   if(DB.events.some(e=>e.title===t&&e.date===d)){toast('Cet événement existe déjà à cette date','error');return;}
+  const notifyEns=$('cal_notify_ens')?.checked;
+  const notifyPar=$('cal_notify_par')?.checked;
   const ev={id:'ev'+Date.now(),title:t,date:d,type:ty};
   DB.events.push(ev);
   DB.events.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   pushSync('events','post',ev);
+  const typeLabel={event:'📌',holiday:'🎉',vacation:'🌴',exam_period:'📝',reunion:'🤝'};
+  const notifMsg=`${typeLabel[ty]||'📅'} ${t} — ${d}`;
+  let notifCount=0;
+  if(notifyEns){ DB.users.filter(u=>u.role==='enseignant').forEach(u=>{ const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:notifMsg,time:nowTime(),date:today(),read:false,type:'academic',by:S.user.id}; DB.notifs.unshift(n);pushSync('notifs','post',n);notifCount++; }); }
+  if(notifyPar){ DB.users.filter(u=>u.role==='parent').forEach(u=>{ const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:notifMsg,time:nowTime(),date:today(),read:false,type:'info',by:S.user.id}; DB.notifs.unshift(n);pushSync('notifs','post',n);notifCount++; }); }
   saveToCrypt();
-  toast('Ajouté ✅','success'); closeModal(); render();
+  toast('Ajouté ✅'+(notifCount?` · ${notifCount} notification${notifCount>1?'s':''} envoyée${notifCount>1?'s':''}`:'')+' ','success');
+  closeModal(); render();
 };
 window.deleteEvent = (eid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
