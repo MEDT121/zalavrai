@@ -15136,7 +15136,7 @@ R.convocations = () => {
         <div style="flex:1;min-width:180px">
           <div class="pi-title">${s?esc(s.name):'?'} ${cl?`<span style="font-size:11px;color:var(--text-muted)">— ${esc(cl.name)}</span>`:''}</div>
           <div class="pi-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${parent?`Parent: ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}`:''} ${parent?.phone&&isDir?waBtn(parent.phone,parent.name):''}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.auto_generated?`<span style="background:#fdeccd;color:#92400e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">⚡ AUTO</span>`:''}${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${conv.auto_generated?`<span style="background:#fdeccd;color:#92400e;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">⚡ AUTO</span>`:''}${(()=>{const ct=_CONV_TYPES.find(t=>t.id===(conv.convoc_type||'pedagogique'));return ct?`<span style="background:${ct.bg};color:${ct.color};font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px">${ct.icon} ${ct.label}</span>`:'';})()} ${esc(conv.reason||(conv.score!=null?`📊 Moy. ${conv.score}%`:''))}</div>
           ${conv.rdv_date?`<div style="font-size:12px;font-weight:700;color:#2f7bd6;margin-top:3px">📅 RDV: ${new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}${conv.note?' · '+esc(conv.note):''}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
@@ -15170,7 +15170,11 @@ window.downloadConvocationPDF = (cid) => {
   const printDate=new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const rdvStr=conv.rdv_date?new Date(conv.rdv_date).toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'à définir';
   const logoSrc=window.SCHOOL_LOGO||'';
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Convocation — ${s?esc(s.name):''}</title>
+  // COM-10: type-aware badge
+  const ct=_CONV_TYPES.find(t=>t.id===(conv.convoc_type||'pedagogique'))||_CONV_TYPES[1];
+  const badgeColor=ct.color;
+  const badgeLabel=ct.icon+' '+ct.label;
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${badgeLabel} — ${s?esc(s.name):''}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:30px}
     .hdr{display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:12px;margin-bottom:20px}
@@ -15196,12 +15200,12 @@ window.downloadConvocationPDF = (cid) => {
       <p>📞 ${esc(phone)}</p>
     </div>
     <div style="margin-left:auto;text-align:right">
-      <div class="badge">CONVOCATION</div>
+      <div class="badge" style="background:${badgeColor}">${badgeLabel}</div>
       <div class="ref">Réf : CONV-${conv.id.slice(-6).toUpperCase()}</div>
       <div class="ref">${printDate}</div>
     </div>
   </div>
-  <h2>Objet : Convocation du parent / tuteur</h2>
+  <h2>Objet : ${ct.label} — parent / tuteur de ${s?esc(s.name):'l\'élève'}</h2>
   <table class="info-table">
     <tr><td>Élève</td><td><strong>${s?esc(s.name):'—'}</strong></td></tr>
     <tr><td>Matricule</td><td>${s?esc(s.mat||'—'):'—'}</td></tr>
@@ -15324,8 +15328,23 @@ window.sendCommunique = async () => {
   saveToCrypt(); closeModal(); window._convTab='communiques'; render();
   toast(`📣 Communiqué envoyé à ${targetParentIds.length} parent(s)`,'success');
 };
+// COM-10: convocation types
+const _CONV_TYPES = [
+  {id:'disciplinaire', icon:'⚠️', label:'Convocation disciplinaire', color:'#dc2626', bg:'#fee2e2', desc:'Conduite, comportement ou incident grave'},
+  {id:'pedagogique',   icon:'📚', label:'Entretien pédagogique',     color:'#2f7bd6', bg:'#dbeafe', desc:'Résultats scolaires, absences, difficultés'},
+  {id:'financier',     icon:'💰', label:'Convocation financière',    color:'#d97706', bg:'#fef3c7', desc:'Frais scolaires impayés ou régularisation'},
+  {id:'information',   icon:'ℹ️', label:'Réunion d\'information',    color:'#1f9d6b', bg:'#d8f3e6', desc:'Information générale, pas de sanction'},
+];
+
 window.openConvocationM = () => {
+  const typeOpts=_CONV_TYPES.map(t=>`<option value="${t.id}">${t.icon} ${t.label}</option>`).join('');
   openM('Nouvelle convocation',`
+  <div class="form-group"><label class="form-label">Type de convocation *</label>
+    <select class="form-select" id="convType" onchange="window._convTypeChange(this.value)">
+      ${typeOpts}
+    </select>
+    <div id="convTypeDesc" style="font-size:11px;color:var(--text-muted);margin-top:4px">${_CONV_TYPES[0].desc}</div>
+  </div>
   <div class="form-group"><label class="form-label">Élève *</label>
     <select class="form-select" id="convSid">
       <option value="">— Choisir un élève —</option>
@@ -15336,7 +15355,7 @@ window.openConvocationM = () => {
       }).join('')}
     </select>
   </div>
-  <div class="form-group"><label class="form-label">Motif de convocation *</label>
+  <div class="form-group"><label class="form-label">Motif *</label>
     <select class="form-select" id="convReason">
       <option value="Résultats scolaires insuffisants">📚 Résultats scolaires insuffisants</option>
       <option value="Problème de comportement">⚠️ Problème de comportement</option>
@@ -15352,6 +15371,11 @@ window.openConvocationM = () => {
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
    <button class="btn btn-primary" onclick="saveConvocation()">📋 Créer la convocation</button>`);
 };
+window._convTypeChange = (val) => {
+  const t=_CONV_TYPES.find(x=>x.id===val);
+  const el=document.getElementById('convTypeDesc');
+  if(el&&t) el.textContent=t.desc;
+};
 window.showConvocationSeal = (name, reason) => {
   const el=document.createElement('div');
   el.className='conv-seal-overlay';
@@ -15365,8 +15389,9 @@ window.showConvocationSeal = (name, reason) => {
 window.saveConvocation = () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
+  const convoc_type=$('convType')?.value||'pedagogique';
   if(!sid){toast('Sélectionner un élève','error');return;}
-  const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id};
+  const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id,convoc_type};
   DB.convocations.push(conv);
   pushSync('convocations','post',conv);
   const s=DB.students.find(x=>x.id===sid);
@@ -15392,7 +15417,11 @@ window.deleteConvocation = (id) => {
 };
 window.editConvocationM = (id) => {
   const conv=(DB.convocations||[]).find(x=>x.id===id); if(!conv) return;
+  const typeOpts=_CONV_TYPES.map(t=>`<option value="${t.id}"${conv.convoc_type===t.id?' selected':''}>${t.icon} ${t.label}</option>`).join('');
   openM('✏️ Modifier la convocation',`
+  <div class="form-group"><label class="form-label">Type de convocation</label>
+    <select class="form-select" id="convEditType">${typeOpts}</select>
+  </div>
   <div class="form-group"><label class="form-label">Motif de convocation</label>
     <select class="form-select" id="convEditReason">
       ${['Résultats scolaires insuffisants','Problème de comportement','Absences répétées','Frais scolaires impayés','Information importante','Autre'].map(v=>`<option value="${v}"${conv.reason===v?' selected':''}>${v}</option>`).join('')}
@@ -15409,7 +15438,8 @@ window.updateConvocation = (id) => {
   const conv=(DB.convocations||[]).find(x=>x.id===id); if(!conv) return;
   conv.reason=$('convEditReason')?.value||conv.reason;
   conv.note=($('convEditNote')?.value||'').trim()||null;
-  pushSync('convocations','patch',{reason:conv.reason,note:conv.note},'id=eq.'+id);
+  conv.convoc_type=$('convEditType')?.value||conv.convoc_type||'pedagogique';
+  pushSync('convocations','patch',{reason:conv.reason,note:conv.note,convoc_type:conv.convoc_type},'id=eq.'+id);
   saveToCrypt();toast('Convocation modifiée','success');closeModal();render();
 };
 
