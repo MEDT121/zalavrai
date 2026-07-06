@@ -9368,8 +9368,8 @@ R.devoirs = () => {
       <div class="ww-card-body">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
           <div style="flex:1;min-width:0">
-            <div style="font-size:16px;font-weight:700">${d.title}</div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${cls?cls.name:''} · ${d.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'} · ${d.date}</div>
+            <div style="font-size:16px;font-weight:700">${esc(d.title)}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${cls?esc(cls.name):''} · ${d.lang==='fr'?'🇫🇷 Français':'🇬🇧 English'} · ${d.date}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             ${deadline?`<span class="pill ${overdue?'pill-red':daysLeft<=2?'pill-orange':'pill-blue'}">${overdue?t('En retard','Overdue'):daysLeft===0?t("Aujourd'hui","Today"):daysLeft+t(' jour',' day')+(daysLeft>1?'s':'')}</span>`:''}
@@ -10173,7 +10173,7 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
       const an=grp.length<=3?8:grp.length<=5?5:3;
       pagesHTML+=`<div class="a4${gi>0?' pb':''}">
         ${mkHdr(gi+1)}
-        ${gi===0?`<h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${d.title}</h1>${metaC}${parsed.preamble?secTitle('Instructions')+'<div class="body-box">'+parsed.preamble+'</div>':''}`:''}
+        ${gi===0?`<h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${esc(d.title)}</h1>${metaC}${parsed.preamble?secTitle('Instructions')+'<div class="body-box">'+esc(parsed.preamble)+'</div>':''}`:''}
         ${secTitle('Questions &amp; Réponses'+(gi===0?` (${qCount})`:'(suite)'))}
         ${grp.map(q=>`<div class="q-item"><div class="ql"><div class="qn">${q.num}</div></div><div class="qb"><div class="qt">${q.text}</div><div class="qa">${alines(an)}</div></div></div>`).join('')}
         ${sigFtr}
@@ -10182,10 +10182,10 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   } else {
     pagesHTML=`<div class="a4">
       ${mkHdr(1)}
-      <h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${d.title}</h1>
+      <h1 style="font-size:19px;font-weight:900;margin-bottom:6px;line-height:1.3">${esc(d.title)}</h1>
       ${metaC}
       ${secTitle('Consignes / Énoncé')}
-      ${d.description?`<div class="body-box">${d.description}</div>`:`<div class="body-box" style="color:#a89c8b;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
+      ${d.description?`<div class="body-box">${esc(d.description)}</div>`:`<div class="body-box" style="color:#a89c8b;font-style:italic">Voir les consignes données en classe par l'enseignant.</div>`}
       ${imgBlock}${pdfNote}
       ${secTitle("✏️ Travail de l'élève")}
       <div style="border:2px dashed #ddd0bf;border-radius:12px;padding:14px 16px;margin-top:8px">${alines(12)}</div>
@@ -10200,19 +10200,19 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
     const corrDate=myGrade.corrected_at?new Date(myGrade.corrected_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):myGrade.date||'';
     pagesHTML+=`<div class="a4 pb">
       ${mkHdr(totalPages)}
-      <h1 style="font-size:19px;font-weight:900;margin:8px 0 14px;line-height:1.3">${d.title} — Résultats</h1>
+      <h1 style="font-size:19px;font-weight:900;margin:8px 0 14px;line-height:1.3">${esc(d.title)} — Résultats</h1>
       <div class="corr-box">
         <div class="corr-hdr"><span>RÉSULTATS DE CORRECTION</span><span style="font-size:10px;opacity:.85">Corrigé le ${corrDate}</span></div>
         <div class="corr-body">
           <div style="text-align:center;flex-shrink:0"><div style="font-size:36px;font-weight:900;line-height:1;color:${col}">${myGrade.note}<span style="font-size:16px;color:#a89c8b">/${myGrade.max}</span></div><div style="font-size:11px;color:#6f6557;margin-top:3px">${pct}%</div></div>
-          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:${col};margin-bottom:6px">${mention}</div>${myGrade.comment?`<div style="font-size:13px;color:#374151;font-style:italic;margin-bottom:4px">"${myGrade.comment}"</div>`:''}<div style="font-size:10px;color:#a89c8b">Corrigé par ${teacherName||"l'enseignant"}</div></div>
+          <div style="flex:1"><div style="font-size:14px;font-weight:700;color:${col};margin-bottom:6px">${mention}</div>${myGrade.comment?`<div style="font-size:13px;color:#374151;font-style:italic;margin-bottom:4px">"${esc(myGrade.comment)}"</div>`:''}<div style="font-size:10px;color:#a89c8b">Corrigé par ${esc(teacherName||"l'enseignant")}</div></div>
         </div>
       </div>
       ${sigFtr}
     </div>`;
   }
 
-  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${catLabel} — ${d.title}</title><style>${CSS}</style></head><body>
+  const html=`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${catLabel} — ${esc(d.title)}</title><style>${CSS}</style></head><body>
   <div class="print-bar">📄 ${qCount>0?qCount+' question'+(qCount>1?'s':''):'Devoir'}${totalPages>1?' · '+totalPages+' pages':''} <button onclick="window.print()">🖸️ Imprimer / Exporter PDF</button></div>
   ${pagesHTML}</body></html>`;
 
