@@ -5954,7 +5954,7 @@ R.parents = () => {
                             ${t.photo?`<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover">`:`<span style="font-size:18px;font-weight:700;color:#6f6557">${ini(t.name)}</span>`}
                             ${!active?`<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center">🚫</div>`:''}
                           </div>
-                          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.name.split(' ')[0]}</div>
+                          <div style="font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.name.split(' ')[0])}</div>
                           <div style="font-size:10px;color:var(--text-secondary)">${esc(t.relation||'Tutelle')}</div>
                           <div style="font-size:10px;color:${active?'#1f9d6b':'#dc2626'};font-weight:600;margin:3px 0">${active?'Autorisé':'Désactivé'}</div>
                           <div style="display:flex;gap:4px;justify-content:center;margin-top:5px">
@@ -6909,7 +6909,7 @@ window.openAssignCaissePayment = (sid) => {
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`Affecter paiement — ${s.name}`,`
 <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez le trimestre à marquer comme payé grâce aux paiements enregistrés par la caisse.</p>
-${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary)">Paiements caisse validés disponibles :</div>${unassigned.map(r=>`<div class="premium-item" style="padding:8px 12px"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${r.type_label} — ${_cur()}${r.amount}</div><div class="pi-sub">${r.date} à ${r.time}</div></div></div>`).join('')}</div>`:'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Aucun paiement caisse non affecté pour cet élève.</div>'}
+${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text-secondary)">Paiements caisse validés disponibles :</div>${unassigned.map(r=>`<div class="premium-item" style="padding:8px 12px"><div class="pi-icon" style="background:#d8f3e6">💵</div><div style="flex:1"><div class="pi-title">${esc(r.type_label)} — ${_cur()}${r.amount}</div><div class="pi-sub">${r.date} à ${r.time}</div></div></div>`).join('')}</div>`:'<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Aucun paiement caisse non affecté pour cet élève.</div>'}
 <div class="form-group"><label class="form-label">Marquer comme payé :</label><select class="form-select" id="assign_t">${pays.map(p=>`<option value="${p.t}">Trimestre ${p.t}</option>`).join('')}</select></div>`,
 `<button class="btn btn-outline" onclick="closeModal()">Annuler</button><button class="btn btn-primary" onclick="assignTrimestre('${sid}')">Affecter</button>`);
 };
