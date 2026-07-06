@@ -13249,8 +13249,17 @@ R.tresorerie = () => {
   // Salaires du mois
   const salM=(DB.salaries||[]).filter(s=>s.month===selDate&&s.paid);
   const totalSalaires=salM.reduce((s,r)=>s+(Number(r.net||r.amount)||0),0);
-  // Solde
+  // Solde mensuel
   const solde=totalRecettes-totalDepenses-totalSalaires;
+  // FIN-05: cumulative YTD (Jan → selected month)
+  const versYTD=(DB.versements||[]).filter(v=>v.date&&v.date.startsWith(yr+'-')&&v.date.slice(0,7)<=selDate&&!v.annulled);
+  const totalRecettesYTD=versYTD.reduce((s,v)=>s+(Number(v.montant)||0),0);
+  const depYTD=(DB.daily_expenses||[]).filter(d=>d.date&&d.date.startsWith(yr+'-')&&d.date.slice(0,7)<=selDate);
+  const totalDepensesYTD=depYTD.reduce((s,d)=>s+(Number(d.amount)||0),0);
+  const salYTD=(DB.salaries||[]).filter(s=>s.month&&s.month.startsWith(yr+'-')&&s.month<=selDate&&s.paid);
+  const totalSalairesYTD=salYTD.reduce((s,r)=>s+(Number(r.net||r.amount)||0),0);
+  const soldeYTD=totalRecettesYTD-totalDepensesYTD-totalSalairesYTD;
+  const moLabel=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][mo-1];
   // Recettes par méthode de paiement
   const byMethod={};
   versM.forEach(v=>{const m=v.payment_method||'Espèces';byMethod[m]=(byMethod[m]||0)+(Number(v.montant)||0);});
@@ -13288,7 +13297,12 @@ R.tresorerie = () => {
     </div>
     <div style="background:linear-gradient(135deg,${solde>=0?'#d1fae5,#a7f3d0':'#fee2e2,#fecaca'});border-radius:12px;padding:14px;text-align:center">
       <div style="font-size:20px;font-weight:800;color:${solde>=0?'#065f46':'#7f1d1d'}">${solde>=0?'+':'-'}${_cur()}${Math.abs(solde).toLocaleString()}</div>
-      <div style="font-size:11px;color:${solde>=0?'#047857':'#991b1b'};font-weight:600">💰 Solde net</div>
+      <div style="font-size:11px;color:${solde>=0?'#047857':'#991b1b'};font-weight:600">💰 Solde net ${moLabel}</div>
+    </div>
+    <div style="background:linear-gradient(135deg,${soldeYTD>=0?'#ede9fe,#ddd6fe':'#fee2e2,#fecaca'});border-radius:12px;padding:14px;text-align:center;grid-column:1/-1">
+      <div style="font-size:22px;font-weight:800;color:${soldeYTD>=0?'#4c1d95':'#7f1d1d'}">${soldeYTD>=0?'+':'-'}${_cur()}${Math.abs(soldeYTD).toLocaleString()}</div>
+      <div style="font-size:11px;color:${soldeYTD>=0?'#6d28d9':'#991b1b'};font-weight:600">📊 Trésorerie cumulée Jan–${moLabel} ${yr}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${_cur()}${totalRecettesYTD.toLocaleString()} recettes — ${_cur()}${(totalDepensesYTD+totalSalairesYTD).toLocaleString()} sorties</div>
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
@@ -13500,6 +13514,57 @@ R.comptabilite = () => {
     <button class="btn btn-primary" style="width:100%;margin-top:12px;padding:13px;font-weight:700" onclick="exportComptabilitePDF()">⬇️ Exporter Compte de Résultat PDF</button>`;
   }
 
+  // FIN-09: Bilan OHADA simplifié
+  else if(tab==='bilan') {
+    const sc=DB.settings?.school||{};
+    const dev=sc.devise||_cur();
+    const yr_label=DB.settings?.year||today().slice(0,4);
+    // Actif: comptes de classe 5 (trésorerie)
+    const actifRows=Object.values(balance).filter(b=>b.cl===5);
+    const totalActif=actifRows.reduce((s,b)=>s+Math.max(0,b.solde),0);
+    // Passif: résultat + fonds propres (cl.1 absent → résultat seul)
+    const totalProdB=Object.values(balance).filter(b=>b.type==='produit').reduce((s,b)=>s+b.solde,0);
+    const totalCharB=Object.values(balance).filter(b=>b.type==='charge').reduce((s,b)=>s+b.solde,0);
+    const resultatB=totalProdB-totalCharB;
+    const ecart=totalActif-resultatB;
+    body=`
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;padding:10px 14px;background:var(--bg-card);border-radius:10px;border:1px solid var(--border)">
+      Bilan simplifié établi selon le SYSCOHADA — Exercice ${yr_label} — ${esc(sc.name||'École')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="border-radius:14px;overflow:hidden;border:1.5px solid #86efac">
+        <div style="background:linear-gradient(135deg,#1f9d6b,#047857);padding:12px 14px;color:#fff;font-weight:800;font-size:13px">📦 ACTIF</div>
+        <div style="background:#f0fdf4">
+          <div style="padding:9px 14px;border-bottom:1px solid #d8f3e6;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Trésorerie disponible</div>
+          ${actifRows.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #d8f3e6">
+            <span style="font-size:12px">${b.icon} ${b.num} — ${b.n}</span>
+            <span style="font-size:13px;font-weight:700;color:${b.solde>=0?'#065f46':'#991b1b'}">${b.solde>=0?dev+b.solde:'('+dev+Math.abs(b.solde)+')'}</span>
+          </div>`).join('')}
+          ${actifRows.length===0?`<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">Aucun mouvement de trésorerie</div>`:''}
+          <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#d8f3e6;font-weight:800"><span>TOTAL ACTIF</span><span style="color:#065f46">${dev}${totalActif}</span></div>
+        </div>
+      </div>
+      <div style="border-radius:14px;overflow:hidden;border:1.5px solid #bfdbfe">
+        <div style="background:linear-gradient(135deg,#1d4ed8,#1e40af);padding:12px 14px;color:#fff;font-weight:800;font-size:13px">🏛️ PASSIF</div>
+        <div style="background:#eff6ff">
+          <div style="padding:9px 14px;border-bottom:1px solid #bfdbfe;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase">Fonds propres & résultat</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #bfdbfe">
+            <span style="font-size:12px">📈 Produits de l'exercice</span>
+            <span style="font-size:13px;font-weight:700;color:#065f46">${dev}${totalProdB}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid #bfdbfe">
+            <span style="font-size:12px">📉 Charges de l'exercice</span>
+            <span style="font-size:13px;font-weight:700;color:#991b1b">(${dev}${totalCharB})</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:12px 14px;background:${resultatB>=0?'#dbeafe':'#fee2e2'};font-weight:800"><span>RÉSULTAT NET</span><span style="color:${resultatB>=0?'#1e40af':'#991b1b'}">${resultatB>=0?'+':''}${dev}${resultatB}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#dbeafe;font-weight:800"><span>TOTAL PASSIF</span><span style="color:#1e40af">${dev}${resultatB}</span></div>
+        </div>
+      </div>
+    </div>
+    ${Math.abs(ecart)<1?`<div style="background:#d8f3e6;border:1px solid #86efac;border-radius:10px;padding:10px 14px;font-weight:700;color:#065f46;text-align:center;margin-bottom:12px">✅ Bilan équilibré — Actif = Passif = ${dev}${totalActif}</div>`:`<div style="background:#fef9c3;border:1px solid #fde047;border-radius:10px;padding:10px 14px;font-size:12px;color:#854d0e;margin-bottom:12px">ℹ️ Écart de ${dev}${Math.abs(ecart)} — peut indiquer des espèces reçues non encore enregistrées comme versement, ou des charges payées hors du système.</div>`}
+    <button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px;width:100%;padding:12px;font-weight:700" onclick="exportBilanPDF()">⬇️ Exporter Bilan OHADA PDF</button>`;
+  }
+
   return `
   <button onclick="go('caisse_paiement')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour à la Caisse</button>
   ${_helpBanner('comptabilite','Vue OHADA automatique — chaque paiement, dépense et salaire génère une écriture comptable. Journal : toutes les écritures dans l\'ordre. Balance : solde par compte. Résultat : Produits − Charges. Aucune saisie manuelle n\'est nécessaire.')}
@@ -13521,6 +13586,7 @@ R.comptabilite = () => {
     <button style="${tabStyle('grandlivre')}" onclick="window._comptaTab='grandlivre';render()">📖 Grand Livre</button>
     <button style="${tabStyle('balance')}"    onclick="window._comptaTab='balance';render()">⚖️ Balance</button>
     <button style="${tabStyle('resultat')}"   onclick="window._comptaTab='resultat';render()">📊 Résultat</button>
+    <button style="${tabStyle('bilan')}"      onclick="window._comptaTab='bilan';render()">🏛️ Bilan</button>
   </div>
   ${body}`;
 };
@@ -13974,6 +14040,52 @@ window.exportComptabilitePDF = () => {
   ${_pdfSignatureBlock(dev)}
   </body></html>`;
   dlPDF(html, `CompteResultat-${today()}.pdf`);
+};
+
+// ── Export Bilan OHADA simplifié PDF ──
+window.exportBilanPDF = () => {
+  const sc = DB.settings?.school || {};
+  const dev = sc.devise || _cur();
+  const yr = DB.settings?.year || today().slice(0,4);
+  const journal = _getJournalAll();
+  const balance = _getBalanceComptes(journal);
+  const actifRows = Object.values(balance).filter(b=>b.cl===5).sort((a,c)=>a.num.localeCompare(c.num));
+  const totalActif = actifRows.reduce((s,b)=>s+Math.max(0,b.solde),0);
+  const totP = Object.values(balance).filter(b=>b.type==='produit').reduce((s,b)=>s+b.solde,0);
+  const totC = Object.values(balance).filter(b=>b.type==='charge').reduce((s,b)=>s+b.solde,0);
+  const resultat = totP - totC;
+  const ecart = totalActif - resultat;
+  const html = `<html><head><meta charset="utf-8"><style>${_COMPTA_CSS}</style></head><body>
+  <div class="doc-hdr">
+    ${window.SCHOOL_LOGO ? `<img class="doc-hdr-logo" src="${window.SCHOOL_LOGO}">` : ''}
+    <div class="doc-hdr-title">
+      <h1>Bilan Simplifi&eacute;</h1>
+      <div class="sous-titre">${_pdfSchoolBlock(sc)}</div>
+      <div class="periode">${_pdfYearRange()} &nbsp;|&nbsp; En unit&eacute;s : ${dev}</div>
+    </div>
+    <div class="syscohada">SYSCOHADA<br>Bilan<br>OHADA</div>
+  </div>
+  <table style="table-layout:fixed">
+    <colgroup><col style="width:60px"><col><col style="width:120px"><col style="width:20px"><col style="width:60px"><col><col style="width:120px"></colgroup>
+    <thead><tr><th colspan="3" style="background:#047857;text-align:center">ACTIF</th><th style="background:#fff;border:none"></th><th colspan="3" style="background:#1d4ed8;text-align:center">PASSIF</th></tr>
+      <tr><th>N°</th><th>Intitulé</th><th class="num">Montant</th><th style="background:#fff;border:none"></th><th>Réf.</th><th>Intitulé</th><th class="num">Montant</th></tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="3" style="font-weight:700;color:#047857;background:#f0fdf4">Classe 5 — Trésorerie disponible</td><td style="border:none"></td><td colspan="3" style="font-weight:700;color:#1d4ed8;background:#eff6ff">Fonds propres &amp; résultat</td></tr>
+      ${actifRows.map((b,i)=>{
+        const passifRow = i===0 ? `<td></td><td>Produits de l'exercice (Cl.7)</td><td class="num" style="color:#065f46">${_fmtM(totP,dev)}</td>` :
+                          i===1 ? `<td></td><td>Charges de l'exercice (Cl.6)</td><td class="num" style="color:#dc2626">(${_fmtM(totC,dev)})</td>` : `<td></td><td></td><td></td>`;
+        return `<tr><td style="font-weight:700;color:#243a6b">${b.num}</td><td>${esc(b.n)}</td><td class="num" style="color:#065f46">${_fmtM(Math.max(0,b.solde),dev)}</td><td style="border:none"></td>${passifRow}</tr>`;
+      }).join('')}
+      ${actifRows.length<2?`<tr><td></td><td></td><td></td><td style="border:none"></td><td></td><td>Charges de l'exercice (Cl.6)</td><td class="num" style="color:#dc2626">(${_fmtM(totC,dev)})</td></tr>`:''}
+    </tbody>
+    <tfoot><tr class="grand-tot"><td colspan="2">TOTAL ACTIF</td><td class="num">${_fmtM(totalActif,dev)}</td><td style="border:none"></td><td colspan="2">RÉSULTAT NET</td><td class="num" style="color:${resultat>=0?'#065f46':'#dc2626'}">${_fmtM(resultat,dev)}</td></tr></tfoot>
+  </table>
+  ${Math.abs(ecart)<1?`<div class="res-box res-pos" style="margin-top:12px;font-size:13px">✅ Bilan équilibré — Actif = Passif = ${_fmtM(totalActif,dev)}</div>`:
+    `<div style="margin-top:10px;padding:10px 14px;background:#fef9c3;border:1px solid #fde047;border-radius:8px;font-size:11px;color:#854d0e">Écart : ${_fmtM(Math.abs(ecart),dev)} — peut indiquer des flux non encore saisis dans le système.</div>`}
+  ${_pdfSignatureBlock(dev)}
+  </body></html>`;
+  dlPDF(html, `Bilan-${today()}.pdf`);
 };
 
 R.caisse_rapport = () => {
