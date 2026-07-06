@@ -9044,6 +9044,10 @@ window.openGradePanel = cid => {
       <label class="form-label">Coeff.</label>
       <input class="form-input" id="gradeCoef" type="number" min="0.5" max="10" step="0.5" value="${window._gradeType==='interro'?2:(window._gradeType==='examen'||window._gradeType==='composition')?3:1}" style="text-align:center">
     </div>
+    <div class="form-group" style="flex:1;margin-bottom:0">
+      <label class="form-label">${t('Sur /','Max')}</label>
+      <input class="form-input" id="gradeMax" type="number" min="1" max="200" step="1" value="20" style="text-align:center" title="${t('Barème : note maximale','Scale: maximum grade')}">
+    </div>
   </div>
   <div class="form-group" style="margin-bottom:10px">
     <label class="form-label">${t('Libellé (optionnel)','Label (optional)')}</label>
@@ -9054,7 +9058,7 @@ window.openGradePanel = cid => {
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
       <div style="width:34px;height:34px;border-radius:9px;background:#f6ede0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
       <div style="flex:1;font-size:13px;font-weight:600">${esc(s.name)}</div>
-      ${isMaternelle?`<select class="form-select mat-grade-input grade-input" data-sid="${s.id}" style="flex:1"><option value="">—</option><option value="18">Acquis (A)</option><option value="12">En cours (EC)</option><option value="5">Non acquis (NA)</option></select>`:`<input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="20" step="0.5" placeholder="—"><span style="font-size:12px;color:var(--text-muted);min-width:22px">/20</span>`}
+      ${isMaternelle?`<select class="form-select mat-grade-input grade-input" data-sid="${s.id}" style="flex:1"><option value="">—</option><option value="18">Acquis (A)</option><option value="12">En cours (EC)</option><option value="5">Non acquis (NA)</option></select>`:`<input class="form-input grade-input" data-sid="${s.id}" style="width:64px;text-align:center;padding:8px" type="number" min="0" max="200" step="0.5" placeholder="—"><span class="grade-max-label" style="font-size:12px;color:var(--text-muted);min-width:28px">/20</span>`}
     </div>`).join('')}
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
@@ -9067,6 +9071,11 @@ window.openGradePanel = cid => {
         if(inp.value.trim()!==''){inp.classList.remove('grade-ink');void inp.offsetWidth;inp.classList.add('grade-ink');}
       });
     });
+    const maxEl=$('gradeMax');
+    if(maxEl) maxEl.addEventListener('input', () => {
+      const v=maxEl.value||'20';
+      document.querySelectorAll('.grade-max-label').forEach(el=>{ el.textContent='/'+v; });
+    });
   }, 0);
 };
 
@@ -9078,6 +9087,8 @@ window.saveGradePanel = cid => {
   const trim   = window._gradeTrim || 'T1';
   const type   = window._gradeType || 'devoir';
   const typeIcon= {devoir:'📚', interro:'⚠️', examen:'📝', composition:'📋'}[type]||'📚';
+  // PED-11: configurable max
+  const gradeMax = Math.max(1, parseInt($('gradeMax')?.value)||20);
   if(!mat){toast(t('Choisissez une matière','Choose a subject'),'error'); return;}
 
   const inputs = document.querySelectorAll('.grade-input');
@@ -9087,14 +9098,14 @@ window.saveGradePanel = cid => {
     const raw = inp.value.trim();
     if(raw === '') return;
     const note = parseFloat(raw);
-    if(isNaN(note) || note < 0 || note > 20) return;
+    if(isNaN(note) || note < 0 || note > gradeMax) return;
     const g = {
       id: 'gr'+Date.now()+Math.random().toString(36).slice(2,5),
       sid, matiere: mat, trimester: trim, year: DB.settings.year,
-      type, note, max: 20, weight: coef,
+      type, note, max: gradeMax, weight: coef,
       label: label || `${typeIcon} ${type.charAt(0).toUpperCase()+type.slice(1)}`,
       date: today(),
-      pct: Math.round((note / 20) * 100),
+      pct: Math.round((note / gradeMax) * 100),
       school_id: window._currentSchoolId||null
     };
     DB.grades.push(g);
@@ -9150,7 +9161,8 @@ window.openStudentGrades = (sid, cid) => {
             <div style="font-size:11px;color:var(--text-muted)">${g.date||''} · Coeff. ${g.weight||1}</div>
           </div>
           <span style="font-weight:700;font-size:15px;color:${pct>=50?'#1f9d6b':'#dc2626'}">${note}/${max}</span>
-          <button style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px" onclick="deleteGrade('${g.id}','${sid}','${cid}')" title="Supprimer">Suppr.</button>
+          <button style="background:none;border:1px solid #2f7bd6;color:#2f7bd6;border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px" onclick="editGrade('${g.id}','${sid}','${cid}')" title="${t('Modifier','Edit')}">✏️</button>
+          <button style="background:none;border:1px solid #dc2626;color:#dc2626;border-radius:7px;cursor:pointer;font-size:12px;padding:3px 8px" onclick="deleteGrade('${g.id}','${sid}','${cid}')" title="${t('Supprimer','Delete')}">✕</button>
         </div>`;
       }).join('') : `<div style="padding:12px 14px;font-size:12px;color:var(--text-muted)">${t('Aucune note','No grades')}</div>`}
     </div>`;
@@ -9177,6 +9189,46 @@ window.deleteGrade = (gid, sid, cid) => {
     if(sid && cid) openStudentGrades(sid, cid);
     else if(sid){ const s=DB.students.find(x=>x.id===sid); if(s) openStudentGrades(sid,s.cid); }
   });
+};
+
+// PED-11: edit an individual grade
+window.editGrade = (gid, sid, cid) => {
+  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const s=DB.students.find(x=>x.id===g.sid);
+  if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
+  const max=g.max||20;
+  openM(`✏️ ${t('Modifier la note','Edit grade')} — ${esc(s.name)}`,`
+  <div style="text-align:center;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700;margin-bottom:4px">${esc(g.label||g.type)} · ${esc(g.matiere)} · ${esc(g.trimester||'')} · ${g.date||''}</div>
+    <div style="font-size:12px;color:var(--text-muted)">Coeff. ${g.weight||1} · Barème /${max}</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">${t('Nouvelle note','New grade')} (0 – ${max})</label>
+    <input class="form-input" id="editGradeVal" type="number" min="0" max="${max}" step="0.5" value="${g.note}" style="text-align:center;font-size:22px;font-weight:700">
+  </div>
+  <div class="form-group">
+    <label class="form-label">${t('Motif de correction','Reason for correction')} *</label>
+    <input class="form-input" id="editGradeReason" placeholder="${t('Ex: Erreur de saisie, révision après réclamation...','E.g. Entry error, revision after appeal...')}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">${t('Annuler','Cancel')}</button>
+   <button class="btn btn-primary" onclick="window._doEditGrade('${gid}','${sid}','${cid}',${max})">${t('✅ Corriger','✅ Correct')}</button>`);
+};
+window._doEditGrade = (gid, sid, cid, max) => {
+  const g=DB.grades.find(x=>x.id===gid); if(!g) return;
+  const s=DB.students.find(x=>x.id===g.sid);
+  if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
+  const newNote=parseFloat($('editGradeVal')?.value);
+  const reason=($('editGradeReason')?.value||'').trim();
+  if(isNaN(newNote)||newNote<0||newNote>max){toast(t('Note invalide','Invalid grade'),'error');return;}
+  if(!reason){toast(t('Motif requis','Reason required'),'error');return;}
+  const oldNote=g.note;
+  g.note=newNote; g.pct=Math.round((newNote/max)*100);
+  g.edited_by=S.user.name; g.edited_date=today(); g.edit_reason=reason;
+  pushSync('grades','patch',{note:newNote,pct:g.pct,edited_by:g.edited_by,edited_date:g.edited_date,edit_reason:reason},'id=eq.'+gid);
+  logAudit('grade_edit',`${s.name} — ${g.matiere} ${g.trimester||''}: ${oldNote}→${newNote}/${max} (${reason})`);
+  toast(t('Note corrigée','Grade corrected'),'success');
+  saveToCrypt(); closeModal(); render();
+  openStudentGrades(sid,cid);
 };
 
 // ── MATIÈRES ──
