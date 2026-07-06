@@ -9038,7 +9038,7 @@ window.openGradePanel = cid => {
     <div class="form-group" style="flex:2;margin-bottom:0">
       <label class="form-label">${t('Matière','Subject')}</label>
       <select class="form-select" id="gradeMatiere">
-        ${matieres.map(m => `<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
+        ${matieres.map(m => `<option value="${esc(m.name)}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</option>`).join('')}
       </select>
     </div>
     <div class="form-group" style="flex:1;margin-bottom:0">
@@ -9708,7 +9708,7 @@ window.openDevoirM = (category) => {
     interro:{icon:'⚠️',label:t('Interrogation','Quiz'),color:'#f59e0b'},
     examen:{icon:'📝',label:t('Examen','Exam'),color:'#9b6fd4'},
   };
-  const matOpts=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true).map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+  const matOpts=getClassMatieres(mc.cl.id).filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true).map(m=>`<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
   const cm=catMeta[window._devoirCategory]||catMeta.devoir;
   openM(`${cm.icon} ${t('Publier','Publish')}`,`
   <div style="display:flex;gap:6px;margin-bottom:14px">
@@ -10387,7 +10387,7 @@ window.openCahierM = () => {
   <div class="form-row">
     <div class="form-group" style="flex:2"><label class="form-label">${t('Matière','Subject')} *</label>
       <select class="form-select" id="ctMatiere">
-        ${matieres.map(m=>`<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
+        ${matieres.map(m=>`<option value="${esc(m.name)}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</option>`).join('')}
       </select>
     </div>
     <div class="form-group" style="flex:1"><label class="form-label">${t('Date','Date')}</label>
@@ -10517,7 +10517,7 @@ window.openCahierPrepM = () => {
   openM(`📋 ${t('Cahier de préparation','Lesson Plan')}`,`
   <div class="form-group"><label class="form-label">${t('Matière','Subject')}</label>
     <select class="form-select" id="cpMatiere">
-      ${matieres.map(m=>`<option value="${m.name}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${m.name}</option>`).join('')}
+      ${matieres.map(m=>`<option value="${esc(m.name)}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'} ${esc(m.name)}</option>`).join('')}
     </select>
   </div>
   <div class="form-group"><label class="form-label">${t('Date prévue','Planned date')}</label>
@@ -19121,11 +19121,11 @@ R.profil_caisse = () => {
     <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
       <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="ca_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="ca_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
-          <input class="form-input" id="ca_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+          <input class="form-input" id="ca_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
