@@ -3833,7 +3833,7 @@ window.showStudentInfo = (sid) => {
   const parent = s.pid ? DB.users.find(x => x.id === s.pid) : null;
   const ta = (DB.attendance||[]).find(a => a.sid === sid && a.date === today());
   const ex = (DB.exit_scans||[]).find(e => e.sid === sid && e.date === today());
-  const pays = DB.payments.filter(p => p.sid === sid);
+  const pays = (DB.payments||[]).filter(p => p.sid === sid);
   const allPaid = pays.length > 0 && pays.every(p => p.paid);
   const partPaid = pays.some(p => p.paid) && !allPaid;
   const dob = s.dob ? new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : null;
@@ -5473,7 +5473,7 @@ R.students = () => {
     ${_displayList.map((s,i)=>{
       const c=gc(s.cid),p=gu(s.pid);
       const [cc,cbg]=clsColor(c?c.name:'');
-      const pays=S.user.role!=='direction2'?DB.payments.filter(x=>x.sid===s.id):[];
+      const pays=S.user.role!=='direction2'?(DB.payments||[]).filter(x=>x.sid===s.id):[];
       return `<div class="ww-card" style="animation-delay:${i*.04}s">
         <div class="ww-card-stripe" style="background:${cc}"></div>
         <div class="ww-card-body">
@@ -5605,7 +5605,7 @@ window.deleteStudent = (sid) => {
   showC(`Supprimer ${s.name} ?`,'Irréversible — paiements et présences liés seront aussi supprimés.',()=>{
     logAudit('student_delete',`${s.name} — ${s.mat}`,sid);
     DB.students=DB.students.filter(x=>x.id!==sid);
-    DB.payments=DB.payments.filter(x=>x.sid!==sid);
+    DB.payments=(DB.payments||[]).filter(x=>x.sid!==sid);
     DB.attendance=(DB.attendance||[]).filter(x=>x.sid!==sid);
     pushSync('students','delete',{},'id=eq.'+sid);
     pushSync('payments','delete',{},'sid=eq.'+sid);
@@ -6209,7 +6209,7 @@ R.approbations = () => {
       const ratTeacher=gu(r.teacher_id);
       const cl=s?gc(s.cid):null;
       const scoreColor=r.score<30?'#dc2626':r.score<50?'#d98a2b':'#374151';
-      const hasPaid=s&&DB.payments.some(p=>p.sid===s.id&&p.paid);
+      const hasPaid=s&&(DB.payments||[]).some(p=>p.sid===s.id&&p.paid);
       return `<div class="premium-item" style="flex-wrap:wrap;gap:8px">
         <div class="pi-icon" style="background:${r.auto_triggered?'#fee2e2':'#fdeccd'}">${r.auto_triggered?'🔴':'📚'}</div>
         <div style="flex:1;min-width:150px">
@@ -6300,7 +6300,7 @@ R.approbations = () => {
 };
 window.approveApr = (id, status) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const a = DB.approbations.find(x=>x.id===id); if(!a) return;
+  const a = (DB.approbations||[]).find(x=>x.id===id); if(!a) return;
   a.status = status;
   pushSync('approbations','patch',{status},'id=eq.'+id);
   if(a.type==='cahier_texte' && a.data && a.data.ctId) {
@@ -6378,7 +6378,7 @@ window.approveDevoir = (did, status) => {
     const kids=DB.students.filter(s=>s.cid===d.cid);
     let notifiedCount=0;
     kids.forEach(k=>{
-      const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+      const hasPaid=(DB.payments||[]).some(p=>p.sid===k.id&&p.paid);
       if(k.pid&&hasPaid){
         const dateStr=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,
@@ -6420,7 +6420,7 @@ window.validateDailyReport = (rid) => {
     pushSync('daily_records','patch',{validated:true},'id=eq.'+r.id);
     // Auto-link frais_scolaires to DB.payments for the correct trimester
     if(r.type==='frais_scolaires' && r.trimestre) {
-      const pay=DB.payments.find(p=>p.sid===r.sid&&p.t===r.trimestre&&!p.paid);
+      const pay=(DB.payments||[]).find(p=>p.sid===r.sid&&p.t===r.trimestre&&!p.paid);
       if(pay){
         pay.paid=true;
         pushSync('payments','patch',{paid:true},'sid=eq.'+r.sid+'&t=eq.'+r.trimestre);
@@ -6614,7 +6614,7 @@ R.payments = () => {
     if(!kids.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="width:48px;height:48px;border-radius:14px;background:#d8f3e6;margin:0 auto 12px;display:flex;align-items:center;justify-content:center"><div style="width:20px;height:20px;border-radius:50%;background:#1f9d6b"></div></div>Aucun enfant lié</div>`;
     const fees=getFees();
     return kids.map(s=>{
-      const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id);
+      const c=gc(s.cid); const pays=(DB.payments||[]).filter(p=>p.sid===s.id);
       const {paid,total,debt,byTrim}=getStudentBalance(s.id);
       const pPct=total>0?Math.round(paid/total*100):0;
       const [cc,cbg]=clsColor(c?c.name:'');
@@ -6650,7 +6650,7 @@ R.payments = () => {
   // ── DIRECTION: vue avancée ──
   const fees=getFees();
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-  const pd=DB.payments.filter(p=>p.paid).length, tt=DB.payments.length, pct=tt?Math.round(pd/tt*100):0;
+  const pd=(DB.payments||[]).filter(p=>p.paid).length, tt=DB.payments.length, pct=tt?Math.round(pd/tt*100):0;
   const totalEncaisse=DB.daily_records.filter(r=>r.validated).reduce((s,r)=>s+Number(r.amount||0),0);
   // PERF: compute all balances once to avoid O(N²) re-scan per student
   const _balMap={}; DB.students.forEach(st=>{_balMap[st.id]=getStudentBalance(st.id);});
@@ -6707,7 +6707,7 @@ R.payments = () => {
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${studs.length} élève(s) affiché(s)</div>
   <div class="ww-grid">
     ${studs.map((s,i)=>{
-      const c=gc(s.cid); const pays=DB.payments.filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
+      const c=gc(s.cid); const pays=(DB.payments||[]).filter(p=>p.sid===s.id); const paidC=pays.filter(p=>p.paid).length;
       const {debt,paid:paidAmt,total:totalAmt,byTrim}=_balMap[s.id]||{debt:0,paid:0,total:0,byTrim:{}};
       const paidPct=totalAmt>0?Math.round(paidAmt/totalAmt*100):0;
       const [cc,cbg]=clsColor(c?c.name:'');
@@ -6748,7 +6748,7 @@ window._payFilterStatus='';
 
 window.togglePay = (sid, t) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
+  const p=(DB.payments||[]).find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=!p.paid;
   pushSync('payments','patch',{paid:p.paid},'sid=eq.'+sid+'&t=eq.'+t);
   const s=DB.students.find(x=>x.id===sid);
@@ -6756,7 +6756,7 @@ window.togglePay = (sid, t) => {
   toast(p.paid?`T${t} activé`:`T${t} désactivé`, p.paid?'success':'info');
   // Auto-activation accès parent quand tous les frais sont payés
   if (s) {
-    const pays = DB.payments.filter(x=>x.sid===sid);
+    const pays = (DB.payments||[]).filter(x=>x.sid===sid);
     const allPaid = pays.length > 0 && pays.every(x=>x.paid);
     if (allPaid && !s.access_parent) {
       s.access_parent = true;
@@ -6785,7 +6785,7 @@ window.toggleStudentAccess = sid => {
 
 window.blockAllUnpaid = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const unpaid=DB.students.filter(s=>{const pays=DB.payments.filter(p=>p.sid===s.id);return pays.some(p=>!p.paid)&&!s.access_blocked;});
+  const unpaid=DB.students.filter(s=>{const pays=(DB.payments||[]).filter(p=>p.sid===s.id);return pays.some(p=>!p.paid)&&!s.access_blocked;});
   if(!unpaid.length){toast('Aucun nouvel élève à bloquer','info');return;}
   showC(`Bloquer ${unpaid.length} élève(s) non-payé(s) ?`,`Ces élèves ne pourront plus entrer à l'école jusqu'au règlement des frais.`,()=>{
     unpaid.forEach(s=>{s.access_blocked=true;});
@@ -6812,7 +6812,7 @@ window.unblockAll = () => {
 window.downloadRecuPaiement = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const cl=gc(s.cid);
-  const pays=DB.payments.filter(p=>p.sid===sid);
+  const pays=(DB.payments||[]).filter(p=>p.sid===sid);
   const fees=getFees();
   const paidTrims=pays.filter(p=>p.paid);
   const totalPaid=paidTrims.reduce((sum,p)=>sum+(fees[p.t]||0),0);
@@ -6904,7 +6904,7 @@ window.saveFeesConfig = () => {
 
 window.openAssignCaissePayment = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const pays=DB.payments.filter(p=>p.sid===sid&&!p.paid);
+  const pays=(DB.payments||[]).filter(p=>p.sid===sid&&!p.paid);
   const unassigned=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`Affecter paiement — ${s.name}`,`
@@ -6916,7 +6916,7 @@ ${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;
 
 window.assignTrimestre = (sid) => {
   const t=$('assign_t').value;
-  const p=DB.payments.find(x=>x.sid===sid&&x.t===t); if(!p) return;
+  const p=(DB.payments||[]).find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
   pushSync('payments','patch',{paid:true},'sid=eq.'+sid+'&t=eq.'+t);
   const rec=DB.daily_records.find(r=>r.sid===sid&&r.trimestre===t&&r.validated&&!r.assigned);
@@ -6946,14 +6946,14 @@ R.children = () => {
 
   return kids.map((k,i)=>{
     const c=gc(k.cid);
-    const pays=DB.payments.filter(p=>p.sid===k.id);
+    const pays=(DB.payments||[]).filter(p=>p.sid===k.id);
     const [cc,cbg]=clsColor(c?c.name:'');
     const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
     const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
     const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
     const debt=totalFees-paidAmt;
     const ta=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
-    const exitScan=DB.scan_log.find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+    const exitScan=(DB.scan_log||[]).find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
     let statText,statClr,statBg;
     if(exitScan){statText=`Sorti(e) à ${exitScan.time}`;statClr='#2f7bd6';statBg='#eaf3fc';}
     else if(ta&&ta.status==='ontime'){statText=`À l'école depuis ${ta.arr_time||''}`;statClr='#1f9d6b';statBg='#f0fdf4';}
@@ -7314,7 +7314,7 @@ R.attendance = () => {
   // Teacher scan validation block
   let teacherScanBlock='';
   if(role==='enseignant' && myClass){
-    const todayScans=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
+    const todayScans=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry');
     const scannedSids=todayScans.map(l=>l.sid);
     const myScanned=students.filter(s=>scannedSids.includes(s.id));
     const notScanned=students.filter(s=>!scannedSids.includes(s.id));
@@ -7369,7 +7369,7 @@ R.attendance = () => {
     <div class="ww-section-header"><span class="ww-section-title">Présence du jour${isDir&&window._attClassFilter?(()=>{const cl=DB.classes.find(c=>c.id===window._attClassFilter);return cl?' — '+cl.name:'';})():''}</span></div>
     ${students.map((s,i)=>{
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
-      const scanEntry=DB.scan_log.find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
+      const scanEntry=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
       const [cc,cbg]=clsColor(c?c.name:'');
       const st=a?(a.status==='ontime'?{b:'#d8f3e6',c:'#065f46',l:t("À l'heure",'On time'),i:''}:a.status==='late'?{b:'#fdeccd',c:'#92400e',l:t('Retard','Late'),i:''}:a.status==='excused'?{b:'#dbeafe',c:'#205fae',l:t('Justifié','Excused'),i:''}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:''}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:''}):{b:'#f6ede0',c:'#5c5346',l:t('Absent','Absent'),i:''};
       return `<div class="ww-item" data-sid="${s.id}" style="animation-delay:${i*.04}s">
@@ -7386,7 +7386,7 @@ R.attendance = () => {
 window.validateScanPresence = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const students=DB.students.filter(s=>s.cid===mc.cl.id);
-  const todayScans=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
+  const todayScans=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry');
   const scannedSids=todayScans.map(l=>l.sid);
   let confirmed=0, absentMarked=0;
   students.forEach(s=>{
@@ -7415,7 +7415,7 @@ window.signalAbsencesToDir = (cid) => {
   const cl=gc(cid); if(!cl) return;
   if(!S.user||S.user.role!=='enseignant'||(cl.teacher_id!==S.user.id&&cl.teacher_id_en!==S.user.id)){toast('Accès non autorisé','error');return;}
   const students=DB.students.filter(s=>s.cid===cid);
-  const scannedSids=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
+  const scannedSids=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
   const absents=students.filter(s=>!scannedSids.includes(s.id));
   if(!absents.length){toast('Tous les élèves sont présents','info');return;}
   const names=absents.map(s=>s.name).join(', ');
@@ -7471,7 +7471,7 @@ window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
         date: today(), status: 'pending', amount: 0, paid: false,
         score: w.avg, auto_triggered: true, trimestre: trim
       };
-      DB.rattrapages.push(rat);
+      (DB.rattrapages=DB.rattrapages||[]).push(rat);
       pushSync('rattrapages', 'post', rat);
     });
 
@@ -7489,7 +7489,7 @@ window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
         score: globalAvg, trimestre: trim,
         auto_generated: true, weak_mats: weakStr
       };
-      DB.convocations.push(conv);
+      (DB.convocations=DB.convocations||[]).push(conv);
       pushSync('convocations', 'post', conv);
     }
 
@@ -7631,7 +7631,7 @@ window.submitRattrapage = (sid) => {
   if(!motif){toast('Décrivez le motif','error');return;}
   const rat={id:_uid('rat_'),sid,teacher_id:S.user.id,matiere:mat,motif,date:today(),
     status:'pending',amount:0,paid:false};
-  DB.rattrapages.push(rat);
+  (DB.rattrapages=DB.rattrapages||[]).push(rat);
   pushSync('rattrapages','post',rat);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
@@ -7647,7 +7647,7 @@ window.submitRattrapage = (sid) => {
 // Direction: valider rattrapage + fixer montant + notifier parent
 window.validerRattrapage = (rid, noPayment) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid);
   // Direction 2: approve academically without setting a fee
   if(noPayment || S.user.role==='direction2') {
@@ -7677,7 +7677,7 @@ window.validerRattrapage = (rid, noPayment) => {
 
 window.confirmerRattrapage = (rid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const amount=parseFloat($('rat_amount').value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
   r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
@@ -7699,7 +7699,7 @@ window.confirmerRattrapage = (rid) => {
 // Direction: marquer rattrapage comme payé + ajouter prime enseignant
 window.marquerRattrapage = (rid, paid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   r.status=paid?'paid':'pending'; r.paid=paid;
   if(paid){
     r.paid_date=today();
@@ -7720,7 +7720,7 @@ window.marquerRattrapage = (rid, paid) => {
 
 // Direction: planifier la séance après paiement
 window.planifierRattrapage = (rid) => {
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid);
   openM(`📅 Planifier la séance — ${s?esc(s.name):''} · ${esc(r.matiere)}`,`
   <div class="form-group"><label class="form-label">Date de la séance *</label>
@@ -7738,7 +7738,7 @@ window.planifierRattrapage = (rid) => {
 
 window.savePlanRattrapage = (rid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const d=($('sessDate')?.value||'').trim();
   if(!d){toast('Date obligatoire','error');return;}
   r.session_date=d; r.session_time=$('sessTime')?.value||''; r.session_place=($('sessPlace')?.value||'').trim();
@@ -7757,7 +7757,7 @@ window.savePlanRattrapage = (rid) => {
 
 // Enseignant: marquer séance effectuée
 window.marquerSeanceEffectuee = (rid) => {
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid);
   openM(`Séance effectuée — ${s?esc(s.name):''} · ${esc(r.matiere)}`,`
   <div class="form-group"><label class="form-label">Observations / Compte-rendu (optionnel)</label>
@@ -7769,7 +7769,7 @@ window.marquerSeanceEffectuee = (rid) => {
 
 window.saveSeanceEffectuee = (rid) => {
   if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const note=($('sessNote')?.value||'').trim();
   r.done=true; r.done_date=today(); r.done_note=note;
   pushSync('rattrapages','patch',{done:true,done_date:r.done_date,done_note:note},'id=eq.'+rid);
@@ -7787,7 +7787,7 @@ window.saveSeanceEffectuee = (rid) => {
 // Archiver un rattrapage terminé
 window.archiverRattrapage = (rid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   r.archived=true;
   pushSync('rattrapages','patch',{archived:true},'id=eq.'+rid);
   toast('📦 Rattrapage archivé','info');
@@ -7798,7 +7798,7 @@ window.archiverRattrapage = (rid) => {
 window.checkRattrapageReminders = () => {
   if(!S.user||(S.user.role!=='direction'&&S.user.role!=='direction2')) return;
   const limit=new Date(); limit.setDate(limit.getDate()-7);
-  DB.rattrapages.filter(r=>
+  (DB.rattrapages||[]).filter(r=>
     r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled&&!r.paid&&!r.archived&&
     r.validated_date&&new Date(r.validated_date)<limit&&!r.reminder_sent
   ).forEach(r=>{
@@ -7840,7 +7840,7 @@ window.checkRattrapageAuto = (cid) => {
         date: today(), status: 'pending', amount: 0, paid: false,
         score: avg, auto_triggered: true, trimestre: trim
       };
-      DB.rattrapages.push(rat);
+      (DB.rattrapages=DB.rattrapages||[]).push(rat);
       pushSync('rattrapages', 'post', rat);
       newRats.push({rat, s, matName: m.name});
     });
@@ -8039,7 +8039,7 @@ R.palmares_parent = () => {
 
   html+=kids.map(k=>{
     if(!k.access_parent) return `<div class="premium-section" style="border-left:4px solid #a89c8b"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:#f6ede0;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#a89c8b"></div></div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#6f6557">Accès non activé pour cet enfant — contactez la direction</div></div></div></div>`;
-    const hasPaid=DB.payments.some(p=>p.sid===k.id&&p.paid);
+    const hasPaid=(DB.payments||[]).some(p=>p.sid===k.id&&p.paid);
     if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef5b5b"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#ef5b5b"></div></div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
 
     const cl=gc(k.cid); if(!cl) return '';
@@ -8136,7 +8136,7 @@ R.palmares_parent = () => {
 
     const bulletinBtn=(()=>{
       if(!bulletinGlobal||!k.access_parent) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff5ea;border-radius:10px;border:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:10px;background:#f6ede0;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:4px;background:#a89c8b"></div></div><div><div style="font-size:12px;font-weight:700;color:var(--text-secondary)">Bulletin non disponible</div><div style="font-size:11px;color:var(--text-muted)">La Direction publiera les bulletins prochainement.</div></div></div>`;
-      if(!DB.payments.some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
+      if(!(DB.payments||[]).some(p=>p.sid===k.id&&p.paid)) return `<div style="display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;background:#fff1f2;border-radius:10px;border:1px solid #fecdd3"><div style="width:32px;height:32px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:12px;height:12px;border-radius:50%;background:#dc2626"></div></div><div><div style="font-size:12px;font-weight:700;color:#dc2626">Frais non réglés</div><div style="font-size:11px;color:#991b1b">Réglez au moins un trimestre pour accéder au bulletin de ${esc(k.name.split(' ')[0])}.</div></div></div>`;
       return `<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="flex:1;font-size:13px" onclick="downloadBulletin('${k.id}')">Télécharger Bulletin — ${esc(k.name.split(' ')[0])}</button></div>`;
     })();
 
@@ -8242,7 +8242,7 @@ window.downloadRecuFrais = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const cl=gc(s.cid);
   const fees=getFees();
-  const pays=DB.payments.filter(p=>p.sid===sid&&p.paid);
+  const pays=(DB.payments||[]).filter(p=>p.sid===sid&&p.paid);
   if(!pays.length){toast('Aucun frais payé pour cet élève','info');return;}
   const dir=DB.users.find(u=>u.role==='direction');
   const labels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre',inscription:'Inscription'};
@@ -9316,7 +9316,7 @@ window.submitMatiere = cid => {
   const apr={id:'apr'+Date.now(),type:'matiere',status:'pending',
     content:`Ajout matière: ${name} (${lang}, coeff ${coeff}) pour ${gc(cid)?.name||''}`,
     data:{cid,name,lang,coeff},date:today(),by:S.user.id};
-  DB.approbations.push(apr);
+  (DB.approbations=DB.approbations||[]).push(apr);
   pushSync('approbations','post',apr);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now(),uid:u.id,msg:`📐 Demande matière — "${name}" (${lang}) pour ${gc(cid)?.name||'?'} par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
@@ -10547,7 +10547,7 @@ window.saveCahierPrep = () => {
     content:`Préparation: ${matiere} — ${new Date(date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} pour ${mc.cl.name} — "${content.slice(0,60)}"`,
     data:{prepId:entry.id,cid:mc.cl.id},date:today(),by:S.user.id};
   DB.approbations=DB.approbations||[];
-  DB.approbations.push(apr);
+  (DB.approbations=DB.approbations||[]).push(apr);
   pushSync('approbations','post',apr);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:`📋 Préparation à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
@@ -10591,7 +10591,7 @@ window.deleteCahierPrep = (id) => {
     DB.cahier_prep=DB.cahier_prep.filter(e=>e.id!==id);
     pushSync('cahier_prep','delete',{},'id=eq.'+id);
     const apr=(DB.approbations||[]).find(a=>a.type==='cahier_prep'&&a.status==='pending'&&a.data?.prepId===id);
-    if(apr){ DB.approbations=DB.approbations.filter(a=>a.id!==apr.id); pushSync('approbations','delete',{},'id=eq.'+apr.id); }
+    if(apr){ DB.approbations=(DB.approbations||[]).filter(a=>a.id!==apr.id); pushSync('approbations','delete',{},'id=eq.'+apr.id); }
     logAudit('cahier_prep_del', prep.matiere, id);
     toast('Préparation supprimée','success');
     saveToCrypt(); render();
@@ -10670,7 +10670,7 @@ window.savePrevisionMatiere = (matiere) => {
   else { prev={id:'pm'+Date.now(), cid:mc.cl.id, matiere, lang:mc.lang, trimestre:trim, programme, pourcentage, by:S.user.id, validated:false}; DB.prevision_matiere.unshift(prev); }
   pushSync('prevision_matiere','upsert',prev);
   DB.approbations=DB.approbations||[];
-  let apr=DB.approbations.find(a=>a.type==='prevision_matiere'&&a.status==='pending'&&a.data?.cid===mc.cl.id&&a.data?.matiere===matiere&&a.data?.trimestre===trim);
+  let apr=(DB.approbations||[]).find(a=>a.type==='prevision_matiere'&&a.status==='pending'&&a.data?.cid===mc.cl.id&&a.data?.matiere===matiere&&a.data?.trimestre===trim);
   if(apr){
     apr.content=`Prévision matière: ${matiere} (${mc.cl.name}) · ${pourcentage}% couvert`;
     apr.date=today();
@@ -10679,7 +10679,7 @@ window.savePrevisionMatiere = (matiere) => {
     apr={id:'apr'+Date.now(),type:'prevision_matiere',status:'pending',
       content:`Prévision matière: ${matiere} (${mc.cl.name}) · ${pourcentage}% couvert`,
       data:{cid:mc.cl.id,matiere,trimestre:trim},date:today(),by:S.user.id};
-    DB.approbations.push(apr);
+    (DB.approbations=DB.approbations||[]).push(apr);
     pushSync('approbations','post',apr);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:`📊 Prévision matière à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
@@ -10991,7 +10991,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // ── CONTRÔLE FRAIS SCOLAIRES ──────────────────────────────────────────────
   const fc=DB.settings.feesControl||{};
   if(fc.active){
-    const hasPaidFc=DB.payments.some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
+    const hasPaidFc=(DB.payments||[]).some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
       const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
       DB.scan_log.unshift(log); pushSync('scan_log','post',log);
@@ -11024,7 +11024,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
     saveToCrypt(); return;
   }
 
-  const hasPaid=DB.payments.some(p=>p.sid===student.id&&p.paid);
+  const hasPaid=(DB.payments||[]).some(p=>p.sid===student.id&&p.paid);
 
   // Get arrival level
   const res=getArrivalStatus(cycle);
@@ -11310,7 +11310,7 @@ function showExitDone(color,icon,title,name,sub,time) {
 R.scan_log = () => {
   const isDir=S.user.role==='direction'||S.user.role==='direction2';
   const selDate=isDir?(window._scanLogDate||today()):today();
-  const rawLogs=DB.scan_log.filter(l=>l.date===selDate).slice().reverse();
+  const rawLogs=(DB.scan_log||[]).filter(l=>l.date===selDate).slice().reverse();
   // PORT-08: filters
   const q=(window._scanLogQ||'').toLowerCase();
   const tf=window._scanLogTypeFilter||'all';
@@ -11376,7 +11376,7 @@ R.scan_log = () => {
 
 // PORT-08: CSV export of scan log
 window.exportScanLogCSV = (date) => {
-  const rows=DB.scan_log.filter(l=>l.date===date);
+  const rows=(DB.scan_log||[]).filter(l=>l.date===date);
   if(!rows.length){toast('Aucun scan pour cette date','info');return;}
   const header='Date,Heure,Nom,Type,Statut,Libellé,Scanné par';
   const lines=rows.map(l=>[
@@ -11398,7 +11398,7 @@ window.exportScanLogCSV = (date) => {
 
 window.sendAttendanceList = async () => {
   if(!S.user||S.user.role!=='gardien'){toast('Accès non autorisé','error');return;}
-  const logs=DB.scan_log.filter(l=>l.date===today()&&l.type==='entry');
+  const logs=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry');
   const ontime=logs.filter(l=>l.status==='ontime').length;
   const late=logs.filter(l=>l.status==='late').length;
   const refused=logs.filter(l=>l.status==='refused').length;
@@ -11723,7 +11723,7 @@ window.toggleTutelle = (tid, newActive) => {
   saveToCrypt(); render();
 };
 window.signalerPaiementRattrapage = (rid) => {
-  const r=DB.rattrapages.find(x=>x.id===rid); if(!r) return;
+  const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
   const s=DB.students.find(x=>x.id===r.sid); if(!s) return;
   if(s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   r.payment_signaled=true;
@@ -11742,7 +11742,7 @@ window.signalerPaiementRattrapage = (rid) => {
 
 window.planifierConvocation = (cid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   const s=DB.students.find(x=>x.id===conv.sid);
   const parent=s?gu(s.pid):null;
   openM(`📅 Fixer un RDV — ${s?s.name:''}`,`
@@ -11763,7 +11763,7 @@ window.planifierConvocation = (cid) => {
 
 window.confirmerRDV = (cid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   const rdv_date=$('rdv_date')?.value; if(!rdv_date){toast('Choisissez une date','error');return;}
   const note=$('rdv_note')?.value||'';
   conv.status='scheduled'; conv.rdv_date=rdv_date; conv.note=note;
@@ -11783,7 +11783,7 @@ window.confirmerRDV = (cid) => {
 
 window.cloturerConvocation = (cid, status) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   conv.status=status;
   pushSync('convocations','patch',{status},'id=eq.'+cid);
   const s=DB.students.find(x=>x.id===conv.sid);
@@ -14959,7 +14959,7 @@ R.teacher_activity = () => {
 // ── PRIMES ENSEIGNANTS ──
 R.primes = () => {
   const teachers = DB.users.filter(u=>u.role==='enseignant');
-  const allRats = DB.rattrapages.filter(r=>r.amount>0);
+  const allRats = (DB.rattrapages||[]).filter(r=>r.amount>0);
   const totalDue = allRats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
   const totalPending = allRats.filter(r=>!r.paid&&r.validated_by).reduce((s,r)=>s+Number(r.amount||0),0);
 
@@ -15200,7 +15200,7 @@ R.convocations = () => {
   ;
 };
 window.downloadConvocationPDF = (cid) => {
-  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   const s=DB.students.find(x=>x.id===conv.sid);
   const parent=s?gu(s.pid):null;
   const cl=s?gc(s.cid):null;
@@ -15434,7 +15434,7 @@ window.saveConvocation = () => {
   const convoc_type=$('convType')?.value||'pedagogique';
   if(!sid){toast('Sélectionner un élève','error');return;}
   const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id,convoc_type};
-  DB.convocations.push(conv);
+  (DB.convocations=DB.convocations||[]).push(conv);
   pushSync('convocations','post',conv);
   const s=DB.students.find(x=>x.id===sid);
   if(s&&s.pid){
@@ -15982,7 +15982,7 @@ window.exportCSV = (type) => {
     rows=[['Matricule','Nom','Classe','T1','T2','T3','Total payé ('+_cur()+')','Reste ('+_cur()+')']];
     const _expBal={}; DB.students.forEach(st=>{_expBal[st.id]=getStudentBalance(st.id);});
     DB.students.forEach(s=>{
-      const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);
+      const c=gc(s.cid),pays=(DB.payments||[]).filter(p=>p.sid===s.id);
       const t1=pays.find(p=>p.t==='T1')?.paid?'Payé':'Non payé';
       const t2=pays.find(p=>p.t==='T2')?.paid?'Payé':'Non payé';
       const t3=pays.find(p=>p.t==='T3')?.paid?'Payé':'Non payé';
@@ -16255,8 +16255,8 @@ window.printReport = (type) => {
   } else if(type==='payments'){
     title='Tableau des Paiements';
     const fees=getFees();
-    const allPaidCount=DB.students.filter(s=>['T1','T2','T3'].every(t=>DB.payments.find(p=>p.sid===s.id&&p.t===t)?.paid)).length;
-    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 (${_cur()}${fees.T1||'?'})</th><th>T2 (${_cur()}${fees.T2||'?'})</th><th>T3 (${_cur()}${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=DB.payments.filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td>${c?esc(c.name):''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-${_cur()}${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
+    const allPaidCount=DB.students.filter(s=>['T1','T2','T3'].every(t=>(DB.payments||[]).find(p=>p.sid===s.id&&p.t===t)?.paid)).length;
+    html=`<div class="stats"><div class="stat"><div class="v">${DB.students.length}</div><div class="l">Élèves</div></div><div class="stat"><div class="v">${allPaidCount}</div><div class="l">Tout soldé</div></div><div class="stat"><div class="v">${DB.students.length-allPaidCount}</div><div class="l">Dettes</div></div></div><table><tr><th>#</th><th>Nom</th><th>Classe</th><th>T1 (${_cur()}${fees.T1||'?'})</th><th>T2 (${_cur()}${fees.T2||'?'})</th><th>T3 (${_cur()}${fees.T3||'?'})</th><th>Reste</th></tr>${DB.students.map((s,i)=>{const c=gc(s.cid),pays=(DB.payments||[]).filter(p=>p.sid===s.id);const {debt}=getStudentBalance(s.id);return`<tr><td style="color:#999;font-size:11px">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td>${c?esc(c.name):''}</td>${['T1','T2','T3'].map(t=>`<td style="text-align:center">${pays.find(p=>p.t===t)?.paid?'<span class="pill paid">✓</span>':'<span class="pill unpaid">✗</span>'}</td>`).join('')}<td>${debt>0?`<span class="pill unpaid">-${_cur()}${debt}</span>`:'<span class="pill paid">Soldé</span>'}</td></tr>`;}).join('')}</table>`;
 
   } else if(type==='palmares'){
     title='Palmarès Général';
@@ -16308,7 +16308,7 @@ window.printReport = (type) => {
     const cl=gc(k.cid);
     const par=k.pid?gu(k.pid):null;
     const fees=getFees();
-    const pays=DB.payments.filter(p=>p.sid===k.id);
+    const pays=(DB.payments||[]).filter(p=>p.sid===k.id);
     const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
     const totalAmt=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
     const balance=totalAmt-paidAmt;
@@ -17892,7 +17892,7 @@ window.deleteEvent = (eid) => {
 // ── MES PRIMES (ENSEIGNANT) ──
 R.mes_primes = () => {
   const u=S.user;
-  const myRats=DB.rattrapages.filter(r=>r.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const myRats=(DB.rattrapages||[]).filter(r=>r.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const earned=myRats.filter(r=>r.paid).reduce((s,r)=>s+Number(r.amount||0),0);
   const due=myRats.filter(r=>!r.paid&&r.validated_by&&r.amount>0).reduce((s,r)=>s+Number(r.amount||0),0);
   const pending=myRats.filter(r=>!r.validated_by&&r.status!=='refused').length;
@@ -18212,7 +18212,7 @@ R.scan_history = () => {
   kids.forEach(kid=>{
     const cl=gc(kid.cid);
     const [cc]=clsColor(cl?cl.name:'');
-    const logs=DB.scan_log.filter(l=>l.sid===kid.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+    const logs=(DB.scan_log||[]).filter(l=>l.sid===kid.id).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
     const att=(DB.attendance||[]).filter(a=>a.sid===kid.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={};
     logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
@@ -19603,11 +19603,11 @@ window.exportArchivePDF = () => {
   const totalStudents = DB.students.length;
   const totalTeachers = DB.users.filter(u=>u.role==='enseignant').length;
   const totalClasses = DB.classes.length;
-  const totalPaid = DB.payments.filter(p=>p.paid).length;
+  const totalPaid = (DB.payments||[]).filter(p=>p.paid).length;
   const totalPayments = DB.payments.length;
   const payPct = totalPayments?Math.round(totalPaid/totalPayments*100):0;
   const totalRats = DB.rattrapages.length;
-  const ratsOk = DB.rattrapages.filter(r=>r.status==='paid'||r.done).length;
+  const ratsOk = (DB.rattrapages||[]).filter(r=>r.status==='paid'||r.done).length;
 
   const CSS = `
     *{box-sizing:border-box;margin:0;padding:0}
@@ -19689,7 +19689,7 @@ window.exportArchivePDF = () => {
     <table style="margin-bottom:14px">
       <tr><th>Élève</th><th>Matricule</th><th>T1</th><th>T2</th><th>T3</th><th>Statut</th></tr>
       ${studs.map(s=>{
-        const pays = DB.payments.filter(p=>p.sid===s.id);
+        const pays = (DB.payments||[]).filter(p=>p.sid===s.id);
         const t1=pays.find(p=>p.t==='T1'),t2=pays.find(p=>p.t==='T2'),t3=pays.find(p=>p.t==='T3');
         const allPaid = [t1,t2,t3].every(p=>p&&p.paid);
         return `<tr>
@@ -19774,7 +19774,7 @@ R.acces_parents = () => {
   const bOn=tog.bulletin??false;
   const cOn=tog.corrections??false;
   const getPayInfo=sid=>{
-    const pays=DB.payments.filter(p=>p.sid===sid);
+    const pays=(DB.payments||[]).filter(p=>p.sid===sid);
     const total=pays.length,paid=pays.filter(p=>p.paid).length;
     const pct=total>0?Math.round(paid/total*100):0;
     return{total,paid,pct,allPaid:total>0&&paid===total,anyPaid:paid>0};
@@ -19906,7 +19906,7 @@ window.autoActivatePaid = () => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   let count=0;
   DB.students.forEach(s=>{
-    const pays=DB.payments.filter(p=>p.sid===s.id);
+    const pays=(DB.payments||[]).filter(p=>p.sid===s.id);
     if(pays.length>0&&pays.every(p=>p.paid)&&!s.access_parent){
       s.access_parent=true;
       pushSync('students','patch',{access_parent:true},'id=eq.'+s.id);
@@ -19971,7 +19971,7 @@ window.renderGSearch = () => {
 
 // ── CONVOCATION CONFIRMATION PARENT ──
 window.confirmConvocationParent = (cid) => {
-  const conv=DB.convocations.find(x=>x.id===cid); if(!conv) return;
+  const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   const _s=DB.students.find(x=>x.id===conv.sid);
   if(!S.user||S.user.role!=='parent'||!_s||_s.pid!==S.user.id) return;
   showC('📬 Confirmer la réception ?','Vous confirmez avoir bien reçu et lu cette convocation.',()=>{
@@ -20147,7 +20147,7 @@ window.notifyAbsenceTeacherParents = async (uid) => {
 // ── NOTIFICATION ABSENCES → PARENTS ──
 window.notifyAbsentParents = async (cid) => {
   const students = cid ? DB.students.filter(s=>s.cid===cid) : DB.students;
-  const scannedSids = DB.scan_log.filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
+  const scannedSids = (DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
   const absents = students.filter(s=>!scannedSids.includes(s.id)&&s.pid);
   if(!absents.length){toast('Tous les élèves présents ou sans parent lié','info');return;}
   const key='abs_notif_'+today();
