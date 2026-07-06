@@ -5491,7 +5491,7 @@ R.students = () => {
           ${pays.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
             ${pays.map(pp=>`<span class="pill ${pp.paid?'pill-green':'pill-red'}">${pp.t}</span>`).join('')}
           </div>`:''}
-          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Parent : ${p?p.name:'— Aucun parent'}</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Parent : ${p?esc(p.name):'— Aucun parent'}</div>
           <div style="display:flex;gap:6px">
             ${tab==='archives'
               ? `<button class="btn btn-outline btn-sm" style="flex:1;color:#1f9d6b;border-color:#1f9d6b" onclick="restoreStudent('${s.id}')">Restaurer</button>
@@ -5523,18 +5523,18 @@ window.openStudentForm = (sid) => {
 </div>
 <input type="hidden" id="stu_id" value="${s?s.id:''}">
 <div class="form-row">
-  <div class="form-group" style="flex:2"><label class="form-label">Nom complet <span class="req">*</span></label><input class="form-input" id="stu_name" value="${s?s.name:''}" placeholder="Ex: Lomela Dodo"></div>
-  <div class="form-group"><label class="form-label">Matricule <span style="font-size:10px;color:var(--text-muted);font-weight:400">(auto)</span></label><input class="form-input" id="stu_mat" value="${mat}" style="font-family:monospace"></div>
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet <span class="req">*</span></label><input class="form-input" id="stu_name" value="${s?esc(s.name):''}" placeholder="Ex: Lomela Dodo"></div>
+  <div class="form-group"><label class="form-label">Matricule <span style="font-size:10px;color:var(--text-muted);font-weight:400">(auto)</span></label><input class="form-input" id="stu_mat" value="${esc(mat)}" style="font-family:monospace"></div>
 </div>
 <div class="form-row">
   <div class="form-group"><label class="form-label">Date de naissance</label><input class="form-input" id="stu_dob" type="date" value="${s&&s.dob?s.dob:''}"></div>
   <div class="form-group"><label class="form-label">Classe <span class="req">*</span></label><select class="form-select" id="stu_cid"><option value="">— Choisir —</option>${classOpts}</select></div>
 </div>
 <div class="form-group"><label class="form-label">Parent lié</label><select class="form-select" id="stu_pid">${parentOpts}</select></div>
-<div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="stu_adresse" value="${s&&s.adresse?s.adresse:''}" placeholder="Ex: Av. Victoire 12, Gombe"></div>
+<div class="form-group"><label class="form-label">Adresse</label><input class="form-input" id="stu_adresse" value="${s&&s.adresse?esc(s.adresse):''}" placeholder="Ex: Av. Victoire 12, Gombe"></div>
 <div class="form-row">
-  <div class="form-group"><label class="form-label">Nom du père</label><input class="form-input" id="stu_papa" value="${s&&s.nom_papa?s.nom_papa:''}" placeholder="Nom père"></div>
-  <div class="form-group"><label class="form-label">Nom de la mère</label><input class="form-input" id="stu_maman" value="${s&&s.nom_maman?s.nom_maman:''}" placeholder="Nom mère"></div>
+  <div class="form-group"><label class="form-label">Nom du père</label><input class="form-input" id="stu_papa" value="${s&&s.nom_papa?esc(s.nom_papa):''}" placeholder="Nom père"></div>
+  <div class="form-group"><label class="form-label">Nom de la mère</label><input class="form-input" id="stu_maman" value="${s&&s.nom_maman?esc(s.nom_maman):''}" placeholder="Nom mère"></div>
 </div>
 <div class="form-row">
   <div class="form-group"><label class="form-label">Lieu de naissance</label><input class="form-input" id="stu_lieu_naissance" value="${s&&s.lieu_naissance?esc(s.lieu_naissance):''}" placeholder="Ex: Kinshasa"></div>
@@ -5722,7 +5722,7 @@ ${photoOpts}
   <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="usr_init" maxlength="3" value="${u&&u.initials?u.initials:''}" placeholder="JK"></div>
 </div>
 <div class="form-row">
-  <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?u.phone:''}" placeholder="+243 8XX XXX XXX"></div>
+  <div class="form-group"><label class="form-label">Téléphone</label><input class="form-input" id="usr_phone" value="${u&&u.phone?esc(u.phone):''}" placeholder="+243 8XX XXX XXX"></div>
   <div class="form-group">
     ${(()=>{const isDir=_isDirRole(role);const lbl=isDir?'Mot de passe':'PIN (6 chiffres)';const ph=u?'Laisser vide pour garder':(isDir?'Min. 6 caractères':'••••••');const ml=isDir?'64':'6';const im=isDir?'text':'numeric';return`<label class="form-label">${lbl}${u?' — vide = conserver':' <span class="req">*</span>'}</label><input class="form-input" id="usr_pin" type="password" inputmode="${im}" maxlength="${ml}" placeholder="${ph}" autocomplete="new-password">`;})()}
     ${pinDisplay}
@@ -6029,10 +6029,10 @@ window.openClassForm = (cid) => {
   const teacherOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
   const teacherEnOpts = `<option value="">— Non assigné —</option>`+DB.users.filter(u=>u.role==='enseignant').map(u=>`<option value="${u.id}" ${c&&c.teacher_id_en===u.id?'selected':''}>${esc(u.name)}</option>`).join('');
   const isMaternelle = c?.cycle==='maternelle';
-  openM(c?`✏️ Modifier — ${c.name}`:'➕ Créer une classe',`
+  openM(c?`✏️ Modifier — ${esc(c.name)}`:'➕ Créer une classe',`
 <input type="hidden" id="cls_id" value="${c?c.id:''}">
 <div class="form-row">
-  <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?c.name:''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
+  <div class="form-group" style="flex:2"><label class="form-label">Nom de la classe *</label><input class="form-input" id="cls_name" value="${c?esc(c.name):''}" placeholder="Ex: CP1, CE2, Grande Section"></div>
   <div class="form-group"><label class="form-label">Cycle</label><select class="form-select" id="cls_cycle" onchange="updateClassCycleFields()">${(()=>{const st=DB.settings?.school_type||'complet';const defC=c?.cycle||(st==='secondaire'?'humanites':'primaire');const opts=[];if(st!=='secondaire'){opts.push(`<option value="maternelle" ${defC==='maternelle'?'selected':''}>Maternelle</option>`);opts.push(`<option value="primaire" ${defC==='primaire'?'selected':''}>Primaire</option>`);}if(st!=='mat_primaire'){opts.push(`<option value="humanites" ${defC==='humanites'?'selected':''}>Humanités</option>`);opts.push(`<option value="secondaire" ${defC==='secondaire'?'selected':''}>Secondaire</option>`);}return opts.join('');})()}</select></div>
 </div>
 <div class="form-group" id="cls_option_group" style="display:${c?.cycle==='humanites'?'':'none'}">
@@ -11635,8 +11635,8 @@ window.openTutelleForm = (sid, tid) => {
   <span style="font-size:11px;color:#f59e0b;cursor:pointer" onclick="$('tut_photo_input').click()">📷 Photo recommandée pour identification au portail</span>
 </div>
 <div class="form-row">
-  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="tut_name" value="${t?t.name:''}" placeholder="Ex: Lomela Jean"></div>
-  <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" id="tut_phone" value="${t&&t.phone?t.phone:''}" placeholder="+243..."></div>
+  <div class="form-group" style="flex:2"><label class="form-label">Nom complet *</label><input class="form-input" id="tut_name" value="${t?esc(t.name):''}" placeholder="Ex: Lomela Jean"></div>
+  <div class="form-group"><label class="form-label">Téléphone *</label><input class="form-input" id="tut_phone" value="${t&&t.phone?esc(t.phone):''}" placeholder="+243..."></div>
 </div>
 <div class="form-group"><label class="form-label">Lien de parenté *</label>
   <select class="form-select" id="tut_relation">
@@ -14674,7 +14674,7 @@ R.statistiques = () => {
   });
 
   // Présences 7 derniers jours
-  const last7=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);});
+  const last7=[...Array(7)].map((_,i)=>{const [y,m,d]=today().split('-').map(Number);const dt=new Date(y,m-1,d);dt.setDate(dt.getDate()-6+i);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');});
   const week7=last7.map(d=>{
     const recs=(DB.attendance||[]).filter(a=>a.date===d);
     const ok=recs.filter(a=>a.status==='ontime'||a.status==='late').length;
@@ -15794,7 +15794,7 @@ window.genererRapportMensuel = (sid, mois) => {
 
 window.openRapportMensuel = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const mois=new Date().toISOString().slice(0,7);
+  const mois=today().slice(0,7);
   const moisLabel=new Date().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   openM(`📊 Rapport mensuel — ${esc(s.name)}`,`
   <div style="background:#dbeafe;border-radius:10px;padding:12px;font-size:13px;color:#205fae;margin-bottom:14px">
@@ -18121,11 +18121,11 @@ R.profil_enseignant = () => {
     <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
       <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">${t('Nom affiché','Display Name')}</label><input class="form-input" id="tp_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="tp_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">${t('Numéro de téléphone','Phone Number')}</label>
-          <input class="form-input" id="tp_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+          <input class="form-input" id="tp_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
         <div class="form-group"><label class="form-label">${t('Photo de profil','Profile photo')}</label>
           <div style="display:flex;align-items:center;gap:14px">
@@ -18965,11 +18965,11 @@ R.profil_gardien = () => {
     <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
       <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="gd_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="gd_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
-          <input class="form-input" id="gd_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+          <input class="form-input" id="gd_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
@@ -19332,11 +19332,11 @@ R.profil_direction = () => {
     <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
       <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
-          <input class="form-input" id="dir1_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+          <input class="form-input" id="dir1_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
@@ -19485,11 +19485,11 @@ R.profil_direction2 = () => {
     <div data-ptab="profil" data-ptab-mode="light" style="${tab==='profil'?'':'display:none'}">
       <div class="pt-light-card" style="padding:18px">
         <div class="form-row">
-          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir2_name" value="${u.name||''}" placeholder="Ex: Jean Kabongo"></div>
-          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir2_init" maxlength="3" value="${u.initials||ini(u.name)||''}" placeholder="JK"></div>
+          <div class="form-group" style="flex:2"><label class="form-label">Nom affiché</label><input class="form-input" id="dir2_name" value="${esc(u.name||'')}" placeholder="Ex: Jean Kabongo"></div>
+          <div class="form-group"><label class="form-label">Initiales</label><input class="form-input" id="dir2_init" maxlength="3" value="${esc(u.initials||ini(u.name)||'')}" placeholder="JK"></div>
         </div>
         <div class="form-group"><label class="form-label">Numéro de téléphone</label>
-          <input class="form-input" id="dir2_phone" value="${u.phone||''}" placeholder="+243 xxx xxx xxx" type="tel">
+          <input class="form-input" id="dir2_phone" value="${esc(u.phone||'')}" placeholder="+243 xxx xxx xxx" type="tel">
         </div>
         <div class="form-group"><label class="form-label">Photo de profil</label>
           <div style="display:flex;align-items:center;gap:14px">
@@ -19868,7 +19868,7 @@ R.acces_parents = () => {
           <div style="width:46px;height:46px;border-radius:12px;background:${cbg};color:${cc};overflow:hidden;font-weight:700;font-size:17px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:15px">${esc(s.name)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${s.mat} · ${cl?esc(cl.name):'?'}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${esc(s.mat)} · ${cl?esc(cl.name):'?'}</div>
           </div>
           <span style="padding:3px 10px;border-radius:20px;background:${fb};color:${fc};font-size:11px;font-weight:700;flex-shrink:0">${fl}</span>
         </div>
@@ -20308,7 +20308,7 @@ window.viewArchive = (year) => {
     </div>
     <div style="font-size:13px;font-weight:700;margin-bottom:8px">Élèves archivés</div>
     <div style="max-height:200px;overflow-y:auto;font-size:12px">
-      ${(arc.students_data||[]).map(s=>`<div style="padding:5px 0;border-bottom:1px solid #f6ede0">${esc(s.name)} — ${s.mat}</div>`).join('')}
+      ${(arc.students_data||[]).map(s=>`<div style="padding:5px 0;border-bottom:1px solid #f6ede0">${esc(s.name)} — ${esc(s.mat)}</div>`).join('')}
     </div>`,
     `<button class="btn btn-primary" onclick="closeModal()">Fermer</button>`);
   } catch(e) { toast('Erreur lecture archive','error'); }
@@ -20348,7 +20348,7 @@ R.tenafep = () => {
         <div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4;font-weight:700">${i+1}</div>
         <div style="flex:1">
           <div class="pi-title">${esc(s.name)}</div>
-          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${s.mat}${rec.enafep_code?` · Code: <strong>${esc(rec.enafep_code)}</strong>`:''}</div>
+          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${esc(s.mat)}${rec.enafep_code?` · Code: <strong>${esc(rec.enafep_code)}</strong>`:''}</div>
           ${rec.score!=null?`<div style="font-size:11px;color:#9b6fd4;margin-top:1px">Score ENAFEP : ${rec.score}%</div>`:''}
         </div>
         <div style="display:flex;align-items:center;gap:5px">
