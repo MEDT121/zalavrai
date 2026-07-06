@@ -10158,7 +10158,7 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
 
   const secTitle=(t2)=>`<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${catColor};margin-bottom:10px;margin-top:16px;display:flex;align-items:center;gap:7px"><span style="display:inline-block;width:3px;height:13px;background:${catColor};border-radius:2px;flex-shrink:0"></span>${t2}</div>`;
   const metaC=`<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px">
-    ${d.matiere?`<span style="background:#f6ede0;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151">📐 ${d.matiere}</span>`:''}
+    ${d.matiere?`<span style="background:#f6ede0;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151">📐 ${esc(d.matiere)}</span>`:''}
     <span style="background:#f6ede0;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:#374151">🗓️ Donné le ${d.date||new Date().toLocaleDateString('fr-FR')}</span>
     ${dateLabel?`<span style="background:${d.deadline&&new Date(d.deadline)<new Date()?'#fee2e2':'#d8f3e6'};border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:${d.deadline&&new Date(d.deadline)<new Date()?'#991b1b':'#065f46'}">📅 À remettre : ${dateLabel}</span>`:''}
   </div>`;
@@ -18699,7 +18699,7 @@ R.timetable = () => {
     const cid=mc.cl.id;
     const clSlots=DB.timetables.filter(t=>t.cid===cid);
     const [cc]=clsColor(mc.cl.name);
-    return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ ${mc.cl.name}</span><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:#fdeccd;border-color:#f59e0b;color:#92400e" onclick="openDevoirM('interro')">⚠️ Interro</button><button class="btn btn-sm" style="background:#f0e9fa;border-color:#9b6fd4;color:#6f44ab" onclick="openDevoirM('examen')">📝 Examen</button></div></div>
+    return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🗓️ ${esc(mc.cl.name)}</span><div style="display:flex;gap:6px"><button class="btn btn-sm" style="background:#fdeccd;border-color:#f59e0b;color:#92400e" onclick="openDevoirM('interro')">⚠️ Interro</button><button class="btn btn-sm" style="background:#f0e9fa;border-color:#9b6fd4;color:#6f44ab" onclick="openDevoirM('examen')">📝 Examen</button></div></div>
     <div style="font-size:11px;color:#2f7bd6;padding:0 0 8px 0;font-weight:600">✏️ Appuyez sur un créneau vide ou le vôtre pour le remplir</div>
     <div class="premium-section" style="padding:8px;overflow:hidden">${_edtGrid(cid,clSlots,cc,true,'enseignant')}</div>`;
   }
