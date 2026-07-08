@@ -5393,6 +5393,9 @@ R.cards = () => {
   let patOpts='<option value="auto">✨ Auto</option>';
   Object.entries(PATG).forEach(([g,arr])=>{patOpts+=`<optgroup label="${esc(g)}">${arr.map(([v,n])=>`<option value="${v}">${esc(n)}</option>`).join('')}</optgroup>`;});
 
+  // Auto-sélectionner le premier élève si rien n'est choisi
+  if(!window._ssPreviewSid && allStudents.length>0) window._ssPreviewSid=allStudents[0].id;
+
   // Student options
   const studOpts=allStudents.map(s=>{const cl=(DB.classes||[]).find(c=>c.id===s.cid);return `<option value="${esc(s.id)}"${window._ssPreviewSid===s.id?' selected':''}>${esc(s.name)}${cl?' — '+esc(cl.name):''}${!s.photo?' ⚠️':''}</option>`;}).join('');
 
@@ -5404,7 +5407,7 @@ R.cards = () => {
     }).join('')
     :'<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>';
   setTimeout(()=>{if(typeof window.loadMyCardOrders==='function')window.loadMyCardOrders();},200);
-  setTimeout(()=>{if(window._ssPreviewSid)ssRenderPreview();},100);
+  setTimeout(()=>{if(window._ssPreviewSid)ssRenderPreview();},150);
 
   // APKart student list
   const classFilter=window._cardClassFilter||'';
