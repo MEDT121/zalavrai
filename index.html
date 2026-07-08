@@ -1015,7 +1015,10 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 .ss-card-studio .carte .head .arc{bottom:2px}
 .ss-card-studio .carte .flag{width:34px;height:21px}
 .ss-card-studio .carte .flag::after{font-size:10px}
-.ss-card-studio .carte .titlebar{background:var(--ss-gold);color:#2d2103;font-family:'Baloo 2',cursive;font-weight:800;letter-spacing:2.2px;font-size:11.5px;text-align:center;padding:4px 0;flex:none}
+.ss-card-studio .carte .titlebar{background:var(--ss-gold);color:#2d2103;font-family:'Baloo 2',cursive;font-weight:800;letter-spacing:2px;font-size:11.5px;padding:5px 14px;flex:none;display:flex;align-items:center;justify-content:space-between;overflow:hidden}
+.ss-card-studio .carte .titlebar .tb-type{letter-spacing:2.2px;flex:none}
+.ss-card-studio .carte .titlebar .tb-cls{font-size:13px;letter-spacing:.4px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%;text-align:right}
+.ss-card-studio .ss-cls-band{background:linear-gradient(90deg,var(--ss-cc-dark),var(--ss-cc));color:#fff;font-family:'Baloo 2',cursive;font-weight:800;font-size:12px;letter-spacing:1.8px;text-align:center;padding:7px 14px;margin:auto -18px 0;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;z-index:2}
 .ss-card-studio .carte .bodyz{flex:1;display:flex;gap:14px;padding:12px 16px;position:relative;background:radial-gradient(70% 90% at 100% 0%,var(--ss-cc-soft) 0%,transparent 55%),repeating-linear-gradient(-45deg,transparent 0 26px,rgba(0,0,0,.02) 26px 27px),#fdfefe}
 .ss-card-studio .carte .photo-col{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px}
 .ss-card-studio .carte .photo{width:108px;height:118px;border-radius:16px;overflow:hidden;position:relative;background:linear-gradient(160deg,#eef2fb,#dfe6f5);outline:4px solid var(--ss-cc);outline-offset:2.5px}
@@ -5217,7 +5220,6 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
       <div class="pcol">
         <div class="photo-wrap">
           <div class="photo">${s.photo?`<img src="${esc(s.photo)}" alt="">`:'<div class="ph"><svg viewBox="0 0 100 100"><circle cx="50" cy="36" r="17" fill="#a9b6d3"/><path d="M18 88c4-20 17-30 32-30s28 10 32 30z" fill="#a9b6d3"/></svg></div>'}</div>
-          <div class="cls-dot">${esc(clNm)}</div>
         </div>
         <div class="qr-side" id="ss-qr-br"></div>
         <b class="scan">SCAN ENTRÉE / SORTIE</b>
@@ -5237,6 +5239,7 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
     <span class="deco" style="top:30px;right:26px;font-size:13px;transform:rotate(-14deg)">b</span>
     <span class="deco" style="bottom:46px;left:8px;font-size:17px;transform:rotate(8deg)">c</span>
     ${bottomEl}
+    <div class="ss-cls-band">${esc(clNm)}</div>
     <div class="foot" style="margin:0 -18px -12px"><div style="height:22px;display:flex;align-items:center;padding:0 4px"><span style="font-size:10px;font-weight:900;letter-spacing:.5px">SchoolSafe</span></div><div><div class="t1">Sécurisé par SchoolSafe</div><div class="t2">un enfant protégé, un parent informé</div></div></div>
   </div>
 </div>`;
@@ -5290,12 +5293,11 @@ window.ssBuildCarte=function(s,cl,teacher,year,patC,patStyle){
   const recto=`<div class="art carte" id="ss-cr">
   <div class="face-tag">RECTO — CARTE HORIZONTALE</div>
   <div class="head"><div class="arc"><i></i><i></i><i></i><i></i><i></i></div>${logoH}<div class="school"><div class="rdc">République Démocratique du Congo</div><div class="nm" style="font-size:${sz}">${esc(snm)}</div>${slg?`<div class="slg">${esc(slg)}</div>`:''}</div><div class="flag"></div></div>
-  <div class="titlebar">CARTE D'ÉLÈVE</div>
+  <div class="titlebar"><span class="tb-type">CARTE D'ÉLÈVE</span><span class="tb-cls">${esc(clNm)}</span></div>
   <div class="bodyz">
     ${showFond?ssVeil(patC,true):''}
     <div class="photo-col">
       <div class="photo">${s.photo?`<img src="${esc(s.photo)}" alt="">`:'<div class="ph"><svg viewBox="0 0 100 100"><circle cx="50" cy="36" r="17" fill="#a9b6d3"/><path d="M18 88c4-20 17-30 32-30s28 10 32 30z" fill="#a9b6d3"/></svg></div>'}</div>
-      <div class="cls-pill">${esc(clNm)}</div>
     </div>
     <div class="info">
       <div class="sname"><div class="n1">${esc(dispNm)}</div>${fn?`<div class="n2">${esc(fn)}</div>`:''}</div>
