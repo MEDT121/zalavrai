@@ -1101,8 +1101,6 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
 #crop-zoom-pct{font-size:11px;font-weight:800;color:#1446aa;min-width:36px}
 #crop-hint{font-size:11px;color:#9ca3af;text-align:center;margin:8px 0 14px}
 #crop-btn-row{display:flex;gap:8px}
-/* Vignette badge recto: absolue dans le bodyz pour ne jamais déborder */
-.ss-card-studio .badge .bodyz>.pat.center{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);margin:0;z-index:3}
 /* Vignette carte: pas de rotation, contrainte de hauteur */
 .ss-card-studio .carte .pat{margin-top:auto;overflow:hidden;max-height:56px;padding:2px 0}
 .ss-card-studio .carte .pat img{transform:rotate(-2deg);border-radius:10px}
@@ -5245,8 +5243,11 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
   const px=patB.v.startsWith('min-')?'PIERRE PRÉCIEUSE · ':'';
   // Vignette ou fond ou les deux
   const vigEl=showVig?ssPatEl(patB,52,true):'';
-  const nmEl=`<div class="pat center" style="margin-bottom:5px"><span class="nm2">${esc((px+patB.n).toUpperCase())}</span></div>`;
+  const nmEl=`<div class="pat center" style="margin:0"><span class="nm2">${esc((px+patB.n).toUpperCase())}</span></div>`;
   const bottomEl=showVig?vigEl:(showFond?nmEl:'');
+  // Overlay recto: hors du bodyz (flex), position absolue relative à .art (340×540) — immunisé
+  // contre le sélecteur .patveil.active~* et contre l'écrasement des margins par styles inline
+  const rectoOverlay=bottomEl?`<div style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none">${bottomEl}</div>`:'';
 
   const recto=`<div class="art badge" id="ss-br">
   <div class="face-tag">RECTO — BADGE VERTICAL</div>
@@ -5279,9 +5280,9 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
     <span class="deco" style="top:4px;right:8px;font-size:20px;transform:rotate(10deg)">A</span>
     <span class="deco" style="top:30px;right:26px;font-size:13px;transform:rotate(-14deg)">b</span>
     <span class="deco" style="bottom:46px;left:8px;font-size:17px;transform:rotate(8deg)">c</span>
-    ${bottomEl}
-    <div class="foot" style="margin:0 -18px -12px"><div style="height:22px;display:flex;align-items:center;padding:0 4px"><span style="font-size:10px;font-weight:900;letter-spacing:.5px">SchoolSafe</span></div><div><div class="t1">Sécurisé par SchoolSafe</div><div class="t2">un enfant protégé, un parent informé</div></div><span style="margin-left:auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:999px;padding:3px 10px;font-family:'Baloo 2',cursive;font-size:10px;font-weight:900;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${esc(clNm)}</span></div>
+    <div class="foot" style="margin-left:-18px;margin-right:-18px;margin-bottom:-12px"><div style="height:22px;display:flex;align-items:center;padding:0 4px"><span style="font-size:10px;font-weight:900;letter-spacing:.5px">SchoolSafe</span></div><div><div class="t1">Sécurisé par SchoolSafe</div><div class="t2">un enfant protégé, un parent informé</div></div><span style="margin-left:auto;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);border-radius:999px;padding:3px 10px;font-family:'Baloo 2',cursive;font-size:10px;font-weight:900;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${esc(clNm)}</span></div>
   </div>
+  ${rectoOverlay}
 </div>`;
 
   const verso=`<div class="art badge verso" id="ss-bv">
