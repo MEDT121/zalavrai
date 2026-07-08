@@ -1846,6 +1846,7 @@ window.NAV = {
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
       {s:'Rapports officiels'},
       {id:'tenafep',i:'📄',l:'TENAFEP 6e Primaire'},
+      {id:'exetat',i:'🎓',l:'EXETAT Finalistes'},
       {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
       {id:'salaires',i:'💰',l:'Salaires'},
       {id:'rapport_secope',i:'📑',l:'Rapport SECOPE/MEPSP'},
@@ -2001,6 +2002,7 @@ window.NAV = {
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
       {s:'Rapports officiels'},
       {id:'tenafep',i:'📄',l:'TENAFEP 6e Primaire'},
+      {id:'exetat',i:'🎓',l:'EXETAT Finalistes'},
       {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
       {id:'statistiques',i:'📊',l:'Statistiques'},
       {id:'teacher_activity',i:'👁️',l:'Activité Profs'},
@@ -2738,7 +2740,8 @@ window.PT = {
   profil_enseignant:'Mon profil', profil_parent:'Mon profil',
   scan_history:'Entrées / Sorties', convocations:'Convocations', sanctions:'Sanctions disciplinaires',
   statistiques:'Statistiques',
-  tenafep:'ENAFEP CM2',
+  tenafep:'TENAFEP 6e Primaire',
+  exetat:'EXETAT Finalistes',
   evaluations_ens:'Évaluations des enseignants',
   salaires:'Salaires & Fiches de paie',
   primes:'Primes Enseignants', fee_types:'Types de frais', mon_site:'Mon site web',
@@ -21305,6 +21308,180 @@ window.printTenafepList = () => {
   </div>
   </body></html>`;
   dlPDF(_tenHtml,`Liste-ENAFEP-${yr}.pdf`);
+};
+
+// ── EXETAT — Baccalauréat Finalistes ──────────────────────────────────────────
+const _isRheto = (c) => c && c.cycle === 'secondaire' && (
+  c.name.toUpperCase().includes('RHÉTO') ||
+  c.name.toUpperCase().includes('RHETO') ||
+  c.name.toUpperCase().includes('TERMINALE') ||
+  c.name.toUpperCase().includes('TERMINAL') ||
+  c.name.toUpperCase().includes('6ÈME H') ||
+  c.name.toUpperCase().includes('6EME H') ||
+  c.name.toUpperCase().includes('6H')
+);
+
+R.exetat = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
+  const allFin=(DB.students||[]).filter(s=>_isRheto(gc(s.cid)));
+  const exetatData=DB.exetat||[];
+  const year=DB.settings.year||'2025-2026';
+  const stats={admis:exetatData.filter(t=>t.result==='admis').length,echoue:exetatData.filter(t=>t.result==='echoue').length,attente:allFin.length-exetatData.filter(t=>t.result==='admis'||t.result==='echoue').length};
+  return `
+  <div class="premium-section" style="border-left:4px solid #0f7ea8">
+    <div class="premium-section-title">🎓 EXETAT — ${year}</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Examen d'État — Diplôme de fin des Humanités (Baccalauréat congolais).</div>
+    <div style="background:#e0f4fd;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0f5e85">
+      📋 Les résultats officiels de l'EXETAT sont publiés par le Ministère de l'ESU. Consultez le site officiel ou le tableau d'affichage de l'école pour les résultats définitifs.
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:#e0f4fd;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#0f7ea8">${allFin.length}</div><div style="font-size:10px;color:#6b7280">Candidats</div></div>
+      <div style="background:#d8f3e6;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#1f9d6b">${stats.admis}</div><div style="font-size:10px;color:#6b7280">Admis</div></div>
+      <div style="background:#fee2e2;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#dc2626">${stats.echoue}</div><div style="font-size:10px;color:#6b7280">Échoués ❌</div></div>
+      <div style="background:#fef3c7;border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:#d97706">${stats.attente}</div><div style="font-size:10px;color:#6b7280">En attente</div></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;background:#0f7ea8" onclick="printExetatList()">💾 Télécharger liste EXETAT (PDF)</button>
+  </div>
+  ${!allFin.length?`<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:48px;margin-bottom:12px">🎓</div>Aucun finaliste trouvé.<br><span style="font-size:12px">Vérifiez que les classes Rhétorique / Terminale ont le cycle <strong>secondaire</strong> et un nom contenant « Rhéto », « Terminale » ou « 6H ».</span></div>`:`
+  <div class="premium-section">
+    <div class="premium-section-title">Liste des finalistes</div>
+    ${allFin.map((s,i)=>{
+      const rec=exetatData.find(t=>t.sid===s.id)||{};
+      const cl=gc(s.cid);
+      const resultColor=rec.result==='admis'?'#1f9d6b':rec.result==='echoue'?'#dc2626':'#d97706';
+      const resultLabel=rec.result==='admis'?'✅ Admis':rec.result==='echoue'?'❌ Échoué':'⏳ En attente';
+      return `<div class="premium-item" style="animation-delay:${i*.03}s">
+        <div class="pi-icon" style="background:#e0f4fd;color:#0f7ea8;font-weight:700">${i+1}</div>
+        <div style="flex:1">
+          <div class="pi-title">${esc(s.name)}</div>
+          <div class="pi-sub">${cl?esc(cl.name):''} · Mat: ${esc(s.mat)}${rec.exetat_code?` · N° candidat: <strong>${esc(rec.exetat_code)}</strong>`:''}</div>
+          ${rec.score!=null?`<div style="font-size:11px;color:#0f7ea8;margin-top:1px">Score EXETAT : ${rec.score}%</div>`:''}
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:12px;font-weight:700;color:${resultColor}">${resultLabel}</span>
+          <button class="btn btn-outline btn-sm" onclick="openExetatRecord('${s.id}')">✏️</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`}`;
+};
+window.openExetatRecord = (sid) => {
+  const s=(DB.students||[]).find(x=>x.id===sid);if(!s)return;
+  const rec=(DB.exetat||[]).find(t=>t.sid===sid)||{};
+  openM(`🎓 EXETAT — ${esc(s.name)}`,`
+  <div style="background:#e0f4fd;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0f5e85">
+    📋 Résultats EXETAT publiés par le Ministère de l'ESU — rapprochez-vous du délégué ou du tableau d'affichage officiel.
+  </div>
+  <div class="form-group"><label class="form-label">N° candidat EXETAT <span style="font-size:10px;color:var(--text-muted)">attribué par le jury</span></label>
+    <input class="form-input" id="ext_code" value="${esc(rec.exetat_code||'')}" placeholder="Ex: 123456789" style="font-family:monospace;letter-spacing:1px">
+  </div>
+  <div class="form-group"><label class="form-label">Résultat</label>
+    <select class="form-select" id="ext_result">
+      <option value="" ${!rec.result?'selected':''}>⏳ En attente</option>
+      <option value="admis" ${rec.result==='admis'?'selected':''}>✅ Admis — Diplôme d'État obtenu</option>
+      <option value="echoue" ${rec.result==='echoue'?'selected':''}>❌ Échoué</option>
+    </select>
+  </div>
+  <div class="form-group"><label class="form-label">Pourcentage obtenu (%)</label>
+    <input class="form-input" id="ext_score" type="number" min="0" max="100" step="0.1" value="${rec.score!=null?rec.score:''}" placeholder="Ex: 68.5">
+  </div>
+  <div class="form-group"><label class="form-label">Option / Section</label>
+    <input class="form-input" id="ext_option" value="${esc(rec.option||'')}" placeholder="Ex: Sciences, Pédagogie, Commerciale, Technique...">
+  </div>
+  <div class="form-group"><label class="form-label">N° d'inscription officiel</label>
+    <input class="form-input" id="ext_num" value="${esc(rec.registration_num||'')}" placeholder="Numéro attribué par le jury EXETAT">
+  </div>
+  <div class="form-group"><label class="form-label">Observations</label>
+    <textarea class="form-input" id="ext_notes" rows="2" placeholder="Remarques, mention, dispenses...">${esc(rec.notes||'')}</textarea>
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="saveExetatRecord('${sid}')" style="background:#0f7ea8">Enregistrer</button>`);
+};
+window.saveExetatRecord = (sid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!DB.exetat) DB.exetat=[];
+  const idx=DB.exetat.findIndex(t=>t.sid===sid);
+  const obj={id:idx>=0?DB.exetat[idx].id:'ext'+Date.now(),sid,exetat_code:$('ext_code')?.value?.trim()||null,result:$('ext_result')?.value||'',score:$('ext_score')?.value?parseFloat($('ext_score').value):null,option:$('ext_option')?.value||null,registration_num:$('ext_num')?.value||null,notes:$('ext_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
+  if(idx>=0)DB.exetat[idx]=obj;else DB.exetat.push(obj);
+  pushSync('exetat','upsert',obj);saveToCrypt();
+  toast('Enregistré','success');closeModal();render();
+};
+window.printExetatList = () => {
+  const allFin=(DB.students||[]).filter(s=>_isRheto(gc(s.cid)));
+  const ext=DB.exetat||[];
+  const sc=DB.settings.school||{};
+  const yr=DB.settings.year||'2025-2026';
+  const admis=ext.filter(t=>t.result==='admis').length;
+  const echoue=ext.filter(t=>t.result==='echoue').length;
+  const _extHtml=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Liste EXETAT ${yr}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;color:#2a2622;background:#f0f8fc}
+    .page{max-width:760px;margin:0 auto;padding:20px}
+    .download-bar{background:linear-gradient(135deg,#0f7ea8,#0a5b7a);color:#fff;border-radius:16px;padding:20px 24px;text-align:center;margin-bottom:24px}
+    .download-bar h2{font-size:18px;margin-bottom:6px}
+    .download-bar p{font-size:13px;opacity:.85;margin-bottom:14px}
+    .btn-dl{background:#fff;color:#0f7ea8;border:none;border-radius:10px;padding:12px 28px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+    .btn-dl:hover{background:#e0f4fd}
+    .mobile-tip{font-size:12px;opacity:.75;margin-top:10px}
+    .doc-header{text-align:center;border-bottom:3px solid #0f7ea8;padding-bottom:14px;margin-bottom:20px}
+    .doc-header h1{font-size:20px;color:#0f7ea8;margin-bottom:4px}
+    .doc-header p{font-size:13px;color:#6f6557;margin-bottom:2px}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+    .stat{background:#fff;border:1px solid #d0eaf5;border-radius:10px;padding:12px;text-align:center}
+    .stat-n{font-size:22px;font-weight:800;color:#0f7ea8}
+    .stat-l{font-size:11px;color:#6b7280;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+    th{background:#0f7ea8;color:#fff;padding:10px 12px;text-align:left;font-size:12px}
+    td{padding:9px 12px;border-bottom:1px solid #e6f4fb}
+    tr:last-child td{border-bottom:none}
+    tr:nth-child(even) td{background:#f7fbfe}
+    .admis{color:#1f9d6b;font-weight:700}
+    .echoue{color:#dc2626;font-weight:700}
+    .pending{color:#d97706}
+    .sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:40px;text-align:center}
+    .sig-line{border-top:2px solid #2a2622;padding-top:8px;font-size:11px;color:#374151}
+    .footer-doc{text-align:center;font-size:11px;color:#a89c8b;margin-top:20px;padding-top:12px;border-top:1px solid #d0eaf5}
+    @media print{
+      .download-bar{display:none!important}
+      body{background:#fff}
+      .page{padding:0;max-width:100%}
+      table{box-shadow:none}
+    }
+  </style>
+  </head><body>
+  <div class="page">
+    <div class="download-bar no-print">
+      <h2>📄 Liste EXETAT prête</h2>
+      <p>Cliquez sur le bouton ci-dessous puis choisissez <strong>« Enregistrer en PDF »</strong> dans la boîte de dialogue.</p>
+      <button class="btn-dl" onclick="window.print()">💾 Télécharger / Enregistrer en PDF</button>
+      <div class="mobile-tip">📱 Sur téléphone Android / iPhone : appuyez sur le bouton → puis sélectionnez <strong>Enregistrer en PDF</strong></div>
+    </div>
+    <div class="doc-header">
+      <div style="font-size:11px;color:#6f6557;margin-bottom:4px">REPUBLIQUE DEMOCRATIQUE DU CONGO · Ministère de l'ESU</div>
+      <h1>🎓 LISTE OFFICIELLE EXETAT — ${yr}</h1>
+      <p style="font-size:15px;font-weight:700;color:#2a2622">${sc.name||'SchoolSafe'}</p>
+      <p>${sc.address||sc.sub||''}</p>
+      ${sc.dgep?`<p>N° SECOPE/DGEP : ${sc.dgep}</p>`:''}
+      <p style="margin-top:6px;font-size:12px;color:#6f6557">Généré le ${new Date().toLocaleDateString('fr-FR')} · Total finalistes : <strong>${allFin.length}</strong></p>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-n">${allFin.length}</div><div class="stat-l">Finalistes</div></div>
+      <div class="stat"><div class="stat-n" style="color:#1f9d6b">${admis}</div><div class="stat-l">Diplôme obtenu ✅</div></div>
+      <div class="stat"><div class="stat-n" style="color:#dc2626">${echoue}</div><div class="stat-l">Échoués ❌</div></div>
+      <div class="stat"><div class="stat-n" style="color:#d97706">${allFin.length-admis-echoue}</div><div class="stat-l">En attente ⏳</div></div>
+    </div>
+    <table><thead><tr><th>#</th><th>Nom complet</th><th>Matricule</th><th>Classe / Option</th><th>N° Candidat</th><th>Score</th><th>Résultat</th></tr></thead>
+    <tbody>${allFin.map((s,i)=>{const r=ext.find(t=>t.sid===s.id)||{};const cl=gc(s.cid);return`<tr><td style="color:#6f6557">${i+1}</td><td style="font-weight:600">${esc(s.name)}</td><td style="font-family:monospace;font-size:11px">${esc(s.mat)}</td><td>${cl?esc(cl.name):''}${r.option?` — ${esc(r.option)}`:''}</td><td>${r.exetat_code||'—'}</td><td>${r.score!=null?`<strong>${r.score}%</strong>`:'—'}</td><td class="${r.result||'pending'}">${r.result==='admis'?'✅ Admis':r.result==='echoue'?'❌ Échoué':'⏳ En attente'}</td></tr>`;}).join('')}</tbody></table>
+    <div class="sigs">
+      <div><div style="height:50px"></div><div class="sig-line">Le Directeur / La Directrice</div></div>
+      <div><div style="height:50px"></div><div class="sig-line">Responsable pédagogique</div></div>
+      <div><div style="height:50px"></div><div class="sig-line">Délégué MEPSP / SECOPE</div></div>
+    </div>
+    <div class="footer-doc">Document officiel généré par SchoolSafe v3.0 · ${sc.name||'SchoolSafe'} · ${yr}</div>
+  </div>
+  </body></html>`;
+  dlPDF(_extHtml,`Liste-EXETAT-${yr}.pdf`);
 };
 
 // ═══════════════════════════════════════════
