@@ -1085,6 +1085,13 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
   .ss-card-studio .badge{transform:scale(.82);transform-origin:top left}
   .ss-badge-wrap{width:calc(340px*.82);height:calc(540px*.82 + 2px);overflow:hidden}
 }
+/* ── Bande holographique ── */
+.ss-card-studio .art::after{content:"";position:absolute;pointer-events:none;z-index:99;background:linear-gradient(var(--ss-holo-angle,180deg),rgba(255,0,0,.22),rgba(255,128,0,.22),rgba(255,255,0,.18),rgba(0,210,120,.2),rgba(0,100,255,.22),rgba(140,0,255,.2),rgba(255,0,180,.22),rgba(255,0,0,.22));background-size:100% 600%;animation:ss-holo-shift 3.5s linear infinite;mix-blend-mode:screen}
+.ss-card-studio .badge .art::after{right:0;top:0;width:16px;bottom:0;border-radius:0 22px 22px 0;--ss-holo-angle:180deg}
+.ss-card-studio .carte .art::after{left:0;right:0;bottom:0;height:12px;border-radius:0 0 22px 22px;--ss-holo-angle:90deg}
+@keyframes ss-holo-shift{0%{background-position:50% 0%}100%{background-position:50% 600%}}
+/* ── Tampon DUPLICATA ── */
+.ss-duplicata-stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);z-index:100;border:4px solid rgba(196,22,22,.82);color:rgba(196,22,22,.82);font-family:'Baloo 2',cursive;font-size:30px;font-weight:900;letter-spacing:4px;padding:7px 18px;border-radius:8px;pointer-events:none;background:rgba(255,255,255,.15);backdrop-filter:blur(1px);white-space:nowrap;text-shadow:0 1px 3px rgba(0,0,0,.12)}
 </style>
 </head>
 <body>
@@ -5438,8 +5445,8 @@ R.cards = () => {
   const _g=_requireRole('direction','direction2'); if(_g) return _g;
   const {PATG,FAMS,FGRAD}=window._ssCARDS;
   const allStudents=(DB.students||[]).filter(s=>!s.access_blocked);
-  const total=allStudents.length, withPhoto=allStudents.filter(s=>s.photo).length, complete=allStudents.filter(s=>s.photo&&s.name&&s.mat&&s.dob).length;
-  const pcPhoto=total?Math.round(withPhoto/total*100):0, pcComplete=total?Math.round(complete/total*100):0;
+  const total=allStudents.length, withPhoto=allStudents.filter(s=>s.photo).length, complete=allStudents.filter(s=>s.photo&&s.name&&s.mat&&s.dob).length, printed=allStudents.filter(s=>s.card_printed).length;
+  const pcPhoto=total?Math.round(withPhoto/total*100):0, pcComplete=total?Math.round(complete/total*100):0, pcPrinted=total?Math.round(printed/total*100):0;
   const curFam=window._ssCardFam||'A';
 
   const {FVARS,CARDPAL}=window._ssCARDS;
@@ -5472,6 +5479,7 @@ R.cards = () => {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${pal}</div>
       <select class="form-input" style="font-size:11px;padding:4px 8px" onchange="saveClassCardStyle('${esc(cl.id)}',null,null,null,this.value)">${patSelOpts}</select>
+      <button onclick="printClassCards('${esc(cl.id)}')" style="margin-top:7px;width:100%;background:#f0fdf4;color:#065f46;border:1.5px solid #6ee7b7;border-radius:8px;padding:5px 0;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimer cette classe</button>
     </div>`;
   }).join('');
 
@@ -5519,16 +5527,21 @@ R.cards = () => {
       <button class="btn btn-outline btn-sm" style="flex:1" onclick="window._ssPreviewSid=${JSON.stringify(s.id)};document.getElementById('ss-student-sel')&&(document.getElementById('ss-student-sel').value=${JSON.stringify(s.id)});ssRenderPreview();document.getElementById('ss-preview-outer')?.scrollIntoView({behavior:'smooth'})">👁 Aperçu</button>
       <button class="btn btn-primary btn-sm" style="flex:1" onclick="submitCardOrder(${JSON.stringify(s.id)})" ${!isComplete?'disabled':''}>🪪 Commander</button>
     </div>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm" style="flex:1;background:${s.card_printed?'#f0fdf4':'var(--bg-secondary,#f8fafc)'};border:1.5px solid ${s.card_printed?'#6ee7b7':'var(--border-light,#e2e8f0)'};color:${s.card_printed?'#065f46':'var(--text-secondary)'};font-weight:700" onclick="markCardPrinted(${JSON.stringify(s.id)})">${s.card_printed?'✅ Imprimé':'⬜ Imprimé'}</button>
+      <button class="btn btn-sm" style="flex:1;background:#fff7f7;border:1.5px solid ${s.card_printed?'#fca5a5':'#e2e8f0'};color:${s.card_printed?'#dc2626':'#9ca3af'};font-weight:700" onclick="generateDuplicata(${JSON.stringify(s.id)})" ${!s.card_printed?'disabled title="Imprimez d\'abord la carte originale"':''}>📋 Duplicata${s.card_print_count>1?' #'+s.card_print_count:''}</button>
+    </div>
     </div>`;
   }).join('');
 
   return `
 <div class="premium-section" style="margin-bottom:14px;border-left:4px solid #2f7bd6">
   <div class="premium-section-title">📊 État des dossiers élèves</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:10px">
     <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800">${total}</div><div style="font-size:11px;color:var(--text-secondary)">Élèves actifs</div></div>
     <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:${pcPhoto>=80?'#1f9d6b':'#d98a2b'}">${withPhoto}</div><div style="font-size:11px;color:var(--text-secondary)">Avec photo (${pcPhoto}%)</div></div>
     <div style="background:var(--bg-secondary,#f8fafc);border-radius:12px;padding:14px;text-align:center"><div style="font-size:26px;font-weight:800;color:${pcComplete>=80?'#1f9d6b':'#dc2626'}">${complete}</div><div style="font-size:11px;color:var(--text-secondary)">Complets (${pcComplete}%)</div></div>
+    <div style="background:${printed>0?'#f0fdf4':'var(--bg-secondary,#f8fafc)'};border-radius:12px;padding:14px;text-align:center;border:1.5px solid ${printed===total&&total>0?'#6ee7b7':'transparent'}"><div style="font-size:26px;font-weight:800;color:${printed===total&&total>0?'#059669':printed>0?'#0891b2':'#9ca3af'}">${printed}</div><div style="font-size:11px;color:var(--text-secondary)">Imprimées (${pcPrinted}%)</div></div>
   </div>
   ${complete<total?`<div style="background:#fff3cd;border:1px solid #d98a2b;border-radius:10px;padding:10px 14px;margin-top:12px;font-size:12px;color:#92400e">⚠️ ${total-complete} dossier${total-complete>1?'s':''} incomplet${total-complete>1?'s':''}. Ajoutez photo, date de naissance et matricule.</div>`:''}
 </div>
@@ -5618,6 +5631,113 @@ window.saveClassCardStyle=function(cid,cc,soft,dark,pat){
     if(pat!==null&&pat!==undefined){const sel=row.querySelector('select');if(sel)sel.value=pat||'auto';}
   }
   ssRenderPreview();
+};
+
+window.markCardPrinted=function(sid){
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
+  s.card_printed=!s.card_printed;
+  s.card_print_date=s.card_printed?today():null;
+  if(s.card_printed&&!s.card_print_count) s.card_print_count=1;
+  saveToCrypt();
+  pushSync('students','patch',{card_printed:s.card_printed,card_print_date:s.card_print_date},'id=eq.'+sid);
+  logAudit('card_print_status','Carte '+s.name+': '+(s.card_printed?'marquée imprimée':'non imprimée'));
+  render();
+};
+
+window.printClassCards=function(cid){
+  const cl=(DB.classes||[]).find(c=>c.id===cid); if(!cl) return;
+  const students=(DB.students||[]).filter(s=>s.cid===cid&&!s.access_blocked);
+  if(!students.length){toast('Aucun élève dans cette classe','warning');return;}
+  const fam=window._ssCardFam||'A';
+  const patStyle=document.getElementById('ss-pat-style')?.value||'vignette';
+  const sc=DB.settings?.school||{};
+  const year=(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
+  const teacher=cl?(DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)):null;
+  const teacherName=teacher?teacher.name:'';
+  const studio=document.getElementById('ss-card-studio');
+  const col=studio?{cc:studio.style.getPropertyValue('--ss-cc')||'#1446aa',soft:studio.style.getPropertyValue('--ss-cc-soft')||'#dbe7fb',dark:studio.style.getPropertyValue('--ss-cc-dark')||'#0d2f77'}:{cc:'#1446aa',soft:'#dbe7fb',dark:'#0d2f77'};
+  const css=Array.from(document.styleSheets).reduce((a,ss)=>{try{return a+Array.from(ss.cssRules).reduce((b,r)=>b+r.cssText,'');}catch(e){return a;};},'');
+  const {type}=ssClassType(cl);
+  const cardsHtml=students.map(s=>{
+    const patB=ssGetClassPat(cl,'badge'),patC=ssGetClassPat(cl,'carte');
+    const built=type==='badge'?ssBuildBadge(s,cl,teacherName,year,patB,patStyle):ssBuildCarte(s,cl,teacherName,year,patC,patStyle);
+    const qrDivId='qr_pc_'+s.id.replace(/[^a-z0-9]/gi,'_');
+    return `<div style="page-break-inside:avoid;margin-bottom:28px;display:flex;gap:16px;justify-content:center;align-items:flex-start;flex-wrap:wrap">${built.recto}${built.verso}<script>try{new QRCode(document.getElementById('${qrDivId}'),{text:${JSON.stringify(built.qr)},width:80,height:80,correctLevel:QRCode.CorrectLevel.M});}catch(e){}<\/script></div>`;
+  }).join('');
+  const checklist=students.map(s=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #e5e7eb">${esc(s.name)}</td><td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;font-family:monospace;font-size:12px">${esc(s.mat||'—')}</td><td style="padding:7px 10px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:18px">☐</td><td style="padding:7px 10px;border-bottom:1px solid #e5e7eb"></td></tr>`).join('');
+  const win=window.open('','_blank');
+  if(!win){toast('Popup bloqué — autorisez les popups','error');return;}
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cartes — ${esc(cl.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito+Sans:opsz,wght@6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>*{box-sizing:border-box}body{margin:0;padding:20px;font-family:sans-serif;background:#e9ecf4}
+.page-hdr{background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:20px}
+.page-hdr h1{margin:0 0 4px;font-size:17px}.page-hdr p{margin:0;font-size:12px;opacity:.8}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f8fafc;padding:8px 10px;text-align:left;font-weight:700;border-bottom:2px solid #e5e7eb}
+.btn-print{background:#1446aa;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:20px}
+@media print{.no-print{display:none}body{background:#fff;padding:0}.page-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+${css}</style></head><body>
+<div class="no-print"><button class="btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button></div>
+<div class="page-hdr"><h1>🎓 ${esc(cl.name)} — Cartes &amp; Badges</h1><p>${students.length} élève${students.length>1?'s':''} · Année ${esc(year)}</p></div>
+<div class="ss-card-studio" data-fam="${fam}" style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;--ss-cc:${col.cc};--ss-cc-soft:${col.soft};--ss-cc-dark:${col.dark}">
+${cardsHtml}
+</div>
+<div style="page-break-before:always;margin-top:30px">
+<div class="page-hdr"><h1>📋 Liste de distribution — ${esc(cl.name)}</h1><p>À signer à la réception</p></div>
+<table><thead><tr><th>Nom de l'élève</th><th>Matricule</th><th style="text-align:center;width:60px">Reçu ☑</th><th>Signature</th></tr></thead><tbody>${checklist}</tbody></table>
+</div></body></html>`);
+  win.document.close();
+  logAudit('print_class_cards','Impression classe: '+cl.name+' ('+students.length+' élèves)');
+  toast('✅ Fenêtre d\'impression ouverte — '+students.length+' carte'+( students.length>1?'s':''),'success');
+};
+
+window.generateDuplicata=function(sid){
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
+  if(!s.card_printed){toast('Imprimez d\'abord la carte originale','warning');return;}
+  s.card_print_count=(s.card_print_count||1)+1;
+  const count=s.card_print_count;
+  saveToCrypt();
+  pushSync('students','patch',{card_print_count:count},'id=eq.'+sid);
+  logAudit('card_duplicata','DUPLICATA carte n°'+count+': '+s.name);
+  const cl=(DB.classes||[]).find(c=>c.id===s.cid);
+  const teacher=cl?(DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)):null;
+  const teacherName=teacher?teacher.name:'';
+  const year=(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
+  const patStyle=document.getElementById('ss-pat-style')?.value||'vignette';
+  const {type}=ssClassType(cl);
+  const patB=ssGetClassPat(cl,'badge'),patC=ssGetClassPat(cl,'carte');
+  const built=type==='badge'?ssBuildBadge(s,cl,teacherName,year,patB,patStyle):ssBuildCarte(s,cl,teacherName,year,patC,patStyle);
+  const fam=window._ssCardFam||'A';
+  const studio=document.getElementById('ss-card-studio');
+  const col=studio?{cc:studio.style.getPropertyValue('--ss-cc')||'#1446aa',soft:studio.style.getPropertyValue('--ss-cc-soft')||'#dbe7fb',dark:studio.style.getPropertyValue('--ss-cc-dark')||'#0d2f77'}:{cc:'#1446aa',soft:'#dbe7fb',dark:'#0d2f77'};
+  const css=Array.from(document.styleSheets).reduce((a,ss)=>{try{return a+Array.from(ss.cssRules).reduce((b,r)=>b+r.cssText,'');}catch(e){return a;};},'');
+  // Injecter le tampon DUPLICATA dans le recto
+  const rectoWithStamp=built.recto.replace(/(<div class="art[^>]*>)/,'$1<div class="ss-duplicata-stamp">DUPLICATA</div>');
+  const win=window.open('','_blank');
+  if(!win){toast('Popup bloqué — autorisez les popups','error');return;}
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>DUPLICATA — ${esc(s.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito+Sans:opsz,wght@6..12,700;6..12,800;6..12,900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>*{box-sizing:border-box}body{margin:0;padding:24px;font-family:sans-serif;background:#fff5f5}
+.dup-hdr{background:#dc2626;color:#fff;padding:12px 18px;border-radius:10px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
+.dup-hdr h1{margin:0;font-size:16px}.dup-hdr p{margin:0;font-size:11px;opacity:.85}
+.btn-print{background:#dc2626;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:700;cursor:pointer}
+@media print{.no-print{display:none}body{background:#fff;padding:0}.dup-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+${css}</style></head><body>
+<div class="no-print" style="margin-bottom:16px;display:flex;align-items:center;gap:12px">
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimer DUPLICATA</button>
+  <span style="font-size:12px;color:#6b7280">Duplicata n°${count} · ${today()}</span>
+</div>
+<div class="dup-hdr"><h1>📋 DUPLICATA — ${esc(s.name)}</h1><p>Copie n°${count} · Original imprimé le ${s.card_print_date||'—'}</p></div>
+<div class="ss-card-studio" data-fam="${fam}" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;--ss-cc:${col.cc};--ss-cc-soft:${col.soft};--ss-cc-dark:${col.dark}">
+  ${rectoWithStamp}
+  ${built.verso}
+</div>
+<script>try{const el=document.querySelector('.qr-big,.qr-side');if(el&&el.id)new QRCode(el,{text:${JSON.stringify(built.qr)},width:el.offsetWidth||80,height:el.offsetHeight||80,correctLevel:QRCode.CorrectLevel.M});}catch(e){}<\/script>
+</body></html>`);
+  win.document.close();
+  toast('📋 Duplicata n°'+count+' généré','info');
 };
 
 window.loadMyCardOrders = async () => {
