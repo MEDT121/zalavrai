@@ -1651,7 +1651,7 @@ window.DB = {
   _sid: 1, _uid: 1, _apid: 1,
   settings: {
     id: _settingsId(),
-    horaires: { primaire:{ ontime:455, late:480 }, maternelle:{ ontime:485, late:510 } },
+    horaires: { primaire:{ ontime:455, late:480 }, maternelle:{ ontime:485, late:510 }, secondaire:{ ontime:420, late:435 } },
     toggles: { palmares:true, devoirs:true, notes_parent:true, cahier_texte:true, remarques:false, presences:true, bulletin:false },
     year: '2025-2026',
     feesControl: { active:false, trimestre:'T1' },
@@ -1698,6 +1698,19 @@ window.DEFAULT_MATIERES = {
     {name:'Éducation Physique & Sport',lang:'fr',coeff:1},
     {name:'Religion / Morale',lang:'fr',coeff:1},
     {name:'Dessin Technique / Arts',lang:'fr',coeff:1},
+  ],
+  humanites: [
+    {name:'Français',lang:'fr',coeff:3},
+    {name:'Mathématiques',lang:'fr',coeff:2},
+    {name:'Anglais',lang:'fr',coeff:2},
+    {name:'Histoire',lang:'fr',coeff:2},
+    {name:'Géographie',lang:'fr',coeff:1},
+    {name:'Sciences Naturelles / Biologie',lang:'fr',coeff:2},
+    {name:'Physique-Chimie',lang:'fr',coeff:2},
+    {name:'Éducation Civique & Morale',lang:'fr',coeff:1},
+    {name:'Éducation Physique & Sport',lang:'fr',coeff:1},
+    {name:'Religion / Morale',lang:'fr',coeff:1},
+    {name:'Cours d\'Option',lang:'fr',coeff:3},
   ]
 };
 
@@ -1817,12 +1830,13 @@ window.NAV = {
       {id:'authorized',i:'🔑',l:'Personnes autorisées'},
       {id:'acces_parents',i:'🔐',l:'Accès parents'},
       {id:'cards',i:'🪪',l:"Cartes d'élèves"},
-      {s:'Finances'},
-      {id:'payments',i:'💳',l:'Paiements'},
+      {s:'Finances & RH'},
+      {id:'payments',i:'💳',l:'Paiements élèves'},
       {id:'caisse_paiement',i:'💵',l:'Caisse'},
       {id:'etat_financier',i:'📈',l:'État Financier'},
       {id:'tresorerie',i:'🏦',l:'Trésorerie'},
       {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
+      {id:'salaires',i:'💰',l:'Salaires & Fiches de paie'},
       {id:'primes',i:'💎',l:'Primes Enseignants'},
       {s:'Pédagogie'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
@@ -1848,7 +1862,6 @@ window.NAV = {
       {id:'tenafep',i:'📄',l:'TENAFEP 6e Primaire'},
       {id:'exetat',i:'🎓',l:'EXETAT Finalistes'},
       {id:'evaluations_ens',i:'⭐',l:'Évaluations Profs'},
-      {id:'salaires',i:'💰',l:'Salaires'},
       {id:'rapport_secope',i:'📑',l:'Rapport SECOPE/MEPSP'},
       {s:'Système'},
       {id:'statistiques',i:'📊',l:'Statistiques'},
@@ -6317,7 +6330,12 @@ R.students = () => {
 window.openStudentForm = (sid) => {
   const s = sid ? DB.students.find(x=>x.id===sid) : null;
   const mat = s ? s.mat : genMat();
-  const classOpts = DB.classes.map(c=>`<option value="${c.id}" ${s&&s.cid===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const _cycleLabels={maternelle:'🧸 Maternelle',primaire:'📚 Primaire',humanites:'🏛️ Humanités',secondaire:'🎓 Secondaire'};
+  const classOpts=['maternelle','primaire','humanites','secondaire'].map(cyc=>{
+    const cls=DB.classes.filter(c=>c.cycle===cyc);
+    if(!cls.length) return '';
+    return `<optgroup label="${_cycleLabels[cyc]}">${cls.map(c=>`<option value="${c.id}" ${s&&s.cid===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`;
+  }).join('');
   const parentOpts = `<option value="">— Aucun parent —</option>`+DB.users.filter(u=>u.role==='parent').map(u=>`<option value="${u.id}" ${s&&s.pid===u.id?'selected':''}>${esc(u.name)}${u.phone?' ('+esc(u.phone)+')':''}</option>`).join('');
   openM(s?`✏️ Modifier — ${s.name}`:'➕ Inscrire un élève',`
 <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:16px">
@@ -6801,14 +6819,17 @@ window._parQ = '';
 R.classes = () => {
   const _nMat=DB.classes.filter(c=>c.cycle==='maternelle').length;
   const _nPrim=DB.classes.filter(c=>c.cycle==='primaire').length;
+  const _nHum=DB.classes.filter(c=>c.cycle==='humanites').length;
   const _nSec=DB.classes.filter(c=>c.cycle==='secondaire').length;
   const _nStu=DB.students.length;
   const _noTeach=DB.classes.filter(c=>!c.teacher_id&&!c.teacher_id_en).length;
+  const _nCols=2+(_nMat?1:0)+(_nPrim?1:0)+(_nHum?1:0)+(_nSec?1:0);
   return _wrapDark(`
-  <div class="hbento" style="grid-template-columns:repeat(${_nSec?5:4},1fr);margin-bottom:14px">
+  <div class="hbento" style="grid-template-columns:repeat(${_nCols},1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 8px"><div style="font-size:19px">🏫</div><div class="hbig" style="font-size:23px">${DB.classes.length}</div><div class="hsub">classes</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ff9c6e);color:#fff;padding:13px 8px"><div style="font-size:19px">🧸</div><div class="hbig" style="font-size:23px">${_nMat}</div><div class="hsub">maternelle</div></div>
-    <div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📚</div><div class="hbig" style="font-size:23px">${_nPrim}</div><div class="hsub">primaire</div></div>
+    ${_nMat?`<div class="htile" style="background:linear-gradient(135deg,#ff7a4d,#ff9c6e);color:#fff;padding:13px 8px"><div style="font-size:19px">🧸</div><div class="hbig" style="font-size:23px">${_nMat}</div><div class="hsub">maternelle</div></div>`:''}
+    ${_nPrim?`<div class="htile" style="background:linear-gradient(135deg,#9b6fd4,#b591e0);color:#fff;padding:13px 8px"><div style="font-size:19px">📚</div><div class="hbig" style="font-size:23px">${_nPrim}</div><div class="hsub">primaire</div></div>`:''}
+    ${_nHum?`<div class="htile" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;padding:13px 8px"><div style="font-size:19px">🏛️</div><div class="hbig" style="font-size:23px">${_nHum}</div><div class="hsub">humanités</div></div>`:''}
     ${_nSec?`<div class="htile" style="background:linear-gradient(135deg,#0d9488,#2dd4bf);color:#fff;padding:13px 8px"><div style="font-size:19px">🎓</div><div class="hbig" style="font-size:23px">${_nSec}</div><div class="hsub">secondaire</div></div>`:''}
     <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff;padding:13px 8px"><div style="font-size:19px">👨‍🎓</div><div class="hbig" style="font-size:23px">${_nStu}</div><div class="hsub">élèves</div></div>
   </div>
@@ -6829,7 +6850,7 @@ R.classes = () => {
             <div style="width:48px;height:48px;border-radius:14px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px">${classDot(c.name)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:16px">${esc(c.name)}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${{maternelle:'🧸 Maternelle',primaire:'📚 Primaire',secondaire:'🎓 Secondaire'}[c.cycle]||c.cycle||'—'}</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${{maternelle:'🧸 Maternelle',primaire:'📚 Primaire',humanites:'🏛️ Humanités',secondaire:'🎓 Secondaire'}[c.cycle]||c.cycle||'—'}</div>
             </div>
             <span class="premium-badge" style="background:${cbg};color:${cc}">${studs.length} élève(s)</span>
           </div>
@@ -8086,10 +8107,11 @@ window.getClassMatieres = (cid) => {
   // Matières personnalisées approuvées pour cette classe
   const custom=(DB.matieres||[]).filter(m=>m.cid===cid&&m.active!==false);
   const customLangs=new Set(custom.map(m=>m.lang));
-  // Matières par défaut selon le cycle (humanités traité comme secondaire, faute de référentiel dédié)
+  // Matières par défaut selon le cycle
   let defaults;
   if(cl.cycle==='maternelle') defaults=DEFAULT_MATIERES.maternelle.map((m,i)=>({id:'dm'+i,cid,name:m.name,lang:m.lang,coeff:m.coeff||1,active:true}));
-  else if(cl.cycle==='secondaire'||cl.cycle==='humanites') defaults=DEFAULT_MATIERES.secondaire.map((m,i)=>({id:'ds'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
+  else if(cl.cycle==='humanites') defaults=DEFAULT_MATIERES.humanites.map((m,i)=>({id:'dh'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
+  else if(cl.cycle==='secondaire') defaults=DEFAULT_MATIERES.secondaire.map((m,i)=>({id:'ds'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true}));
   else defaults=[
     ...DEFAULT_MATIERES.primaire_fr.map((m,i)=>({id:'dfr'+i,cid,name:m.name,lang:'fr',coeff:m.coeff||1,active:true})),
     ...DEFAULT_MATIERES.primaire_en.map((m,i)=>({id:'den'+i,cid,name:m.name,lang:'en',coeff:m.coeff||1,active:true})),
@@ -18005,7 +18027,8 @@ R.settings = () => {
         <input class="form-input" id="cfg_m_late" type="time" value="${minsToTime(hm.late)}">
       </div>
     </div>
-    <div style="font-weight:600;font-size:13px;margin:8px 0;color:#0d9488">🎓 Secondaire</div>
+    <div style="font-weight:600;font-size:13px;margin:8px 0;color:#0d9488">🎓 Secondaire & 🏛️ Humanités</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Ces horaires s'appliquent aux deux cycles supérieurs (Secondaire et Humanités).</div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">À l'heure jusqu'à</label>
         <input class="form-input" id="cfg_s_ontime" type="time" value="${minsToTime(hs.ontime)}">
@@ -21311,7 +21334,7 @@ window.printTenafepList = () => {
 };
 
 // ── EXETAT — Baccalauréat Finalistes ──────────────────────────────────────────
-const _isRheto = (c) => c && c.cycle === 'secondaire' && (
+const _isRheto = (c) => c && (c.cycle === 'secondaire' || c.cycle === 'humanites') && (
   c.name.toUpperCase().includes('RHÉTO') ||
   c.name.toUpperCase().includes('RHETO') ||
   c.name.toUpperCase().includes('TERMINALE') ||
