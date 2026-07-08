@@ -1088,6 +1088,24 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
   .ss-card-studio .badge{transform:scale(.82);transform-origin:top left}
   .ss-badge-wrap{width:calc(340px*.82);height:calc(540px*.82 + 2px);overflow:hidden}
 }
+/* ── Photo Crop Modal ── */
+#photo-crop-modal{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:16px}
+#photo-crop-modal.open{display:flex}
+#photo-crop-box{background:#fff;border-radius:22px;padding:20px;width:100%;max-width:360px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+#photo-crop-box h3{margin:0 0 14px;font-size:16px;font-weight:800;color:#17203a}
+#crop-canvas{display:block;border-radius:14px;cursor:grab;touch-action:none;max-width:100%;outline:3px solid #dbe7fb}
+#crop-canvas:active{cursor:grabbing}
+#crop-zoom-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+#crop-zoom-row label{font-size:11px;font-weight:700;color:#5d6784;white-space:nowrap}
+#crop-zoom{flex:1;accent-color:#1446aa}
+#crop-zoom-pct{font-size:11px;font-weight:800;color:#1446aa;min-width:36px}
+#crop-hint{font-size:11px;color:#9ca3af;text-align:center;margin:8px 0 14px}
+#crop-btn-row{display:flex;gap:8px}
+/* Vignette carte: pas de rotation, contrainte de hauteur */
+.ss-card-studio .carte .pat{margin-top:auto;overflow:hidden;max-height:56px;padding:2px 0}
+.ss-card-studio .carte .pat img{transform:rotate(-2deg);border-radius:10px}
+.ss-card-studio .carte .pat .nm2{max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.ss-card-studio .carte .info{overflow:hidden}
 /* ── Bande holographique ── */
 .ss-card-studio .art::after{content:"";position:absolute;pointer-events:none;z-index:99;background:linear-gradient(var(--ss-holo-angle,180deg),rgba(255,0,0,.22),rgba(255,128,0,.22),rgba(255,255,0,.18),rgba(0,210,120,.2),rgba(0,100,255,.22),rgba(140,0,255,.2),rgba(255,0,180,.22),rgba(255,0,0,.22));background-size:100% 600%;animation:ss-holo-shift 3.5s linear infinite;mix-blend-mode:screen}
 .ss-card-studio .badge .art::after{right:0;top:0;width:16px;bottom:0;border-radius:0 22px 22px 0;--ss-holo-angle:180deg}
@@ -1586,7 +1604,28 @@ window.COMPRESS = {
 };
 window.compressWithProfile = (file, profile, cb) => {
   const p = COMPRESS[profile] || COMPRESS.photo_eleve;
-  compressImage(file, p.maxW, p.maxH, p.quality, cb);
+  // Documents et devoirs : compression directe sans recadrage
+  if(profile === 'photo_devoir') { compressImage(file, p.maxW, p.maxH, p.quality, cb); return; }
+  // Photos de personnes : passer par le crop modal
+  const aspect = profile === 'photo_ap' ? 3/4 : 1; // AP portrait 3:4, profil carré
+  const reader = new FileReader();
+  reader.onload = e => {
+    if(window.openPhotoCrop) {
+      openPhotoCrop(e.target.result, aspect, cropped => {
+        const img = new Image();
+        img.onload = () => {
+          const w=Math.min(img.width,p.maxW), h=Math.min(img.height,p.maxH);
+          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          cb(cv.toDataURL('image/jpeg', p.quality));
+        };
+        img.src = cropped;
+      });
+    } else {
+      compressImage(file, p.maxW, p.maxH, p.quality, cb);
+    }
+  };
+  reader.readAsDataURL(file);
 };
 
 // Identifiant de la ligne settings : 'main' en mono-école (1 base = 1 école),
@@ -5309,7 +5348,7 @@ window.ssBuildCarte=function(s,cl,teacher,year,patC,patStyle){
         <div class="cell"><div class="k">Titulaire</div><div class="v">${esc(tchr)}</div></div>
         <div class="cell"><div class="k">N° Direction</div><div class="v">${esc(phone)}</div></div>
       </div>
-      ${showVig?ssPatEl(patC,44,false):showFond?nmEl:''}
+      ${showVig?ssPatEl(patC,38,false):showFond?nmEl:''}
     </div>
     <div class="qr-col"><div class="qr-box" id="ss-qr-cr"></div><b>SCAN ENTRÉE / SORTIE</b></div>
   </div>
@@ -6293,19 +6332,36 @@ window.stuPhotoChange = (input) => {
   const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{
-      const MAX=400,MH=520;
-      let w=img.width,h=img.height;
-      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
-      if(h>MH){w=Math.round(w*MH/h);h=MH;}
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const data=cv.toDataURL('image/jpeg',0.85);
+    const apply=data=>{
       $('stu_photo_data').value=data;
       $('stu_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
     };
-    img.src=e.target.result;
+    if(window.openPhotoCrop){
+      openPhotoCrop(e.target.result, 400/520, cropped=>{
+        // Compression finale après recadrage
+        const img=new Image();
+        img.onload=()=>{
+          const MAX=400,MH=520;
+          let w=img.width,h=img.height;
+          if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
+          const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+          cv.getContext('2d').drawImage(img,0,0,w,h);
+          apply(cv.toDataURL('image/jpeg',0.85));
+        };
+        img.src=cropped;
+      });
+    } else {
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=400,MH=520;
+        let w=img.width,h=img.height;
+        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        apply(cv.toDataURL('image/jpeg',0.85));
+      };
+      img.src=e.target.result;
+    }
   };
   reader.readAsDataURL(file);
 };
@@ -12396,19 +12452,29 @@ window.tutPhotoChange = (input) => {
   const file=input.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{
-      const MAX=300,MH=400;
-      let w=img.width,h=img.height;
-      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
-      if(h>MH){w=Math.round(w*MH/h);h=MH;}
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const data=cv.toDataURL('image/jpeg',0.82);
-      $('tut_photo_data').value=data;
-      $('tut_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
-    };
-    img.src=e.target.result;
+    const apply=data=>{$('tut_photo_data').value=data;$('tut_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;};
+    if(window.openPhotoCrop){
+      openPhotoCrop(e.target.result, 3/4, cropped=>{
+        const img=new Image();
+        img.onload=()=>{
+          const cv=document.createElement('canvas');cv.width=Math.min(img.width,300);cv.height=Math.min(img.height,400);
+          cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+          apply(cv.toDataURL('image/jpeg',0.82));
+        };
+        img.src=cropped;
+      });
+    } else {
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=300,MH=400;
+        let w=img.width,h=img.height;
+        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        apply(cv.toDataURL('image/jpeg',0.82));
+      };
+      img.src=e.target.result;
+    }
   };
   reader.readAsDataURL(file);
 };
@@ -22294,6 +22360,105 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(()=>{ if(ind) ind.style.display='none'; });
   }
 });
+</script>
+
+<!-- ══ Photo Crop Modal ══ -->
+<div id="photo-crop-modal" role="dialog" aria-modal="true">
+  <div id="photo-crop-box">
+    <h3>✂️ Recadrer la photo</h3>
+    <canvas id="crop-canvas"></canvas>
+    <div id="crop-zoom-row">
+      <label for="crop-zoom">🔍 Zoom</label>
+      <input type="range" id="crop-zoom" min="100" max="400" value="100" step="2"
+        oninput="window._cropZoom=+this.value/100;window._cropDraw()">
+      <span id="crop-zoom-pct">100%</span>
+    </div>
+    <div id="crop-hint">Faites glisser pour repositionner · Zoom pour cadrer</div>
+    <div id="crop-btn-row">
+      <button class="btn btn-outline" onclick="document.getElementById('photo-crop-modal').classList.remove('open')" style="flex:1">Annuler</button>
+      <button class="btn btn-primary" onclick="window._cropConfirm()" style="flex:1">✅ Valider</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var _cb=null, _src=null, _aspect=1, _zoom=1, _ox=0, _oy=0, _dragging=false, _lx=0, _ly=0;
+  var DSIZE=320; // taille d'affichage en px
+
+  window.openPhotoCrop=function(dataUrl,aspect,cb){
+    _cb=cb; _aspect=aspect||1; _zoom=1; _ox=0; _oy=0;
+    var img=new Image();
+    img.onload=function(){
+      _src=img;
+      var cvs=document.getElementById('crop-canvas');
+      var dh=Math.round(DSIZE/_aspect);
+      cvs.width=DSIZE; cvs.height=dh;
+      cvs.style.width=DSIZE+'px'; cvs.style.height=dh+'px';
+      var sl=document.getElementById('crop-zoom');
+      if(sl){sl.value=100;}
+      var pct=document.getElementById('crop-zoom-pct');
+      if(pct) pct.textContent='100%';
+      window._cropZoom=1;
+      _cropDraw();
+      document.getElementById('photo-crop-modal').classList.add('open');
+    };
+    img.src=dataUrl;
+  };
+
+  function _cropDraw(){
+    var cvs=document.getElementById('crop-canvas');
+    if(!cvs||!_src) return;
+    var ctx=cvs.getContext('2d');
+    var W=cvs.width, H=cvs.height;
+    var zoom=window._cropZoom||1;
+    var base=Math.max(W/_src.width, H/_src.height);
+    var scale=base*zoom;
+    var dw=_src.width*scale, dh=_src.height*scale;
+    var bx=(W-dw)/2+_ox, by=(H-dh)/2+_oy;
+    // Clamp: l'image doit toujours couvrir entièrement la zone
+    if(bx>0) bx=0; if(by>0) by=0;
+    if(bx+dw<W) bx=W-dw;
+    if(by+dh<H) by=H-dh;
+    _ox=bx-(W-dw)/2; _oy=by-(H-dh)/2;
+    ctx.clearRect(0,0,W,H);
+    ctx.drawImage(_src,bx,by,dw,dh);
+    var pct=document.getElementById('crop-zoom-pct');
+    if(pct) pct.textContent=Math.round(zoom*100)+'%';
+  }
+  window._cropDraw=_cropDraw;
+
+  window._cropConfirm=function(){
+    var cvs=document.getElementById('crop-canvas');
+    if(!cvs) return;
+    var data=cvs.toDataURL('image/jpeg',0.88);
+    document.getElementById('photo-crop-modal').classList.remove('open');
+    if(_cb){ var tmp=_cb; _cb=null; tmp(data); }
+  };
+
+  // Mouse + Touch drag
+  function getP(e){ return e.touches?e.touches[0]:e; }
+  document.addEventListener('DOMContentLoaded',function(){
+    var cvs=document.getElementById('crop-canvas');
+    if(!cvs) return;
+    cvs.addEventListener('mousedown',function(e){_dragging=true;var p=getP(e);_lx=p.clientX;_ly=p.clientY;e.preventDefault();});
+    cvs.addEventListener('touchstart',function(e){_dragging=true;var p=getP(e);_lx=p.clientX;_ly=p.clientY;e.preventDefault();},{passive:false});
+    document.addEventListener('mousemove',function(e){
+      if(!_dragging) return;
+      var p=getP(e); _ox+=p.clientX-_lx; _oy+=p.clientY-_ly; _lx=p.clientX; _ly=p.clientY; _cropDraw();
+    });
+    document.addEventListener('touchmove',function(e){
+      if(!_dragging) return;
+      var p=getP(e); _ox+=p.clientX-_lx; _oy+=p.clientY-_ly; _lx=p.clientX; _ly=p.clientY; _cropDraw(); e.preventDefault();
+    },{passive:false});
+    document.addEventListener('mouseup',function(){_dragging=false;});
+    document.addEventListener('touchend',function(){_dragging=false;});
+    // Fermeture clic fond
+    document.getElementById('photo-crop-modal').addEventListener('click',function(e){
+      if(e.target===this) this.classList.remove('open');
+    });
+  });
+})();
 </script>
 </body>
 </html>
