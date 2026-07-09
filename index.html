@@ -1643,7 +1643,7 @@ window.DB = {
   convocations: [], timetables: [], approbations: [],
   teacher_notes: [], audit_log: [], teacher_absences: [],
   sanctions: [], medical: [], tenafep: [], evaluations: [],
-  salaries: [], advances: [],
+  salaries: [], advances: [], direct_primes: [],
   fee_types: [], versements: [], journal_entries: [],
   cantine: [], cantine_menus: [], cantine_presence: [],
   activites: [], activites_inscriptions: [], appreciations: [], medical_visits: [],
@@ -1836,8 +1836,7 @@ window.NAV = {
       {id:'etat_financier',i:'📈',l:'État Financier'},
       {id:'tresorerie',i:'🏦',l:'Trésorerie'},
       {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
-      {id:'salaires',i:'💰',l:'Salaires & Fiches de paie'},
-      {id:'primes',i:'💎',l:'Primes Enseignants'},
+      {id:'paie',i:'💼',l:'Paie du Personnel'},
       {s:'Pédagogie'},
       {id:'palmares',i:'🏆',l:'Palmarès'},
       {id:'attendance',i:'✏️',l:'Présences'},
@@ -2048,6 +2047,7 @@ window.NAV = {
       {id:'etat_financier',i:'📈',l:'État Financier'},
       {id:'tresorerie',i:'🏦',l:'Trésorerie'},
       {id:'comptabilite',i:'📒',l:'Comptabilité Générale'},
+      {id:'paie',i:'💼',l:'Paie du Personnel'},
       {id:'fee_types',i:'🏷️',l:'Types de frais'},
       {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
       {s:'Infos'},
@@ -2058,7 +2058,7 @@ window.NAV = {
     bn:[
       {id:'dashboard',i:'🏠',l:'Accueil'},
       {id:'caisse_paiement',i:'💵',l:'Paiement'},
-      {id:'caisse_depense',i:'📤',l:'Dépense'},
+      {id:'paie',i:'💼',l:'Paie'},
       {id:'caisse_rapport',i:'📊',l:'Rapport'},
       {id:'profil_caisse',i:'👤',l:'Profil'},
     ]
@@ -2136,7 +2136,7 @@ window.loadFromSupabase = async () => {
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
            approbations,teacher_notes,audit_log,teacher_absences,
-           medical,tenafep,evaluations,salaries,advances,
+           medical,tenafep,evaluations,salaries,advances,direct_primes,
            sanctions,cantine,cantine_menus,cantine_presence,
            activites,activites_inscriptions,appreciations,medical_visits,
            inscriptions,cahier_prep,prevision_matiere,fee_types,versements,journal_entries] = await Promise.all([
@@ -2172,6 +2172,7 @@ window.loadFromSupabase = async () => {
       _get('evaluations','select=*&order=date.desc&limit=500'+_sf()),
       _get('salaries','select=*&order=month.desc&limit=500'+_sf()),
       _get('advances','select=*&order=date.desc&limit=500'+_sf()),
+      _get('direct_primes','select=*&order=date.desc&limit=500'+_sf()),
       _get('sanctions','select=*&order=date.desc&limit=200'+_sf()),
       _get('cantine','select=*'+_sf()),
       _get('cantine_menus','select=*&order=date.desc&limit=100'+_sf()),
@@ -2232,6 +2233,7 @@ window.loadFromSupabase = async () => {
     DB.evaluations=safe(evaluations);
     DB.salaries=safe(salaries);
     DB.advances=safe(advances);
+    DB.direct_primes=fd(direct_primes);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
@@ -2307,6 +2309,7 @@ window.forceSyncNow = async () => {
     {t:'evaluations', d:DB.evaluations||[]},
     {t:'salaries', d:DB.salaries||[]},
     {t:'advances', d:DB.advances||[]},
+    {t:'direct_primes', d:DB.direct_primes||[]},
   ];
   let ok=0, fail=0;
   for (const {t,d} of tables) {
@@ -2486,6 +2489,7 @@ function _cryptSnap() {
     evaluations:DB.evaluations||[],
     salaries:DB.salaries||[],
     advances:DB.advances||[],
+    direct_primes:DB.direct_primes||[],
     cantine:DB.cantine||[],
     cantine_menus:DB.cantine_menus||[],
     cantine_presence:DB.cantine_presence||[],
@@ -2758,6 +2762,7 @@ window.PT = {
   evaluations_ens:'Évaluations des enseignants',
   salaires:'Salaires & Fiches de paie',
   primes:'Primes Enseignants', fee_types:'Types de frais', mon_site:'Mon site web',
+  paie:'Paie du Personnel',
   rapport_secope:'Rapport SECOPE/MEPSP',
   inscriptions:'Demandes d\'inscription',
   cantine:'Cantine Scolaire',
@@ -2955,6 +2960,8 @@ if(!window._iv_heartbeat) window._iv_heartbeat = setInterval(() => {
 }, 90000);
 
 window.go = (p, noHistory) => {
+  // Aliases — pages consolidées
+  if (p === 'salaires' || p === 'primes') p = 'paie';
   // Role guard — block pages not defined in the current role's NAV
   if (S.user && S.user.role && window.NAV[S.user.role]) {
     const allowed = new Set(window.NAV[S.user.role].nav.filter(n => n.id).map(n => n.id));
@@ -3503,7 +3510,7 @@ window.logout = () => {
   ['users','students','classes','grades','payments','attendance','scan_log','notifs','aps',
    'conduct','devoirs','rattrapages','cahier_texte','audit_log','convocations','sanctions',
    'daily_records','daily_expenses','daily_reports','journal_entries','versements','fee_types',
-   'salaries','advances','absences','messages','teacher_notes','timetables','teacher_absences',
+   'salaries','advances','direct_primes','absences','messages','teacher_notes','timetables','teacher_absences',
    'medical','tenafep','evaluations','cantine'].forEach(k=>{ DB[k]=[]; });
   DB.settings={};
   try { localStorage.removeItem(CRYPT_STORE); localStorage.removeItem(CRYPT_KEY_STORE); } catch(_) {}
@@ -14073,6 +14080,7 @@ const _PC = {
   '6421':{n:'Rémunérations gardiens/agents', cl:6,type:'charge',sens:'debit',icon:'🔒'},
   '6422':{n:'Rémunérations personnel cantine',cl:6,type:'charge',sens:'debit',icon:'👨‍🍳'},
   '643': {n:'Avances sur salaire',           cl:6,type:'charge',sens:'debit',icon:'💳'},
+  '6480':{n:'Autres charges de personnel (primes)',cl:6,type:'charge',sens:'debit',icon:'💎'},
   '606': {n:'Fournitures & petit matériel',  cl:6,type:'charge',sens:'debit',icon:'📦'},
   '6061':{n:'Achats alimentaires (cantine)', cl:6,type:'charge',sens:'debit',icon:'🍽️'},
   '611': {n:'Loyer & charges locatives',     cl:6,type:'charge',sens:'debit',icon:'🏠'},
@@ -14165,6 +14173,21 @@ window._getJournalAll = () => {
       libelle:`Avance salaire — ${teacher?.name||'?'}${a.reason?' ('+a.reason+')':''}`,
       debit:'643', credit:'571', montant:Number(a.amount)||0,
       ref:a.id, type:'avance', by:a.by||'',
+    });
+  });
+
+  // ── 4bis. Primes directes enseignants (DB.direct_primes) ──
+  (DB.direct_primes||[]).filter(p=>Number(p.amount)>0).forEach(p => {
+    const pMonth = p.month||(p.date||'').slice(0,7);
+    // Anti double-comptage : si un salaire PAYÉ du même mois inclut déjà les primes directes
+    // (direct_primes_total>0), le net du salaire (écriture 3) les couvre déjà
+    if((DB.salaries||[]).some(s=>s.teacher_id===p.teacher_id&&s.month===pMonth&&s.paid&&Number(s.direct_primes_total)>0)) return;
+    const teacher = (DB.users||[]).find(u=>u.id===p.teacher_id);
+    entries.push({
+      id:'je_dp_'+p.id, date:p.date||today(), time:p.time||'00:00',
+      libelle:`Prime directe — ${teacher?.name||'?'}${p.motif?' ('+p.motif+')':''}`,
+      debit:'6480', credit:'571', montant:Number(p.amount)||0,
+      ref:p.id, type:'prime', by:p.by||'',
     });
   });
 
@@ -22023,6 +22046,9 @@ window._getRatPrime = (teacherId, month) => {
 window._getAdvancesTotal = (teacherId, month) => {
   return (DB.advances||[]).filter(a=>a.teacher_id===teacherId&&a.month===month).reduce((s,a)=>s+a.amount,0);
 };
+window._getDirectPrimesTotal = (teacherId, month) => {
+  return (DB.direct_primes||[]).filter(p=>p.teacher_id===teacherId&&(p.month||(p.date||'').slice(0,7))===month).reduce((s,p)=>s+(Number(p.amount)||0),0);
+};
 
 R.salaires = () => {
   const teachers=(DB.users||[]).filter(u=>u.role==='enseignant');
@@ -22031,11 +22057,13 @@ R.salaires = () => {
   const currentMonth=today().slice(0,7);
   const selMonth=window._salMonth||currentMonth;
   const rate=DB.settings.rattrapage_rate||0;
+  const isDir1=S.user&&S.user.role==='direction';
   const totalNet=teachers.reduce((s,u)=>{
     const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
     const {prime}=_getRatPrime(u.id,selMonth);
     const adv=_getAdvancesTotal(u.id,selMonth);
-    return s+(sal.amount||0)+(sal.bonus||0)+prime-(sal.deductions||0)-adv;
+    const dp=_getDirectPrimesTotal(u.id,selMonth);
+    return s+(sal.amount||0)+(sal.bonus||0)+prime+dp-(sal.deductions||0)-adv;
   },0);
   const [mo,yr]=[parseInt(selMonth.split('-')[1]),selMonth.split('-')[0]];
   const monthLabel=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo-1]+' '+yr;
@@ -22048,7 +22076,7 @@ R.salaires = () => {
         <div style="font-size:18px;font-weight:800;color:#1f9d6b">${_cur()}${totalNet}</div>
         <div style="font-size:11px;color:#6b7280">Masse salariale nette</div>
       </div>
-      <button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrapage${rate?` (${_cur()}${rate})`:''}</button>
+      ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrapage${rate?` (${_cur()}${rate})`:''}</button>`:''}
     </div>
   </div>
   ${teachers.map((u,i)=>{
@@ -22056,7 +22084,9 @@ R.salaires = () => {
     const {count:ratCount,prime:ratPrime}=_getRatPrime(u.id,selMonth);
     const advTotal=_getAdvancesTotal(u.id,selMonth);
     const advList=advs.filter(a=>a.teacher_id===u.id&&a.month===selMonth);
-    const brut=(sal.amount||0)+(sal.bonus||0)+ratPrime;
+    const dpTotal=_getDirectPrimesTotal(u.id,selMonth);
+    const dpList=(DB.direct_primes||[]).filter(p=>p.teacher_id===u.id&&(p.month||(p.date||'').slice(0,7))===selMonth);
+    const brut=(sal.amount||0)+(sal.bonus||0)+ratPrime+dpTotal;
     const net=brut-(sal.deductions||0)-advTotal;
     const hasSal=sal.amount>0;
     return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px;animation-delay:${i*.04}s">
@@ -22067,16 +22097,17 @@ R.salaires = () => {
           <div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</strong> — ${sal.paid?'Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div>
         </div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-          <button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸 Avance</button>
+          ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸 Avance</button>`:''}
           ${hasSal?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">💾 PDF</button>`:''}
-          ${hasSal?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteSalaire('${u.id}','${selMonth}')">🗑️</button>`:''}
-          <button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>
+          ${hasSal&&isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteSalaire('${u.id}','${selMonth}')">🗑️</button>`:''}
+          ${isDir1?`<button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>`:''}
         </div>
       </div>
       ${hasSal?`<div style="background:#fff5ea;border-radius:10px;padding:10px 12px;font-size:12px">
         <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#374151">Salaire de base</span><span style="font-weight:700">${_cur()}${sal.amount}</span></div>
         ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">🔄 Prime rattrapages (${ratCount}×${_cur()}${rate})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${ratPrime}</span></div>`:''}
         ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#1f9d6b">Autres primes</span><span style="font-weight:700;color:#1f9d6b">+${_cur()}${sal.bonus}</span></div>`:''}
+        ${dpList.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">💎 Prime directe du ${p.date||''}${p.motif?' ('+esc(p.motif)+')':''}</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${p.amount}</span></div>`).join('')}
         ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#dc2626">💸 Avance du ${a.date}${a.reason?' ('+esc(a.reason)+')':''}</span><span style="font-weight:700;color:#dc2626">-${_cur()}${a.amount}</span></div>`).join('')}
         ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#ff7a4d">Retenues</span><span style="font-weight:700;color:#ff7a4d">-${_cur()}${sal.deductions}</span></div>`:''}
         <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</span></div>
@@ -22120,6 +22151,199 @@ R.salaires = () => {
       }).join('')}
     </div>`;
   })()}`;
+};
+
+// ══════════════════════════════════════════════════════════════
+//  R.paie — PAGE UNIFIÉE "Paie du Personnel"
+//  Remplace salaires + primes en un seul endroit (4 onglets)
+// ══════════════════════════════════════════════════════════════
+R.paie = () => {
+  const isDir1 = S.user?.role === 'direction';
+  const isDir3 = S.user?.role === 'direction3';
+  const tab = window._paieTab || 'salaires';
+  const selMonth = window._salMonth || today().slice(0,7);
+  const [mo,yr] = [parseInt(selMonth.split('-')[1]), selMonth.split('-')[0]];
+  const monthLabel = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo-1]+' '+yr;
+  const rate = DB.settings.rattrapage_rate||0;
+  const teachers = (DB.users||[]).filter(u=>u.role==='enseignant');
+  const sals = DB.salaries||[];
+
+  const TABS = [{id:'salaires',i:'💶',l:'Salaires'},{id:'primes',i:'💎',l:'Primes'},{id:'personnel',i:'👔',l:'Personnel'},{id:'recap',i:'📊',l:'Récap'}];
+  const tabBar = `<div style="display:flex;gap:6px;padding:12px 12px 0;overflow-x:auto;scrollbar-width:none;margin-bottom:14px">
+    ${TABS.map(t=>`<button onclick="window._paieTab='${t.id}';render()" style="flex-shrink:0;padding:8px 16px;border-radius:20px;border:2px solid ${tab===t.id?'var(--accent)':'var(--border-color)'};cursor:pointer;font-size:12px;font-weight:700;background:${tab===t.id?'var(--accent)':'var(--bg-card)'};color:${tab===t.id?'#fff':'var(--text-secondary)'};transition:all .15s">${t.i} ${t.l}</button>`).join('')}
+  </div>`;
+  const monthPicker = `<div style="padding:0 12px 10px"><input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="max-width:180px" onchange="window._salMonth=this.value;render()"></div>`;
+
+  // ── Onglet Salaires Enseignants ─────────────────────────────
+  if (tab === 'salaires') {
+    const advs = DB.advances||[];
+    const totalNet = teachers.reduce((s,u)=>{
+      const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
+      const {prime}=_getRatPrime(u.id,selMonth);
+      return s+(sal.amount||0)+(sal.bonus||0)+prime+_getDirectPrimesTotal(u.id,selMonth)-(sal.deductions||0)-_getAdvancesTotal(u.id,selMonth);
+    },0);
+    return `<div style="padding:12px">${tabBar}${monthPicker}
+    <div class="premium-section" style="border-left:4px solid #1f9d6b;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px;background:#d8f3e6;border-radius:10px;padding:8px 14px;text-align:center">
+          <div style="font-size:18px;font-weight:800;color:#1f9d6b">${_cur()}${totalNet}</div>
+          <div style="font-size:11px;color:#6b7280">Masse salariale nette — ${monthLabel}</div>
+        </div>
+        ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrap.${rate?` (${_cur()}${rate})`:''}</button>`:''}
+      </div>
+    </div>
+    ${teachers.map((u,i)=>{
+      const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
+      const {count:ratCount,prime:ratPrime}=_getRatPrime(u.id,selMonth);
+      const advTotal=_getAdvancesTotal(u.id,selMonth);
+      const advList=advs.filter(a=>a.teacher_id===u.id&&a.month===selMonth);
+      const dpTotal=_getDirectPrimesTotal(u.id,selMonth);
+      const dpList=(DB.direct_primes||[]).filter(p=>p.teacher_id===u.id&&(p.month||(p.date||'').slice(0,7))===selMonth);
+      const net=(sal.amount||0)+(sal.bonus||0)+ratPrime+dpTotal-(sal.deductions||0)-advTotal;
+      const hasSal=sal.amount>0;
+      return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px;animation-delay:${i*.04}s">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:${hasSal?'12px':'0'}">
+          <div style="width:44px;height:44px;border-radius:12px;background:#d8f3e6;color:#1f9d6b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0">${ini(u.name)}</div>
+          <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</strong> — ${sal.paid?'✅ Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+            ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸</button>`:''}
+            ${hasSal?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">💾</button>`:''}
+            ${hasSal&&isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteSalaire('${u.id}','${selMonth}')">🗑️</button>`:''}
+            ${isDir1?`<button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>`:''}
+          </div>
+        </div>
+        ${hasSal?`<div style="background:#fff5ea;border-radius:10px;padding:10px 12px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span>Salaire de base</span><span style="font-weight:700">${_cur()}${sal.amount}</span></div>
+          ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">🔄 Rattrapages (${ratCount}×${_cur()}${rate})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${ratPrime}</span></div>`:''}
+          ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#1f9d6b">Primes bonus</span><span style="font-weight:700;color:#1f9d6b">+${_cur()}${sal.bonus}</span></div>`:''}
+          ${dpList.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">💎 Prime (${esc(p.motif||p.date||'')})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${p.amount}</span></div>`).join('')}
+          ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#dc2626">💸 Avance (${esc(a.reason||a.date||'')})</span><span style="font-weight:700;color:#dc2626">-${_cur()}${a.amount}</span></div>`).join('')}
+          ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#ff7a4d">Retenues</span><span style="font-weight:700;color:#ff7a4d">-${_cur()}${sal.deductions}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</span></div>
+        </div>`:''}
+      </div>`;
+    }).join('')}
+    </div>`;
+  }
+
+  // ── Onglet Primes Enseignants ───────────────────────────────
+  if (tab === 'primes') {
+    const allRats=(DB.rattrapages||[]).filter(r=>r.amount>0);
+    const totalDue=allRats.filter(r=>r.paid).reduce((s2,r)=>s2+Number(r.amount||0),0);
+    const totalPending=allRats.filter(r=>!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount||0),0);
+    const dp=(DB.direct_primes||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    return `<div style="padding:12px">${tabBar}
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:16px;font-weight:700">💎 Primes Enseignants</span>
+      ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openPrimeForm()">➕ Prime directe</button>`:''}
+    </div>
+    ${dp.length?`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p=>{const u2=gu(p.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p.motif||'—')} · ${p.date||''}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">${_cur()}${p.amount}</span>${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`:''}
+    <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
+      <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">${_cur()}${totalDue}</div><div class="hsub">versées</div></div>
+      <div class="htile h-pay"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">${_cur()}${totalPending}</div><div class="hsub">dues</div></div>
+      <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">🔁</div><div class="hbig" style="font-size:24px">${allRats.length}</div><div class="hsub">rattrapages</div></div>
+    </div>
+    <div class="ww-grid">
+      ${teachers.map((u,i)=>{
+        const rats=allRats.filter(r=>r.teacher_id===u.id);
+        if(!rats.length) return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:#e5e7eb"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${u.initials||ini(u.name)}</div><div><div style="font-weight:700">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div></div></div></div>`;
+        const earned=rats.filter(r=>r.paid).reduce((s2,r)=>s2+Number(r.amount||0),0);
+        const due=rats.filter(r=>!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount||0),0);
+        const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
+        return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#2fbf8f':'#2f7bd6'}"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fdeccd':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u.initials||ini(u.name)}</div><div style="flex:1"><div style="font-weight:700;font-size:15px">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div></div>${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"><div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div><div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div><div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div></div>${rats.slice(0,3).map(r=>{const stu=DB.students.find(x=>x.id===r.sid);const stColor=r.paid?'#d8f3e6':r.validated_by?'#fdeccd':'#f6ede0';const stText=r.paid?'Versé':r.validated_by?'⏳ À verser':'En attente';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;flex:1"><span style="font-weight:600">${stu?esc(stu.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r.matiere)}</span></div><span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r.amount}</span><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}</div>`}).join('')}${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}</div></div>`;
+      }).join('')}
+    </div>
+    </div>`;
+  }
+
+  // ── Onglet Personnel non-enseignant ─────────────────────────
+  if (tab === 'personnel') {
+    const nonTeach=sals.filter(s=>!s.teacher_id&&s.person_name&&s.month===selMonth);
+    const totalNT=nonTeach.reduce((s2,r)=>s2+(r.net||r.amount||0),0);
+    const canEdit=isDir1||isDir3;
+    return `<div style="padding:12px">${tabBar}${monthPicker}
+    <div class="premium-section" style="border-left:4px solid #2563eb">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="premium-section-title" style="color:#2563eb;margin-bottom:0">👔 Personnel non-enseignant — ${monthLabel}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:#dbeafe;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#1d4ed8">Masse : ${_cur()}${totalNT}</div>
+          ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openPersonnelSalaireForm(null,'${selMonth}')">➕ Ajouter</button>`:''}
+        </div>
+      </div>
+      ${nonTeach.length===0?`<div style="text-align:center;color:var(--text-muted);padding:18px;font-size:13px">Aucun paiement pour ${monthLabel}.<br><span style="font-size:11px">Cliquez ➕ pour enregistrer.</span></div>`:''}
+      ${nonTeach.map(r=>{
+        const net=r.net||r.amount||0;
+        return `<div class="premium-section" style="margin-bottom:8px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${ini(r.person_name)}</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(r.person_name)}</div><div style="font-size:11px;color:var(--text-muted)">${esc(r.person_role||'Personnel')} — ${r.paid?'<span style="color:#1f9d6b">✅ Payé</span>':'<span style="color:#f59e0b">⏳ Non payé</span>'}</div></div>
+            <div style="text-align:right;min-width:80px"><div style="font-size:16px;font-weight:800;color:${net>=0?'#1d4ed8':'#dc2626'}">${_cur()}${net}</div><div style="font-size:10px;color:var(--text-muted)">${r.payment_method||'Espèces'}</div></div>
+            <div style="display:flex;gap:5px">
+              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="printPersonnelFichePaie('${r.id}')">💾</button>`:''}
+              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="openPersonnelSalaireForm('${r.id}','${selMonth}')">✏️</button>`:''}
+              ${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePersonnelSalaire('${r.id}')">🗑️</button>`:''}
+            </div>
+          </div>
+          ${r.notes?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border-color)">📝 ${esc(r.notes)}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    </div>`;
+  }
+
+  // ── Onglet Récapitulatif mensuel ────────────────────────────
+  const totalSalEns=teachers.reduce((s2,u)=>{
+    const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
+    const {prime:ratP}=_getRatPrime(u.id,selMonth);
+    return s2+(sal.amount||0)+(sal.bonus||0)+ratP+_getDirectPrimesTotal(u.id,selMonth)-(sal.deductions||0)-_getAdvancesTotal(u.id,selMonth);
+  },0);
+  const paidEns=sals.filter(s=>s.teacher_id&&s.month===selMonth&&s.paid).length;
+  const nonTeachRecap=sals.filter(s=>!s.teacher_id&&s.person_name&&s.month===selMonth);
+  const totalNTRecap=nonTeachRecap.reduce((s2,r)=>s2+(r.net||r.amount||0),0);
+  const totalPrimesRat=(DB.rattrapages||[]).filter(r=>r.amount>0&&!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount),0);
+  const totalDirPrimes=(DB.direct_primes||[]).reduce((s2,p)=>s2+Number(p.amount||0),0);
+  const avances=(DB.advances||[]).filter(a=>a.month===selMonth).reduce((s2,a)=>s2+(a.amount||0),0);
+  return `<div style="padding:12px">${tabBar}${monthPicker}
+  <div class="premium-section" style="border-left:4px solid #7c3aed;margin-bottom:14px">
+    <div class="premium-section-title" style="color:#7c3aed;margin-bottom:12px">📊 Récapitulatif — ${monthLabel}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:#d8f3e6;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#065f46">${_cur()}${totalSalEns}</div>
+        <div style="font-size:11px;color:#065f46">Masse enseignants</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${paidEns}✅ payé${paidEns>1?'s':''} · ${teachers.length-paidEns}⏳</div>
+      </div>
+      <div style="background:#dbeafe;border-radius:10px;padding:12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;color:#1d4ed8">${_cur()}${totalNTRecap}</div>
+        <div style="font-size:11px;color:#1d4ed8">Masse non-enseignant</div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${nonTeachRecap.length} personne${nonTeachRecap.length>1?'s':''}</div>
+      </div>
+    </div>
+    <div style="background:#f0e9fa;border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:13px">💎 Primes directes (cumulatif)</span><span style="font-weight:700;color:#9b6fd4">${_cur()}${totalDirPrimes}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:13px">🔄 Primes rattrapage dues</span><span style="font-weight:700;color:#9b6fd4">${_cur()}${totalPrimesRat}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="font-size:13px">💸 Avances du mois</span><span style="font-weight:700;color:#dc2626">-${_cur()}${avances}</span></div>
+    </div>
+    <div style="background:#7c3aed;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="color:#fff;font-size:14px;font-weight:700">MASSE SALARIALE TOTALE</span>
+      <span style="color:#fff;font-size:22px;font-weight:800">${_cur()}${totalSalEns+totalNTRecap}</span>
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title" style="margin-bottom:8px">Détail enseignants — ${monthLabel}</div>
+    ${teachers.map(u=>{
+      const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
+      const {prime:ratP}=_getRatPrime(u.id,selMonth);
+      const dp=_getDirectPrimesTotal(u.id,selMonth);
+      const adv=_getAdvancesTotal(u.id,selMonth);
+      const net=(sal.amount||0)+(sal.bonus||0)+ratP+dp-(sal.deductions||0)-adv;
+      return `<div class="premium-item">
+        <div style="width:36px;height:36px;border-radius:10px;background:${sal.paid?'#d8f3e6':'#fdeccd'};color:${sal.paid?'#065f46':'#92400e'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${ini(u.name)}</div>
+        <div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${sal.amount?`Base ${_cur()}${sal.amount}${dp?` + Primes ${_cur()}${dp}`:''}${adv?` - Avance ${_cur()}${adv}`:''}` : 'Pas de salaire saisi'}</div></div>
+        <div style="text-align:right"><div style="font-weight:800;font-size:15px;color:${net>0?'#1f9d6b':'var(--text-muted)'}">${sal.amount?`${_cur()}${net}`:'-'}</div><div style="font-size:10px">${sal.paid?'<span style="color:#1f9d6b">✅</span>':'<span style="color:#f59e0b">⏳</span>'}</div></div>
+      </div>`;
+    }).join('')}
+  </div>
+  </div>`;
 };
 
 window.openRatRateConfig = () => {
@@ -22194,6 +22418,7 @@ window.openSalaireForm = (teacherId, month) => {
   const sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month)||{};
   const {count:ratCount,prime:ratPrime}=_getRatPrime(teacherId,month);
   const advTotal=_getAdvancesTotal(teacherId,month);
+  const dpTotal=_getDirectPrimesTotal(teacherId,month);
   const [mo,yr2]=[parseInt(month.split('-')[1]),month.split('-')[0]];
   const monthLbl=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][mo-1]+' '+yr2;
   openM(`💶 Salaire — ${u.name} — ${monthLbl}`,`
@@ -22203,6 +22428,10 @@ window.openSalaireForm = (teacherId, month) => {
   ${ratPrime?`<div style="background:#f0e9fa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
     <span style="color:#5e3a92">🔄 Prime rattrapages auto (${ratCount} cours validés × ${_cur()}${DB.settings.rattrapage_rate||0})</span>
     <strong style="color:#9b6fd4">+${_cur()}${ratPrime}</strong>
+  </div>`:''}
+  ${dpTotal?`<div style="background:#f0e9fa;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:13px;display:flex;justify-content:space-between">
+    <span style="color:#5e3a92">💎 Primes directes accordées ce mois</span>
+    <strong style="color:#9b6fd4">+${_cur()}${dpTotal}</strong>
   </div>`:''}
   <div class="form-group"><label class="form-label">Autres primes / bonus (${_cur()})</label>
     <input class="form-input" id="sal_bonus" type="number" min="0" step="1" value="${sal.bonus||0}">
@@ -22235,9 +22464,10 @@ window.saveSalaire = (teacherId, month) => {
   const paid=!!parseInt($('sal_paid')?.value||'0');
   const {prime:ratPrime}=_getRatPrime(teacherId,month);
   const advTotal=_getAdvancesTotal(teacherId,month);
-  const net=amount+bonus+ratPrime-deductions-advTotal;
+  const directPrimesTotal=_getDirectPrimesTotal(teacherId,month);
+  const net=amount+bonus+ratPrime-deductions-advTotal+directPrimesTotal;
   const idx=DB.salaries.findIndex(s=>s.teacher_id===teacherId&&s.month===month);
-  const obj={id:idx>=0?DB.salaries[idx].id:_uid('sal_'),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
+  const obj={id:idx>=0?DB.salaries[idx].id:_uid('sal_'),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,direct_primes_total:directPrimesTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
   if(idx>=0)DB.salaries[idx]=obj;else DB.salaries.push(obj);
   pushSync('salaries','upsert',obj);
   if(paid){
