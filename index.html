@@ -14340,7 +14340,7 @@ R.tresorerie = () => {
 
 R.comptabilite = () => {
   if(!['direction','direction3'].includes(S.user.role)) return `<div style="text-align:center;padding:60px"><h2>Accès réservé</h2></div>`;
-  const tab = window._comptaTab||'journal';
+  const tab = window._comptaTab||'dashboard';
   const journal = _getJournalAll();
   const balance = _getBalanceComptes(journal);
 
@@ -14559,6 +14559,214 @@ R.comptabilite = () => {
     <button class="btn btn-sm" style="background:#243a6b;color:#fff;border:none;font-size:11px;width:100%;padding:12px;font-weight:700" onclick="exportBilanPDF()">⬇️ Exporter Bilan OHADA PDF</button>`;
   }
 
+  // FIN-10: Tableau de bord financier
+  else if(tab==='dashboard') {
+    const tresor = Object.values(balance).filter(b2=>b2.cl===5).reduce((s2,b2)=>s2+Math.max(0,b2.solde),0);
+    // 6 derniers mois
+    const yrD = parseInt(today().slice(0,4));
+    const moD = parseInt(today().slice(5,7));
+    const months6 = [];
+    for(let mi=5;mi>=0;mi--) {
+      let mo2=moD-mi, yr2=yrD;
+      while(mo2<1){mo2+=12;yr2--;}
+      months6.push(yr2+'-'+(mo2<10?'0':'')+mo2);
+    }
+    const mthData = {};
+    months6.forEach(m2=>{ mthData[m2]={prod:0,chg:0}; });
+    journal.forEach(e2=>{
+      const m2=(e2.date||'').slice(0,7);
+      if(!mthData[m2]) return;
+      if(e2.type==='versement') mthData[m2].prod+=e2.montant;
+      else if(e2.type==='depense'||e2.type==='salaire'||e2.type==='avance'||e2.type==='prime') mthData[m2].chg+=e2.montant;
+    });
+    const maxMth = Math.max(1,...months6.map(m2=>Math.max(mthData[m2].prod,mthData[m2].chg)));
+    // Paie ce mois
+    const currM2 = today().slice(0,7);
+    const salM2 = (DB.salaries||[]).filter(s2=>s2.month===currM2);
+    const salPaid2 = salM2.filter(s2=>s2.paid).length;
+    const salTotal2 = salM2.length;
+    const salPct2 = salTotal2>0?Math.round(salPaid2/salTotal2*100):0;
+    // Top comptes
+    const topProd2 = Object.values(balance).filter(b2=>b2.type==='produit'&&b2.solde>0).sort((x,y)=>y.solde-x.solde).slice(0,4);
+    const topChg2  = Object.values(balance).filter(b2=>b2.type==='charge'&&b2.solde>0).sort((x,y)=>y.solde-x.solde).slice(0,4);
+    // Alertes
+    const alerts2 = [];
+    if(resultat<0) alerts2.push({t:'danger',msg:`Déficit de ${_cur()}${Math.abs(resultat).toLocaleString()} — les charges dépassent les produits`});
+    if(tresor<500)  alerts2.push({t:'warning',msg:`Trésorerie faible : ${_cur()}${tresor.toLocaleString()} disponibles`});
+    const salImp2 = (DB.salaries||[]).filter(s2=>s2.month===currM2&&!s2.paid).length;
+    if(salImp2>0)   alerts2.push({t:'warning',msg:`${salImp2} salaire(s) non payé(s) ce mois (${currM2})`});
+    if(!alerts2.length) alerts2.push({t:'success',msg:'Situation financière saine — aucune alerte de gestion'});
+
+    body = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#1f9d6b,#047857);border-radius:14px;padding:16px 14px;color:#fff">
+        <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">📈 Produits</div>
+        <div style="font-size:22px;font-weight:900;margin:4px 0">${_cur()}${totalProduits.toLocaleString()}</div>
+        <div style="font-size:10px;opacity:.7">Total revenus encaissés</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:14px;padding:16px 14px;color:#fff">
+        <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">📉 Charges</div>
+        <div style="font-size:22px;font-weight:900;margin:4px 0">${_cur()}${totalCharges.toLocaleString()}</div>
+        <div style="font-size:10px;opacity:.7">Total dépenses engagées</div>
+      </div>
+      <div style="background:${resultat>=0?'linear-gradient(135deg,#243a6b,#1f4da0)':'linear-gradient(135deg,#7c2d12,#9a3412)'};border-radius:14px;padding:16px 14px;color:#fff">
+        <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${resultat>=0?'✅':'⚠️'} Résultat Net</div>
+        <div style="font-size:22px;font-weight:900;margin:4px 0">${resultat>=0?'+':''}${_cur()}${Math.abs(resultat).toLocaleString()}</div>
+        <div style="font-size:10px;opacity:.7">${resultat>=0?'Excédent':'Déficit'} de gestion</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#0369a1,#0284c7);border-radius:14px;padding:16px 14px;color:#fff">
+        <div style="font-size:10px;opacity:.8;font-weight:700;text-transform:uppercase;letter-spacing:.5px">🏦 Trésorerie</div>
+        <div style="font-size:22px;font-weight:900;margin:4px 0">${_cur()}${tresor.toLocaleString()}</div>
+        <div style="font-size:10px;opacity:.7">Disponibilités en caisse</div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;margin-bottom:8px">⚡ Alertes de gestion</div>
+      ${alerts2.map(a2=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${a2.t==='danger'?'#fee2e2':a2.t==='warning'?'#fef9c3':'#d8f3e6'};border-radius:10px;margin-bottom:6px;border-left:4px solid ${a2.t==='danger'?'#dc2626':a2.t==='warning'?'#f59e0b':'#1f9d6b'}"><span style="font-size:12px;font-weight:600;color:${a2.t==='danger'?'#991b1b':a2.t==='warning'?'#92400e':'#065f46'}">${a2.t==='danger'?'🔴':a2.t==='warning'?'🟡':'🟢'} ${esc(a2.msg)}</span></div>`).join('')}
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px">
+      <div style="font-size:12px;font-weight:800;margin-bottom:12px">📊 Évolution mensuelle (6 mois)</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:90px">
+        ${months6.map(m2=>{
+          const md=mthData[m2];
+          const ph=md.prod>0?Math.max(4,Math.round((md.prod/maxMth)*82)):2;
+          const ch=md.chg>0?Math.max(4,Math.round((md.chg/maxMth)*82)):2;
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="display:flex;align-items:flex-end;gap:2px;height:82px">
+              <div style="width:11px;height:${ph}px;background:#1f9d6b;border-radius:3px 3px 0 0" title="${m2}: ${_cur()}${md.prod}"></div>
+              <div style="width:11px;height:${ch}px;background:#dc2626;border-radius:3px 3px 0 0" title="${m2}: ${_cur()}${md.chg}"></div>
+            </div>
+            <div style="font-size:9px;color:var(--text-muted);font-weight:700">${m2.slice(5)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:16px;justify-content:center;margin-top:8px">
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;background:#1f9d6b;border-radius:2px"></div><span style="font-size:10px;color:var(--text-muted)">Produits</span></div>
+        <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;background:#dc2626;border-radius:2px"></div><span style="font-size:10px;color:var(--text-muted)">Charges</span></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px">
+        <div style="font-size:11px;font-weight:800;margin-bottom:10px;color:#065f46">📈 Top Revenus</div>
+        ${topProd2.length?topProd2.map(tp=>`<div style="margin-bottom:7px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${tp.icon} ${tp.n}</span>
+            <span style="font-size:10px;font-weight:700;color:#065f46;white-space:nowrap">${_cur()}${tp.solde.toLocaleString()}</span>
+          </div>
+          <div style="height:4px;background:#e5e7eb;border-radius:2px"><div style="height:100%;width:${totalProduits>0?Math.round(tp.solde/totalProduits*100):0}%;background:#1f9d6b;border-radius:2px"></div></div>
+        </div>`).join(''):`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px">Aucun revenu</div>`}
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:12px">
+        <div style="font-size:11px;font-weight:800;margin-bottom:10px;color:#991b1b">📉 Top Charges</div>
+        ${topChg2.length?topChg2.map(tc=>`<div style="margin-bottom:7px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${tc.icon} ${tc.n}</span>
+            <span style="font-size:10px;font-weight:700;color:#991b1b;white-space:nowrap">${_cur()}${tc.solde.toLocaleString()}</span>
+          </div>
+          <div style="height:4px;background:#e5e7eb;border-radius:2px"><div style="height:100%;width:${totalCharges>0?Math.round(tc.solde/totalCharges*100):0}%;background:#dc2626;border-radius:2px"></div></div>
+        </div>`).join(''):`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:10px">Aucune charge</div>`}
+      </div>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px">
+      <div style="font-size:12px;font-weight:800;margin-bottom:10px">💼 Paie du Personnel — ${currM2}</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden"><div style="height:100%;width:${salPct2}%;background:${salPct2===100?'#1f9d6b':salPct2>50?'#f59e0b':'#dc2626'};border-radius:4px"></div></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${salPaid2} / ${salTotal2} personne(s) payée(s)</div>
+        </div>
+        <div style="font-size:20px;font-weight:900;color:${salPct2===100?'#1f9d6b':salPct2>50?'#f59e0b':'#dc2626'}">${salPct2}%</div>
+        <button class="btn btn-sm btn-outline" onclick="window._paieTab='paiements';go('paie')" style="font-size:11px;white-space:nowrap">Gérer →</button>
+      </div>
+    </div>`;
+  }
+
+  // FIN-11: Budget prévisionnel vs réalisé
+  else if(tab==='budget') {
+    const nbEl = (DB.students||[]).filter(s2=>!s2.blocked&&!s2.archived).length;
+    const fees2 = DB.settings?.fees||{T1:0,T2:0,T3:0};
+    const totalFees2 = (Number(fees2.T1)||0)+(Number(fees2.T2)||0)+(Number(fees2.T3)||0);
+    const budgPrev = nbEl * totalFees2;
+    const pctPrev = budgPrev>0?Math.min(999,Math.round(totalProduits/budgPrev*100)):0;
+    const salBudg = (DB.salaries||[]).reduce((s2,sl2)=>s2+(Number(sl2.net||sl2.amount)||0),0);
+    const salPayeBudg = (DB.salaries||[]).filter(s2=>s2.paid).reduce((s2,sl2)=>s2+(Number(sl2.net||sl2.amount)||0),0);
+    const pctSalBudg = salBudg>0?Math.round(salPayeBudg/salBudg*100):0;
+    const budgDep = Number(DB.settings?.budget_depenses||0);
+    const pctDep = budgDep>0?Math.round(totalCharges/budgDep*100):0;
+    const ecartRev = totalProduits - budgPrev;
+    const ecartSal = salPayeBudg - salBudg;
+    const ecartDep = budgDep ? totalCharges - budgDep : null;
+    const budgRes = budgPrev - salBudg - (budgDep||0);
+
+    body = `
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:4px">📋 Budget Prévisionnel — Exercice ${today().slice(0,4)}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${nbEl} élève(s) actif(s) × ${_cur()}${totalFees2.toLocaleString()} frais annuels = <strong>${_cur()}${budgPrev.toLocaleString()}</strong> budget inscriptions</div>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div><div style="font-size:13px;font-weight:800">📈 Revenus scolaires</div><div style="font-size:11px;color:var(--text-muted)">Frais encaissés vs prévu</div></div>
+        <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:${pctPrev>=100?'#1f9d6b':'#f59e0b'}">${pctPrev}%</div><div style="font-size:10px;color:var(--text-muted)">${_cur()}${totalProduits.toLocaleString()} / ${_cur()}${budgPrev.toLocaleString()}</div></div>
+      </div>
+      <div style="height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pctPrev)}%;background:${pctPrev>=100?'#1f9d6b':'#f59e0b'};border-radius:5px"></div></div>
+      ${pctPrev<80&&budgPrev>0?`<div style="font-size:11px;color:#b45309;margin-top:6px">⚠️ Encore ${_cur()}${Math.abs(budgPrev-totalProduits).toLocaleString()} à percevoir</div>`:''}
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div><div style="font-size:13px;font-weight:800">💼 Masse Salariale</div><div style="font-size:11px;color:var(--text-muted)">Payé vs total salaires définis</div></div>
+        <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:${pctSalBudg>=90?'#dc2626':'#1f9d6b'}">${pctSalBudg}%</div><div style="font-size:10px;color:var(--text-muted)">${_cur()}${salPayeBudg.toLocaleString()} / ${_cur()}${salBudg.toLocaleString()}</div></div>
+      </div>
+      <div style="height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pctSalBudg)}%;background:${pctSalBudg>=90?'#dc2626':'#1f9d6b'};border-radius:5px"></div></div>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div><div style="font-size:13px;font-weight:800">📉 Dépenses de Fonctionnement</div><div style="font-size:11px;color:var(--text-muted)">${budgDep?'Budget opérationnel défini':'Définir un budget pour suivre l\'écart'}</div></div>
+        <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:#991b1b">${_cur()}${totalCharges.toLocaleString()}</div><div style="font-size:10px;color:var(--text-muted)">${budgDep?'/ '+_cur()+budgDep.toLocaleString():'réalisé'}</div></div>
+      </div>
+      ${budgDep?`<div style="height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pctDep)}%;background:${totalCharges>budgDep?'#dc2626':'#1f9d6b'};border-radius:5px"></div></div>
+      ${totalCharges>budgDep?`<div style="font-size:11px;color:#991b1b;margin-top:6px">🔴 Dépassement de ${_cur()}${(totalCharges-budgDep).toLocaleString()}</div>`:''}`:''}
+      <button class="btn btn-sm btn-outline" style="margin-top:10px;font-size:11px;width:100%" onclick="openBudgetDepensesForm()">✏️ ${budgDep?'Modifier':'Définir'} le budget dépenses</button>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:14px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:12px">📊 Synthèse Budget vs Réalisé</div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f8f3ec">
+          <th style="padding:8px 10px;text-align:left">Poste</th>
+          <th style="padding:8px 10px;text-align:right">Budget</th>
+          <th style="padding:8px 10px;text-align:right">Réalisé</th>
+          <th style="padding:8px 10px;text-align:right">Écart</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:8px 10px;font-weight:700">📈 Revenus</td>
+            <td style="padding:8px 10px;text-align:right">${_cur()}${budgPrev.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;color:#065f46;font-weight:700">${_cur()}${totalProduits.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;color:${ecartRev>=0?'#065f46':'#dc2626'}">${ecartRev>=0?'+':'−'}${_cur()}${Math.abs(ecartRev).toLocaleString()}</td>
+          </tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:8px 10px;font-weight:700">💼 Salaires</td>
+            <td style="padding:8px 10px;text-align:right">${_cur()}${salBudg.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;color:#991b1b;font-weight:700">${_cur()}${salPayeBudg.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;color:${ecartSal<=0?'#065f46':'#dc2626'}">${ecartSal>=0?'+':'−'}${_cur()}${Math.abs(ecartSal).toLocaleString()}</td>
+          </tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:8px 10px;font-weight:700">📉 Dépenses fonct.</td>
+            <td style="padding:8px 10px;text-align:right">${budgDep?_cur()+budgDep.toLocaleString():'N/D'}</td>
+            <td style="padding:8px 10px;text-align:right;color:#991b1b;font-weight:700">${_cur()}${totalCharges.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;color:${ecartDep===null||ecartDep<=0?'#065f46':'#dc2626'}">${ecartDep!==null?(ecartDep<=0?'−':'+')+''+_cur()+''+Math.abs(ecartDep).toLocaleString():'—'}</td>
+          </tr>
+          <tr style="border-top:2px solid var(--border);background:#f8f3ec;font-weight:800">
+            <td style="padding:8px 10px">🏆 Résultat Net</td>
+            <td style="padding:8px 10px;text-align:right">${budgRes>=0?'+':''}${_cur()}${budgRes.toLocaleString()}</td>
+            <td style="padding:8px 10px;text-align:right;color:${resultat>=0?'#065f46':'#991b1b'};font-weight:900">${resultat>=0?'+':''}${_cur()}${resultat.toLocaleString()}</td>
+            <td style="padding:8px 10px"></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+    </div>`;
+  }
+
   return `
   <button onclick="go('caisse_paiement')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour à la Caisse</button>
   ${_helpBanner('comptabilite','Vue OHADA automatique — chaque paiement, dépense et salaire génère une écriture comptable. Journal : toutes les écritures dans l\'ordre. Balance : solde par compte. Résultat : Produits − Charges. Aucune saisie manuelle n\'est nécessaire.')}
@@ -14575,13 +14783,15 @@ R.comptabilite = () => {
     <div class="htile" style="background:${resultat>=0?'linear-gradient(135deg,#243a6b,#1f4da0)':'linear-gradient(135deg,#7c2d12,#9a3412)'};color:#fff;cursor:default"><div class="hic">${resultat>=0?'✅':'⚠️'}</div><div class="hbig" style="font-size:18px">${resultat>=0?'+':'-'}${_cur()}${Math.abs(resultat)}</div><div class="hsub">Résultat</div></div>
   </div>
   <!-- Onglets -->
-  <div style="display:flex;gap:4px;background:var(--bg-card);border-radius:12px;padding:4px;margin-bottom:14px;border:1px solid var(--border)">
+  <div style="overflow-x:auto;margin-bottom:14px"><div style="display:flex;gap:4px;background:var(--bg-card);border-radius:12px;padding:4px;border:1px solid var(--border);min-width:max-content">
+    <button style="${tabStyle('dashboard')}"  onclick="window._comptaTab='dashboard';render()">🏠 Tableau de bord</button>
     <button style="${tabStyle('journal')}"    onclick="window._comptaTab='journal';render()">📋 Journal</button>
     <button style="${tabStyle('grandlivre')}" onclick="window._comptaTab='grandlivre';render()">📖 Grand Livre</button>
     <button style="${tabStyle('balance')}"    onclick="window._comptaTab='balance';render()">⚖️ Balance</button>
-    <button style="${tabStyle('resultat')}"   onclick="window._comptaTab='resultat';render()">📊 Résultat</button>
+    <button style="${tabStyle('resultat')}"   onclick="window._comptaTab='resultat';render()">📈 Résultat</button>
     <button style="${tabStyle('bilan')}"      onclick="window._comptaTab='bilan';render()">🏛️ Bilan</button>
-  </div>
+    <button style="${tabStyle('budget')}"     onclick="window._comptaTab='budget';render()">💰 Budget</button>
+  </div></div>
   ${body}`;
 };
 
@@ -14618,6 +14828,26 @@ window.saveManualEntry = () => {
     pushSync('journal_entries','post',e);
     saveToCrypt(); closeModal(); toast('Écriture enregistrée','success'); render();
   } finally { window._savingManualEntry = false; }
+};
+
+// ── Budget dépenses ──
+window.openBudgetDepensesForm = () => {
+  const cur = Number(DB.settings?.budget_depenses||0);
+  openM('💰 Budget Dépenses de Fonctionnement',`
+    <div class="form-group">
+      <label class="form-label">Budget annuel dépenses (${_cur()})</label>
+      <input class="form-input" id="budg_dep_amt" type="number" min="0" step="1" value="${cur||''}" placeholder="Ex: 5000">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Ce montant sert de référence pour suivre l'écart entre dépenses prévues et réalisées.</div>
+    </div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="saveBudgetDepenses()">Enregistrer</button>`);
+};
+window.saveBudgetDepenses = () => {
+  const amt = parseFloat($('budg_dep_amt')?.value||0);
+  if(!DB.settings) DB.settings={};
+  DB.settings.budget_depenses = amt||0;
+  pushSync('settings','upsert',{id:DB.settings.id||'main',budget_depenses:amt||0});
+  saveToCrypt(); closeModal(); toast('Budget dépenses enregistré','success'); render();
 };
 
 // ── Helpers documents officiels ──
