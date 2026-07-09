@@ -5576,7 +5576,9 @@ R.cards = () => {
   const ordersHtml=(window._myCardOrders||[]).length
     ?(window._myCardOrders||[]).slice(0,8).map(o=>{
       const st={pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
-      return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+      const stCol={pending:'#f59e0b',printing:'#2563eb',delivered:'#059669'}[o.status]||'var(--text-muted)';
+      const thumb=o.card_image_url?`<img src="${o.card_image_url}" style="width:52px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1.5px solid var(--border)">`:`<div style="width:52px;height:70px;border-radius:6px;background:#f0f4ff;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🪪</div>`;
+      return `<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">${thumb}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.student_name||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${esc(o.student_mat||'—')} · ${esc(o.student_class||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${(o.ordered_at||'').slice(0,10)||'—'}</div></div><span style="font-size:11px;font-weight:700;color:${stCol};white-space:nowrap">${st}</span></div>`;
     }).join('')
     :'<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>';
   setTimeout(()=>{if(typeof window.loadMyCardOrders==='function')window.loadMyCardOrders();},200);
@@ -5837,7 +5839,9 @@ window.loadMyCardOrders = async () => {
     if(!(window._myCardOrders||[]).length) { el.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>'; return; }
     el.innerHTML = (window._myCardOrders||[]).slice(0,8).map(o=>{
       const st = {pending:'⏳ En attente',printing:'🖨️ En impression',delivered:'✅ Livré'}[o.status]||o.status;
-      return `<div class="premium-item"><div class="pi-icon">🪪</div><div><div class="pi-title">${esc(o.student_name||'—')} — ${esc(o.student_mat||'—')}</div><div class="pi-sub">${esc(o.student_class||'—')} · ${(o.ordered_at||'').slice(0,10)||'—'} · ${st}</div></div></div>`;
+      const stCol = {pending:'#f59e0b',printing:'#2563eb',delivered:'#059669'}[o.status]||'var(--text-muted)';
+      const thumb = o.card_image_url&&!o.card_image_url.startsWith('data:') ? `<img src="${o.card_image_url}" style="width:52px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1.5px solid var(--border)">` : o.card_image_url ? `<img src="${o.card_image_url}" style="width:52px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0;border:1.5px solid var(--border)">` : `<div style="width:52px;height:70px;border-radius:6px;background:#f0f4ff;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🪪</div>`;
+      return `<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">${thumb}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.student_name||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${esc(o.student_mat||'—')} · ${esc(o.student_class||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${(o.ordered_at||'').slice(0,10)||'—'}</div></div><span style="font-size:11px;font-weight:700;color:${stCol};white-space:nowrap">${st}</span></div>`;
     }).join('');
   } catch(e) { /* offline */ }
 };
@@ -5854,6 +5858,56 @@ window.submitCardOrder = async (sid) => {
   const cycleLabel = cl ? (cl.cycle==='humanites'?'Humanités'+(cl.option?' '+cl.option:''):(cl.cycle||'')) : '';
   const dirUser = (DB.users||[]).find(u=>u.role==='direction');
   if(!CENTRAL_URL||!CENTRAL_KEY){ toast('Configuration centrale manquante','error'); return; }
+
+  // ── Étape 1 : générer le PNG de la carte finie ──
+  let card_image_url = null;
+  let cardPreviewHtml = '';
+  try {
+    toast('🎨 Génération de la carte...','info');
+    const prevSid = window._ssPreviewSid;
+    window._ssPreviewSid = sid;
+    ssRenderPreview();
+    await new Promise(r => setTimeout(r, 250)); // attendre QR codes (30ms interne + marge)
+    const studio = document.getElementById('ss-card-studio');
+    const arts = studio ? Array.from(studio.querySelectorAll('.art')) : [];
+    if(arts.length && typeof html2canvas === 'function') {
+      // Capturer recto
+      const rectoCV = await html2canvas(arts[0], {scale:2,useCORS:true,allowTaint:true,backgroundColor:'#ffffff'});
+      let finalCV = rectoCV;
+      if(arts.length > 1) {
+        // Capturer verso et combiner verticalement
+        const versoCV = await html2canvas(arts[1], {scale:2,useCORS:true,allowTaint:true,backgroundColor:'#ffffff'});
+        const gap = 16;
+        const combo = document.createElement('canvas');
+        combo.width = Math.max(rectoCV.width, versoCV.width);
+        combo.height = rectoCV.height + versoCV.height + gap;
+        const ctx = combo.getContext('2d');
+        ctx.fillStyle = '#e8eef8';
+        ctx.fillRect(0, 0, combo.width, combo.height);
+        ctx.drawImage(rectoCV, Math.round((combo.width-rectoCV.width)/2), 0);
+        ctx.drawImage(versoCV, Math.round((combo.width-versoCV.width)/2), rectoCV.height+gap);
+        finalCV = combo;
+      }
+      // Essayer upload vers le storage PRODELI (bucket public "card-images")
+      const orderRef = licenseKey+'_'+sid+'_'+Date.now();
+      const blob = await new Promise(res => finalCV.toBlob(res,'image/png',0.92));
+      try {
+        const upResp = await fetch(CENTRAL_URL+'/storage/v1/object/card-images/'+orderRef+'.png',{
+          method:'POST',
+          headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'image/png','x-upsert':'true'},
+          body:blob
+        });
+        if(upResp.ok) card_image_url = CENTRAL_URL+'/storage/v1/object/public/card-images/'+orderRef+'.png';
+      } catch(_) {}
+      // Fallback : base64 JPEG compact si le bucket n'est pas configuré
+      if(!card_image_url) card_image_url = finalCV.toDataURL('image/jpeg',0.82);
+      cardPreviewHtml = `<img src="${card_image_url.startsWith('data:')?card_image_url:card_image_url}" style="max-width:180px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);margin:12px auto;display:block">`;
+    }
+    // Restaurer l'aperçu précédent si besoin
+    if(prevSid && prevSid !== sid){ window._ssPreviewSid = prevSid; ssRenderPreview(); }
+  } catch(imgErr) { console.warn('[APKart] capture PNG échouée:',imgErr.message); }
+
+  // ── Étape 2 : envoyer la commande avec la carte ──
   try {
     toast('⏳ Envoi vers APKart...','info');
     const payload = {
@@ -5867,7 +5921,8 @@ window.submitCardOrder = async (sid) => {
       parent_phone: parent?(parent.phone||''):'',
       school_phone: DB.settings?.school?.phone||'', school_address: DB.settings?.school?.address||'',
       school_dgep: DB.settings?.school?.dgep||'', school_year: DB.settings?.year||'',
-      director_name: dirUser?dirUser.name:'', status: 'pending'
+      director_name: dirUser?dirUser.name:'', status: 'pending',
+      card_image_url: card_image_url||null,
     };
     const resp = await fetch(CENTRAL_URL+'/rest/v1/card_orders', {
       method:'POST',
@@ -5880,13 +5935,13 @@ window.submitCardOrder = async (sid) => {
     if(_hist) _hist.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">✅ Commande envoyée — actualisation de l\'historique...</div>';
     setTimeout(()=>{ if(typeof window.loadMyCardOrders==='function') window.loadMyCardOrders(); }, 1500);
     logAudit('card_order','Commande APKart: '+s.name+' — '+(cl?cl.name:''));
-    const waNum = window._OPERATOR_WA||'243978444167';
-    const waMsg = encodeURIComponent('Bonjour, commande de carte APKart:\nÉlève: '+s.name+'\nMatricule: '+(s.mat||'—')+'\nClasse: '+(cl?cl.name:'—')+' ('+cycleLabel+')\nÉcole: '+schoolName+'\nLicence: '+licenseKey);
-    openM('✅ Commande envoyée à APKart',`<div style="text-align:center;padding:8px 0">
-      <div style="font-size:48px;margin-bottom:12px">🪪</div>
-      <div style="font-weight:800;font-size:18px;margin-bottom:4px">${esc(s.name)}</div>
+    const waNum = window._OPERATOR_WA||DB.settings?.operator_wa||'243978444167';
+    const waMsg = encodeURIComponent('Bonjour, commande carte APKart ✅\nÉlève: '+s.name+'\nMatricule: '+(s.mat||'—')+'\nClasse: '+(cl?cl.name:'—')+' ('+cycleLabel+')\nÉcole: '+schoolName+'\nLicence: '+licenseKey+(card_image_url&&!card_image_url.startsWith('data:')?'\nCarte: '+card_image_url:''));
+    openM('✅ Carte envoyée à APKart',`<div style="text-align:center;padding:8px 0">
+      ${cardPreviewHtml||'<div style="font-size:48px;margin-bottom:12px">🪪</div>'}
+      <div style="font-weight:800;font-size:16px;margin-bottom:4px">${esc(s.name)}</div>
       <div style="font-size:13px;color:#2f7bd6;font-weight:600;margin-bottom:4px">${esc(cl?cl.name:'—')} · ${esc(cycleLabel)}</div>
-      <div style="color:var(--text-secondary);font-size:12px;margin-bottom:20px">Données envoyées — APKart va générer la carte</div>
+      <div style="color:var(--text-secondary);font-size:12px;margin-bottom:16px">${card_image_url?'Carte finie envoyée — APKart imprime directement':'Données envoyées (sans image)'}</div>
       <a href="https://wa.me/${waNum}?text=${waMsg}" target="_blank" class="btn btn-primary" style="display:block;width:100%;text-decoration:none;margin-bottom:10px;padding:14px">📱 Notifier l'opérateur</a>
     </div>`,`<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
   } catch(e) { toast('Erreur: '+e.message,'error'); }
