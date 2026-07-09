@@ -22259,11 +22259,15 @@ R.paie = () => {
     teachers.forEach(u2=>{
       const sal2 = sals.find(x=>x.teacher_id===u2.id&&x.month===selMonth)||null;
       const ratPrime = _getRatPrime(u2.id,selMonth).prime;
-      const net = sal2 ? (sal2.amount||0)+(sal2.bonus||0)+ratPrime+_getDirectPrimesTotal(u2.id,selMonth)-(sal2.deductions||0)-_getAdvancesTotal(u2.id,selMonth) : 0;
-      rows.push({kind:'t',id:u2.id,name:u2.name,sub:'👨‍🏫 Enseignant',net,paid:!!(sal2&&sal2.paid),hasSal:!!(sal2&&sal2.amount>0),hasRec:!!sal2});
+      const dpTotal = _getDirectPrimesTotal(u2.id,selMonth);
+      const advTotal = _getAdvancesTotal(u2.id,selMonth);
+      const net = sal2 ? (sal2.amount||0)+(sal2.bonus||0)+ratPrime+dpTotal-(sal2.deductions||0)-advTotal : 0;
+      const totalPrimes = (sal2?.bonus||0)+ratPrime+dpTotal;
+      const totalDeduct = (sal2?.deductions||0)+advTotal;
+      rows.push({kind:'t',id:u2.id,name:u2.name,sub:'👨‍🏫 Enseignant',net,paid:!!(sal2&&sal2.paid),hasSal:!!(sal2&&sal2.amount>0),hasRec:!!sal2,base:sal2?.amount||0,bonus:totalPrimes,deduct:totalDeduct});
     });
     nonTeach.forEach(r2=>{
-      rows.push({kind:'p',id:r2.id,name:r2.person_name,sub:'👔 '+(r2.person_role||'Personnel'),net:(r2.net!=null?r2.net:(r2.amount||0)),paid:!!r2.paid,hasSal:true,hasRec:true});
+      rows.push({kind:'p',id:r2.id,name:r2.person_name,sub:'👔 '+(r2.person_role||'Personnel'),net:(r2.net!=null?r2.net:(r2.amount||0)),paid:!!r2.paid,hasSal:true,hasRec:true,base:r2.amount||0,bonus:r2.bonus||0,deduct:r2.deductions||0});
     });
     // Ordre : non payés d'abord, puis payés, puis "salaire à saisir"
     rows.sort((a2,b2)=>{
@@ -22302,26 +22306,37 @@ R.paie = () => {
       const isT=p2.kind==='t';
       const avBg=p2.paid?'#d8f3e6':(p2.hasSal?'#fdeccd':'#f3f4f6');
       const avCol=p2.paid?'#065f46':(p2.hasSal?'#92400e':'#6b7280');
-      const pill=p2.paid?'<span class="pill pill-green">✅ Payé</span>':(p2.hasSal?'<span class="pill pill-orange">⏳ Non payé</span>':'<span class="pill pill-gray">✏️ Salaire à saisir</span>');
-      const payBtn=(!p2.paid&&((isT&&isDir1)||(!isT&&canEdit)))?`<button class="btn btn-sm" style="background:#1f9d6b;color:#fff;border:none;font-weight:700" onclick="${isT?`quickPayTeacher('${p2.id}','${selMonth}')`:`quickPayPersonnel('${p2.id}')`}">✅ Payer</button>`:'';
+      const borderCol=p2.paid?(isT?'#1f9d6b':'#2563eb'):(p2.hasSal?(isT?'#f59e0b':'#9b6fd4'):'#d1d5db');
+      const cardBg=p2.paid?(isT?'linear-gradient(120deg,#f0fdf4 0%,#d8f3e6 100%)':'linear-gradient(120deg,#eff6ff 0%,#dbeafe 100%)'):(p2.hasSal?(isT?'linear-gradient(120deg,#fffbeb 0%,#fef3c7 100%)':'linear-gradient(120deg,#faf5ff 0%,#f0e9fa 100%)'):'var(--bg-card)');
+      const pill=p2.paid?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#065f46;background:#d8f3e6;padding:2px 8px;border-radius:10px">✅ Payé</span>`:(p2.hasSal?`<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#92400e;background:#fdeccd;padding:2px 8px;border-radius:10px">⏳ Non payé</span>`:`<span style="font-size:10px;font-weight:700;color:#6b7280;background:#f3f4f6;padding:2px 8px;border-radius:10px">✏️ À saisir</span>`);
+      const payBtn=(!p2.paid&&p2.hasSal&&((isT&&isDir1)||(!isT&&canEdit)))?`<button class="btn btn-sm" style="background:#1f9d6b;color:#fff;border:none;font-weight:700;padding:6px 12px" onclick="${isT?`quickPayTeacher('${p2.id}','${selMonth}')`:`quickPayPersonnel('${p2.id}')`}">✅ Payer</button>`:'';
       const editBtn=((isT&&isDir1)||(!isT&&canEdit))?`<button class="btn btn-outline btn-sm" onclick="${isT?`openSalaireForm('${p2.id}','${selMonth}')`:`openPersonnelSalaireForm('${p2.id}','${selMonth}')`}">✏️</button>`:'';
       const pdfBtn=p2.hasSal?`<button class="btn btn-outline btn-sm" onclick="${isT?`printFichePaie('${p2.id}','${selMonth}')`:`printPersonnelFichePaie('${p2.id}')`}">💾</button>`:'';
       const delBtn=(isDir1&&p2.hasRec)?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="${isT?`deleteSalaire('${p2.id}','${selMonth}')`:`deletePersonnelSalaire('${p2.id}')`}">🗑️</button>`:'';
-      const avBtn=(isT&&isDir1)?`<button class="btn btn-outline btn-sm" title="Avance" onclick="openAvanceForm('${p2.id}','${selMonth}')">💸</button>`:'';
-      return `<div class="premium-section" style="margin-bottom:8px;padding:12px 14px;animation-delay:${Math.min(i,12)*.03}s">
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <div style="width:44px;height:44px;border-radius:12px;background:${avBg};color:${avCol};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">${ini(p2.name)}</div>
-          <div style="flex:1;min-width:130px">
-            <div style="font-weight:700;font-size:14px">${esc(p2.name)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">${esc(p2.sub)} · ${monthLabel}</div>
+      const avBtn=(isT&&isDir1)?`<button class="btn btn-outline btn-sm" title="Avance sur salaire" onclick="openAvanceForm('${p2.id}','${selMonth}')">💸</button>`:'';
+      const breakdown=p2.hasSal&&p2.base?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">
+        <span style="font-size:11px;font-weight:600;background:rgba(31,157,107,.12);color:#065f46;padding:3px 9px;border-radius:8px">Base ${_cur()}${p2.base}</span>
+        ${p2.bonus?`<span style="font-size:11px;font-weight:600;background:rgba(155,111,212,.15);color:#5e3a92;padding:3px 9px;border-radius:8px">+Prime ${_cur()}${p2.bonus}</span>`:''}
+        ${p2.deduct?`<span style="font-size:11px;font-weight:600;background:rgba(220,38,38,.1);color:#991b1b;padding:3px 9px;border-radius:8px">-Retenue ${_cur()}${p2.deduct}</span>`:''}
+        <span style="font-size:11px;font-weight:800;background:${p2.net>=0?'rgba(31,157,107,.2)':'rgba(220,38,38,.12)'};color:${p2.net>=0?'#065f46':'#b91c1c'};padding:3px 9px;border-radius:8px">= NET ${_cur()}${p2.net}</span>
+      </div>`:'';
+      return `<div style="margin-bottom:10px;border-radius:14px;overflow:hidden;border-left:4px solid ${borderCol};box-shadow:0 1px 4px rgba(0,0,0,.06);animation-delay:${Math.min(i,12)*.03}s">
+        <div style="padding:13px 14px;background:${cardBg}">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="width:46px;height:46px;border-radius:13px;background:${avBg};color:${avCol};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.1)">${ini(p2.name)}</div>
+            <div style="flex:1;min-width:120px">
+              <div style="font-weight:700;font-size:14px">${esc(p2.name)}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(p2.sub)} · ${monthLabel}</div>
+              <div style="margin-top:4px">${pill}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:20px;font-weight:800;color:${p2.hasSal?(p2.net>=0?'#1f9d6b':'#dc2626'):'var(--text-muted)'}">${p2.hasSal?_cur()+p2.net:'—'}</div>
+              <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:4px;flex-wrap:wrap">
+                ${payBtn}${avBtn}${editBtn}${pdfBtn}${delBtn}
+              </div>
+            </div>
           </div>
-          <div style="text-align:right;min-width:70px">
-            <div style="font-size:17px;font-weight:800;color:${p2.hasSal?(p2.net>=0?'#1f9d6b':'#dc2626'):'var(--text-muted)'}">${p2.hasSal?_cur()+p2.net:'—'}</div>
-            <div style="font-size:10px">${pill}</div>
-          </div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-            ${payBtn}${avBtn}${editBtn}${pdfBtn}${delBtn}
-          </div>
+          ${breakdown}
         </div>
       </div>`;
     }).join('')}
@@ -22586,7 +22601,7 @@ window.deleteSalaire = (teacherId, month) => {
 // ── Personnel non-enseignant : paie et paiements ──
 window.openPersonnelSalaireForm = (salId) => {
   const existing = salId ? (DB.salaries||[]).find(s=>s.id===salId) : null;
-  const postes=['Directeur / Directrice','Directeur Adjoint','Secrétaire','Économe / Comptable','Gardien / Agent de sécurité','Nettoyeur / Femme de ménage','Cuisinier(ère) — Cantine','Chauffeur / Accompagnateur','Technicien / Maintenance','Autre personnel'];
+  const postes=_paiePostes();
   const payOpts=_PAY_METHODS.map(m=>`<option value="${m}" ${existing?.payment_method===m?'selected':''}>${m}</option>`).join('');
   const posteOpts=postes.map(p=>`<option value="${p}" ${existing?.person_role===p?'selected':''}>${p}</option>`).join('');
   const curMonth=window._salMonth||today().slice(0,7);
@@ -22646,7 +22661,12 @@ window.openPersonnelSalaireForm = (salId) => {
 window.psalCalcNet = () => {
   const b=parseFloat($('psal_base')?.value||0), bo=parseFloat($('psal_bonus')?.value||0), d=parseFloat($('psal_deduct')?.value||0);
   const net=b+bo-d;
-  const box=$('psal_net_box'); if(box) box.textContent='NET À PAYER : $'+net.toFixed(2);
+  const box=$('psal_net_box');
+  if(box){
+    box.style.background=net>=0?'#d8f3e6':'#fee2e2';
+    box.style.color=net>=0?'#065f46':'#dc2626';
+    box.innerHTML=`<span style="font-size:12px;opacity:.8">Base ${_cur()}${b}${bo?` + Primes ${_cur()}${bo}`:''}${d?` − Retenues ${_cur()}${d}`:''} =</span><br><strong style="font-size:18px">NET ${_cur()}${net.toFixed(2)}</strong>`;
+  }
 };
 window.savePersonnelSalaire = (salId) => {
   if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
