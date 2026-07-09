@@ -22155,154 +22155,246 @@ R.salaires = () => {
 
 // ══════════════════════════════════════════════════════════════
 //  R.paie — PAGE UNIFIÉE "Paie du Personnel"
-//  Remplace salaires + primes en un seul endroit (4 onglets)
+//  Liste ordonnée unique (enseignants + non-enseignants),
+//  paiement rapide, gestion des postes — 4 onglets
 // ══════════════════════════════════════════════════════════════
+window.quickPayTeacher = (teacherId, month) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
+  const sal=(DB.salaries||[]).find(s2=>s2.teacher_id===teacherId&&s2.month===month);
+  if(!sal||!(sal.amount>0)){
+    toast('Entrez d\'abord le salaire de base via ✏️','warning');
+    openSalaireForm(teacherId,month);
+    return;
+  }
+  if(sal.paid){toast('Salaire déjà payé','info');return;}
+  sal.paid=true;sal.paid_date=today();sal.by=S.user.id;sal.updated=today();
+  pushSync('salaries','upsert',sal);
+  const u2=(DB.users||[]).find(x=>x.id===teacherId);
+  const net=(sal.net!=null)?sal.net:(sal.amount||0);
+  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET ${_cur()}${net}`,date:today(),time:nowTime(),read:false,type:'info'};
+  if(!DB.notifs)DB.notifs=[];
+  DB.notifs.unshift(n);pushSync('notifs','post',n);
+  logAudit('salaire',`Paiement rapide — ${u2?.name||teacherId} — ${_cur()}${net} (${month})`);
+  saveToCrypt();toast(`✅ ${u2?.name||'Enseignant'} payé — ${_cur()}${net}`,'success');render();
+};
+
+window.quickPayPersonnel = (salId) => {
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const sal=(DB.salaries||[]).find(s2=>s2.id===salId);
+  if(!sal){toast('Fiche introuvable','error');return;}
+  if(sal.paid){toast('Déjà payé','info');return;}
+  sal.paid=true;sal.paid_date=today();sal.by=S.user.id;sal.updated=today();
+  pushSync('salaries','upsert',sal);
+  const net=(sal.net!=null)?sal.net:(sal.amount||0);
+  logAudit('salaire',`Paiement rapide — ${sal.person_name} (${sal.person_role||'Personnel'}) — ${_cur()}${net} (${sal.month})`);
+  saveToCrypt();toast(`✅ ${sal.person_name} payé — ${_cur()}${net}`,'success');render();
+};
+
+window._paiePostes = () => {
+  const def=['Directeur / Directrice','Directeur Adjoint','Secrétaire','Économe / Comptable','Gardien / Agent de sécurité','Nettoyeur / Femme de ménage','Cuisinier(ère) — Cantine','Chauffeur / Accompagnateur','Technicien / Maintenance','Autre personnel'];
+  const p=DB.settings&&DB.settings.staff_postes;
+  return (Array.isArray(p)&&p.length)?p:def;
+};
+
+window.openPosteForm = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
+  openM('➕ Nouveau poste',`
+  <div style="background:#dbeafe;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1d4ed8">
+    👔 Ce poste apparaîtra dans le formulaire d'ajout de personnel non-enseignant.
+  </div>
+  <div class="form-group"><label class="form-label">Nom du poste <span style="color:#ef5b5b">*</span></label>
+    <input class="form-input" id="poste_name" placeholder="Ex: Bibliothécaire, Infirmier(ère)...">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="savePoste()">Enregistrer</button>`);
+  setTimeout(()=>{$('poste_name')?.focus();},80);
+};
+
+window.savePoste = () => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
+  const name=($('poste_name')?.value||'').trim();
+  if(!name){toast('Entrez le nom du poste','error');return;}
+  const list=_paiePostes().slice();
+  if(list.some(p2=>p2.toLowerCase()===name.toLowerCase())){toast('Ce poste existe déjà','warning');return;}
+  list.push(name);
+  DB.settings.staff_postes=list;
+  pushSync('settings','upsert',DB.settings);
+  logAudit('poste',`Nouveau poste créé : ${name}`);
+  saveToCrypt();closeModal();toast(`✅ Poste "${name}" ajouté`,'success');render();
+};
+
+window.deletePoste = (name) => {
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
+  showC('Supprimer ce poste',`Retirer « ${name} » de la liste des postes ? Les fiches de paie existantes ne seront pas modifiées.`,()=>{
+    DB.settings.staff_postes=_paiePostes().filter(p2=>p2!==name);
+    pushSync('settings','upsert',DB.settings);
+    logAudit('poste',`Poste supprimé : ${name}`);
+    saveToCrypt();toast('Poste supprimé','info');render();
+  });
+};
+
 R.paie = () => {
   const isDir1 = S.user?.role === 'direction';
   const isDir3 = S.user?.role === 'direction3';
-  const tab = window._paieTab || 'salaires';
+  const canEdit = isDir1 || isDir3;
+  const VALID_TABS = ['paiements','primes','postes','recap'];
+  const tab = VALID_TABS.includes(window._paieTab) ? window._paieTab : 'paiements';
   const selMonth = window._salMonth || today().slice(0,7);
   const [mo,yr] = [parseInt(selMonth.split('-')[1]), selMonth.split('-')[0]];
   const monthLabel = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'][mo-1]+' '+yr;
   const rate = DB.settings.rattrapage_rate||0;
-  const teachers = (DB.users||[]).filter(u=>u.role==='enseignant');
+  const teachers = (DB.users||[]).filter(u2=>u2.role==='enseignant');
   const sals = DB.salaries||[];
 
-  const TABS = [{id:'salaires',i:'💶',l:'Salaires'},{id:'primes',i:'💎',l:'Primes'},{id:'personnel',i:'👔',l:'Personnel'},{id:'recap',i:'📊',l:'Récap'}];
+  const TABS = [{id:'paiements',i:'💰',l:'Paiements'},{id:'primes',i:'💎',l:'Primes'},{id:'postes',i:'⚙️',l:'Postes'},{id:'recap',i:'📊',l:'Récap'}];
   const tabBar = `<div style="display:flex;gap:6px;padding:12px 12px 0;overflow-x:auto;scrollbar-width:none;margin-bottom:14px">
-    ${TABS.map(t=>`<button onclick="window._paieTab='${t.id}';render()" style="flex-shrink:0;padding:8px 16px;border-radius:20px;border:2px solid ${tab===t.id?'var(--accent)':'var(--border-color)'};cursor:pointer;font-size:12px;font-weight:700;background:${tab===t.id?'var(--accent)':'var(--bg-card)'};color:${tab===t.id?'#fff':'var(--text-secondary)'};transition:all .15s">${t.i} ${t.l}</button>`).join('')}
+    ${TABS.map(t2=>`<button onclick="window._paieTab='${t2.id}';render()" style="flex-shrink:0;padding:8px 16px;border-radius:20px;border:2px solid ${tab===t2.id?'var(--accent)':'var(--border-color)'};cursor:pointer;font-size:12px;font-weight:700;background:${tab===t2.id?'var(--accent)':'var(--bg-card)'};color:${tab===t2.id?'#fff':'var(--text-secondary)'};transition:all .15s">${t2.i} ${t2.l}</button>`).join('')}
   </div>`;
   const monthPicker = `<div style="padding:0 12px 10px"><input type="month" class="form-input" id="sal_month_sel" value="${selMonth}" style="max-width:180px" onchange="window._salMonth=this.value;render()"></div>`;
 
-  // ── Onglet Salaires Enseignants ─────────────────────────────
-  if (tab === 'salaires') {
-    const advs = DB.advances||[];
-    const totalNet = teachers.reduce((s,u)=>{
-      const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
-      const {prime}=_getRatPrime(u.id,selMonth);
-      return s+(sal.amount||0)+(sal.bonus||0)+prime+_getDirectPrimesTotal(u.id,selMonth)-(sal.deductions||0)-_getAdvancesTotal(u.id,selMonth);
-    },0);
+  // ── Onglet 1 : Paiements (liste unifiée ordonnée) ───────────
+  if (tab === 'paiements') {
+    const nonTeach = sals.filter(s2=>!s2.teacher_id&&s2.person_name&&s2.month===selMonth);
+    const rows = [];
+    teachers.forEach(u2=>{
+      const sal2 = sals.find(x=>x.teacher_id===u2.id&&x.month===selMonth)||null;
+      const ratPrime = _getRatPrime(u2.id,selMonth).prime;
+      const net = sal2 ? (sal2.amount||0)+(sal2.bonus||0)+ratPrime+_getDirectPrimesTotal(u2.id,selMonth)-(sal2.deductions||0)-_getAdvancesTotal(u2.id,selMonth) : 0;
+      rows.push({kind:'t',id:u2.id,name:u2.name,sub:'👨‍🏫 Enseignant',net,paid:!!(sal2&&sal2.paid),hasSal:!!(sal2&&sal2.amount>0),hasRec:!!sal2});
+    });
+    nonTeach.forEach(r2=>{
+      rows.push({kind:'p',id:r2.id,name:r2.person_name,sub:'👔 '+(r2.person_role||'Personnel'),net:(r2.net!=null?r2.net:(r2.amount||0)),paid:!!r2.paid,hasSal:true,hasRec:true});
+    });
+    // Ordre : non payés d'abord, puis payés, puis "salaire à saisir"
+    rows.sort((a2,b2)=>{
+      const ra=a2.hasSal?(a2.paid?1:0):2, rb=b2.hasSal?(b2.paid?1:0):2;
+      return ra-rb||(a2.name||'').localeCompare(b2.name||'');
+    });
+    const paidCount=rows.filter(r2=>r2.paid).length;
+    const unpaidCount=rows.length-paidCount;
+    const masse=rows.reduce((s2,r2)=>s2+(r2.hasSal?r2.net:0),0);
+    const filt=window._paieFilter||'tous';
+    const CHIPS=[{id:'tous',l:`Tous (${rows.length})`},{id:'nonpayes',l:`⏳ Non payés (${unpaidCount})`},{id:'payes',l:`✅ Payés (${paidCount})`}];
+    const filtered=filt==='payes'?rows.filter(r2=>r2.paid):filt==='nonpayes'?rows.filter(r2=>!r2.paid):rows;
     return `<div style="padding:12px">${tabBar}${monthPicker}
-    <div class="premium-section" style="border-left:4px solid #1f9d6b;margin-bottom:12px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:120px;background:#d8f3e6;border-radius:10px;padding:8px 14px;text-align:center">
-          <div style="font-size:18px;font-weight:800;color:#1f9d6b">${_cur()}${totalNet}</div>
-          <div style="font-size:11px;color:#6b7280">Masse salariale nette — ${monthLabel}</div>
-        </div>
-        ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrap.${rate?` (${_cur()}${rate})`:''}</button>`:''}
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:800">${rows.length}</div><div style="font-size:10px;color:var(--text-muted)">Personnel</div>
+      </div>
+      <div style="background:#d8f3e6;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:#065f46">${paidCount}</div><div style="font-size:10px;color:#065f46">Payés</div>
+      </div>
+      <div style="background:#fdeccd;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:18px;font-weight:800;color:#92400e">${unpaidCount}</div><div style="font-size:10px;color:#92400e">Non payés</div>
+      </div>
+      <div style="background:#f0e9fa;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:16px;font-weight:800;color:#7c3aed">${_cur()}${masse}</div><div style="font-size:10px;color:#7c3aed">Masse — ${monthLabel}</div>
       </div>
     </div>
-    ${teachers.map((u,i)=>{
-      const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
-      const {count:ratCount,prime:ratPrime}=_getRatPrime(u.id,selMonth);
-      const advTotal=_getAdvancesTotal(u.id,selMonth);
-      const advList=advs.filter(a=>a.teacher_id===u.id&&a.month===selMonth);
-      const dpTotal=_getDirectPrimesTotal(u.id,selMonth);
-      const dpList=(DB.direct_primes||[]).filter(p=>p.teacher_id===u.id&&(p.month||(p.date||'').slice(0,7))===selMonth);
-      const net=(sal.amount||0)+(sal.bonus||0)+ratPrime+dpTotal-(sal.deductions||0)-advTotal;
-      const hasSal=sal.amount>0;
-      return `<div class="premium-section" style="margin-bottom:10px;padding:14px 16px;animation-delay:${i*.04}s">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:${hasSal?'12px':'0'}">
-          <div style="width:44px;height:44px;border-radius:12px;background:#d8f3e6;color:#1f9d6b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0">${ini(u.name)}</div>
-          <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">${hasSal?`Net : <strong style="color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</strong> — ${sal.paid?'✅ Payé':'⏳ Non payé'}`:'Aucun salaire saisi'}</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none">
+        ${CHIPS.map(c2=>`<button onclick="window._paieFilter='${c2.id}';render()" style="flex-shrink:0;padding:6px 14px;border-radius:16px;border:1.5px solid ${filt===c2.id?'#1f9d6b':'var(--border-color)'};cursor:pointer;font-size:11px;font-weight:700;background:${filt===c2.id?'#d8f3e6':'var(--bg-card)'};color:${filt===c2.id?'#065f46':'var(--text-secondary)'}">${c2.l}</button>`).join('')}
+      </div>
+      ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openPersonnelSalaireForm(null,'${selMonth}')">➕ Ajouter du personnel</button>`:''}
+    </div>
+    ${filtered.length===0?`<div class="premium-section" style="text-align:center;color:var(--text-muted);padding:24px;font-size:13px">Aucun membre du personnel dans ce filtre pour ${monthLabel}.</div>`:''}
+    ${filtered.map((p2,i)=>{
+      const isT=p2.kind==='t';
+      const avBg=p2.paid?'#d8f3e6':(p2.hasSal?'#fdeccd':'#f3f4f6');
+      const avCol=p2.paid?'#065f46':(p2.hasSal?'#92400e':'#6b7280');
+      const pill=p2.paid?'<span class="pill pill-green">✅ Payé</span>':(p2.hasSal?'<span class="pill pill-orange">⏳ Non payé</span>':'<span class="pill pill-gray">✏️ Salaire à saisir</span>');
+      const payBtn=(!p2.paid&&((isT&&isDir1)||(!isT&&canEdit)))?`<button class="btn btn-sm" style="background:#1f9d6b;color:#fff;border:none;font-weight:700" onclick="${isT?`quickPayTeacher('${p2.id}','${selMonth}')`:`quickPayPersonnel('${p2.id}')`}">✅ Payer</button>`:'';
+      const editBtn=((isT&&isDir1)||(!isT&&canEdit))?`<button class="btn btn-outline btn-sm" onclick="${isT?`openSalaireForm('${p2.id}','${selMonth}')`:`openPersonnelSalaireForm('${p2.id}','${selMonth}')`}">✏️</button>`:'';
+      const pdfBtn=p2.hasSal?`<button class="btn btn-outline btn-sm" onclick="${isT?`printFichePaie('${p2.id}','${selMonth}')`:`printPersonnelFichePaie('${p2.id}')`}">💾</button>`:'';
+      const delBtn=(isDir1&&p2.hasRec)?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="${isT?`deleteSalaire('${p2.id}','${selMonth}')`:`deletePersonnelSalaire('${p2.id}')`}">🗑️</button>`:'';
+      const avBtn=(isT&&isDir1)?`<button class="btn btn-outline btn-sm" title="Avance" onclick="openAvanceForm('${p2.id}','${selMonth}')">💸</button>`:'';
+      return `<div class="premium-section" style="margin-bottom:8px;padding:12px 14px;animation-delay:${Math.min(i,12)*.03}s">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="width:44px;height:44px;border-radius:12px;background:${avBg};color:${avCol};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0">${ini(p2.name)}</div>
+          <div style="flex:1;min-width:130px">
+            <div style="font-weight:700;font-size:14px">${esc(p2.name)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${esc(p2.sub)} · ${monthLabel}</div>
+          </div>
+          <div style="text-align:right;min-width:70px">
+            <div style="font-size:17px;font-weight:800;color:${p2.hasSal?(p2.net>=0?'#1f9d6b':'#dc2626'):'var(--text-muted)'}">${p2.hasSal?_cur()+p2.net:'—'}</div>
+            <div style="font-size:10px">${pill}</div>
+          </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-            ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openAvanceForm('${u.id}','${selMonth}')">💸</button>`:''}
-            ${hasSal?`<button class="btn btn-outline btn-sm" onclick="printFichePaie('${u.id}','${selMonth}')">💾</button>`:''}
-            ${hasSal&&isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deleteSalaire('${u.id}','${selMonth}')">🗑️</button>`:''}
-            ${isDir1?`<button class="btn btn-primary btn-sm" onclick="openSalaireForm('${u.id}','${selMonth}')">✏️ Salaire</button>`:''}
+            ${payBtn}${avBtn}${editBtn}${pdfBtn}${delBtn}
           </div>
         </div>
-        ${hasSal?`<div style="background:#fff5ea;border-radius:10px;padding:10px 12px;font-size:12px">
-          <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span>Salaire de base</span><span style="font-weight:700">${_cur()}${sal.amount}</span></div>
-          ${ratPrime?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">🔄 Rattrapages (${ratCount}×${_cur()}${rate})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${ratPrime}</span></div>`:''}
-          ${sal.bonus?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#1f9d6b">Primes bonus</span><span style="font-weight:700;color:#1f9d6b">+${_cur()}${sal.bonus}</span></div>`:''}
-          ${dpList.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#9b6fd4">💎 Prime (${esc(p.motif||p.date||'')})</span><span style="font-weight:700;color:#9b6fd4">+${_cur()}${p.amount}</span></div>`).join('')}
-          ${advList.map(a=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#dc2626">💸 Avance (${esc(a.reason||a.date||'')})</span><span style="font-weight:700;color:#dc2626">-${_cur()}${a.amount}</span></div>`).join('')}
-          ${sal.deductions?`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #efe3d3"><span style="color:#ff7a4d">Retenues</span><span style="font-weight:700;color:#ff7a4d">-${_cur()}${sal.deductions}</span></div>`:''}
-          <div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:2px"><span style="font-weight:700;font-size:13px">NET À PAYER</span><span style="font-weight:800;font-size:15px;color:${net>=0?'#1f9d6b':'#dc2626'}">${_cur()}${net}</span></div>
-        </div>`:''}
       </div>`;
     }).join('')}
     </div>`;
   }
 
-  // ── Onglet Primes Enseignants ───────────────────────────────
+  // ── Onglet 2 : Primes ───────────────────────────────────────
   if (tab === 'primes') {
-    const allRats=(DB.rattrapages||[]).filter(r=>r.amount>0);
-    const totalDue=allRats.filter(r=>r.paid).reduce((s2,r)=>s2+Number(r.amount||0),0);
-    const totalPending=allRats.filter(r=>!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount||0),0);
-    const dp=(DB.direct_primes||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const allRats=(DB.rattrapages||[]).filter(r2=>r2.amount>0);
+    const totalDue=allRats.filter(r2=>r2.paid).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
+    const totalPending=allRats.filter(r2=>!r2.paid&&r2.validated_by).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
+    const dp=(DB.direct_primes||[]).slice().sort((a2,b2)=>(b2.date||'').localeCompare(a2.date||''));
     return `<div style="padding:12px">${tabBar}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
       <span style="font-size:16px;font-weight:700">💎 Primes Enseignants</span>
-      ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openPrimeForm()">➕ Prime directe</button>`:''}
+      <div style="display:flex;gap:6px">
+        ${isDir1?`<button class="btn btn-outline btn-sm" onclick="openRatRateConfig()">⚙️ Taux rattrap.${rate?` (${_cur()}${rate})`:''}</button>`:''}
+        ${isDir1?`<button class="btn btn-primary btn-sm" onclick="openPrimeForm()">➕ Prime directe</button>`:''}
+      </div>
     </div>
-    ${dp.length?`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p=>{const u2=gu(p.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p.motif||'—')} · ${p.date||''}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">${_cur()}${p.amount}</span>${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`:''}
+    ${dp.length?`<div class="premium-section" style="margin-bottom:14px"><div class="premium-section-title" style="margin-bottom:8px">Primes directes accordées</div>${dp.map(p2=>{const u2=gu(p2.teacher_id);return`<div class="premium-item"><div class="pi-icon" style="background:#f0e9fa;color:#9b6fd4">💎</div><div style="flex:1"><div class="pi-title">${u2?esc(u2.name):'?'}</div><div class="pi-sub">${esc(p2.motif||'—')} · ${p2.date||''}</div></div><span style="font-weight:800;color:#9b6fd4;margin-right:8px">${_cur()}${p2.amount}</span>${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePrime('${p2.id}')">🗑️</button>`:''}</div>`;}).join('')}</div>`:''}
     <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
       <div class="htile" style="background:linear-gradient(135deg,#1f9d6b,#62d3a6);color:#fff"><div class="hic">✅</div><div class="hbig" style="font-size:24px">${_cur()}${totalDue}</div><div class="hsub">versées</div></div>
       <div class="htile h-pay"><div class="hic">⏳</div><div class="hbig" style="font-size:24px">${_cur()}${totalPending}</div><div class="hsub">dues</div></div>
       <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff"><div class="hic">🔁</div><div class="hbig" style="font-size:24px">${allRats.length}</div><div class="hsub">rattrapages</div></div>
     </div>
     <div class="ww-grid">
-      ${teachers.map((u,i)=>{
-        const rats=allRats.filter(r=>r.teacher_id===u.id);
-        if(!rats.length) return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:#e5e7eb"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${u.initials||ini(u.name)}</div><div><div style="font-weight:700">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div></div></div></div>`;
-        const earned=rats.filter(r=>r.paid).reduce((s2,r)=>s2+Number(r.amount||0),0);
-        const due=rats.filter(r=>!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount||0),0);
-        const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
-        return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#2fbf8f':'#2f7bd6'}"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fdeccd':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u.initials||ini(u.name)}</div><div style="flex:1"><div style="font-weight:700;font-size:15px">${esc(u.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div></div>${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"><div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div><div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div><div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div></div>${rats.slice(0,3).map(r=>{const stu=DB.students.find(x=>x.id===r.sid);const stColor=r.paid?'#d8f3e6':r.validated_by?'#fdeccd':'#f6ede0';const stText=r.paid?'Versé':r.validated_by?'⏳ À verser':'En attente';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;flex:1"><span style="font-weight:600">${stu?esc(stu.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r.matiere)}</span></div><span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r.amount}</span><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}</div>`}).join('')}${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}</div></div>`;
+      ${teachers.map((u2,i)=>{
+        const rats=allRats.filter(r2=>r2.teacher_id===u2.id);
+        if(!rats.length) return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:#e5e7eb"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px"><div style="width:44px;height:44px;border-radius:12px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">${u2.initials||ini(u2.name)}</div><div><div style="font-weight:700">${esc(u2.name)}</div><div style="font-size:12px;color:var(--text-muted)">Aucun rattrapage signalé</div></div></div></div></div>`;
+        const earned=rats.filter(r2=>r2.paid).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
+        const due=rats.filter(r2=>!r2.paid&&r2.validated_by).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
+        const cl=DB.classes.find(c2=>c2.teacher_id===u2.id||c2.teacher_id_en===u2.id);
+        return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#2fbf8f':'#2f7bd6'}"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fdeccd':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u2.initials||ini(u2.name)}</div><div style="flex:1"><div style="font-weight:700;font-size:15px">${esc(u2.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div></div>${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"><div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div><div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div><div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div></div>${rats.slice(0,3).map(r2=>{const stu=DB.students.find(x=>x.id===r2.sid);const stColor=r2.paid?'#d8f3e6':r2.validated_by?'#fdeccd':'#f6ede0';const stText=r2.paid?'Versé':r2.validated_by?'⏳ À verser':'En attente';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;flex:1"><span style="font-weight:600">${stu?esc(stu.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r2.matiere)}</span></div><span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r2.amount}</span><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>${r2.validated_by&&!r2.paid?`<button onclick="marquerRattrapage('${r2.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}</div>`}).join('')}${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}</div></div>`;
       }).join('')}
     </div>
     </div>`;
   }
 
-  // ── Onglet Personnel non-enseignant ─────────────────────────
-  if (tab === 'personnel') {
-    const nonTeach=sals.filter(s=>!s.teacher_id&&s.person_name&&s.month===selMonth);
-    const totalNT=nonTeach.reduce((s2,r)=>s2+(r.net||r.amount||0),0);
-    const canEdit=isDir1||isDir3;
-    return `<div style="padding:12px">${tabBar}${monthPicker}
+  // ── Onglet 3 : Postes du personnel ──────────────────────────
+  if (tab === 'postes') {
+    const postes=_paiePostes();
+    return `<div style="padding:12px">${tabBar}
     <div class="premium-section" style="border-left:4px solid #2563eb">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="premium-section-title" style="color:#2563eb;margin-bottom:0">👔 Personnel non-enseignant — ${monthLabel}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="background:#dbeafe;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:#1d4ed8">Masse : ${_cur()}${totalNT}</div>
-          ${canEdit?`<button class="btn btn-primary btn-sm" onclick="openPersonnelSalaireForm(null,'${selMonth}')">➕ Ajouter</button>`:''}
-        </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div class="premium-section-title" style="color:#2563eb;margin-bottom:0">⚙️ Gestion des postes du personnel</div>
+        ${isDir1?`<button class="btn btn-primary btn-sm" onclick="openPosteForm()">➕ Ajouter un poste</button>`:''}
       </div>
-      ${nonTeach.length===0?`<div style="text-align:center;color:var(--text-muted);padding:18px;font-size:13px">Aucun paiement pour ${monthLabel}.<br><span style="font-size:11px">Cliquez ➕ pour enregistrer.</span></div>`:''}
-      ${nonTeach.map(r=>{
-        const net=r.net||r.amount||0;
-        return `<div class="premium-section" style="margin-bottom:8px;padding:12px 14px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${ini(r.person_name)}</div>
-            <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(r.person_name)}</div><div style="font-size:11px;color:var(--text-muted)">${esc(r.person_role||'Personnel')} — ${r.paid?'<span style="color:#1f9d6b">✅ Payé</span>':'<span style="color:#f59e0b">⏳ Non payé</span>'}</div></div>
-            <div style="text-align:right;min-width:80px"><div style="font-size:16px;font-weight:800;color:${net>=0?'#1d4ed8':'#dc2626'}">${_cur()}${net}</div><div style="font-size:10px;color:var(--text-muted)">${r.payment_method||'Espèces'}</div></div>
-            <div style="display:flex;gap:5px">
-              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="printPersonnelFichePaie('${r.id}')">💾</button>`:''}
-              ${canEdit?`<button class="btn btn-outline btn-sm" onclick="openPersonnelSalaireForm('${r.id}','${selMonth}')">✏️</button>`:''}
-              ${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePersonnelSalaire('${r.id}')">🗑️</button>`:''}
-            </div>
-          </div>
-          ${r.notes?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border-color)">📝 ${esc(r.notes)}</div>`:''}
-        </div>`;
-      }).join('')}
+      <div style="background:#dbeafe;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1d4ed8">
+        💡 Ces postes apparaissent dans le menu déroulant du formulaire « ➕ Ajouter du personnel » (onglet Paiements).
+      </div>
+      ${postes.map((p2,i)=>`<div class="premium-item" style="animation-delay:${Math.min(i,12)*.03}s">
+        <div class="pi-icon" style="background:#dbeafe;color:#1d4ed8">👔</div>
+        <div style="flex:1"><div class="pi-title">${esc(p2)}</div></div>
+        ${isDir1?`<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#dc2626" onclick="deletePoste(decodeURIComponent('${encodeURIComponent(p2)}'))">🗑️ Supprimer</button>`:''}
+      </div>`).join('')}
+      ${postes.length===0?`<div style="text-align:center;color:var(--text-muted);padding:18px;font-size:13px">Aucun poste défini.</div>`:''}
     </div>
     </div>`;
   }
 
-  // ── Onglet Récapitulatif mensuel ────────────────────────────
-  const totalSalEns=teachers.reduce((s2,u)=>{
-    const sal=sals.find(x=>x.teacher_id===u.id&&x.month===selMonth)||{};
-    const {prime:ratP}=_getRatPrime(u.id,selMonth);
-    return s2+(sal.amount||0)+(sal.bonus||0)+ratP+_getDirectPrimesTotal(u.id,selMonth)-(sal.deductions||0)-_getAdvancesTotal(u.id,selMonth);
+  // ── Onglet 4 : Récapitulatif mensuel ────────────────────────
+  const totalSalEns=teachers.reduce((s2,u2)=>{
+    const sal2=sals.find(x=>x.teacher_id===u2.id&&x.month===selMonth)||{};
+    const ratP=_getRatPrime(u2.id,selMonth).prime;
+    return s2+(sal2.amount||0)+(sal2.bonus||0)+ratP+_getDirectPrimesTotal(u2.id,selMonth)-(sal2.deductions||0)-_getAdvancesTotal(u2.id,selMonth);
   },0);
-  const paidEns=sals.filter(s=>s.teacher_id&&s.month===selMonth&&s.paid).length;
-  const nonTeachRecap=sals.filter(s=>!s.teacher_id&&s.person_name&&s.month===selMonth);
-  const totalNTRecap=nonTeachRecap.reduce((s2,r)=>s2+(r.net||r.amount||0),0);
-  const totalPrimesRat=(DB.rattrapages||[]).filter(r=>r.amount>0&&!r.paid&&r.validated_by).reduce((s2,r)=>s2+Number(r.amount),0);
-  const totalDirPrimes=(DB.direct_primes||[]).reduce((s2,p)=>s2+Number(p.amount||0),0);
-  const avances=(DB.advances||[]).filter(a=>a.month===selMonth).reduce((s2,a)=>s2+(a.amount||0),0);
+  const paidEns=sals.filter(s2=>s2.teacher_id&&s2.month===selMonth&&s2.paid).length;
+  const nonTeachRecap=sals.filter(s2=>!s2.teacher_id&&s2.person_name&&s2.month===selMonth);
+  const totalNTRecap=nonTeachRecap.reduce((s2,r2)=>s2+(r2.net!=null?r2.net:(r2.amount||0)),0);
+  const totalPrimesRat=(DB.rattrapages||[]).filter(r2=>r2.amount>0&&!r2.paid&&r2.validated_by).reduce((s2,r2)=>s2+Number(r2.amount),0);
+  const totalDirPrimes=(DB.direct_primes||[]).reduce((s2,p2)=>s2+Number(p2.amount||0),0);
+  const avances=(DB.advances||[]).filter(a2=>a2.month===selMonth).reduce((s2,a2)=>s2+(a2.amount||0),0);
   return `<div style="padding:12px">${tabBar}${monthPicker}
   <div class="premium-section" style="border-left:4px solid #7c3aed;margin-bottom:14px">
     <div class="premium-section-title" style="color:#7c3aed;margin-bottom:12px">📊 Récapitulatif — ${monthLabel}</div>
@@ -22330,16 +22422,16 @@ R.paie = () => {
   </div>
   <div class="premium-section">
     <div class="premium-section-title" style="margin-bottom:8px">Détail enseignants — ${monthLabel}</div>
-    ${teachers.map(u=>{
-      const sal=sals.find(s=>s.teacher_id===u.id&&s.month===selMonth)||{};
-      const {prime:ratP}=_getRatPrime(u.id,selMonth);
-      const dp=_getDirectPrimesTotal(u.id,selMonth);
-      const adv=_getAdvancesTotal(u.id,selMonth);
-      const net=(sal.amount||0)+(sal.bonus||0)+ratP+dp-(sal.deductions||0)-adv;
+    ${teachers.map(u2=>{
+      const sal2=sals.find(s2=>s2.teacher_id===u2.id&&s2.month===selMonth)||{};
+      const ratP=_getRatPrime(u2.id,selMonth).prime;
+      const dp2=_getDirectPrimesTotal(u2.id,selMonth);
+      const adv=_getAdvancesTotal(u2.id,selMonth);
+      const net=(sal2.amount||0)+(sal2.bonus||0)+ratP+dp2-(sal2.deductions||0)-adv;
       return `<div class="premium-item">
-        <div style="width:36px;height:36px;border-radius:10px;background:${sal.paid?'#d8f3e6':'#fdeccd'};color:${sal.paid?'#065f46':'#92400e'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${ini(u.name)}</div>
-        <div style="flex:1"><div class="pi-title">${esc(u.name)}</div><div class="pi-sub">${sal.amount?`Base ${_cur()}${sal.amount}${dp?` + Primes ${_cur()}${dp}`:''}${adv?` - Avance ${_cur()}${adv}`:''}` : 'Pas de salaire saisi'}</div></div>
-        <div style="text-align:right"><div style="font-weight:800;font-size:15px;color:${net>0?'#1f9d6b':'var(--text-muted)'}">${sal.amount?`${_cur()}${net}`:'-'}</div><div style="font-size:10px">${sal.paid?'<span style="color:#1f9d6b">✅</span>':'<span style="color:#f59e0b">⏳</span>'}</div></div>
+        <div style="width:36px;height:36px;border-radius:10px;background:${sal2.paid?'#d8f3e6':'#fdeccd'};color:${sal2.paid?'#065f46':'#92400e'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">${ini(u2.name)}</div>
+        <div style="flex:1"><div class="pi-title">${esc(u2.name)}</div><div class="pi-sub">${sal2.amount?`Base ${_cur()}${sal2.amount}${dp2?` + Primes ${_cur()}${dp2}`:''}${adv?` - Avance ${_cur()}${adv}`:''}` : 'Pas de salaire saisi'}</div></div>
+        <div style="text-align:right"><div style="font-weight:800;font-size:15px;color:${net>0?'#1f9d6b':'var(--text-muted)'}">${sal2.amount?`${_cur()}${net}`:'-'}</div><div style="font-size:10px">${sal2.paid?'<span style="color:#1f9d6b">✅</span>':'<span style="color:#f59e0b">⏳</span>'}</div></div>
       </div>`;
     }).join('')}
   </div>
