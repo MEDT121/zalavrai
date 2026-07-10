@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v18';
+const CACHE = 'schoolsafe-v19';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -127,6 +127,19 @@ self.addEventListener('message', evt => {
   if (evt.data?.type === 'SKIP_WAITING') self.skipWaiting();
   if (evt.data?.type === 'CACHE_BUST') {
     caches.delete(CACHE).then(() => self.skipWaiting());
+  }
+});
+
+// ── Background Sync : flush différé quand la connexion revient (même onglet fermé) ──
+self.addEventListener('sync', evt => {
+  if (evt.tag === 'schoolsafe-sync') {
+    evt.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+        // Déléguer au premier onglet ouvert — il a accès au cache chiffré et à pushSync
+        if (cs.length > 0) cs[0].postMessage({ type: 'BG_SYNC_REQUEST' });
+        // Si aucun onglet ouvert, flush au prochain démarrage via l'event 'online'
+      })
+    );
   }
 });
 

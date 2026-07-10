@@ -1717,13 +1717,27 @@ window.DEFAULT_MATIERES = {
 // ── OFFLINE SYNC QUEUE ──
 // Quand hors-ligne, les modifications sont stockées ici et synchronisées au retour
 window.SYNC_QUEUE_KEY = 'schoolsafe_sync_queue';
+
+// Priorité de flush : 1=critique (perte de données si perdu), 2=normal, 3=journalisation
+window._SYNC_PRIORITY = {
+  students:1, payments:1, attendance:1, scan_log:1, aps:1, rattrapages:1,
+  users:2, classes:2, grades:2, devoirs:2, conduct:2, settings:2,
+  notifs:3, audit_log:3, approbations:3, cahier_texte:3,
+};
+
 window.syncQueue = {
   add(table, op, data) {
     const queue = this.load();
-    queue.push({ table, op, data, ts: Date.now(), retries: 0 });
+    queue.push({ table, op, data, ts: Date.now(), retries: 0, nextRetry: 0 });
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
     if (queue.length === 200 && typeof toast === 'function') {
       toast('⚠️ 200 opérations en attente de sync — connectez-vous au réseau','warning');
+    }
+    // Enregistrer un Background Sync pour que le SW flush même onglet fermé
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(reg => {
+        if ('sync' in reg) reg.sync.register('schoolsafe-sync').catch(() => {});
+      }).catch(() => {});
     }
   },
   load() {
@@ -1744,44 +1758,62 @@ window.syncQueue = {
   async flush() {
     let queue = this.load();
     if (!queue.length || !DB_ONLINE) return 0;
-    // Deduplicate: remove zombie DELETEs superseded by a later POST/UPSERT for the same table+id
-    // (delete items store their target in data.query, e.g. 'id=eq.XYZ')
-    const _before = queue.length;
-    queue = queue.filter((i, idx) => {
+
+    const now = Date.now();
+
+    // Séparer les items prêts (backoff expiré) des items en attente de backoff
+    const ready = queue.filter(i => !i.nextRetry || now >= i.nextRetry);
+    const deferred = queue.filter(i => i.nextRetry && now < i.nextRetry);
+    if (!ready.length) return 0;
+
+    // Dédupliquer : supprimer les DELETEs zombies annulés par un POST/UPSERT ultérieur
+    const _before = ready.length;
+    const deduped = ready.filter((i, idx) => {
       if (i.op !== 'delete') return true;
       const m = /(?:^|&)id=eq\.([^&]+)/.exec(i.data?.query || '');
       if (!m) return true;
       const key = i.table + ':' + m[1];
-      const superseded = queue.some((j, jdx) => jdx > idx && (j.op === 'post' || j.op === 'upsert') && j.data?.id != null && (j.table + ':' + j.data.id) === key);
-      return !superseded;
+      return !ready.some((j, jdx) => jdx > idx && (j.op === 'post' || j.op === 'upsert') && j.data?.id != null && (j.table + ':' + j.data.id) === key);
     });
-    if (queue.length !== _before) {
-      if (queue.length) localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-      else { this.clear(); return 0; }
-    }
+
+    // Trier par priorité (1=critique en premier), puis FIFO à priorité égale
+    deduped.sort((a, b) => {
+      const pa = window._SYNC_PRIORITY[a.table] || 2;
+      const pb = window._SYNC_PRIORITY[b.table] || 2;
+      return pa !== pb ? pa - pb : (a.ts||0) - (b.ts||0);
+    });
+
+    // Backoffs exponentiels : 30s → 2min → 10min → 40min → dead-letter
+    const _BACKOFFS = [30000, 120000, 600000, 2400000];
+
     let done = 0;
-    const remaining = [];
+    const remaining = [...deferred];
     let deadCount = 0;
-    for (const item of queue) {
+
+    for (const item of deduped) {
       try {
         let ok = false;
         if (item.op === 'upsert') ok = await _upsert(item.table, item.data);
         else if (item.op === 'post') ok = await _post(item.table, item.data);
         else if (item.op === 'patch') ok = await _patch(item.table, item.data.query, item.data.body);
         else if (item.op === 'delete') ok = await _del(item.table, item.data.query);
-        if (ok) done++;
+        if (ok) { done++; }
         else {
           item.retries = (item.retries || 0) + 1;
-          if (item.retries < 5) remaining.push(item);
-          else { deadCount++; console.warn('[SYNC] item dead-lettered after 5 retries:', item.table, item.op); }
+          if (item.retries <= _BACKOFFS.length) {
+            item.nextRetry = now + _BACKOFFS[item.retries - 1];
+            remaining.push(item);
+          } else { deadCount++; console.warn('[SYNC] dead-letter après', item.retries, 'tentatives:', item.table, item.op); }
         }
       } catch(e) {
         item.retries = (item.retries || 0) + 1;
-        if (item.retries < 5) remaining.push(item);
-        else { deadCount++; console.warn('[SYNC] item dead-lettered:', item.table, item.op, e.message); }
+        if (item.retries <= _BACKOFFS.length) {
+          item.nextRetry = now + _BACKOFFS[item.retries - 1];
+          remaining.push(item);
+        } else { deadCount++; console.warn('[SYNC] dead-letter:', item.table, item.op, e.message); }
       }
     }
-    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) abandonnée(s) après 5 tentatives`, 'warning');
+    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) abandonnée(s) après ${_BACKOFFS.length+1} tentatives`, 'warning');
     if (remaining.length === 0) this.clear();
     else localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
     return done;
@@ -2638,13 +2670,58 @@ window.updateSyncIndicator = () => {
   } else if (!window.DB_ONLINE) {
     el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c'; el.title='Hors ligne — cliquer pour réessayer';
   } else if (q > 0) {
-    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — cliquer pour sync`;
+    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — cliquer pour détail`;
+    el.onclick = () => showSyncQueueDetail();
   } else {
+    el.onclick = () => forceSyncDB();
     el.textContent=`🟢${t}`; el.style.background='#dcfce7'; el.style.color='#15603f'; el.title=`Connecté${window._lastSyncTime?' · Sync '+window._lastSyncTime:''}`;
   }
 };
 // Mise à jour auto toutes les 10 secondes
 if(!window._iv_syncui) window._iv_syncui = setInterval(window.updateSyncIndicator, 10000);
+
+// ── Listener : le SW déclenche un flush quand il reçoit BG_SYNC_REQUEST ──────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', async evt => {
+    if (evt.data?.type === 'BG_SYNC_REQUEST') {
+      if (window.DB_ONLINE && S.user) {
+        const n = await syncQueue.flush();
+        if (n > 0) { updateSyncIndicator(); render(); }
+      }
+    }
+  });
+}
+
+// ── Panel détail : liste des opérations en attente ───────────────────────────
+window.showSyncQueueDetail = () => {
+  const queue = syncQueue.load();
+  if (!queue.length) { toast('Aucune opération en attente','info'); forceSyncDB(); return; }
+  const now = Date.now();
+  const _PRI_LABEL = {1:'🔴 Critique',2:'🟡 Normal',3:'⚪ Faible'};
+  const rows = queue.slice(0,25).map(i => {
+    const ageMn = Math.max(0, Math.round((now - (i.ts||now)) / 60000));
+    const backSec = i.nextRetry && now < i.nextRetry ? Math.round((i.nextRetry - now) / 1000) : 0;
+    const status = backSec > 0 ? `<span style="color:#d97706">⏱ retry ${backSec}s</span>` : i.retries ? `<span style="color:#dc2626">${i.retries} échec(s)</span>` : '<span style="color:#16a34a">prêt</span>';
+    const pri = _PRI_LABEL[window._SYNC_PRIORITY[i.table]||2]||'🟡';
+    return `<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <code style="font-size:10px;background:var(--bg-card);padding:2px 5px;border-radius:4px;color:var(--text-secondary)">${i.op}</code>
+      <span style="font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.table}</span>
+      <span style="font-size:10px;color:var(--text-muted);white-space:nowrap">${ageMn}min</span>
+      ${status}
+      <span style="font-size:10px;white-space:nowrap">${pri}</span>
+    </div>`;
+  }).join('');
+  const extra = queue.length > 25 ? `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">+${queue.length-25} autres…</div>` : '';
+  const statColor = window.DB_ONLINE ? '#16a34a' : '#dc2626';
+  const statTxt = window.DB_ONLINE ? '🟢 Connecté — sync possible' : '🔴 Hors ligne — en attente de connexion';
+  openM(`📋 File d'attente (${queue.length} op.)`,
+    `<div style="margin-bottom:10px;font-size:13px;font-weight:600;color:${statColor}">${statTxt}</div>
+     <div style="max-height:320px;overflow-y:auto;margin:0 -4px;padding:0 4px">${rows}${extra}</div>`,
+    `<button class="btn btn-primary" onclick="closeModal();forceSyncDB()" style="flex:1">🔄 Forcer la sync</button>
+     <button class="btn btn-danger btn-sm" onclick="showC('Effacer la file d\'attente ?','${queue.length} opération(s) non synchronisée(s) seront perdues définitivement.',()=>{syncQueue.clear();updateSyncIndicator();closeModal();toast('File d\'attente effacée','warning')})">🗑️</button>
+     <button class="btn btn-outline" onclick="closeModal()">Fermer</button>`
+  );
+};
 
 window.forceSyncDB = async () => {
   if (window._syncInProgress) { toast('Sync déjà en cours...','info'); return; }
