@@ -4041,6 +4041,17 @@ function dashboardDirection() {
       </div>`;
   }).join('');
 
+  // Élèves à risque — taux d'absence ≥30% ce mois
+  const moisRisk = today().slice(0,7);
+  const attMois = (DB.attendance||[]).filter(a=>a.date&&a.date.startsWith(moisRisk));
+  const workDays = new Set(attMois.map(a=>a.date)).size;
+  const atRisk = workDays >= 3 ? students.map(s=>{
+    const sAtt = attMois.filter(a=>a.sid===s.id);
+    const pres = sAtt.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const abs = workDays - pres;
+    return { s, abs, pct: Math.round(abs/workDays*100) };
+  }).filter(x=>x.pct>=30).sort((a,b)=>b.pct-a.pct).slice(0,5) : [];
+
   return `
 <div style="padding:var(--sp-4);max-width:680px;margin:0 auto" role="main">
 
@@ -4136,6 +4147,19 @@ function dashboardDirection() {
     </div>
     ${classesHtml}
     ${classes.length > 4 ? `<div class="dp-list-item" onclick="go('attendance')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600" role="button" tabindex="0">+${classes.length-4} classes →</div>` : ''}
+  </div>` : ''}
+
+  <!-- Élèves à risque d'absentéisme -->
+  ${atRisk.length ? `
+  <div class="dp-section" style="border-color:rgba(239,68,68,.25);animation:fadeInUp .3s .245s ease both" role="region" aria-label="Élèves à risque d'absentéisme">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#ef4444">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Absentéisme critique ce mois
+      </div>
+      <div class="dp-section-action" onclick="go('attendance')" role="button" tabindex="0">Présences</div>
+    </div>
+    ${atRisk.map(({s,abs,pct})=>{const cl2=gc(s.cid);const col=pct>=50?'#dc2626':'#d97706';return `<div class="dp-list-item" onclick="showStudentInfo('${s.id}')" role="button" tabindex="0" aria-label="${esc(s.name)}: ${pct}% absences"><div class="dp-list-avatar" style="background:rgba(239,68,68,.12);color:#ef4444;border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div><div class="dp-list-sub">${esc(cl2?.name||'—')} · ${abs}j absent${abs>1?'s':''} / ${workDays}j</div></div><div class="dp-list-end"><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:${col}">${pct}%</span></div></div>`;}).join('')}
   </div>` : ''}
 
   <!-- Élèves récents -->
