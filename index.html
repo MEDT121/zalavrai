@@ -4174,6 +4174,18 @@ window.showStudentInfo = (sid) => {
   const allPaid = pays.length > 0 && pays.every(p => p.paid);
   const partPaid = pays.some(p => p.paid) && !allPaid;
   const dob = s.dob ? new Date(s.dob).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : null;
+  // Stats ce mois
+  const moisCourant = today().slice(0,7);
+  const attMois = (DB.attendance||[]).filter(a=>a.sid===sid&&a.date&&a.date.startsWith(moisCourant));
+  const presentsMois = attMois.filter(a=>a.status==='ontime'||a.status==='late').length;
+  const absMois = attMois.filter(a=>a.status==='sick'||a.status==='excused').length;
+  const retardsMois = attMois.filter(a=>a.status==='late').length;
+  const sanctionsActives = (DB.sanctions||[]).filter(sc=>sc.sid===sid&&!sc.lifted).length;
+  const conduites = (DB.conduct||[]).filter(c=>c.sid===sid);
+  const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
+  const condAvg = conduites.length?conduites.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduites.length:0;
+  const condLabel = condAvg>=3.5?'Excellent':condAvg>=2.5?'Bien':condAvg>=1.5?'Moyen':condAvg>0?'Mauvais':'—';
+  const condColor = condAvg>=3.5?'#065f46':condAvg>=2.5?'#205fae':condAvg>=1.5?'#92400e':'#991b1b';
 
   let attBg, attEmoji, attLabel, attTime;
   if      (ex)                          { attBg='#fdeccd'; attEmoji=''; attLabel='Sorti(e) de l\'école';    attTime=ex.time; }
@@ -4191,6 +4203,13 @@ window.showStudentInfo = (sid) => {
       <div style="font-weight:800;font-size:18px;margin-bottom:2px">${esc(s.name)}</div>
       <div style="font-size:13px;color:var(--text-muted)">${esc(s.mat)}${cl?' · '+esc(cl.name):''}</div>
       ${dob?`<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${dob}</div>`:''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px">
+      <div style="background:#d8f3e6;border-radius:10px;padding:8px 4px;text-align:center"><div style="font-size:17px;font-weight:800;color:#065f46">${presentsMois}</div><div style="font-size:9px;color:#065f46">présents</div></div>
+      <div style="background:${absMois>0?'#fee2e2':'var(--bg)'};border-radius:10px;padding:8px 4px;text-align:center"><div style="font-size:17px;font-weight:800;color:${absMois>0?'#991b1b':'var(--text-muted)'}">${absMois}</div><div style="font-size:9px;color:${absMois>0?'#991b1b':'var(--text-muted)'}">absents</div></div>
+      <div style="background:${sanctionsActives>0?'#fee2e2':'var(--bg)'};border-radius:10px;padding:8px 4px;text-align:center"><div style="font-size:17px;font-weight:800;color:${sanctionsActives>0?'#991b1b':'var(--text-muted)'}">${sanctionsActives}</div><div style="font-size:9px;color:${sanctionsActives>0?'#991b1b':'var(--text-muted)'}">sanctions</div></div>
+      <div style="background:var(--bg);border-radius:10px;padding:8px 4px;text-align:center"><div style="font-size:14px;font-weight:800;color:${condColor}">${condLabel}</div><div style="font-size:9px;color:var(--text-muted)">conduite</div></div>
     </div>
 
     <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Présence aujourd'hui</div>
