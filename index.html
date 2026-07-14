@@ -8415,9 +8415,16 @@ R.attendance = () => {
     ${absent.filter(s=>s.pid).length?`<button class="btn btn-sm" style="background:#f59e0b;color:#fff;border:none;font-weight:700;flex-shrink:0" onclick="notifyAbsentParents('${window._attClassFilter||''}')">📣 Notifier les parents</button>`:''}
   </div>` : '';
 
+  const dirMonthBlock = isDir ? `
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <input type="month" class="form-input" id="attMonthPicker" value="${today().slice(0,7)}" style="flex:1;min-width:140px;max-width:200px">
+    <button class="btn btn-outline btn-sm" style="flex-shrink:0" onclick="printMonthlyAttendance(document.getElementById('attMonthPicker')?.value,'${window._attClassFilter||''}')">📋 Rapport mensuel PDF</button>
+  </div>` : '';
+
   return `
   ${teacherScanBlock}
   ${dirClassFilter}
+  ${dirMonthBlock}
   ${dirNotifBlock}
   ${(()=>{const tot=students.length;const pct=tot?Math.round(present.length/tot*100):0;return `
   <div class="hbento" style="margin-bottom:14px">
@@ -17515,6 +17522,65 @@ window.printPVDeliberation = () => {
   </body></html>`;
   dlPDF(body,`PV-Deliberation-${yr}.pdf`);
   toast('📜 PV de délibération en cours de téléchargement...','info');
+};
+
+window.printMonthlyAttendance = (month, cid) => {
+  if(!month) month = today().slice(0,7);
+  const [yr2, mo2] = month.split('-');
+  const monthLabel = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][parseInt(mo2,10)-1]+' '+yr2;
+  const sc = DB.settings.school||{};
+  const school = sc.name||'SchoolSafe';
+  const schoolYear = DB.settings.year||'2025-2026';
+  const printDate = new Date().toLocaleDateString('fr-FR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const logoSrc = window.SCHOOL_LOGO||'';
+
+  let studs = (DB.students||[]);
+  const cl = cid ? gc(cid) : null;
+  if(cid) studs = studs.filter(s=>s.cid===cid);
+  if(!studs.length){toast('Aucun élève','info');return;}
+
+  const attMonth = (DB.attendance||[]).filter(a=>a.date&&a.date.startsWith(month));
+  const workingDays = [...new Set(attMonth.map(a=>a.date))].length;
+
+  const rows = studs.map(s=>{
+    const sAtt = attMonth.filter(a=>a.sid===s.id);
+    const present = sAtt.filter(a=>a.status==='ontime'||a.status==='late').length;
+    const late = sAtt.filter(a=>a.status==='late').length;
+    const sick = sAtt.filter(a=>a.status==='sick').length;
+    const excused = sAtt.filter(a=>a.status==='excused').length;
+    const absent = workingDays - present;
+    const rate = workingDays ? Math.round(present/workingDays*100) : 0;
+    const clName = cl ? cl.name : (gc(s.cid)?.name||'—');
+    return {s,clName,present,late,sick,excused,absent,rate};
+  }).sort((a,b)=>a.rate-b.rate);
+
+  const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:22px;color:#1a1a1a;background:#fff;font-size:12px}.hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #243a6b;margin-bottom:14px}.hl{display:flex;align-items:center;gap:12px}.logo{width:48px;height:48px;object-fit:contain}.si h1{font-size:14px;font-weight:800;color:#243a6b}.si .s{font-size:10px;color:#666;margin-top:2px}.hr{text-align:right}.brand{font-size:12px;font-weight:700;color:#243a6b}.meta{font-size:10px;color:#777;margin-top:2px}.dtitle{text-align:center;margin:12px 0 14px}.dtitle h2{font-size:14px;font-weight:800;color:#243a6b;text-transform:uppercase;letter-spacing:1px}.dtitle .yr{font-size:11px;color:#888;margin-top:3px}.stats{display:flex;gap:10px;margin:10px 0 14px}.stat{background:#f6ede0;border-radius:8px;padding:8px 14px;text-align:center;flex:1}.stat .v{font-size:18px;font-weight:800;color:#243a6b}.stat .l{font-size:9px;color:#666;margin-top:2px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th{background:#243a6b;color:#fff;padding:7px 6px;font-size:10px;text-align:left;font-weight:600}td{padding:5px 6px;font-size:11px;border-bottom:1px solid #eaecf0;vertical-align:middle}tr:nth-child(even) td{background:#f8faff}.pill{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}.g{background:#d8f3e6;color:#065f46}.w{background:#fdeccd;color:#92400e}.r{background:#fee2e2;color:#991b1b}.footer{margin-top:20px;padding-top:8px;border-top:1px solid #ddd;display:flex;justify-content:space-between;font-size:10px;color:#999}.pbtn{display:block;margin:18px auto 0;padding:10px 28px;background:#243a6b;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}@page{margin:10mm}}`;
+
+  const hdr=`<div class="hdr"><div class="hl">${logoSrc?`<img src="${logoSrc}" class="logo" style="border-radius:50%;border:2px solid #243a6b" alt="">`:'<div style="width:48px;height:48px;background:#243a6b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px">🏫</div>'}<div class="si"><h1>${school}</h1><div class="s">${sc.address||''}</div></div></div><div class="hr"><div class="brand">🛡️ SchoolSafe</div><div class="meta">Année ${schoolYear}</div><div class="meta">${printDate}</div></div></div>`;
+  const ftr=`<div class="footer"><span>© ${new Date().getFullYear()} ${school}</span><span>${monthLabel} — Rapport d'assiduité</span><span>Document officiel</span></div>`;
+  const goodCount=rows.filter(r=>r.rate>=80).length;
+  const risqueCount=rows.filter(r=>r.rate<60).length;
+
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Présences ${monthLabel}</title><style>${CSS}</style></head><body>
+  ${hdr}
+  <div class="dtitle"><h2>Rapport Mensuel d'Assiduité</h2><div class="yr">${monthLabel}${cl?' — '+cl.name:' — Toutes classes'} · Année ${schoolYear}</div></div>
+  <div class="stats">
+    <div class="stat"><div class="v">${studs.length}</div><div class="l">Élèves</div></div>
+    <div class="stat"><div class="v">${workingDays}</div><div class="l">Jours (données)</div></div>
+    <div class="stat"><div class="v" style="color:#1f9d6b">${goodCount}</div><div class="l">≥80% présence</div></div>
+    <div class="stat"><div class="v" style="color:#dc2626">${risqueCount}</div><div class="l">&lt;60% — risque</div></div>
+  </div>
+  <table><tr><th>#</th><th>Élève</th>${!cid?'<th>Classe</th>':''}<th>Présents</th><th>Retards</th><th>Malades</th><th>Justifiés</th><th>Absents</th><th>Taux</th></tr>
+  ${rows.map((r,i)=>`<tr><td style="color:#999">${i+1}</td><td style="font-weight:600">${esc(r.s.name)}</td>${!cid?`<td>${esc(r.clName)}</td>`:''}<td style="color:#1f9d6b;font-weight:600">${r.present}</td><td style="color:#d98a2b;font-weight:600">${r.late}</td><td style="color:#9d174d;font-weight:600">${r.sick}</td><td style="color:#205fae;font-weight:600">${r.excused}</td><td style="color:#dc2626;font-weight:600">${r.absent}</td><td><span class="pill ${r.rate>=80?'g':r.rate>=60?'w':'r'}">${r.rate}%</span></td></tr>`).join('')}
+  </table>
+  ${ftr}
+  <button class="pbtn" onclick="window.print()">🖨️ Imprimer</button>
+  </body></html>`;
+
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+  else toast('Autorisez les pop-ups pour générer le rapport','warning');
+  toast('📋 Rapport mensuel généré','success');
 };
 
 window.printReport = (type) => {
