@@ -17093,9 +17093,11 @@ window.genererRapportMensuel = (sid, mois) => {
   const moy=sumC?Math.round(totalPct/sumC):null;
   // Présences du mois
   const presences=(DB.attendance||[]).filter(a=>a.sid===sid&&a.date&&a.date.slice(0,7)===mois);
-  const absents=presences.filter(a=>a.status==='absent').length;
+  const presents=presences.filter(a=>a.status==='ontime'||a.status==='late').length;
   const retards=presences.filter(a=>a.status==='late').length;
-  const presents=presences.filter(a=>a.status==='présent').length;
+  const malades=presences.filter(a=>a.status==='sick').length;
+  const justifies=presences.filter(a=>a.status==='excused').length;
+  const absents=malades+justifies;
   // Conduite
   const conduites=(DB.conduct||[]).filter(c=>c.sid===sid);
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
@@ -17123,14 +17125,16 @@ window.genererRapportMensuel = (sid, mois) => {
   </div>
   <div class="section">
     <div class="section-title">🏆 Résultats scolaires (${trim})</div>
-    ${matieres.map(m=>{const pct=matAvgPct(sid,m.name,trim);return `<div class="row"><span>${esc(m.name)}</span><span class="badge ${pct===null?'':'pct>=70?green:pct>=50?orange:red'}">${pct!==null?pct+'%':'—'}</span></div>`;}).join('')}
+    ${matieres.map(m=>{const pct=matAvgPct(sid,m.name,trim);const bc=pct===null?'':pct>=70?'green':pct>=50?'orange':'red';return `<div class="row"><span>${esc(m.name)}</span><span class="badge ${bc}">${pct!==null?pct+'%':'—'}</span></div>`;}).join('')}
     <div class="row"><strong>Moyenne générale (${trim})</strong><strong class="badge ${moy===null?'':moy>=70?'green':moy>=50?'orange':'red'}">${moy!==null?moy+'% — '+getMention(moy):'Pas encore noté'}</strong></div>
   </div>
   <div class="section">
     <div class="section-title">📋 Présences — ${mois}</div>
-    <div class="row"><span>Jours présents</span><span class="badge green">${presents}</span></div>
+    <div class="row"><span>Jours présents (à l'heure)</span><span class="badge green">${presents-retards}</span></div>
     <div class="row"><span>Retards</span><span class="badge orange">${retards}</span></div>
-    <div class="row"><span>Absences</span><span class="badge red">${absents}</span></div>
+    <div class="row"><span>Absences maladie</span><span class="badge red">${malades}</span></div>
+    <div class="row"><span>Absences justifiées</span><span class="badge orange">${justifies}</span></div>
+    <div class="row"><strong>Total présences</strong><strong class="badge green">${presents} j</strong></div>
   </div>
   <div class="section">
     <div class="section-title">😊 Comportement</div>
