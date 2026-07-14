@@ -4746,6 +4746,32 @@ function dashboardGardien() {
     </div>
   </div>
 
+  ${(()=>{
+    const exitSids=new Set(todayScans.filter(l=>l.type==='exit').map(l=>l.sid));
+    const stillIn=todayScans.filter(l=>l.type==='entry'&&!exitSids.has(l.sid));
+    const h=parseInt((nowTime()||'00:00').split(':')[0],10);
+    const isLate=h>=15;
+    if(!stillIn.length) return '';
+    return `<div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .17s ease both;${isLate?'border-left:3px solid var(--pink)':''}">
+      <div class="dp-section-header">
+        <div class="dp-section-title">${isLate?'⚠️':'🏫'} Encore dans l'école <span style="margin-left:6px;background:${isLate?'var(--pink)':'var(--green)'};color:#fff;border-radius:20px;padding:1px 8px;font-size:11px;font-weight:800">${stillIn.length}</span></div>
+        ${isLate?'<span style="font-size:11px;color:var(--pink);font-weight:700">Sorties manquantes</span>':''}
+      </div>
+      ${stillIn.map(l=>{
+        const s=DB.students.find(x=>x.id===l.sid);
+        const cl=s?gc(s.cid):null;
+        return `<div class="dp-list-item">
+          <div class="dp-list-avatar" style="background:${isLate?'rgba(239,91,91,.15)':'rgba(47,191,143,.15)'};color:${isLate?'var(--pink)':'var(--green)'};font-size:10px;font-weight:800">IN</div>
+          <div style="flex:1;min-width:0">
+            <div class="dp-list-title">${esc(l.name||'—')}</div>
+            <div class="dp-list-sub">${cl?esc(cl.name):''} · Entré à ${l.time||'—'}</div>
+          </div>
+          ${isLate?`<span style="font-size:10px;font-weight:700;color:var(--pink);background:rgba(239,91,91,.1);border-radius:6px;padding:2px 6px">Pas sorti</span>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  })()}
+
   ${todayScans.length?`
   <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .2s ease both">
     <div class="dp-section-header">
