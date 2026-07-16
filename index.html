@@ -3956,6 +3956,11 @@ function dashboardDirection() {
     return {cl:clx,total:sc.length,paid:paidCt,blocked:blockedCt,unpaid:sc.length-paidCt};
   }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
 
+  // Retours de renvoi imminents (≤7 j) — Direction 1
+  const r7d = new Date(d); r7d.setDate(r7d.getDate()+7);
+  const r7dStr = r7d.toISOString().slice(0,10);
+  const sanctReturns = (DB.sanctions||[]).filter(sc=>!sc.lifted&&sc.return_date&&sc.return_date>=d&&sc.return_date<=r7dStr).sort((a,b)=>(a.return_date||'').localeCompare(b.return_date||'')).slice(0,5).map(sc=>{const rSt=(DB.students||[]).find(x=>x.id===sc.sid);const rDays=Math.round((new Date(sc.return_date)-new Date(d))/86400000);return{sanct:sc,student:rSt,daysLeft:rDays};}).filter(x=>x.student);
+
   // Sanctions actives — vue d'ensemble Direction 1
   const activeSanctD1All = (DB.sanctions||[]).filter(s=>!s.lifted);
   const sanctTypeCounts = {};
@@ -4492,6 +4497,25 @@ function dashboardDirection() {
         </tbody>
       </table>
     </div>
+  </div>` : ''}
+
+  ${sanctReturns.length?`
+  <div class="dp-section" style="border-color:rgba(239,68,68,.25);animation:fadeInUp .3s .385s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Retours de renvoi imminents">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#ef4444">Retours de renvoi (${sanctReturns.length})</div>
+      <div class="dp-section-action" onclick="go('students')">Voir tous</div>
+    </div>
+    ${sanctReturns.map(({sanct,student,daysLeft})=>`
+    <div class="dp-list-item" onclick="go('students')" role="button" tabindex="0">
+      <div class="dp-list-avatar" style="background:rgba(239,68,68,.12);color:#ef4444;font-size:15px;display:flex;align-items:center;justify-content:center">↩</div>
+      <div style="flex:1;min-width:0">
+        <div class="dp-list-title">${esc(student.name)}</div>
+        <div class="dp-list-sub">${esc(sanct.type||'Sanction')} · Retour le ${sanct.return_date}</div>
+      </div>
+      <div class="dp-list-end">
+        <span style="padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${daysLeft<=1?'rgba(239,68,68,.15)':'rgba(245,158,11,.12)'};color:${daysLeft<=1?'#ef4444':'#f59e0b'}">${daysLeft===0?'Aujourd\'hui':'J-'+daysLeft}</span>
+      </div>
+    </div>`).join('')}
   </div>` : ''}
 
   ${studentsNoParent.length?`
