@@ -3905,6 +3905,7 @@ function dashboardDirection() {
   // Alerts
   const pendingRats       = (DB.rattrapages||[]).filter(r => !r.validated_by && !r.d2_validated);
   const pendingAppr       = (DB.approbations||[]).filter(a => a.status==='pending');
+  const pendingConvsDir1  = (DB.convocations||[]).filter(c => c.status==='pending');
   const unreadNotifs      = (DB.notifs||[]).filter(n => n.uid===u.id && !n.read);
   const teacherAbsToday   = (DB.teacher_absences||[]).filter(a=>a.date===d);
   const unreadMsgsDir     = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
@@ -3952,6 +3953,12 @@ function dashboardDirection() {
     paths:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>`,
     title:`${pendingRats.length} rattrapage${pendingRats.length>1?'s':''} à valider`,
     sub:'Rattrapages soumis par les enseignants'
+  });
+  if (pendingConvsDir1.length > 0) alertItems.push({
+    cls:'info', page:'convocations',
+    paths:`<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
+    title:`${pendingConvsDir1.length} convocation${pendingConvsDir1.length>1?'s':''} à planifier`,
+    sub:'Convocations en attente de réponse'
   });
   if (unreadNotifs.length > 0) alertItems.push({
     cls:'info', page:'notifications',
