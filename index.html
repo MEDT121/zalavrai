@@ -4645,6 +4645,12 @@ function dashboardDirection2() {
   // Top 3 palmarès pédagogiques
   const top3D2 = DB.settings ? (typeof getSchoolTop10==='function' ? getSchoolTop10().slice(0,3) : []) : [];
 
+  // Agenda scolaire Direction2
+  const calEvTiD2 = {event:{icon:'📌',color:'#2f7bd6'},holiday:{icon:'🎉',color:'#dc2626'},vacation:{icon:'🌴',color:'#1f9d6b'},exam_period:{icon:'📝',color:'#9b6fd4'},reunion:{icon:'🤝',color:'#d98a2b'}};
+  const calTodayD2 = (DB.events||[]).filter(e=>e.date===d);
+  const calUpD2 = (DB.events||[]).filter(e=>e.date>d).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
+  const calItemsD2 = [...calTodayD2.map(e=>({...e,isToday:true})), ...calUpD2.map(e=>({...e,isToday:false}))];
+
   // Examens / interros prévus cette semaine
   const nowD2=new Date();nowD2.setHours(0,0,0,0);const in7D2=new Date(nowD2);in7D2.setDate(in7D2.getDate()+7);
   const upExams = (DB.devoirs||[]).filter(dv=>(dv.category==='interro'||dv.category==='examen')&&dv.deadline&&new Date(dv.deadline)>=nowD2&&new Date(dv.deadline)<=in7D2).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,6);
@@ -4793,6 +4799,18 @@ function dashboardDirection2() {
       <div class="dp-section-action" onclick="go('devoirs')" role="button" tabindex="0">Tous</div>
     </div>
     ${upExams.map(dv=>{const clE=gc(dv.cid);const dl=new Date(dv.deadline);const dLeft=Math.ceil((dl-new Date())/86400000);const isInterro=dv.category==='interro';return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:${isInterro?'rgba(245,158,11,.12)':'rgba(139,92,246,.12)'};font-size:16px">${isInterro?'⚠️':'📝'}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(dv.title)}</div><div class="dp-list-sub">${esc(dv.matiere||'')}${clE?' · '+esc(clE.name):''}</div></div><span style="padding:3px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:${isInterro?'rgba(245,158,11,.12)':'rgba(139,92,246,.12)'};color:${isInterro?'#d97706':'#7c3aed'}">${dLeft<=0?'Auj.':dLeft+'j'}</span></div>`;}).join('')}
+  </div>` : ''}
+
+  ${calItemsD2.length?`
+  <div class="dp-section" style="animation:fadeInUp .35s .44s ease both" role="region" aria-label="Agenda scolaire">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Agenda de l'école
+      </div>
+      <div class="dp-section-action" onclick="go('calendar')" role="button" tabindex="0">Calendrier</div>
+    </div>
+    ${calItemsD2.map(e=>{const tp=calEvTiD2[e.type]||calEvTiD2.event;const evDate=new Date(e.date+'T00:00:00');const dateLabel=e.isToday?'Aujourd\'hui':evDate.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});return `<div class="dp-list-item" onclick="go('calendar')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(47,123,214,.08);color:${tp.color};font-size:18px">${tp.icon}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(e.title)}</div><div class="dp-list-sub">${dateLabel}</div></div>${e.isToday?`<span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(47,123,214,.1);color:#2f7bd6">Aujourd\'hui</span>`:''}</div>`;}).join('')}
   </div>` : ''}
 
 </div>`;
