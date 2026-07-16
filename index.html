@@ -5510,6 +5510,15 @@ function dashboardDirection3() {
     return {s,unpaidT,totalDebt};
   }).filter(x=>x.unpaidT.length>=2).sort((a,b)=>b.totalDebt-a.totalDebt).slice(0,6);
 
+  // Taux de paiement par classe — caisse
+  const paymentByClass = (DB.classes||[]).map(clx=>{
+    const clSt=caisseAllStudents.filter(s=>s.cid===clx.id);
+    if(!clSt.length) return null;
+    const paidCtC=clSt.filter(s=>(DB.payments||[]).some(p=>p.sid===s.id&&p.t===caisseTrim&&p.paid)).length;
+    const pctC=Math.round(paidCtC/clSt.length*100);
+    return {cl:clx,total:clSt.length,paid:paidCtC,unpaid:clSt.length-paidCtC,pct:pctC};
+  }).filter(Boolean).filter(x=>x.total>0).sort((a,b)=>a.pct-b.pct);
+
   // Bilan mensuel P&L — mois courant
   const plMois = d.slice(0,7);
   const plRecs = (DB.daily_records||[]).filter(r=>r.date&&r.date.startsWith(plMois));
@@ -5744,6 +5753,22 @@ function dashboardDirection3() {
       <div class="dp-section-action" onclick="go('payments')" role="button" tabindex="0">Paiements</div>
     </div>
     ${multiDebtStudents.map(({s,unpaidT,totalDebt})=>{const clA=gc(s.cid);const all3=unpaidT.length===3;return `<div class="dp-list-item" onclick="go('payments')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${all3?'rgba(220,38,38,.12)':'rgba(245,158,11,.1)'};color:${all3?'#dc2626':'#d97706'};border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div><div class="dp-list-sub">${esc(clA?.name||'—')} · Impayé: ${unpaidT.join('+')} </div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:${all3?'rgba(220,38,38,.1)':'rgba(245,158,11,.1)'};color:${all3?'#dc2626':'#d97706'}">${_cur()}${totalDebt.toLocaleString()}</span></div>`;}).join('')}
+  </div>` : ''}
+
+  ${paymentByClass.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .335s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Paiements par classe">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Paiements par classe — ${caisseTrim}</div>
+      <div class="dp-section-action" onclick="go('payments')" role="button" tabindex="0">Détail</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-xs)">
+        <thead><tr style="color:var(--text-2);font-weight:700;text-align:left"><th style="padding:6px 12px">Classe</th><th style="padding:6px 8px;text-align:center">Payés</th><th style="padding:6px 8px;text-align:center">Impayés</th><th style="padding:6px 8px;min-width:90px">Taux</th></tr></thead>
+        <tbody>
+          ${paymentByClass.map((row,ri)=>`<tr style="border-top:1px solid var(--border-light);background:${ri%2===0?'transparent':'rgba(255,255,255,.02)'}"><td style="padding:7px 12px;font-weight:700">${esc(row.cl.name)}</td><td style="padding:7px 8px;text-align:center;color:var(--green);font-weight:700">${row.paid}</td><td style="padding:7px 8px;text-align:center;color:${row.unpaid>0?'#ef4444':'var(--text-2)'};font-weight:${row.unpaid>0?700:400}">${row.unpaid||'—'}</td><td style="padding:7px 8px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden"><div style="height:100%;border-radius:999px;width:${row.pct}%;background:${row.pct>=80?'#22c55e':row.pct>=50?'#f59e0b':'#ef4444'}"></div></div><span style="min-width:30px;font-size:10px;font-weight:800;color:${row.pct>=80?'#22c55e':row.pct>=50?'#f59e0b':'#ef4444'}">${row.pct}%</span></div></td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>` : ''}
 
   ${cCalItems.length?`
