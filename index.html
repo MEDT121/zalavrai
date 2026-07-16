@@ -3919,6 +3919,9 @@ function dashboardDirection() {
   const classesNoTeacher  = (DB.classes||[]).filter(c=>!c.teacher_id&&!c.teacher_id_en);
   const activeSanctDir1   = (DB.sanctions||[]).filter(s=>!s.lifted&&(s.type==='renvoi'||s.type==='exclusion'));
 
+  // Journal d'audit récent — Direction 1
+  const recentAuditD1 = [...(DB.audit_log||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
+
   // Sanctions actives — vue d'ensemble Direction 1
   const activeSanctD1All = (DB.sanctions||[]).filter(s=>!s.lifted);
   const sanctTypeCounts = {};
@@ -4373,8 +4376,20 @@ function dashboardDirection() {
     ${recentSanctD1.map(sc=>{const st=DB.students?.find(x=>x.id===sc.sid);const col=sanctTypeColors[sc.type]||'#ef4444';const lbl=sanctTypeLabels[sc.type]||sc.type;const cl7=st?gc(st.cid):null;return `<div class="dp-list-item" onclick="go('sanctions')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${col}14;color:${col};font-size:10px;font-weight:800">${lbl.slice(0,4)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${st?esc(st.name):'?'}</div><div class="dp-list-sub">${esc(cl7?.name||'—')} · ${sc.date||''}</div></div><span style="padding:3px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${col}14;color:${col}">${lbl}</span></div>`;}).join('')}
   </div>`:''}
 
+  ${recentAuditD1.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .35s ease both" role="region" aria-label="Audit récent">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Journal récent
+      </div>
+      <div class="dp-section-action" onclick="go('audit_log')" role="button" tabindex="0">Voir tout</div>
+    </div>
+    ${recentAuditD1.map(entry=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(100,116,139,.1);color:var(--text-2);font-size:9px;font-weight:800">LOG</div><div style="flex:1;min-width:0"><div class="dp-list-title" style="font-size:var(--text-sm)">${esc((entry.action||'').slice(0,50))}</div><div class="dp-list-sub">${entry.date||''}</div></div></div>`).join('')}
+  </div>` : ''}
+
   <!-- CTA comptes -->
-  <div class="dp-cta" style="background:linear-gradient(135deg,rgba(37,99,235,.8),rgba(92,146,255,.7));border:1px solid rgba(92,146,255,.3);animation:fadeInUp .3s .35s ease both" onclick="go('accounts')" role="button" tabindex="0" aria-label="Gestion des comptes">
+  <div class="dp-cta" style="background:linear-gradient(135deg,rgba(37,99,235,.8),rgba(92,146,255,.7));border:1px solid rgba(92,146,255,.3);animation:fadeInUp .3s .37s ease both" onclick="go('accounts')" role="button" tabindex="0" aria-label="Gestion des comptes">
     <div>
       <div class="dp-cta-label">Gestion des comptes</div>
       <div class="dp-cta-sub">Créer, modifier ou désactiver des accès</div>
@@ -4491,6 +4506,11 @@ function dashboardEnseignant() {
   const _tTodayEvs = (DB.events||[]).filter(e=>e.date===d);
   const _tUpEvs = (DB.events||[]).filter(e=>e.date>d).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,3);
   const teacherCalItems = [..._tTodayEvs.map(e=>({...e,isToday:true})), ..._tUpEvs.map(e=>({...e,isToday:false}))];
+
+  // Élèves sans note — trimestre courant
+  const noGradeTrim = DB.settings?.currentTrimestre||'T1';
+  const myClassGradesCount = (DB.grades||[]).filter(g=>students.some(s=>s.id===g.sid)&&g.trimestre===noGradeTrim).length;
+  const studentsNoGrade = (cl && myClassGradesCount > 0) ? students.filter(s=>!(DB.grades||[]).some(g=>g.sid===s.id&&g.trimestre===noGradeTrim)).slice(0,5) : [];
 
   // Élèves à risque d'absentéisme — classe de l'enseignant
   const moisEnsStr = d.slice(0,7);
@@ -4726,6 +4746,16 @@ function dashboardEnseignant() {
 
   ${devoirsSection}
   ${ratsSection}
+
+  ${studentsNoGrade.length?`
+  <div class="dp-alert warn" onclick="go('palmares')" style="cursor:pointer;margin-bottom:var(--sp-3);border-radius:14px" role="button" tabindex="0">
+    <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+    <div style="flex:1;min-width:0">
+      <div class="dp-alert-title">${studentsNoGrade.length} élève${studentsNoGrade.length!==1?'s':''} sans note — ${noGradeTrim}</div>
+      <div class="dp-alert-sub">${studentsNoGrade.map(s=>esc(s.name.split(' ')[0])).join(', ')}${myClassGradesCount>5?'…':''}</div>
+    </div>
+    <div class="dp-cta-arrow">›</div>
+  </div>` : ''}
 
   ${myClassTop3.length?`
   <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .3s ease both" role="region" aria-label="Meilleurs élèves de la classe">
@@ -5257,6 +5287,19 @@ function dashboardDirection3() {
       <span class="dp-badge" style="background:rgba(56,230,165,.12);color:var(--green)">${_cur()}${r.amount}</span>
     </div>`).join('')}
   </div>`:''}
+
+  ${exps.length?`
+  <div class="dp-section" style="animation:fadeInUp .35s .24s ease both">
+    <div class="dp-section-header">
+      <div class="dp-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Dépenses du jour</div>
+      <div class="dp-section-action" onclick="go('caisse_depense')">Voir tout</div>
+    </div>
+    ${exps.slice(-4).reverse().map(e=>`<div class="dp-list-item">
+      <div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#f87171"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/></svg></div>
+      <div style="flex:1;min-width:0"><div class="dp-list-title">${esc(e.label||e.description||'Dépense')}</div><div class="dp-list-sub">${e.time?e.time:''}</div></div>
+      <span class="dp-badge" style="background:rgba(239,68,68,.1);color:#f87171">−${_cur()}${e.amount}</span>
+    </div>`).join('')}
+  </div>` : ''}
 
   ${caisseUnpaid.length?`
   <div class="dp-section" style="border-color:rgba(239,68,68,.2);animation:fadeInUp .35s .26s ease both" role="region" aria-label="Élèves impayés">
