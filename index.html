@@ -3910,6 +3910,7 @@ function dashboardDirection() {
   const teacherAbsToday   = (DB.teacher_absences||[]).filter(a=>a.date===d);
   const unreadMsgsDir     = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
   const blockedStudents   = students.filter(s=>s.blocked);
+  const pendingJustifs    = (DB.absences||[]).filter(a=>a.status==='pending');
 
   // Scans today
   const scansToday = (DB.scan_log||[]).filter(s => s.date === d);
@@ -3984,6 +3985,12 @@ function dashboardDirection() {
     paths:`<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`,
     title:`${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}`,
     sub: blockedStudents.slice(0,3).map(s=>esc(s.name)).join(', ')
+  });
+  if (pendingJustifs.length > 0) alertItems.push({
+    cls:'info', page:'absences',
+    paths:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`,
+    title:`${pendingJustifs.length} justification${pendingJustifs.length>1?'s':''} d'absence à valider`,
+    sub:'Soumises par les parents — en attente de réponse'
   });
   const alertsHtml = alertItems.length ? `
     <div class="dp-section" style="margin-bottom:var(--sp-4)" role="region" aria-label="Alertes">
