@@ -6051,6 +6051,12 @@ function dashboardParent() {
     return {kid:k,absCount,lateCount};
   }).filter(x=>x.absCount>0||x.lateCount>0);
 
+  // Personnes autorisées à la sortie — résumé par enfant
+  const kidAPs = kids.map(k=>{
+    const aps=(DB.aps||[]).filter(a=>a.sid===k.id&&a.active!==false);
+    return {kid:k,aps};
+  }).filter(x=>x.aps.length>0);
+
   // Enfants absents sans justification ce jour
   const pendingJustif = kids.filter(k=>{
     const att=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
@@ -6230,6 +6236,19 @@ function dashboardParent() {
     </div>
     ${parentCalItems.map(e=>{const tp=parentCalEvTi[e.type]||parentCalEvTi.event;const evDate=new Date(e.date+'T00:00:00');const dateLabel=e.isToday?'Aujourd\'hui':evDate.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});return `<div class="dp-list-item" role="listitem"><div class="dp-list-avatar" style="background:rgba(47,123,214,.08);color:${tp.color};font-size:18px">${tp.icon}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(e.title)}</div><div class="dp-list-sub">${dateLabel}</div></div>${e.isToday?`<span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(47,123,214,.1);color:#2f7bd6">Aujourd\'hui</span>`:''}</div>`;}).join('')}
   </div>` : ''}
+
+  ${kidAPs.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .33s ease both" role="region" aria-label="Personnes autorisées à la sortie">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Sortie autorisée
+      </div>
+      <div class="dp-section-action" onclick="go('authorized')" role="button" tabindex="0">Gérer</div>
+    </div>
+    ${kidAPs.map(({kid,aps})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(47,191,143,.12);color:#2fbf8f;border-radius:50%;overflow:hidden">${(kid.photo||kid.photo_url)?`<img src="${kid.photo||kid.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(kid.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(kid.name)}</div><div class="dp-list-sub">${aps.map(a=>esc(a.name+(a.relation?' ('+a.relation+')':''))).join(' · ')}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(47,191,143,.12);color:#2fbf8f">${aps.length} AP</span></div>`).join('')}
+    ${kids.filter(k=>!(DB.aps||[]).some(a=>a.sid===k.id&&a.active!==false)).length>0?`<div class="dp-list-item" onclick="go('authorized')" role="button" tabindex="0" style="cursor:pointer"><div class="dp-list-avatar" style="background:rgba(245,158,11,.1);color:#d97706;font-size:17px">⚠️</div><div style="flex:1;min-width:0"><div class="dp-list-title" style="color:#d97706">Enfant(s) sans personne autorisée</div><div class="dp-list-sub">${kids.filter(k=>!(DB.aps||[]).some(a=>a.sid===k.id&&a.active!==false)).map(k=>esc(k.name.split(' ')[0])).join(', ')}</div></div><span style="color:#d97706;font-size:16px">›</span></div>`:''}
+  </div>`:''}
 
   ${notifsHtml}
 
