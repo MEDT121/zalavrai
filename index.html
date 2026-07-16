@@ -3926,6 +3926,9 @@ function dashboardDirection() {
   const convWE = convWeekEnd.toISOString().slice(0,10);
   const upConvD1 = (DB.convocations||[]).filter(c=>c.rdv_date&&c.rdv_date>=convWS&&c.rdv_date<=convWE&&c.status!=='done').sort((a,b)=>(a.rdv_date||'').localeCompare(b.rdv_date||'')).slice(0,5);
 
+  // Paiements du jour — Direction 1
+  const todayPaymentsD1 = (DB.payments||[]).filter(p=>p.date===d&&p.paid).slice(-5).reverse();
+
   // Journal d'audit récent — Direction 1
   const recentAuditD1 = [...(DB.audit_log||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
@@ -4383,6 +4386,18 @@ function dashboardDirection() {
     ${recentSanctD1.map(sc=>{const st=DB.students?.find(x=>x.id===sc.sid);const col=sanctTypeColors[sc.type]||'#ef4444';const lbl=sanctTypeLabels[sc.type]||sc.type;const cl7=st?gc(st.cid):null;return `<div class="dp-list-item" onclick="go('sanctions')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${col}14;color:${col};font-size:10px;font-weight:800">${lbl.slice(0,4)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${st?esc(st.name):'?'}</div><div class="dp-list-sub">${esc(cl7?.name||'—')} · ${sc.date||''}</div></div><span style="padding:3px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${col}14;color:${col}">${lbl}</span></div>`;}).join('')}
   </div>`:''}
 
+  ${todayPaymentsD1.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .31s ease both" role="region" aria-label="Paiements du jour">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Paiements du jour
+      </div>
+      <div class="dp-section-action" onclick="go('payments')" role="button" tabindex="0">Voir tout</div>
+    </div>
+    ${todayPaymentsD1.map(p=>{const ps=DB.students?.find(x=>x.id===p.sid);const fee=DB.settings?.fees?.[p.t]||0;return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(47,191,143,.12);color:#2fbf8f;font-size:10px;font-weight:800">${esc(p.t||'?')}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${ps?esc(ps.name):'—'}</div><div class="dp-list-sub">${p.t||''} · ${p.date||''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(47,191,143,.12);color:#2fbf8f">${_cur()}${(+fee).toLocaleString()}</span></div>`;}).join('')}
+  </div>` : ''}
+
   ${upConvD1.length?`
   <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .33s ease both" role="region" aria-label="Convocations à venir">
     <div class="dp-section-header">
@@ -4567,6 +4582,10 @@ function dashboardEnseignant() {
     const avg = avgs.length ? Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length) : null;
     return {mat,avg};
   }).filter(x=>x.avg!==null).sort((a,b)=>(b.avg||0)-(a.avg||0));
+
+  // Devoirs / interros à venir — classe de l'enseignant (7 jours)
+  const ensIn7 = new Date(); ensIn7.setDate(ensIn7.getDate()+7);
+  const ensUpDevoirs = cl ? (DB.devoirs||[]).filter(dv=>dv.cid===cl.id&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=ensIn7).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5) : [];
 
   // Programme du jour — emploi du temps
   const _eDays = ['dim','lun','mar','mer','jeu','ven','sam'];
@@ -4786,6 +4805,18 @@ function dashboardEnseignant() {
       <div class="dp-section-action" onclick="go('palmares')" role="button" tabindex="0">${t('Palmarès','Rankings')}</div>
     </div>
     ${myClassTop3.map((stu,i)=>{const medal=['🥇','🥈','🥉'][i]||'';return `<div class="dp-list-item" onclick="showStudentInfo('${stu.id}')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(255,210,78,.1);font-size:20px">${medal}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(stu.name)}</div><div class="dp-list-sub">${t('Moyenne','Average')} · ${stu.moyPct}%</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(255,210,78,.1);color:var(--gold)">${stu.moyPct}%</span></div>`;}).join('')}
+  </div>` : ''}
+
+  ${ensUpDevoirs.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .305s ease both" role="region" aria-label="Évaluations à venir">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        ${t('Évaluations · 7 jours','Upcoming Assessments')}
+      </div>
+      <div class="dp-section-action" onclick="go('devoirs')" role="button" tabindex="0">${t('Gérer','Manage')}</div>
+    </div>
+    ${ensUpDevoirs.map(dv=>{const dl=new Date(dv.deadline);const dLeft=Math.ceil((dl-new Date())/86400000);const isExam=dv.category==='examen'||dv.category==='interro';return `<div class="dp-list-item" onclick="go('devoirs')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${isExam?'rgba(245,158,11,.12)':'rgba(47,123,214,.08)'};color:${isExam?'#d97706':'var(--primary)'};font-size:10px;font-weight:800;line-height:1.1;text-align:center">${dLeft<=0?t('Auj','Now'):dLeft+'j'}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(dv.title)}</div><div class="dp-list-sub">${esc(dv.matiere||'')} · ${dv.category?esc(dv.category):''}</div></div><span style="padding:3px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${isExam?'rgba(245,158,11,.12)':'rgba(47,123,214,.08)'};color:${isExam?'#d97706':'var(--primary)'}">${dv.deadline?dv.deadline.slice(5):''}</span></div>`;}).join('')}
   </div>` : ''}
 
   ${tMatAvgs.length?`
