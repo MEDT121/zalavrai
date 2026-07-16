@@ -3926,6 +3926,12 @@ function dashboardDirection() {
   const convWE = convWeekEnd.toISOString().slice(0,10);
   const upConvD1 = (DB.convocations||[]).filter(c=>c.rdv_date&&c.rdv_date>=convWS&&c.rdv_date<=convWE&&c.status!=='done').sort((a,b)=>(a.rdv_date||'').localeCompare(b.rdv_date||'')).slice(0,5);
 
+  // Rapport cahier de texte — enseignants sans entrée aujourd'hui
+  const allTeachersD1 = (DB.users||[]).filter(u=>u.role==='enseignant');
+  const withClassD1 = allTeachersD1.filter(u=>(DB.classes||[]).some(c=>c.teacher_id===u.id||c.teacher_id_en===u.id));
+  const noCahierD1 = withClassD1.filter(u=>!(DB.cahier_texte||[]).some(e=>e.by===u.id&&e.date===d));
+  const cahierPctD1 = withClassD1.length ? Math.round((withClassD1.length-noCahierD1.length)/withClassD1.length*100) : 100;
+
   // Paiements du jour — Direction 1
   const todayPaymentsD1 = (DB.payments||[]).filter(p=>p.date===d&&p.paid).slice(-5).reverse();
 
@@ -4344,6 +4350,23 @@ function dashboardDirection() {
       <div class="dp-section-action" onclick="go('calendar')" role="button" tabindex="0">Calendrier</div>
     </div>
     ${calItems.map(e=>{const tp=calEvTi[e.type]||calEvTi.event;const evDate=new Date(e.date+'T00:00:00');const dateLabel=e.isToday?'Aujourd\'hui':evDate.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});return `<div class="dp-list-item" onclick="go('calendar')" role="button" tabindex="0" aria-label="${esc(e.title)} — ${dateLabel}"><div class="dp-list-avatar" style="background:rgba(47,123,214,.1);color:${tp.color};font-size:18px">${tp.icon}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(e.title)}</div><div class="dp-list-sub">${dateLabel}</div></div>${e.isToday?`<span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(47,123,214,.12);color:#2f7bd6">Aujourd\'hui</span>`:''}</div>`;}).join('')}
+  </div>` : ''}
+
+  <!-- Cahier de texte compliance -->
+  ${withClassD1.length>0?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .275s ease both" role="region" aria-label="Cahier de texte enseignants">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Cahier de texte · ${withClassD1.length-noCahierD1.length}/${withClassD1.length} soumis
+      </div>
+      <div class="dp-section-action" onclick="go('cahier_texte')" role="button" tabindex="0">Voir tout</div>
+    </div>
+    <div style="padding:var(--sp-3) var(--sp-3) 0">
+      <div class="dp-progress" style="height:8px;border-radius:4px"><div class="dp-progress-fill" style="width:${cahierPctD1}%;background:${cahierPctD1>=80?'var(--green)':cahierPctD1>=50?'var(--gold)':'var(--pink)'}"></div></div>
+      <div style="font-size:var(--text-xs);color:var(--text-2);margin-top:4px;margin-bottom:var(--sp-2)">${cahierPctD1}% des professeurs avec classe ont soumis leur cahier aujourd'hui</div>
+    </div>
+    ${noCahierD1.length?noCahierD1.slice(0,3).map(u=>{const cl5=(DB.classes||[]).find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(217,164,58,.12);color:var(--gold);font-size:10px;font-weight:800">✗</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(u.name)}</div><div class="dp-list-sub">${esc(cl5?.name||'—')}</div></div></div>`;}).join(''):'<div style="padding:8px var(--sp-3);font-size:var(--text-sm);color:var(--green);font-weight:600">✓ Tous les cahiers sont à jour</div>'}
   </div>` : ''}
 
   <!-- Élèves récents -->
@@ -5861,6 +5884,15 @@ function dashboardParent() {
       ${myNotifs.length>4?`<div class="dp-list-item" onclick="go('notifications')" style="justify-content:center;color:var(--primary);font-size:var(--text-sm);font-weight:600">Voir tout (${myNotifs.length}) →</div>`:''}
     </div>` : '';
 
+  // Professeurs des enfants — info pour les parents
+  const kidTeachers = kids.map(k=>{
+    const kCl=gc(k.cid);
+    if(!kCl) return null;
+    const tFR=gu(kCl.teacher_id);
+    const tEN=gu(kCl.teacher_id_en);
+    return {kid:k,cl:kCl,tFR,tEN};
+  }).filter(Boolean).filter(x=>x.tFR||x.tEN);
+
   // Examens / interros à venir — classes des enfants (7 jours)
   const parentExamIn7 = new Date(); parentExamIn7.setDate(parentExamIn7.getDate()+7);
   const parentUpExams = (DB.devoirs||[]).filter(dv=>parentKidCids.includes(dv.cid)&&(dv.category==='interro'||dv.category==='examen')&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=parentExamIn7).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,4);
@@ -6066,6 +6098,17 @@ function dashboardParent() {
   </div>` : ''}
 
   ${myActsHtml}
+
+  ${kidTeachers.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .31s ease both" role="region" aria-label="Professeurs">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Professeurs de vos enfants
+      </div>
+    </div>
+    ${kidTeachers.map(({kid,cl,tFR,tEN})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(155,111,212,.12);color:#9b6fd4;font-size:11px;font-weight:800">${esc(cl.name?.slice(0,3)||'?')}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(kid.name)}</div><div class="dp-list-sub">${esc(cl.name)}${tFR?' · '+esc(tFR.name):''}${tEN?' / '+esc(tEN.name):''}</div></div></div>`).join('')}
+  </div>` : ''}
 
   ${parentCalItems.length ? `
   <div class="dp-section" style="animation:fadeInUp .35s .3s ease both" role="region" aria-label="Agenda scolaire">
