@@ -5819,6 +5819,9 @@ function dashboardGardien() {
   // Élèves sans personne autorisée à la sortie
   const studentsNoAP = (DB.students||[]).filter(s=>!s.archived&&!s.blocked&&!(DB.aps||[]).some(a=>a.sid===s.id&&a.active!==false)).slice(0,6);
 
+  // Sorties autorisées du jour — liste détaillée
+  const todayExitsList = todayScans.filter(l=>l.type==='exit'&&l.status==='authorized').sort((a,b)=>(b.time||'').localeCompare(a.time||'')).slice(0,6);
+
   // Répartition horaire des scans — par heure (07h à 17h)
   const scanHours = Array.from({length:11},(_,i)=>i+7);
   const scanByHour = scanHours.map(h=>{
@@ -5999,6 +6002,15 @@ function dashboardGardien() {
     <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:26px">
       ${studentsNoAP.map(s=>`<span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(245,158,11,.12);color:#d97706">${esc(s.name.split(' ')[0])}</span>`).join('')}
     </div>
+  </div>` : ''}
+
+  ${todayExitsList.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .295s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Sorties autorisées du jour">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Sorties autorisées — aujourd'hui (${todayExitsList.length})</div>
+      <div class="dp-section-action" onclick="go('scan_log')" role="button" tabindex="0">Log</div>
+    </div>
+    ${todayExitsList.map(l=>`<div class="dp-list-item" role="listitem"><div class="dp-list-avatar" style="background:rgba(255,210,78,.12);color:#d97706;font-size:10px;font-weight:800;line-height:1.1">${esc((l.time||'—').slice(0,5))}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(l.name||'?')}</div><div class="dp-list-sub">${esc((l.label||'Sortie autorisée').replace(/✅|🚶/g,'').trim())}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(56,230,165,.1);color:#22c55e">Sorti</span></div>`).join('')}
   </div>` : ''}
 
   ${gCalItems.length?`
