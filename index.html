@@ -3909,6 +3909,7 @@ function dashboardDirection() {
   const unreadNotifs      = (DB.notifs||[]).filter(n => n.uid===u.id && !n.read);
   const teacherAbsToday   = (DB.teacher_absences||[]).filter(a=>a.date===d);
   const unreadMsgsDir     = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  const blockedStudents   = students.filter(s=>s.blocked);
 
   // Scans today
   const scansToday = (DB.scan_log||[]).filter(s => s.date === d);
@@ -3977,6 +3978,12 @@ function dashboardDirection() {
     paths:`<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`,
     title:`${unreadMsgsDir} message${unreadMsgsDir>1?'s':''} non lu${unreadMsgsDir>1?'s':''}`,
     sub:'Messages en attente de réponse'
+  });
+  if (blockedStudents.length > 0) alertItems.push({
+    cls:'warn', page:'students',
+    paths:`<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>`,
+    title:`${blockedStudents.length} élève${blockedStudents.length>1?'s':''} bloqué${blockedStudents.length>1?'s':''}`,
+    sub: blockedStudents.slice(0,3).map(s=>esc(s.name)).join(', ')
   });
   const alertsHtml = alertItems.length ? `
     <div class="dp-section" style="margin-bottom:var(--sp-4)" role="region" aria-label="Alertes">
