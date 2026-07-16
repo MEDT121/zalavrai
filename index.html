@@ -4655,6 +4655,18 @@ function dashboardEnseignant() {
   const myCahier = (DB.cahier_texte||[]).filter(e=>e.by===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,4);
   const cahierTodayDone = myCahier.some(e=>e.date===d);
 
+  // Co-titulaire absent aujourd'hui?
+  const coAbsToday = coTeacher ? (DB.teacher_absences||[]).some(a=>a.uid===coTeacher.id&&a.date===d) : false;
+
+  // Checklist tâches en suspens du jour
+  const pendingRatsEns = myRats.filter(r=>!r.validated_by&&r.status!=='refused');
+  const ensTasks = [];
+  if(cl&&!validatedToday&&students.length>0) ensTasks.push({type:'warn',icon:'👥',label:'Présences à valider',sub:'Liste de présence non confirmée',page:'attendance'});
+  if(cl&&!cahierTodayDone) ensTasks.push({type:'warn',icon:'📝',label:'Cahier de texte manquant',sub:'Aucune entrée pour aujourd\'hui',page:'cahier_texte'});
+  if(studentsNoGrade.length>0) ensTasks.push({type:'warn',icon:'📊',label:studentsNoGrade.length+' élève'+(studentsNoGrade.length>1?'s':'')+' sans note',sub:noGradeTrim+' — '+studentsNoGrade.slice(0,2).map(s=>s.name.split(' ')[0]).join(', ')+(studentsNoGrade.length>2?'…':''),page:'palmares'});
+  if(pendingRatsEns.length>0) ensTasks.push({type:'info',icon:'🔁',label:pendingRatsEns.length+' rattrapage'+(pendingRatsEns.length>1?'s':'')+' en cours',sub:'En attente de validation Direction',page:'approbations'});
+  if(coAbsToday) ensTasks.push({type:'error',icon:'⚠️',label:esc(coTeacher?.name||'Co-titulaire')+' absent(e)',sub:'Absence signalée aujourd\'hui',page:''});
+
   const validCTA = cl && !validatedToday && scannedToday.length>0 ? `
     <div class="dp-alert warn" onclick="go('attendance')" style="cursor:pointer;margin-bottom:var(--sp-4)">
       <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
@@ -4809,6 +4821,18 @@ function dashboardEnseignant() {
       </div>
     </div>
   </div>
+
+  ${ensTasks.length?`
+  <div class="dp-section" style="border-color:rgba(245,158,11,.25);animation:fadeInUp .35s .155s ease both" role="region" aria-label="${t('Tâches en suspens','Pending Tasks')}">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#d97706">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        ${t('Tâches en suspens','Pending Tasks')}
+      </div>
+      <span style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(245,158,11,.12);color:#d97706">${ensTasks.length}</span>
+    </div>
+    ${ensTasks.map(tk=>{const typeCol=tk.type==='error'?'#dc2626':tk.type==='warn'?'#d97706':'var(--primary)';const typeBg=tk.type==='error'?'rgba(220,38,38,.08)':tk.type==='warn'?'rgba(245,158,11,.08)':'rgba(47,123,214,.08)';return `<div class="dp-list-item"${tk.page?` onclick="go('${tk.page}')" role="button" tabindex="0" style="cursor:pointer"`:''}><div class="dp-list-avatar" style="background:${typeBg};font-size:17px">${tk.icon}</div><div style="flex:1;min-width:0"><div class="dp-list-title" style="color:${typeCol}">${tk.label}</div><div class="dp-list-sub">${tk.sub}</div></div>${tk.page?`<span style="color:${typeCol};font-size:16px;font-weight:300">›</span>`:''}</div>`;}).join('')}
+  </div>`:''}
 
   ${myTodaySlots.length?`
   <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .16s ease both" role="region" aria-label="Programme du jour">
