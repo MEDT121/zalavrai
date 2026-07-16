@@ -4593,6 +4593,10 @@ function dashboardEnseignant() {
   const _ePeriods = ['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
   const myTodaySlots = cl ? (DB.timetables||[]).filter(t=>t.cid===cl.id&&t.day===todayDow).sort((a,b)=>a.period-b.period) : [];
 
+  // Cahier de texte — dernières entrées de cet enseignant
+  const myCahier = (DB.cahier_texte||[]).filter(e=>e.by===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,4);
+  const cahierTodayDone = myCahier.some(e=>e.date===d);
+
   const validCTA = cl && !validatedToday && scannedToday.length>0 ? `
     <div class="dp-alert warn" onclick="go('attendance')" style="cursor:pointer;margin-bottom:var(--sp-4)">
       <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
@@ -4831,6 +4835,18 @@ function dashboardEnseignant() {
     ${tMatAvgs.slice(0,6).map(({mat,avg})=>{const barCol=avg>=70?'var(--green)':avg>=50?'var(--gold)':'var(--pink)';return `<div class="dp-list-item"><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(mat)}</div><div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div class="dp-progress" style="flex:1;margin-top:0"><div class="dp-progress-fill" style="width:${avg}%;background:${barCol}"></div></div><span style="font-size:var(--text-xs);font-weight:800;color:${barCol};min-width:32px;text-align:right">${avg}%</span></div></div></div>`;}).join('')}
   </div>` : ''}
 
+  ${myCahier.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .315s ease both" role="region" aria-label="Cahier de texte">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        ${t('Cahier de texte','Lesson Notes')}${cahierTodayDone?` <span style="font-size:10px;font-weight:700;color:#2fbf8f;margin-left:6px">✓ Aujourd'hui</span>`:''}
+      </div>
+      <div class="dp-section-action" onclick="go('cahier_texte')" role="button" tabindex="0">${t('Gérer','Manage')}</div>
+    </div>
+    ${myCahier.map(e=>{const clC=gc(e.cid);return `<div class="dp-list-item" onclick="go('cahier_texte')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(155,111,212,.12);color:#9b6fd4;font-size:10px;font-weight:800;line-height:1.1;text-align:center">${(e.date||'').slice(5)||'—'}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(e.matiere||e.title||'—')}</div><div class="dp-list-sub">${esc(e.contenu?e.contenu.slice(0,50):'')}</div></div>${e.date===d?`<span style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:700;background:rgba(47,191,143,.12);color:#2fbf8f">Auj.</span>`:''}</div>`;}).join('')}
+  </div>` : ''}
+
   ${teacherCalItems.length?`
   <div class="dp-section" style="animation:fadeInUp .35s .32s ease both" role="region" aria-label="Agenda scolaire">
     <div class="dp-section-header">
@@ -4929,6 +4945,18 @@ function dashboardDirection2() {
 
   // Top 3 palmarès pédagogiques
   const top3D2 = DB.settings ? (typeof getSchoolTop10==='function' ? getSchoolTop10().slice(0,3) : []) : [];
+
+  // Classes sous-performantes — moyenne de classe < 50%
+  const weakClassesD2 = (DB.classes||[]).map(clx=>{
+    const clSids2=students.filter(s=>s.cid===clx.id).map(s=>s.id);
+    if(!clSids2.length) return null;
+    const mats2=typeof getClassMatieres==='function'?getClassMatieres(clx.id):[];
+    if(!mats2.length) return null;
+    const avgs2=clSids2.map(sid=>{const sa=mats2.map(m=>typeof matAvgPct==='function'?matAvgPct(sid,m,trimD2):null).filter(v=>v!==null&&!isNaN(v));return sa.length?Math.round(sa.reduce((a,b)=>a+b,0)/sa.length):null;}).filter(v=>v!==null);
+    if(!avgs2.length) return null;
+    const clAvg=Math.round(avgs2.reduce((a,b)=>a+b,0)/avgs2.length);
+    return clAvg<50?{cl:clx,clAvg}:null;
+  }).filter(Boolean).sort((a,b)=>a.clAvg-b.clAvg).slice(0,4);
 
   // Saisie des notes — avancement par classe pour le trimestre courant
   const trimD2 = DB.settings?.currentTrimestre||'T1';
@@ -5152,6 +5180,18 @@ function dashboardDirection2() {
     <div style="padding:var(--sp-3);display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)">
       ${[['Excellent','#2fbf8f','rgba(47,191,143,.12)'],['Bien','#2f7bd6','rgba(47,123,214,.12)'],['Moyen','#d9a43a','rgba(217,164,58,.12)'],['Mauvais','#ef4444','rgba(239,68,68,.12)']].map(([score,col,bg])=>{const cnt=condDistD2[score]||0;const pct=condTotalD2?Math.round(cnt/condTotalD2*100):0;return `<div style="background:${bg};border-radius:12px;padding:var(--sp-3);display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:17px;font-weight:800;color:${col}">${cnt}</div><div style="font-size:var(--text-xs);color:var(--text-2);font-weight:600">${score}</div></div><span style="font-size:var(--text-xs);font-weight:800;color:${col};background:${bg};border:1px solid ${col}33;border-radius:6px;padding:2px 7px">${pct}%</span></div>`;}).join('')}
     </div>
+  </div>` : ''}
+
+  ${weakClassesD2.length?`
+  <div class="dp-section" style="border-color:rgba(239,68,68,.2);animation:fadeInUp .35s .39s ease both" role="region" aria-label="Classes en difficulté">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#ef4444">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Classes en difficulté — ${trimD2}
+      </div>
+      <div class="dp-section-action" onclick="go('palmares')" role="button" tabindex="0">Palmarès</div>
+    </div>
+    ${weakClassesD2.map(({cl:wc,clAvg})=>{const barCol=clAvg<30?'#dc2626':'#d97706';return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#ef4444;font-size:10px;font-weight:800">${esc(wc.name?.slice(0,3)||'?')}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(wc.name)}</div><div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div class="dp-progress" style="flex:1"><div class="dp-progress-fill" style="width:${clAvg}%;background:${barCol}"></div></div><span style="font-size:var(--text-xs);font-weight:800;color:${barCol}">${clAvg}%</span></div></div></div>`;}).join('')}
   </div>` : ''}
 
   ${upExams.length?`
