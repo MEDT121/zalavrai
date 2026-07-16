@@ -5726,6 +5726,9 @@ function dashboardGardien() {
   moisScansLate.forEach(l=>{lateCountBySid[l.sid]=(lateCountBySid[l.sid]||0)+1;});
   const freqLateG = Object.entries(lateCountBySid).map(([sid,cnt])=>({sid,cnt,s:(DB.students||[]).find(x=>x.id===sid)})).filter(x=>x.s&&x.cnt>=2).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
 
+  // Élèves sans personne autorisée à la sortie
+  const studentsNoAP = (DB.students||[]).filter(s=>!s.archived&&!s.blocked&&!(DB.aps||[]).some(a=>a.sid===s.id&&a.active!==false)).slice(0,6);
+
   // Répartition horaire des scans — par heure (07h à 17h)
   const scanHours = Array.from({length:11},(_,i)=>i+7);
   const scanByHour = scanHours.map(h=>{
@@ -5894,6 +5897,17 @@ function dashboardGardien() {
     </div>
     <div style="display:flex;align-items:flex-end;gap:4px;padding:var(--sp-3);height:70px">
       ${scanByHour.map(({h,hStr,cnt})=>{const barH=cnt?Math.max(8,Math.round(cnt/maxHourCnt*44)):4;const nowH=parseInt((nowTime()||'00:00').split(':')[0],10);const isNow=h===nowH;const barCol=isNow?'var(--primary)':cnt>0?'rgba(255,210,78,.7)':'rgba(100,116,139,.15)';return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px"><div style="width:100%;height:${barH}px;background:${barCol};border-radius:3px;transition:height .3s ease"></div><div style="font-size:8px;font-weight:${isNow?800:600};color:${isNow?'var(--primary)':'var(--text-3)'};white-space:nowrap">${hStr}h</div></div>`;}).join('')}
+    </div>
+  </div>` : ''}
+
+  ${studentsNoAP.length?`
+  <div class="dp-alert warn" style="margin-bottom:var(--sp-3);border-radius:14px;flex-direction:column;gap:8px;align-items:flex-start" role="alert">
+    <div style="display:flex;align-items:center;gap:10px;width:100%">
+      <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div style="flex:1;min-width:0"><div class="dp-alert-title">${studentsNoAP.length} élève${studentsNoAP.length!==1?'s':''} sans personne autorisée enregistrée</div><div class="dp-alert-sub">Exiger que le parent les récupère directement</div></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding-left:26px">
+      ${studentsNoAP.map(s=>`<span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(245,158,11,.12);color:#d97706">${esc(s.name.split(' ')[0])}</span>`).join('')}
     </div>
   </div>` : ''}
 
