@@ -3907,6 +3907,7 @@ function dashboardDirection() {
   const pendingAppr       = (DB.approbations||[]).filter(a => a.status==='pending');
   const unreadNotifs      = (DB.notifs||[]).filter(n => n.uid===u.id && !n.read);
   const teacherAbsToday   = (DB.teacher_absences||[]).filter(a=>a.date===d);
+  const unreadMsgsDir     = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role===u.role))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
 
   // Scans today
   const scansToday = (DB.scan_log||[]).filter(s => s.date === d);
@@ -3963,6 +3964,12 @@ function dashboardDirection() {
     paths:`<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
     title:`${teacherAbsToday.length} enseignant${teacherAbsToday.length>1?'s':''} absent${teacherAbsToday.length>1?'s':''} aujourd'hui`,
     sub: teacherAbsToday.slice(0,3).map(a=>{const tu=gu(a.uid);return tu?esc(tu.name):'?';}).join(', ')
+  });
+  if (unreadMsgsDir > 0) alertItems.push({
+    cls:'info', page:'messages',
+    paths:`<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>`,
+    title:`${unreadMsgsDir} message${unreadMsgsDir>1?'s':''} non lu${unreadMsgsDir>1?'s':''}`,
+    sub:'Messages en attente de réponse'
   });
   const alertsHtml = alertItems.length ? `
     <div class="dp-section" style="margin-bottom:var(--sp-4)" role="region" aria-label="Alertes">
