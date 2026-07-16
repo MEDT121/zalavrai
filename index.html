@@ -3948,6 +3948,14 @@ function dashboardDirection() {
   // Journal d'audit récent — Direction 1
   const recentAuditD1 = [...(DB.audit_log||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
+  // Effectifs par classe — Direction 1
+  const clsEnroll = (DB.classes||[]).map(clx=>{
+    const sc=students.filter(s=>s.cid===clx.id&&!s.archived);
+    const paidCt=sc.filter(s=>paidSids.has(s.id)).length;
+    const blockedCt=sc.filter(s=>s.blocked||s.access_blocked).length;
+    return {cl:clx,total:sc.length,paid:paidCt,blocked:blockedCt,unpaid:sc.length-paidCt};
+  }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+
   // Sanctions actives — vue d'ensemble Direction 1
   const activeSanctD1All = (DB.sanctions||[]).filter(s=>!s.lifted);
   const sanctTypeCounts = {};
@@ -4465,6 +4473,25 @@ function dashboardDirection() {
       <div class="dp-section-action" onclick="go('audit_log')" role="button" tabindex="0">Voir tout</div>
     </div>
     ${recentAuditD1.map(entry=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(100,116,139,.1);color:var(--text-2);font-size:9px;font-weight:800">LOG</div><div style="flex:1;min-width:0"><div class="dp-list-title" style="font-size:var(--text-sm)">${esc((entry.action||'').slice(0,50))}</div><div class="dp-list-sub">${entry.date||''}</div></div></div>`).join('')}
+  </div>` : ''}
+
+  ${clsEnroll.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .36s ease both" role="region" aria-label="Effectifs par classe">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Effectifs par classe
+      </div>
+      <div class="dp-section-action" onclick="go('students')" role="button" tabindex="0">Élèves</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-xs)">
+        <thead><tr style="color:var(--text-2);font-weight:700;text-align:left"><th style="padding:6px 12px">Classe</th><th style="padding:6px 8px;text-align:center">Total</th><th style="padding:6px 8px;text-align:center">Payés</th><th style="padding:6px 8px;text-align:center">Impayés</th></tr></thead>
+        <tbody>
+          ${clsEnroll.map((row,ri)=>`<tr style="border-top:1px solid var(--border-light);background:${ri%2===0?'transparent':'rgba(255,255,255,.02)'}"><td style="padding:7px 12px;font-weight:700">${esc(row.cl.name)}</td><td style="padding:7px 8px;text-align:center;font-weight:800">${row.total}</td><td style="padding:7px 8px;text-align:center;color:var(--green);font-weight:700">${row.paid}</td><td style="padding:7px 8px;text-align:center;color:${row.unpaid>0?'#ef4444':'var(--text-2)'};font-weight:${row.unpaid>0?800:400}">${row.unpaid||'—'}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>` : ''}
 
   ${studentsNoParent.length?`
