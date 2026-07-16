@@ -3929,6 +3929,9 @@ function dashboardDirection() {
   // Paiements du jour — Direction 1
   const todayPaymentsD1 = (DB.payments||[]).filter(p=>p.date===d&&p.paid).slice(-5).reverse();
 
+  // Élèves sans lien parent — Direction 1
+  const studentsNoParent = students.filter(s=>!s.pid||(!(DB.users||[]).some(u=>u.id===s.pid&&u.role==='parent'))).slice(0,5);
+
   // Journal d'audit récent — Direction 1
   const recentAuditD1 = [...(DB.audit_log||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,5);
 
@@ -4420,6 +4423,16 @@ function dashboardDirection() {
       <div class="dp-section-action" onclick="go('audit_log')" role="button" tabindex="0">Voir tout</div>
     </div>
     ${recentAuditD1.map(entry=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(100,116,139,.1);color:var(--text-2);font-size:9px;font-weight:800">LOG</div><div style="flex:1;min-width:0"><div class="dp-list-title" style="font-size:var(--text-sm)">${esc((entry.action||'').slice(0,50))}</div><div class="dp-list-sub">${entry.date||''}</div></div></div>`).join('')}
+  </div>` : ''}
+
+  ${studentsNoParent.length?`
+  <div class="dp-alert info" style="margin-bottom:var(--sp-3);border-radius:14px" role="alert">
+    <div class="dp-alert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
+    <div style="flex:1;min-width:0">
+      <div class="dp-alert-title">${studentsNoParent.length} élève${studentsNoParent.length!==1?'s':''} sans compte parent</div>
+      <div class="dp-alert-sub">${studentsNoParent.map(s=>esc(s.name.split(' ')[0])).join(', ')}</div>
+    </div>
+    <div class="dp-cta-arrow" onclick="go('acces_parents')" role="button" tabindex="0">›</div>
   </div>` : ''}
 
   <!-- CTA comptes -->
@@ -4937,6 +4950,13 @@ function dashboardDirection2() {
   }).filter(x=>x.pct>=30).sort((a,b)=>b.pct-a.pct).slice(0,5) : [];
   const teacherAbsToday2 = (DB.teacher_absences||[]).filter(a=>a.date===d);
 
+  // Top absents ce mois — Direction 2
+  const topAbsD2 = workDays2 >= 3 ? [...students].map(s=>{
+    const sAtt=attMois2.filter(a=>a.sid===s.id);
+    const absCount=(DB.attendance||[]).filter(a=>a.sid===s.id&&a.date&&a.date.startsWith(moisRisk2)&&(a.status==='sick'||a.status==='excused')).length;
+    return {s,absCount};
+  }).filter(x=>x.absCount>0).sort((a,b)=>b.absCount-a.absCount).slice(0,5) : [];
+
   // Rattrapages — bilan global
   const allRatsD2 = DB.rattrapages||[];
   const ratPendD2 = allRatsD2.filter(r=>!r.validated_by&&!r.d2_validated&&r.status!=='refused').length;
@@ -5126,6 +5146,18 @@ function dashboardDirection2() {
     </div>
     ${atRisk2.map(({s,abs,pct})=>{const cl3=gc(s.cid);const col=pct>=50?'#dc2626':'#d97706';return`<div class="dp-list-item" onclick="showStudentInfo('${s.id}')"><div class="dp-list-avatar" style="background:rgba(239,68,68,.12);color:#ef4444;border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div><div class="dp-list-sub">${esc(cl3?.name||'—')} · ${abs}j / ${workDays2}j</div></div><div class="dp-list-end"><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:${col}">${pct}%</span></div></div>`;}).join('')}
   </div>`:''}
+
+  ${topAbsD2.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .355s ease both" role="region" aria-label="Absences ce mois">
+    <div class="dp-section-header">
+      <div class="dp-section-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Plus absents ce mois
+      </div>
+      <div class="dp-section-action" onclick="go('attendance')" role="button" tabindex="0">Présences</div>
+    </div>
+    ${topAbsD2.map(({s,absCount})=>{const cl4=gc(s.cid);const col=absCount>=5?'#dc2626':absCount>=3?'#d97706':'var(--text-2)';return `<div class="dp-list-item" onclick="showStudentInfo('${s.id}')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#ef4444;border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div><div class="dp-list-sub">${esc(cl4?.name||'—')}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:${col}">${absCount}j abs.</span></div>`;}).join('')}
+  </div>` : ''}
 
   ${top3D2.length?`
   <div class="dp-section" style="animation:fadeInUp .35s .36s ease both" role="region" aria-label="Top palmarès">
