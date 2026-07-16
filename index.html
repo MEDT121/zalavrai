@@ -5070,6 +5070,9 @@ function dashboardParent() {
   const parentIn7 = new Date(); parentIn7.setDate(parentIn7.getDate()+7);
   const parentUpDevoirs = (DB.devoirs||[]).filter(dv=>parentKidCids.includes(dv.cid)&&dv.status==='published'&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=parentIn7).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5);
 
+  // Sanctions actives des enfants
+  const kidActiveSanctions = kids.flatMap(k=>(DB.sanctions||[]).filter(sc=>sc.sid===k.id&&!sc.lifted).map(sc=>({...sc,kidName:k.name})));
+
   // Enfants absents sans justification ce jour
   const pendingJustif = kids.filter(k=>{
     const att=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
@@ -5152,6 +5155,18 @@ function dashboardParent() {
       <div class="dp-section-action" onclick="go('devoirs_parent')" role="button" tabindex="0">Voir tout</div>
     </div>
     ${parentUpDevoirs.map(dv=>{const dl=new Date(dv.deadline);const dLeft=Math.ceil((dl-new Date())/86400000);const kdCl=gc(dv.cid);const urgColor=dLeft<=2?'#ef4444':'var(--gold)';return `<div class="dp-list-item" onclick="go('devoirs_parent')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${dLeft<=2?'rgba(239,68,68,.1)':'rgba(255,210,78,.1)'};color:${urgColor};font-size:11px;font-weight:800;line-height:1.1;text-align:center">${dLeft}j</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(dv.title)}</div><div class="dp-list-sub">${esc(dv.matiere||'')}${kdCl?' · '+esc(kdCl.name):''} · ${dLeft}j</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:${dLeft<=2?'rgba(239,68,68,.1)':'rgba(255,210,78,.1)'};color:${urgColor}">${dLeft<=2?'Urgent':dv.category||'Devoir'}</span></div>`;}).join('')}
+  </div>` : ''}
+
+  ${kidActiveSanctions.length ? `
+  <div class="dp-section" style="border-color:rgba(239,68,68,.25);animation:fadeInUp .35s .25s ease both" role="region" aria-label="Sanctions actives">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#ef4444">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Sanctions actives
+      </div>
+      <div class="dp-section-action" onclick="go('children')" role="button" tabindex="0">Profil</div>
+    </div>
+    ${kidActiveSanctions.map(sc=>{const scLabels={avertissement_oral:'Avert. oral',avertissement_ecrit:'Avert. écrit',blame:'Blâme',renvoi:'Renvoi',exclusion:'Exclusion'};const scColors={avertissement_oral:'#f59e0b',avertissement_ecrit:'#f59e0b',blame:'#ef4444',renvoi:'#dc2626',exclusion:'#991b1b'};const scIcons={avertissement_oral:'⚠️',avertissement_ecrit:'📝',blame:'🚫',renvoi:'🔴',exclusion:'❌'};const col=scColors[sc.type]||'#ef4444';const lbl=scLabels[sc.type]||sc.type;const ico=scIcons[sc.type]||'⚠️';return `<div class="dp-list-item" role="listitem"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);font-size:18px">${ico}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(sc.kidName)}</div><div class="dp-list-sub">${sc.reason?esc(sc.reason.slice(0,60)):''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(239,68,68,.1);color:${col}">${lbl}</span></div>`;}).join('')}
   </div>` : ''}
 
   ${myActsHtml}
