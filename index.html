@@ -5150,6 +5150,18 @@ function dashboardDirection2() {
   const ratRefusD2 = allRatsD2.filter(r=>r.status==='refused').length;
   const pendingRatsList = allRatsD2.filter(r=>!r.validated_by&&!r.d2_validated&&r.status!=='refused').sort((a,b)=>(a.date||'').localeCompare(b.date||'')).slice(0,5);
 
+  // Cahier de texte — vue hebdomadaire par classe — Direction 2
+  const cwNow2 = new Date(d+'T12:00:00');
+  const cwDow2 = cwNow2.getDay();
+  const cwMon2 = new Date(cwNow2); cwMon2.setDate(cwNow2.getDate()-(cwDow2===0?6:cwDow2-1));
+  const cahierWeekDays2 = Array.from({length:5},(_,cwi)=>{const dd=new Date(cwMon2);dd.setDate(cwMon2.getDate()+cwi);return dd.toISOString().slice(0,10);});
+  const cahierWeekByClass = (DB.classes||[]).filter(clx=>(DB.students||[]).some(s=>s.cid===clx.id&&!s.archived)).map(clx=>{
+    const days=cahierWeekDays2.map(date=>({date,ok:(DB.cahier_texte||[]).some(ct=>ct.cid===clx.id&&ct.date===date)}));
+    const doneCount=days.filter(x=>x.ok).length;
+    return{cl:clx,days,doneCount};
+  }).sort((a,b)=>a.doneCount-b.doneCount).slice(0,6);
+  const hasCahierWeek = cahierWeekByClass.some(x=>x.days.some(d2=>d2.ok));
+
   // Conformité enseignants (cahier + présences + absence) — Dir2
   const teacherComplianceD2 = (DB.classes||[]).map(clx=>{
     const tcu=gu(clx.teacher_id||clx.titulaire_id);
@@ -5352,6 +5364,22 @@ function dashboardDirection2() {
         <thead><tr style="color:var(--text-2);font-weight:700;text-align:left"><th style="padding:6px 10px">Enseignant · Classe</th><th style="padding:6px 6px;text-align:center" title="Cahier de texte">Cahier</th><th style="padding:6px 6px;text-align:center" title="Présences saisies">Présences</th><th style="padding:6px 6px;text-align:center">Statut</th></tr></thead>
         <tbody>
           ${teacherComplianceD2.slice(0,6).map((row,ri)=>`<tr style="border-top:1px solid var(--border-light);background:${ri%2===0?'transparent':'rgba(255,255,255,.02)'}"><td style="padding:7px 10px"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">${esc(row.tea.name)}</div><div style="color:var(--text-3);font-size:10px">${esc(row.cl.name)}</div></td><td style="padding:7px 6px;text-align:center">${row.abs?'—':row.cahierOk?'<span style="color:#22c55e;font-size:13px;font-weight:800">✓</span>':'<span style="color:#ef4444;font-size:13px;font-weight:800">✗</span>'}</td><td style="padding:7px 6px;text-align:center">${row.abs?'—':row.attOk?'<span style="color:#22c55e;font-size:13px;font-weight:800">✓</span>':'<span style="color:#ef4444;font-size:13px;font-weight:800">✗</span>'}</td><td style="padding:7px 6px;text-align:center">${row.abs?'<span style="padding:2px 7px;border-radius:999px;font-weight:700;background:rgba(245,158,11,.12);color:#f59e0b;font-size:10px">Absent</span>':'<span style="padding:2px 7px;border-radius:999px;font-weight:700;background:rgba(56,230,165,.1);color:#22c55e;font-size:10px">Présent</span>'}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>` : ''}
+
+  ${hasCahierWeek?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .308s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Cahier de texte — semaine">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Cahier de texte · cette semaine</div>
+      <div class="dp-section-action" onclick="go('cahier_texte')" role="button" tabindex="0">Cahier</div>
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:var(--text-xs)">
+        <thead><tr style="color:var(--text-2);font-weight:700;text-align:center"><th style="padding:6px 10px;text-align:left">Classe</th>${cahierWeekDays2.map(date=>{const dn=['D','L','M','M','J','V','S'][new Date(date+'T12:00:00').getDay()];return`<th style="padding:6px 5px;min-width:28px">${dn}</th>`;}).join('')}</tr></thead>
+        <tbody>
+          ${cahierWeekByClass.map((row,ri)=>`<tr style="border-top:1px solid var(--border-light);background:${ri%2===0?'transparent':'rgba(255,255,255,.02)'}"><td style="padding:6px 10px;font-weight:700;white-space:nowrap">${esc(row.cl.name)}</td>${row.days.map(({date,ok})=>`<td style="padding:6px 5px;text-align:center;color:${ok?'#22c55e':'#ef4444'};font-size:12px;font-weight:800">${ok?'✓':'✗'}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table>
     </div>
