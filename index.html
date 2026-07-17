@@ -6204,6 +6204,17 @@ function dashboardParent() {
     return {kid:k,unpaidTrims,totalOwed};
   }).filter(x=>x.totalOwed>0);
 
+  // Grille de présences de la semaine courante — parent
+  const _pNow = new Date(d+'T12:00:00');
+  const _pDow = _pNow.getDay();
+  const _pMon = new Date(_pNow); _pMon.setDate(_pNow.getDate()-(_pDow===0?6:_pDow-1));
+  const parentWeekDays = Array.from({length:5},(_,pwi)=>{const dd=new Date(_pMon);dd.setDate(_pMon.getDate()+pwi);return dd.toISOString().slice(0,10);});
+  const kidWeekAtt = kids.map(k=>{
+    const wdays=parentWeekDays.map(wdate=>{const watt=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===wdate);return{date:wdate,att:watt};});
+    return{kid:k,days:wdays};
+  });
+  const hasWeekAttData = kidWeekAtt.some(kw=>kw.days.some(wd=>wd.att));
+
   // Absences ce mois par enfant
   const moisParent = d.slice(0,7);
   const kidMonthlyAbs = kids.map(k=>{
@@ -6361,6 +6372,15 @@ function dashboardParent() {
       <div class="dp-section-action" onclick="go('payments')" role="button" tabindex="0">Paiements</div>
     </div>
     ${parentKidBalances.map(({kid,unpaidTrims,totalOwed})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#ef4444;border-radius:50%;overflow:hidden">${(kid.photo||kid.photo_url)?`<img src="${kid.photo||kid.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(kid.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(kid.name)}</div><div class="dp-list-sub">${unpaidTrims.join(', ')} non payé${unpaidTrims.length>1?'s':''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:#ef4444">${_cur()}${totalOwed.toLocaleString()}</span></div>`).join('')}
+  </div>` : ''}
+
+  ${hasWeekAttData?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .35s .288s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Présences cette semaine">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Présences · cette semaine</div>
+      <div class="dp-section-action" onclick="go('absences')" role="button" tabindex="0">Absences</div>
+    </div>
+    ${kidWeekAtt.map(({kid,days},kwi)=>`<div style="padding:10px var(--sp-3) 8px${kwi>0?';border-top:1px solid var(--border-light)':''}"><div style="font-size:var(--text-xs);font-weight:700;color:var(--text-2);margin-bottom:6px">${esc(kid.name.split(' ')[0])}</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px">${days.map(({date,att})=>{const dayName=['D','L','M','M','J','V','S'][new Date(date+'T12:00:00').getDay()];const isToday=date===d;const col=!att?'rgba(255,255,255,.04)':att.status==='ontime'?'rgba(34,197,94,.15)':att.status==='late'?'rgba(245,158,11,.15)':'rgba(239,68,68,.13)';const txt=!att?'var(--text-3)':att.status==='ontime'?'#22c55e':att.status==='late'?'#f59e0b':'#ef4444';const icon=!att?'·':att.status==='ontime'?'✓':att.status==='late'?'L':'A';return`<div style="text-align:center;padding:6px 2px;border-radius:8px;background:${col};border:1.5px solid ${isToday?txt:'transparent'}"><div style="font-size:9px;font-weight:700;color:${txt};letter-spacing:.04em">${dayName}</div><div style="font-size:12px;font-weight:800;color:${txt};margin-top:2px">${icon}</div></div>`;}).join('')}</div></div>`).join('')}
   </div>` : ''}
 
   ${kidMonthlyAbs.length?`
