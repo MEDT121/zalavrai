@@ -2634,7 +2634,7 @@ function _officialFooter(name, role){
   <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Signature &amp; cachet<br><strong style="font-size:12px;color:#2a2622">${n}</strong><br><span style="font-size:10px">${r}</span></div></div>
   <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Lu et approuvé<br><strong style="font-size:12px;color:#2a2622">……………………………</strong><br><span style="font-size:10px">Bénéficiaire / Destinataire</span></div></div>
   </div>
-  <div style="text-align:center;font-size:10px;color:#a89c8b;margin-top:10px">Document officiel — SchoolSafe v3.0 · Généré le ${today()}</div>`;
+  <div style="text-align:center;font-size:10px;color:#a89c8b;margin-top:10px">${(()=>{const _fc=DB.settings?.school||{};const _fp=[esc(_fc.name||'SchoolSafe')];if(_fc.phone)_fp.push('Tél: '+esc(_fc.phone));if(_fc.email)_fp.push(esc(_fc.email));_fp.push('Document officiel · Généré le '+today());return _fp.join(' · ');})()}</div>`;
 }
 // Habillage permanent sombre pour une page entière (section "Personnes") — sans bouton bascule
 function _wrapDark(html){ return `<div class="dark role-dark-page" style="animation:fadeInUp .3s ease both">${html}</div>`; }
@@ -8105,7 +8105,12 @@ R.students = () => {
                  <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Suppr. déf.</button>`
               : `<button class="btn btn-outline btn-sm" style="flex:1" onclick="editStudent('${s.id}')">Modifier</button>
                  <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">Dossier</button>
-                 <button class="btn btn-outline btn-sm" style="color:#d98a2b;border-color:#d98a2b" onclick="archiveStudent('${s.id}')">📦</button>`}
+                 <button class="btn btn-outline btn-sm" style="color:#d98a2b;border-color:#d98a2b" onclick="archiveStudent('${s.id}')">📦</button></div>
+                 <div style="display:flex;gap:4px;margin-top:5px">
+                   <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;color:#243a6b;border-color:#243a6b" onclick="printFicheInscription('${s.id}')">📋 Fiche</button>
+                   <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;color:#2f7bd6;border-color:#2f7bd6" onclick="downloadCertificatScolarite('${s.id}')">🎓 Scolarité</button>
+                   <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;color:#8255c4;border-color:#8255c4" onclick="downloadCertificatPassage('${s.id}')">📜 Passage</button>
+                   <button class="btn btn-outline btn-sm" style="flex:1;font-size:11px;color:#1f9d6b;border-color:#1f9d6b" onclick="downloadCertificatBonneConduite('${s.id}')">✅ Conduite</button>`}
           </div>
         </div>
       </div>`;
@@ -9391,6 +9396,8 @@ R.payments = () => {
           </div>
           <div id="ps${i}" style="display:none;gap:6px;margin-top:6px;animation:slideUp .2s ease both">
             <button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px" onclick="downloadRecuPaiement('${s.id}')">Reçu PDF</button>
+            ${debt===0&&paidAmt>0?`<button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px;color:#1f9d6b;border-color:#1f9d6b" onclick="downloadAttestationPaiement('${s.id}')">✅ Attestation</button>`:''}
+            <button class="btn btn-outline btn-sm" style="flex-shrink:0;min-height:36px;color:#243a6b;border-color:#243a6b" onclick="downloadCertificatScolarite('${s.id}')">🎓 Scolarité</button>
             ${(()=>{const par=gu(s.pid);return par?.phone&&debt>0?`<a href="${waLink(par.phone,'Bonjour '+par.name+' — la scolarité de '+s.name+' présente un solde impayé de '+_cur()+debt+'. Merci de régulariser auprès de la Direction.')}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;background:#25D366;color:#fff;border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700;text-decoration:none;flex-shrink:0">💬 SMS</a>`:'';})()}
           </div>
         </div>
@@ -10929,7 +10936,7 @@ window.downloadRecuFrais = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu de Paiement — Frais Scolaires</div><div style="font-size:12px;color:#6f6557">${DB.settings.school?.name||'SchoolSafe'} · ${DB.settings.school?.address||DB.settings.school?.sub||''}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu de Paiement — Frais Scolaires</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: REC-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -10967,7 +10974,7 @@ window.downloadRecuRattrapage = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu — Cours de Rattrapage</div><div style="font-size:12px;color:#6f6557">${DB.settings.school?.name||'SchoolSafe'} · ${DB.settings.school?.address||DB.settings.school?.sub||''}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu — Cours de Rattrapage</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: RAT-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11002,7 +11009,7 @@ window.downloadRecuCantine = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Cantine Scolaire</div><div style="font-size:12px;color:#6f6557">${DB.settings.school?.name||'SchoolSafe'} · ${DB.settings.school?.address||DB.settings.school?.sub||''}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Cantine Scolaire</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: CAN-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11043,7 +11050,7 @@ window.downloadRecuActivites = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Activités Extrascolaires</div><div style="font-size:12px;color:#6f6557">${DB.settings.school?.name||'SchoolSafe'} · ${DB.settings.school?.address||DB.settings.school?.sub||''}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Activités Extrascolaires</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: ACT-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11065,6 +11072,244 @@ window.downloadRecuActivites = (sid) => {
     ${_officialFooter(dir?.name||'Direction','Direction Générale')}
   </div>`;
   dlPDF(html,`recu_activites_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// DOCUMENTS ADMINISTRATIFS — 5 nouveaux certificats officiels
+// ═══════════════════════════════════════════════════════════════════
+
+window.downloadAttestationPaiement = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const fees=getFees();
+  const totalDu=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
+  const pays=(DB.payments||[]).filter(p=>p.sid===sid&&p.paid);
+  const totalPaye=pays.reduce((a,p)=>a+(fees[p.t]||0),0);
+  if(totalPaye<totalDu){toast('Solde non nul — attestation impossible','error');return;}
+  const sc=DB.settings?.school||{};
+  const dir=DB.users.find(u=>u.role==='direction');
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const labels={T1:'1er Trimestre',T2:'2e Trimestre',T3:'3e Trimestre'};
+  const lignes=pays.map(p=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${labels[p.t]||p.t}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;text-align:right;font-weight:700;color:#1f9d6b">${_cur()}${fees[p.t]||0}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${p.date||'—'}</td></tr>`).join('');
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:40px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #1f9d6b;padding-bottom:18px;margin-bottom:24px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#1f9d6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Attestation Officielle</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">Paiement Complet — Frais Scolaires</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+    </div>
+    <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:16px;padding:24px;margin-bottom:24px;text-align:center">
+      <div style="font-size:42px;margin-bottom:8px">✅</div>
+      <div style="font-size:18px;font-weight:900;color:#15803d;margin-bottom:8px">FRAIS SCOLAIRES INTÉGRALEMENT ACQUITTÉS</div>
+      <div style="font-size:14px;color:#166534">L'élève <strong>${esc(s.name)}</strong> a réglé la totalité de ses frais scolaires pour l'année académique <strong>${DB.settings.year||'2025-2026'}</strong>.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px">
+      <div style="background:#fff5ea;border-radius:12px;padding:14px 16px"><div style="font-size:10px;font-weight:700;color:#6f6557;margin-bottom:6px;letter-spacing:1px">ÉLÈVE</div>
+        <div style="font-weight:800;font-size:16px">${esc(s.name)}</div>
+        <div style="font-size:12px;color:#6f6557">Matricule : ${esc(s.mat||'—')}</div>
+        <div style="font-size:12px;color:#6f6557">Classe : ${cl?esc(cl.name):'—'}</div>
+      </div>
+      <div style="background:#fff5ea;border-radius:12px;padding:14px 16px"><div style="font-size:10px;font-weight:700;color:#6f6557;margin-bottom:6px;letter-spacing:1px">MONTANT TOTAL</div>
+        <div style="font-size:28px;font-weight:900;color:#1f9d6b">${_cur()}${totalPaye}</div>
+        <div style="font-size:12px;color:#6f6557">Solde restant : <strong style="color:#1f9d6b">${_cur()}0</strong></div>
+        <div style="font-size:12px;color:#6f6557">Émise le : ${new Date().toLocaleDateString('fr-FR')}</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:22px">
+      <thead><tr style="background:#1f9d6b;color:#fff"><th style="padding:10px 12px;text-align:left">Trimestre</th><th style="padding:10px 12px;text-align:right">Montant</th><th style="padding:10px 12px;text-align:left">Date de paiement</th></tr></thead>
+      <tbody>${lignes}</tbody>
+      <tfoot><tr style="background:#f0fdf4"><td style="padding:10px 12px;font-weight:700">TOTAL</td><td style="padding:10px 12px;text-align:right;font-weight:900;font-size:16px;color:#1f9d6b">${_cur()}${totalPaye}</td><td></td></tr></tfoot>
+    </table>
+    <div style="background:#fffbeb;border:1px dashed #d97706;border-radius:12px;padding:14px;font-size:12px;color:#92400e;margin-bottom:20px">
+      <strong>Note :</strong> Le présent document atteste que l'élève sus-mentionné ne présente aucun impayé au titre des frais scolaires de l'année académique ${DB.settings.year||'2025-2026'}. Ce document est établi à la demande du bénéficiaire et ne constitue pas un droit d'inscription automatique pour l'année suivante.
+    </div>
+    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+  </div>`;
+  dlPDF(html,`attestation_paiement_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadCertificatScolarite = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const sc=DB.settings?.school||{};
+  const dir=DB.users.find(u=>u.role==='direction');
+  const parent=s.pid?DB.users.find(u=>u.id===s.pid):null;
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const refNo='CS-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:40px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #243a6b;padding-bottom:18px;margin-bottom:24px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Scolarité</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+    </div>
+    <div style="border:1px solid #efe3d3;border-radius:16px;padding:28px;margin-bottom:24px;background:#fafafa">
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        Nous soussignés, la Direction de <strong>${esc(sc.name||'l\'établissement')}</strong>${sc.address?', sis au '+esc(sc.address):''}, certifions par la présente que l'élève :
+      </p>
+      <div style="background:#fff5ea;border-radius:12px;padding:20px;margin:16px 0;text-align:center;border:2px solid #efe3d3">
+        <div style="font-size:26px;font-weight:900;color:#243a6b;letter-spacing:.5px">${esc(s.name)}</div>
+        <div style="font-size:13px;color:#6f6557;margin-top:6px">Matricule : <strong>${esc(s.mat||'—')}</strong> &nbsp;|&nbsp; ${cl?'Classe : <strong>'+esc(cl.name)+'</strong>':'Classe non affectée'}</div>
+        ${parent?`<div style="font-size:12px;color:#6f6557;margin-top:4px">Parent/Tuteur : ${esc(parent.name)}${parent.phone?' · '+esc(parent.phone):''}</div>`:''}
+      </div>
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        est régulièrement inscrit(e) dans notre établissement pour l'année académique <strong>${DB.settings.year||'2025-2026'}</strong>. Ce certificat est délivré pour servir et valoir ce que de droit.
+      </p>
+    </div>
+    <div style="background:#fff8f0;border:1px dashed #d97706;border-radius:12px;padding:14px;font-size:12px;color:#92400e;margin-bottom:22px">
+      Ce certificat est valable uniquement pour l'année académique ${DB.settings.year||'2025-2026'}. Toute reproduction frauduleuse est punissable par la loi.
+    </div>
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+  </div>`;
+  dlPDF(html,`certificat_scolarite_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadCertificatPassage = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const sc=DB.settings?.school||{};
+  const dir=DB.users.find(u=>u.role==='direction');
+  const trim=DB.settings?.currentTrimestre||'T3';
+  const matieres=getClassMatieres(s.cid);
+  const moyPct=studentAvgPct(s.id,matieres,trim);
+  const moy=moyPct!==null?Math.round(moyPct):null;
+  const mention=moy===null?null:moy>=80?{l:'Distinction',c:'#1f9d6b'}:moy>=70?{l:'Grande Satisfaction',c:'#2f7bd6'}:moy>=60?{l:'Satisfaction',c:'#8255c4'}:moy>=50?{l:'Passable',c:'#d98a2b'}:{l:'Insuffisant',c:'#dc2626'};
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const refNo='CP-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:40px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #8255c4;padding-bottom:18px;margin-bottom:24px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#8255c4;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Fin d'Année — Passage</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+    </div>
+    <div style="border:1px solid #efe3d3;border-radius:16px;padding:28px;margin-bottom:20px;background:#fafafa">
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        La Direction de <strong>${esc(sc.name||'l\'établissement')}</strong>, au terme du Conseil de Classe de l'année académique <strong>${DB.settings.year||'2025-2026'}</strong>, certifie que l'élève :
+      </p>
+      <div style="background:#fff5ea;border-radius:12px;padding:20px;margin:16px 0;text-align:center;border:2px solid #efe3d3">
+        <div style="font-size:26px;font-weight:900;color:#243a6b">${esc(s.name)}</div>
+        <div style="font-size:13px;color:#6f6557;margin-top:6px">Matricule : <strong>${esc(s.mat||'—')}</strong> &nbsp;|&nbsp; ${cl?'Classe : <strong>'+esc(cl.name)+'</strong>':'—'}</div>
+        ${moy!==null?`<div style="margin-top:14px;display:inline-flex;align-items:center;gap:12px;background:${mention.c}18;border-radius:20px;padding:8px 20px;border:1.5px solid ${mention.c}40"><span style="font-size:22px;font-weight:900;color:${mention.c}">${moy}%</span><span style="font-size:14px;font-weight:700;color:${mention.c}">${mention.l}</span></div>`:''}
+      </div>
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        a satisfait aux exigences académiques de l'année en cours${moy&&moy>=50?' et est admis(e) à passer en classe supérieure':' — décision du Conseil de Classe à confirmer'}. En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
+      </p>
+    </div>
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+  </div>`;
+  dlPDF(html,`certificat_passage_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.downloadCertificatBonneConduite = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const sc=DB.settings?.school||{};
+  const dir=DB.users.find(u=>u.role==='direction');
+  const cond=(DB.conduct||[]).find(c=>c.sid===sid);
+  const score=cond?.score||'Bien';
+  const colorMap={Excellent:'#1f9d6b',Bien:'#2f7bd6',Moyen:'#d98a2b',Mauvais:'#dc2626'};
+  const scoreClr=colorMap[score]||'#243a6b';
+  const sanctions=(DB.sanctions||[]).filter(x=>x.sid===sid&&!x.lifted);
+  if(sanctions.length){toast('Impossible — sanctions actives non levées','error');return;}
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const refNo='CBC-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:40px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #243a6b;padding-bottom:18px;margin-bottom:24px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Bonne Conduite</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+    </div>
+    <div style="border:1px solid #efe3d3;border-radius:16px;padding:28px;margin-bottom:20px;background:#fafafa">
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        La Direction de <strong>${esc(sc.name||'l\'établissement')}</strong> certifie que l'élève :
+      </p>
+      <div style="background:#fff5ea;border-radius:12px;padding:20px;margin:16px 0;text-align:center;border:2px solid #efe3d3">
+        <div style="font-size:26px;font-weight:900;color:#243a6b">${esc(s.name)}</div>
+        <div style="font-size:13px;color:#6f6557;margin-top:6px">Matricule : <strong>${esc(s.mat||'—')}</strong> &nbsp;|&nbsp; ${cl?'Classe : <strong>'+esc(cl.name)+'</strong>':'—'}</div>
+        <div style="margin-top:14px;display:inline-flex;align-items:center;gap:8px;background:${scoreClr}18;border-radius:20px;padding:8px 20px;border:1.5px solid ${scoreClr}40">
+          <span style="font-size:20px">${score==='Excellent'?'⭐':score==='Bien'?'✅':score==='Moyen'?'⚠️':'❌'}</span>
+          <span style="font-size:16px;font-weight:800;color:${scoreClr}">Conduite : ${esc(score)}</span>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:2;color:#1a1a1a;text-align:justify">
+        a fait preuve d'une conduite <strong>${esc(score.toLowerCase())}</strong> au sein de notre établissement durant l'année académique <strong>${DB.settings.year||'2025-2026'}</strong>. Aucune sanction disciplinaire non levée n'est enregistrée à son encontre. En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
+      </p>
+    </div>
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+  </div>`;
+  dlPDF(html,`certificat_bonne_conduite_${s.name.replace(/\s+/g,'_')}.pdf`);
+};
+
+window.printFicheInscription = (sid) => {
+  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const cl=gc(s.cid);
+  const sc=DB.settings?.school||{};
+  const parent=s.pid?DB.users.find(u=>u.id===s.pid):null;
+  const aps=(DB.aps||[]).filter(a=>a.sid===sid&&a.active!==false);
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const refNo='FI-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const row=(lbl,val)=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;font-weight:700;color:#6f6557;white-space:nowrap;width:42%">${lbl}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;font-weight:600">${val||'—'}</td></tr>`;
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:36px;max-width:700px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #243a6b;padding-bottom:16px;margin-bottom:22px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Dossier Scolaire</div>
+        <div style="font-size:22px;font-weight:900;color:#1a1a2e">Fiche d'Inscription Élève</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:20px">
+      ${s.photo||s.photo_url?`<img src="${s.photo||s.photo_url}" style="width:80px;height:100px;object-fit:cover;border-radius:10px;border:2px solid #efe3d3;flex-shrink:0">`:
+      `<div style="width:80px;height:100px;border-radius:10px;border:2px dashed #efe3d3;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#a89c8b;flex-shrink:0">${ini(s.name)}</div>`}
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:4px">IDENTIFICATION ÉLÈVE</div>
+        <table style="width:100%;border-collapse:collapse">
+          ${row('Nom complet',esc(s.name))}
+          ${row('Matricule',esc(s.mat||'—'))}
+          ${row('Classe',cl?esc(cl.name):'—')}
+          ${row('Date de naissance',s.birthdate?new Date(s.birthdate).toLocaleDateString('fr-FR'):'—')}
+          ${row('Sexe',s.sexe?esc(s.sexe):'—')}
+          ${row('Lieu de naissance',s.lieu_naissance?esc(s.lieu_naissance):'—')}
+        </table>
+      </div>
+    </div>
+    ${parent?`<div style="border:1px solid #efe3d3;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:8px">PARENT / TUTEUR LÉGAL</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Nom',esc(parent.name))}
+        ${row('Téléphone',esc(parent.phone||'—'))}
+        ${row('Identifiant compte',esc(parent.id?.slice(-8)||'—'))}
+      </table>
+    </div>`:''}
+    ${aps.length?`<div style="border:1px solid #efe3d3;border-radius:12px;padding:16px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:8px">PERSONNES AUTORISÉES À RÉCUPÉRER L'ÉLÈVE</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="background:#f6ede0"><th style="padding:8px 12px;text-align:left;font-size:11px">Nom</th><th style="padding:8px 12px;text-align:left;font-size:11px">Relation</th><th style="padding:8px 12px;text-align:left;font-size:11px">Téléphone</th></tr></thead>
+        <tbody>${aps.map(a=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #efe3d3">${esc(a.name)}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${esc(a.relation||'—')}</td><td style="padding:8px 12px;border-bottom:1px solid #efe3d3;color:#6f6557">${esc(a.phone||'—')}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`:''}
+    <div style="border:1px solid #efe3d3;border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:8px">INFORMATIONS MÉDICALES & COMPLÉMENTAIRES</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${row('Groupe sanguin',s.blood_group?esc(s.blood_group):'—')}
+        ${row('Allergies / Conditions',s.medical_notes?esc(s.medical_notes):'—')}
+        ${row('Adresse',s.address?esc(s.address):'—')}
+        ${row('Statut',s.blocked?'Suspendu':'Actif')}
+      </table>
+    </div>
+    ${_officialFooter('Direction Générale','Administration')}
+  </div>`;
+  dlPDF(html,`fiche_inscription_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
 
 R.recus_parent = () => {
@@ -15273,7 +15518,7 @@ window.printVersementRecu = (vid) => {
   const CSS=`*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;display:flex;justify-content:center;padding:20px;min-height:100vh}.page{background:#fff;width:100%;max-width:500px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.15)}.hdr{background:#243a6b;padding:20px 24px;display:flex;align-items:center;gap:16px}.logo{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #fff;flex-shrink:0}.sn{color:#fff}.sn h1{font-size:14px;font-weight:800}.sn p{font-size:10px;opacity:.8;margin-top:2px}.badge{text-align:center;padding:12px 20px;background:#f8faff;border-bottom:2px dashed #ddd0bf}.badge .num{font-size:11px;color:#6b7280;letter-spacing:1px;text-transform:uppercase}.badge .ttl{font-size:18px;font-weight:800;color:#243a6b;margin-top:4px;text-transform:uppercase;letter-spacing:2px}.body{padding:20px 24px}.row{display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f6ede0}.row:last-child{border-bottom:none}.lbl{font-size:12px;color:#6b7280;font-weight:500;flex-shrink:0;margin-right:10px}.val{font-size:13px;font-weight:700;color:#1a1a1a;text-align:right}.motif-box{background:#f8faff;border:1px solid #ddd0bf;border-radius:8px;padding:10px 14px;margin:10px 0;font-size:13px;color:#241f1a;font-style:italic}.amount-box{background:#243a6b;color:#fff;border-radius:10px;padding:16px 20px;text-align:center;margin:14px 0}.amount-box .av{font-size:28px;font-weight:900}.amount-box .aw{font-size:11px;opacity:.8;margin-top:6px;font-style:italic}.stamp{display:flex;align-items:center;gap:10px;background:#d8f3e6;border-radius:8px;padding:10px 14px;margin-top:12px}.stamp .ic{font-size:24px}.stamp .tx{font-size:11px;color:#065f46;font-weight:600}.footer{background:#f8faff;border-top:1px solid #e5e7eb;padding:12px 24px;font-size:10px;color:#9ca3af;text-align:center}.pbtn{display:block;margin:14px auto;padding:10px 30px;background:#243a6b;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}@media print{.pbtn{display:none}body{background:#fff;padding:0}.page{box-shadow:none;max-width:100%;border-radius:0}@page{margin:8mm}}`;
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" class="logo" alt="">`:`<div class="logo" style="background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:28px">🏫</div>`;
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reçu ${esc(v.recu_no)}</title><style>${CSS}</style></head><body><div class="page">
-<div class="hdr">${logo}<div class="sn"><h1>${esc(school)}</h1>${sc.address?`<p>${esc(sc.address)}</p>`:''}</div></div>
+<div class="hdr">${logo}<div class="sn"><h1>${esc(school)}</h1>${sc.address?`<p>${esc(sc.address)}</p>`:''} ${(sc.phone||sc.email)?`<p style="font-size:9px;opacity:.75">${[sc.phone?'Tél: '+esc(sc.phone):'',sc.email?esc(sc.email):''].filter(Boolean).join(' · ')}</p>`:''}</div></div>
 <div class="badge"><div class="num">Reçu officiel · N° ${esc(v.recu_no)}</div><div class="ttl">🧾 Bordereau de paiement</div></div>
 <div class="body">
 <div class="row"><span class="lbl">👶 Élève</span><span class="val">${esc(s.name)}</span></div>
@@ -16704,6 +16949,7 @@ function _pdfSchoolBlock(sc) {
   if (sc.dgep)    infos.push('N° Agrément DGEP : ' + esc(sc.dgep));
   if (sc.address) infos.push(esc(sc.address));
   if (sc.phone)   infos.push('Tél : ' + esc(sc.phone));
+  if (sc.email)   infos.push(esc(sc.email));
   if (infos.length) parts.push('<span style="font-size:10px;opacity:.75">' + infos.join(' | ') + '</span>');
   return parts.join('<br>');
 }
@@ -21379,9 +21625,9 @@ R.scan_history = () => {
 R.profil_parent = () => {
   const u=S.user;
   const kids=DB.students.filter(s=>s.pid===u.id);
-  const validTabs=['enfants','ecole','compte'];
+  const validTabs=['enfants','ecole','recus','compte'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'enfants';
-  const TAB_MODE={enfants:'dark',ecole:'dark',compte:'light'};
+  const TAB_MODE={enfants:'dark',ecole:'dark',recus:'dark',compte:'light'};
   const clr='#8255c4'; const clr2='#5b6fd6';
   const fees=getFees();
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
@@ -21574,7 +21820,8 @@ R.profil_parent = () => {
         <div style="height:100%;width:${payPct}%;background:linear-gradient(90deg,${payClr},${payClr}bb);border-radius:10px;transform-origin:left;animation:progressFill .9s cubic-bezier(.4,0,.2,1) both;animation-delay:.35s;box-shadow:0 0 8px ${payClr}66"></div>
       </div>
       ${totalFees>0&&paidAmt<totalFees?`<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:${payClr};font-weight:600;margin-bottom:12px"><div style="width:8px;height:8px;border-radius:50%;background:${payClr}"></div>Reste à payer : ${_cur()}${totalFees-paidAmt}</div>`:''}
-      ${paidAmt>0?BTN(payClr,'#fff','Télécharger le reçu',"downloadRecuFrais('"+kid.id+"')"):''}
+      ${paidAmt>0?BTN(payClr,'#fff','📥 Télécharger le reçu',"downloadRecuFrais('"+kid.id+"')"):''}
+      ${totalFees>0&&paidAmt>=totalFees?BTN('#1f9d6b','#fff','✅ Attestation de paiement complet',"downloadAttestationPaiement('"+kid.id+"')"):''}
     </div>
 
     <!-- Notes -->
@@ -21654,6 +21901,42 @@ R.profil_parent = () => {
     }).join('')}`;
   })();
 
+  const recusContent=(()=>{
+    if(!kids.length) return `<div style="text-align:center;padding:40px;color:rgba(255,255,255,.5)"><div style="font-size:42px;margin-bottom:12px">🧾</div>Aucun enfant enregistré</div>`;
+    const allVers=DB.versements||[];
+    const hasAnyVers=kids.some(k=>allVers.some(v=>v.sid===k.id));
+    if(!hasAnyVers) return `<div style="text-align:center;padding:40px;color:rgba(255,255,255,.5)"><div style="font-size:42px;margin-bottom:12px">🧾</div><div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:6px">Aucun paiement enregistré</div>Vos versements apparaîtront ici</div>`;
+    return kids.map((k,ki)=>{
+      const cl=gc(k.cid);
+      const kVers=allVers.filter(v=>v.sid===k.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+      if(!kVers.length) return '';
+      const kTotal=kVers.reduce((a,v)=>a+(Number(v.montant)||0),0);
+      return `<div class="pt-glass" style="border-radius:18px;padding:16px;margin-bottom:16px;animation:fadeInUp .3s ${ki*.08}s ease both">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:12px">
+          <div style="width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;flex-shrink:0">${ini(k.name)}</div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:800;color:#fff">${esc(k.name)}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.6)">${cl?esc(cl.name):''} · Mat. ${esc(k.mat||'—')}</div>
+          </div>
+          <div style="text-align:right"><div style="font-size:18px;font-weight:900;color:#5eead4">${_cur()}${kTotal}</div><div style="font-size:10px;color:rgba(255,255,255,.5)">${kVers.length} versement${kVers.length!==1?'s':''}</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          ${kVers.map(v=>`<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:10px 13px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.fee_label||v.fee_type_id||'Frais')}</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:2px">N° ${esc(v.recu_no||'—')} · ${v.date||'—'}${v.time?' à '+v.time:''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:15px;font-weight:900;color:#5eead4">${_cur()}${v.montant}</div>
+              <button onclick="printVersementRecu('${v.id}')" style="margin-top:4px;background:rgba(92,234,212,.2);border:1px solid rgba(92,234,212,.4);border-radius:8px;padding:3px 10px;color:#5eead4;font-size:11px;font-weight:700;cursor:pointer">📄 PDF</button>
+            </div>
+          </div>`).join('')}
+        </div>
+        <button onclick="downloadRecuFrais('${k.id}')" style="width:100%;padding:11px;background:rgba(130,85,196,.35);border:1px solid rgba(130,85,196,.6);border-radius:12px;color:#fff;font-size:13px;font-weight:700;cursor:pointer">📥 Reçu frais scolaires consolidé</button>
+      </div>`;
+    }).join('');
+  })();
+
   return `
   <div id="profileScreenWrap" class="pt-mode-${TAB_MODE[tab]}">
   <div style="padding:0 0 8px">
@@ -21679,8 +21962,8 @@ R.profil_parent = () => {
 
     <!-- tabs glassmorphism -->
     <div class="pt-tabbar" style="display:flex;gap:4px;border-radius:18px;padding:5px;margin-bottom:20px">
-      ${[['enfants','Mes enfants'],['ecole','École'],['compte','Mon compte']].map(([id,lbl])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="linear-gradient(135deg,#8255c4,#5b6fd6)" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};font-weight:${tab===id?700:500};font-size:12px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
+      ${[['enfants','Mes enfants'],['ecole','École'],['recus','Reçus'],['compte','Mon compte']].map(([id,lbl])=>`
+      <button data-ptab-btn="${id}" data-ptab-color="linear-gradient(135deg,#8255c4,#5b6fd6)" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};font-weight:${tab===id?700:500};font-size:11px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
     </div>
 
     <!-- Mes enfants -->
@@ -21692,6 +21975,18 @@ R.profil_parent = () => {
     <!-- École -->
     <div data-ptab="ecole" data-ptab-mode="dark" style="${tab==='ecole'?'':'display:none'}">
       ${ecoleContent}
+    </div>
+
+    <!-- Reçus de paiement -->
+    <div data-ptab="recus" data-ptab-mode="dark" style="${tab==='recus'?'':'display:none'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;animation:fadeInUp .25s ease both">
+        <div style="width:38px;height:38px;border-radius:12px;background:rgba(92,234,212,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🧾</div>
+        <div>
+          <div style="font-size:16px;font-weight:800;color:#fff">Mes reçus de paiement</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.55)">Historique complet · Téléchargement PDF</div>
+        </div>
+      </div>
+      ${recusContent}
     </div>
 
     <!-- Mon compte -->
