@@ -3970,6 +3970,11 @@ function dashboardDirection() {
     return Object.entries(byUid).map(([uid,cnt])=>({tea:gu(uid),cnt,last:(absM.filter(a=>a.uid===uid).slice(-1)[0]||{}).motif||''})).filter(x=>x.tea).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
   })();
 
+  // Examens et interros à venir cette semaine — Direction 1 (school-wide)
+  const upIn7D1 = new Date(d+'T12:00:00'); upIn7D1.setDate(upIn7D1.getDate()+7);
+  const upIn7D1Str = upIn7D1.toISOString().slice(0,10);
+  const upExamsD1 = (DB.devoirs||[]).filter(dv=>(dv.category==='interro'||dv.category==='examen')&&dv.deadline&&dv.deadline>=d&&dv.deadline<=upIn7D1Str).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,6);
+
   // Sanctions actives — vue d'ensemble Direction 1
   const activeSanctD1All = (DB.sanctions||[]).filter(s=>!s.lifted);
   const sanctTypeCounts = {};
@@ -4544,6 +4549,15 @@ function dashboardDirection() {
       <div class="dp-section-action" onclick="go('teachers')" role="button" tabindex="0">Enseignants</div>
     </div>
     ${teaAbsMonthD1.map(({tea,cnt,last})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(245,158,11,.12);color:#d97706;font-size:11px;font-weight:800">${cnt}j</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(tea.name)}</div><div class="dp-list-sub">${esc(last.slice(0,50)||'Absence signalée')}</div></div><span style="padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(245,158,11,.1);color:#d97706">${cnt} jour${cnt>1?'s':''}</span></div>`).join('')}
+  </div>` : ''}
+
+  ${upExamsD1.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .41s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Examens à venir">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Examens &amp; interros — 7 jours</div>
+      <div class="dp-section-action" onclick="go('devoirs')" role="button" tabindex="0">Devoirs</div>
+    </div>
+    ${upExamsD1.map(dv=>{const clEx=gc(dv.cid);const dlEx=new Date(dv.deadline+'T12:00:00');const dLeftEx=Math.ceil((dlEx-new Date())/86400000);const isInterroEx=dv.category==='interro';return `<div class="dp-list-item" onclick="go('devoirs')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:${isInterroEx?'rgba(245,158,11,.12)':'rgba(139,92,246,.12)'};font-size:16px">${isInterroEx?'⚠️':'📝'}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(dv.title)}</div><div class="dp-list-sub">${esc(dv.matiere||'')}${clEx?' · '+esc(clEx.name):''}</div></div><span style="padding:3px 8px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:${isInterroEx?'rgba(245,158,11,.12)':'rgba(139,92,246,.12)'};color:${isInterroEx?'#d97706':'#7c3aed'}">${dLeftEx<=0?'Auj.':dLeftEx+'j'}</span></div>`;}).join('')}
   </div>` : ''}
 
   <!-- CTA comptes -->
