@@ -3961,6 +3961,15 @@ function dashboardDirection() {
   const r7dStr = r7d.toISOString().slice(0,10);
   const sanctReturns = (DB.sanctions||[]).filter(sc=>!sc.lifted&&sc.return_date&&sc.return_date>=d&&sc.return_date<=r7dStr).sort((a,b)=>(a.return_date||'').localeCompare(b.return_date||'')).slice(0,5).map(sc=>{const rSt=(DB.students||[]).find(x=>x.id===sc.sid);const rDays=Math.round((new Date(sc.return_date)-new Date(d))/86400000);return{sanct:sc,student:rSt,daysLeft:rDays};}).filter(x=>x.student);
 
+  // Absences enseignants ce mois — Direction 1
+  const moisTeaD1 = d.slice(0,7);
+  const teaAbsMonthD1 = (() => {
+    const absM=(DB.teacher_absences||[]).filter(a=>a.date&&a.date.startsWith(moisTeaD1));
+    const byUid={};
+    absM.forEach(a=>{byUid[a.uid]=(byUid[a.uid]||0)+1;});
+    return Object.entries(byUid).map(([uid,cnt])=>({tea:gu(uid),cnt,last:(absM.filter(a=>a.uid===uid).slice(-1)[0]||{}).motif||''})).filter(x=>x.tea).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
+  })();
+
   // Sanctions actives — vue d'ensemble Direction 1
   const activeSanctD1All = (DB.sanctions||[]).filter(s=>!s.lifted);
   const sanctTypeCounts = {};
@@ -4526,6 +4535,15 @@ function dashboardDirection() {
       <div class="dp-alert-sub">${studentsNoParent.map(s=>esc(s.name.split(' ')[0])).join(', ')}</div>
     </div>
     <div class="dp-cta-arrow" onclick="go('acces_parents')" role="button" tabindex="0">›</div>
+  </div>` : ''}
+
+  ${teaAbsMonthD1.length?`
+  <div class="dp-section dp-section-dark" style="animation:fadeInUp .3s .39s ease both;margin-bottom:var(--sp-3)" role="region" aria-label="Absences enseignants ce mois">
+    <div class="dp-section-header">
+      <div class="dp-section-title">Absences enseignants — ce mois</div>
+      <div class="dp-section-action" onclick="go('teachers')" role="button" tabindex="0">Enseignants</div>
+    </div>
+    ${teaAbsMonthD1.map(({tea,cnt,last})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(245,158,11,.12);color:#d97706;font-size:11px;font-weight:800">${cnt}j</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(tea.name)}</div><div class="dp-list-sub">${esc(last.slice(0,50)||'Absence signalée')}</div></div><span style="padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(245,158,11,.1);color:#d97706">${cnt} jour${cnt>1?'s':''}</span></div>`).join('')}
   </div>` : ''}
 
   <!-- CTA comptes -->
