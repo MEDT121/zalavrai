@@ -4720,6 +4720,9 @@ function dashboardEnseignant() {
   // Élèves avec conduite "Mauvais" dans la classe — alerte disciplinaire
   const classConduct = cl ? (DB.conduct||[]).filter(c=>c.score==='Mauvais'&&students.some(s=>s.id===c.sid)).map(c=>{const cs=students.find(s=>s.id===c.sid);return cs?{s:cs,...c}:null;}).filter(Boolean).slice(0,4) : [];
 
+  // Sanctions actives dans la classe de l'enseignant
+  const classSanctions = cl ? (DB.sanctions||[]).filter(sc=>!sc.lifted&&students.some(s=>s.id===sc.sid)).map(sc=>{const sSt=students.find(s=>s.id===sc.sid);return{sanct:sc,student:sSt};}).filter(x=>x.student).sort((a,b)=>(b.sanct.date||'').localeCompare(a.sanct.date||'')).slice(0,4) : [];
+
   // Cahier de texte — dernières entrées de cet enseignant
   const myCahier = (DB.cahier_texte||[]).filter(e=>e.by===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')).slice(0,4);
   const cahierTodayDone = myCahier.some(e=>e.date===d);
@@ -5035,6 +5038,15 @@ function dashboardEnseignant() {
       <div class="dp-section-action" onclick="go('students')" role="button" tabindex="0">${t('Profils','Profiles')}</div>
     </div>
     ${classConduct.map(({s})=>`<div class="dp-list-item" onclick="showStudentInfo('${s.id}')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(239,68,68,.12);color:#ef4444;border-radius:50%;overflow:hidden">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(s.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(s.name)}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:#ef4444">Mauvais</span></div>`).join('')}
+  </div>` : ''}
+
+  ${classSanctions.length?`
+  <div class="dp-section" style="border-color:rgba(220,38,38,.25);animation:fadeInUp .35s .318s ease both" role="region" aria-label="${t('Sanctions en cours','Active Sanctions')}">
+    <div class="dp-section-header">
+      <div class="dp-section-title" style="color:#dc2626">${t('Sanctions en cours','Active Sanctions')} (${classSanctions.length})</div>
+      <div class="dp-section-action" onclick="go('students')" role="button" tabindex="0">${t('Élèves','Students')}</div>
+    </div>
+    ${classSanctions.map(({sanct,student})=>{const sdLbl={avertissement_oral:'Avert. oral',avertissement_ecrit:'Avert. écrit',blame:'Blâme',renvoi:'Renvoi',exclusion:'Exclusion'}[sanct.type]||sanct.type||'Sanction';return`<div class="dp-list-item" onclick="showStudentInfo('${student.id}')" role="button" tabindex="0"><div class="dp-list-avatar" style="background:rgba(220,38,38,.1);color:#dc2626;border-radius:50%;overflow:hidden">${(student.photo||student.photo_url)?`<img src="${student.photo||student.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(student.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(student.name)}</div><div class="dp-list-sub">${esc(sanct.reason?.slice(0,40)||sdLbl)}</div></div><span style="padding:3px 9px;border-radius:999px;font-size:var(--text-xs);font-weight:700;background:rgba(220,38,38,.1);color:#dc2626">${sdLbl}</span></div>`;}).join('')}
   </div>` : ''}
 
   ${teacherCalItems.length?`
