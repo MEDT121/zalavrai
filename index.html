@@ -21395,9 +21395,9 @@ R.profil_enseignant = () => {
   const attAbsEns=Math.max(0,students.length-attPresEns-attLateEns);
   const recentDevs=(DB.devoirs||[]).filter(d=>d.cid===cl?.id&&d.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,3);
   const [cc,cbg]=cl?clsColor(cl.name):['#205fae','#dbeafe'];
-  const validTabs=['classe','profil','finances','securite'];
+  const validTabs=['classe','profil','finances','prep','securite'];
   const tab=validTabs.includes(window._pTab||'')?window._pTab:'classe';
-  const TAB_MODE={classe:'dark',profil:'light',finances:'light',securite:'dark'};
+  const TAB_MODE={classe:'dark',profil:'light',finances:'light',prep:'dark',securite:'dark'};
   const clr='#205fae';
   const mySals=(DB.salaries||[]).filter(s=>s.teacher_id===u.id).sort((a,b)=>(b.month||'').localeCompare(a.month||'')).slice(0,6);
   const myAdvs=(DB.advances||[]).filter(a=>a.teacher_id===u.id).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
@@ -21428,9 +21428,9 @@ R.profil_enseignant = () => {
   </div>
   <div style="padding:0 4px 4px">
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
-      ${[['classe',t('Ma classe','My class')],['profil',t('Modifier','Edit')],['finances',t('Finances','Finances')],['securite',t('Sécurité','Security')]].map(([id,label])=>`
+      ${[['classe',t('Ma classe','My class')],['profil',t('Modifier','Edit')],['finances',t('Finances','Finances')],['prep',t('Prépa','Prep')],['securite',t('Sécurité','Security')]].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 2px;border:none;border-radius:10px;cursor:pointer;font-size:10px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="classe" data-ptab-mode="dark" style="${tab==='classe'?'':'display:none'}">
@@ -21543,6 +21543,120 @@ R.profil_enseignant = () => {
       </div>`}
     </div>
 
+    <!-- ══ CAHIER DE PRÉPARATION ══ -->
+    <div data-ptab="prep" data-ptab-mode="dark" style="${tab==='prep'?'':'display:none'}">
+      ${(()=>{
+        const myPreps=(DB.cahier_prep||[]).filter(p=>p.teacher_id===u.id).sort((a,b)=>(b.date_lesson||b.semaine||'').localeCompare(a.date_lesson||a.semaine||''));
+        const selMonth=window._prepMonth||today().slice(0,7);
+        const selMode=window._prepMode||'all';
+        const EDAY_L=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+        const EPER=['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
+        const filtered=myPreps.filter(p=>{
+          const inMonth=!selMonth||(p.date_lesson||p.semaine||'').startsWith(selMonth);
+          const modeOk=selMode==='all'||(selMode==='linked'?!!p.linked_day:!p.linked_day);
+          return inMonth&&modeOk;
+        });
+        const helpOpen=window._prepHelpOpen;
+        const statClr={brouillon:'rgba(251,191,36,.7)',finalise:'rgba(52,211,153,.8)'};
+        const statLbl={brouillon:t('Brouillon','Draft'),finalise:t('Finalisé','Final')};
+        return `
+        <!-- Mode d'emploi collapsible -->
+        <div style="border-radius:16px;border:1px solid rgba(255,255,255,.15);margin-bottom:16px;overflow:hidden;animation:fadeInUp .25s ease both">
+          <button onclick="window._prepHelpOpen=!window._prepHelpOpen;render()"
+            style="width:100%;padding:13px 16px;background:rgba(255,255,255,.07);border:none;color:#fff;font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">📖</span>
+              ${t("Mode d'emploi — Comment utiliser ce cahier ?","User guide — How to use this notebook?")}
+            </span>
+            <span style="font-size:16px;transition:transform .2s;${helpOpen?'transform:rotate(180deg)':''}">▾</span>
+          </button>
+          ${helpOpen?`<div style="padding:16px;background:rgba(255,255,255,.04);font-size:13px;color:rgba(255,255,255,.8);line-height:1.7">
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div style="background:rgba(32,95,174,.3);border-left:3px solid #5b9be8;border-radius:0 10px 10px 0;padding:10px 14px">
+                <div style="font-weight:700;color:#93c5fd;margin-bottom:4px">📌 ${t("Qu'est-ce que ce cahier ?","What is this notebook?")}</div>
+                <div>${t("C'est votre outil de planification pédagogique. Avant chaque cours, rédigez une fiche décrivant ce que vous allez enseigner, comment et avec quels objectifs. La Direction Pédagogique peut le consulter en lecture seule pour le suivi.","This is your pedagogical planning tool. Before each class, write a sheet describing what you will teach, how, and with what objectives. The Pedagogical Direction can view it read-only.")}</div>
+              </div>
+              <div style="background:rgba(31,157,107,.2);border-left:3px solid #34d399;border-radius:0 10px 10px 0;padding:10px 14px">
+                <div style="font-weight:700;color:#6ee7b7;margin-bottom:4px">🔗 ${t("Mode LIÉ à l'emploi du temps","Mode LINKED to the timetable")}</div>
+                <div>${t("Sélectionnez un créneau de votre EDT (ex : Lundi · 1re période). La matière et la classe se remplissent automatiquement. Idéal pour les cours réguliers.","Select a slot from your timetable (e.g. Monday · 1st period). Subject and class fill in automatically. Ideal for regular classes.")}</div>
+              </div>
+              <div style="background:rgba(155,111,212,.2);border-left:3px solid #a78bfa;border-radius:0 10px 10px 0;padding:10px 14px">
+                <div style="font-weight:700;color:#c4b5fd;margin-bottom:4px">✏️ ${t("Mode LIBRE","FREE mode")}</div>
+                <div>${t("Remplissez manuellement date, classe et matière. Utile pour les cours de remplacement, révisions ou sorties pédagogiques.","Fill in date, class and subject manually. Useful for substitute classes, revision sessions or field trips.")}</div>
+              </div>
+              <div style="background:rgba(251,191,36,.15);border-left:3px solid #fbbf24;border-radius:0 10px 10px 0;padding:10px 14px">
+                <div style="font-weight:700;color:#fcd34d;margin-bottom:6px">📋 ${t("Champs de la fiche","Sheet fields")}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:12px">
+                  <div>🎯 <strong>${t("Objectifs","Objectives")}</strong> — ${t("ce que l'élève doit savoir","what the student must know")}</div>
+                  <div>📚 <strong>${t("Prérequis","Prerequisites")}</strong> — ${t("notions déjà maîtrisées","prior knowledge")}</div>
+                  <div>▶️ <strong>${t("Introduction","Intro")}</strong> — ${t("mise en contexte","context setting")}</div>
+                  <div>⚙️ <strong>${t("Développement","Development")}</strong> — ${t("corps de la leçon","lesson body")}</div>
+                  <div>✅ <strong>${t("Conclusion","Conclusion")}</strong> — ${t("synthèse et retour","summary & recap")}</div>
+                  <div>🔧 <strong>${t("Matériel","Materials")}</strong> — ${t("outils et supports","tools & resources")}</div>
+                  <div>📊 <strong>${t("Évaluation","Assessment")}</strong> — ${t("comment vérifier","how to check")}</div>
+                  <div>📝 <strong>${t("Devoir","Homework")}</strong> — ${t("travail à donner","work to assign")}</div>
+                </div>
+              </div>
+              <div style="background:rgba(255,255,255,.06);border-radius:10px;padding:10px 14px;text-align:center;font-size:12px;color:rgba(255,255,255,.5)">
+                💡 ${t("Conseil : sauvegardez en Brouillon pour continuer plus tard. Une fiche Finalisée est consultable par la Direction et exportable en PDF officiel pour les inspections EPST.","Tip: save as Draft to continue later. A Final sheet is viewable by Management and exportable as official PDF for EPST inspections.")}
+              </div>
+            </div>
+          </div>`:''}
+        </div>
+
+        <!-- Toolbar -->
+        <div style="display:flex;gap:8px;margin-bottom:14px;animation:fadeInUp .25s .05s ease both;flex-wrap:wrap">
+          <input type="month" value="${selMonth}" onchange="window._prepMonth=this.value;render()"
+            style="flex:1;min-width:110px;padding:9px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-size:12px;font-weight:600">
+          <select onchange="window._prepMode=this.value;render()"
+            style="padding:9px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(20,30,60,.95);color:#fff;font-size:12px;font-weight:600">
+            <option value="all" ${selMode==='all'?'selected':''}>${t('Toutes','All')}</option>
+            <option value="linked" ${selMode==='linked'?'selected':''}>${t('EDT liées','EDT-linked')}</option>
+            <option value="free" ${selMode==='free'?'selected':''}>${t('Libres','Free')}</option>
+          </select>
+          <button onclick="openPrepForm()" style="padding:9px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#205fae,#5b9be8);color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(32,95,174,.4)">+ ${t('Nouvelle','New')}</button>
+        </div>
+
+        <!-- Stats rapides -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;animation:fadeInUp .25s .08s ease both">
+          ${[[myPreps.length,t('Total','Total'),'#5b9be8'],[myPreps.filter(p=>p.statut==='finalise').length,t('Finalisées','Final'),'#34d399'],[myPreps.filter(p=>!p.statut||p.statut==='brouillon').length,t('Brouillons','Drafts'),'#fbbf24']].map(([n,lbl,c])=>`
+          <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.08)">
+            <div style="font-size:22px;font-weight:900;color:${c}">${n}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${lbl}</div>
+          </div>`).join('')}
+        </div>
+
+        <!-- Liste des fiches -->
+        ${filtered.length?filtered.map((p,pi)=>{
+          const dayLbl=p.linked_day?EDAY_L[['lun','mar','mer','jeu','ven','sam'].indexOf(p.linked_day)]||'':'';
+          const perLbl=p.linked_period!=null?EPER[p.linked_period]||'':'';
+          const statut=p.statut||'brouillon';
+          return `<div class="pt-glass" style="border-radius:16px;padding:14px;margin-bottom:12px;animation:fadeInUp .3s ${pi*.06}s ease both;border-left:3px solid ${statClr[statut]||'rgba(255,255,255,.2)'}">
+            <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+              <div style="width:38px;height:38px;border-radius:11px;background:${p.linked_day?'rgba(32,95,174,.35)':'rgba(155,111,212,.3)'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${p.linked_day?'🔗':'✏️'}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.titre||t('Sans titre','Untitled'))}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px">${esc(p.matiere||'—')} · ${p.date_lesson||p.semaine||'—'}${dayLbl?' · '+dayLbl+(perLbl?' '+perLbl:''):''}</div>
+              </div>
+              <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:${statClr[statut]||'rgba(255,255,255,.12)'};color:#1a2333;white-space:nowrap;flex-shrink:0">${statLbl[statut]||statut}</span>
+            </div>
+            ${p.objectifs?`<div style="font-size:12px;color:rgba(255,255,255,.6);margin-bottom:10px;padding-left:48px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎯 ${esc(p.objectifs)}</div>`:''}
+            <div style="display:flex;gap:6px;padding-left:48px">
+              <button onclick="openPrepForm('${p.id}')" style="padding:5px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font-size:11px;font-weight:600;cursor:pointer">✏️ ${t('Modifier','Edit')}</button>
+              <button onclick="downloadPrepPDF('${p.id}')" style="padding:5px 11px;border-radius:9px;border:1px solid rgba(92,234,212,.4);background:rgba(92,234,212,.12);color:#5eead4;font-size:11px;font-weight:600;cursor:pointer">📄 PDF</button>
+              <button onclick="deletePrep('${p.id}')" style="padding:5px 11px;border-radius:9px;border:1px solid rgba(248,113,113,.4);background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;cursor:pointer">🗑️</button>
+            </div>
+          </div>`;
+        }).join(''):`<div style="text-align:center;padding:48px 24px;color:rgba(255,255,255,.4);animation:fadeInUp .3s ease both">
+          <div style="font-size:48px;margin-bottom:12px">📝</div>
+          <div style="font-size:15px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:6px">${t('Aucune préparation pour ce mois','No preparations for this month')}</div>
+          <div style="font-size:13px;margin-bottom:18px">${t("Cliquez sur + Nouvelle pour créer votre première fiche","Click + New to create your first sheet")}</div>
+          <button onclick="openPrepForm()" style="padding:11px 24px;border-radius:14px;border:none;background:linear-gradient(135deg,#205fae,#5b9be8);color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(32,95,174,.4)">+ ${t('Créer une fiche','Create a sheet')}</button>
+        </div>`}
+        `;
+      })()}
+    </div>
+
     <div data-ptab="securite" data-ptab-mode="dark" style="${tab==='securite'?'':'display:none'}">
       <div class="pt-glass" style="padding:18px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
@@ -21572,6 +21686,200 @@ window.saveTeacherProfile = () => {
   pushSync('users','patch',{phone,name,initials:init,..._phUp},'id=eq.'+S.user.id);
   saveToCrypt();render();
   toast(t('Profil mis à jour','Profile updated'),'success');
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// CAHIER DE PRÉPARATION DE COURS — CRUD + PDF
+// ═══════════════════════════════════════════════════════════════════
+
+window.openPrepForm = (prepId) => {
+  if(!DB.cahier_prep) DB.cahier_prep=[];
+  const p=prepId?DB.cahier_prep.find(x=>x.id===prepId):null;
+  const mc=getMyClass(); const cl=mc.cl;
+  const myCid=cl?.id||'';
+  const matieres=myCid?getClassMatieres(myCid):[];
+  const isLinked=p?!!p.linked_day:(window._prepFormLinked!==false);
+  const EDAYS=['lun','mar','mer','jeu','ven','sam'];
+  const EDAY_L=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const EPER=['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
+  const slots=myCid?(DB.timetables||[]).filter(x=>x.cid===myCid):[];
+  const mySlots=slots.filter(x=>x.teacher_id===S.user.id||!x.teacher_id);
+
+  const modeToggle=(lnk)=>`<div style="display:flex;border-radius:12px;border:1px solid rgba(255,255,255,.2);overflow:hidden;margin-bottom:14px">
+    <button type="button" onclick="window._prepFormLinked=true;document.getElementById('prep_mode_panel').innerHTML=window._prepModePanel(true)"
+      style="flex:1;padding:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${lnk?'#205fae':'transparent'};color:${lnk?'#fff':'rgba(255,255,255,.5)'}">🔗 ${t('Lié à l\'EDT','EDT-linked')}</button>
+    <button type="button" onclick="window._prepFormLinked=false;document.getElementById('prep_mode_panel').innerHTML=window._prepModePanel(false)"
+      style="flex:1;padding:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:${!lnk?'#8255c4':'transparent'};color:${!lnk?'#fff':'rgba(255,255,255,.5)'}">✏️ ${t('Libre','Free')}</button>
+  </div>`;
+
+  window._prepModePanel=(lnk)=>`<div style="margin-bottom:14px">
+    ${lnk?`<div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Créneau EDT','EDT Slot')}</label>
+      <select id="pr_slot" style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(20,30,60,.9);color:#fff;font-size:13px" onchange="window._prepSlotChange(this.value)">
+        <option value="">${t('— Sélectionner un créneau —','— Select a slot —')}</option>
+        ${mySlots.map(sl=>`<option value="${sl.day}|${sl.period}" ${p&&p.linked_day===sl.day&&p.linked_period===sl.period?'selected':''}>${EDAY_L[EDAYS.indexOf(sl.day)]||sl.day} · ${EPER[sl.period]||'P'+(sl.period+1)} — ${esc(sl.matiere||'?')}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Date de la leçon','Lesson date')}</label>
+      <input id="pr_date" type="date" value="${p?.date_lesson||today()}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)"></div>
+    <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Matière (auto)','Subject (auto)')}</label>
+      <input id="pr_mat" type="text" value="${esc(p?.matiere||'')}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)" placeholder="Rempli automatiquement"></div>`
+    :`<div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Date prévue','Planned date')}</label>
+      <input id="pr_date" type="date" value="${p?.date_lesson||today()}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)"></div>
+    <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Matière','Subject')}</label>
+      <select id="pr_mat" style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(20,30,60,.9);color:#fff;font-size:13px">
+        ${matieres.map(m=>`<option value="${esc(m)}" ${p?.matiere===m?'selected':''}>${esc(m)}</option>`).join('')}
+        <option value="__autre__">${t('Autre matière...','Other subject...')}</option>
+      </select></div>`}
+  </div>`;
+
+  window._prepSlotChange=(val)=>{
+    if(!val) return;
+    const [day,per]=val.split('|');
+    const sl=(DB.timetables||[]).find(x=>x.cid===myCid&&x.day===day&&x.period===parseInt(per));
+    if(sl?.matiere){const m=document.getElementById('pr_mat');if(m)m.value=sl.matiere;}
+  };
+
+  const body=`<div style="background:linear-gradient(135deg,#1a2a4a,#0f1a30);min-height:100%;padding:20px">
+    <div style="color:#fff">
+      <div style="font-size:16px;font-weight:800;margin-bottom:4px">${p?t('Modifier la fiche','Edit sheet'):t('Nouvelle fiche de préparation','New preparation sheet')}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:16px">${cl?esc(cl.name):t('Aucune classe assignée','No class assigned')}</div>
+      ${modeToggle(isLinked)}
+      <div id="prep_mode_panel">${window._prepModePanel(isLinked)}</div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Titre de la leçon *','Lesson title *')}</label>
+        <input id="pr_titre" type="text" value="${esc(p?.titre||'')}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)" placeholder="${t('Ex: Les fractions — introduction','e.g. Fractions — introduction')}"></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">🎯 ${t('Objectifs pédagogiques','Learning objectives')}</label>
+        <textarea id="pr_obj" rows="3" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15);resize:vertical" placeholder="${t('À la fin de la leçon, l\'élève sera capable de...','By the end of the lesson, the student will be able to...')}">${esc(p?.objectifs||'')}</textarea></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">📚 ${t('Prérequis','Prerequisites')}</label>
+        <textarea id="pr_pre" rows="2" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15);resize:vertical" placeholder="${t('Notions que les élèves doivent déjà maîtriser','Concepts students must already know')}">${esc(p?.prerequis||'')}</textarea></div>
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;margin-top:4px">${t('DÉROULEMENT','LESSON FLOW')}</div>
+      <div class="form-group"><label class="form-label" style="color:#93c5fd">▶️ ${t('Introduction','Introduction')}</label>
+        <textarea id="pr_intro" rows="2" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15);resize:vertical" placeholder="${t('Mise en contexte, rappel, accroche...','Context setting, review, hook...')}">${esc(p?.intro||'')}</textarea></div>
+      <div class="form-group"><label class="form-label" style="color:#6ee7b7">⚙️ ${t('Développement','Development')}</label>
+        <textarea id="pr_dev" rows="4" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15);resize:vertical" placeholder="${t('Corps de la leçon, explications, exemples, exercices guidés...','Lesson body, explanations, examples, guided exercises...')}">${esc(p?.developpement||'')}</textarea></div>
+      <div class="form-group"><label class="form-label" style="color:#fcd34d">✅ ${t('Conclusion','Conclusion')}</label>
+        <textarea id="pr_concl" rows="2" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15);resize:vertical" placeholder="${t('Synthèse, retour élèves, vérification des objectifs...','Summary, student feedback, objectives check...')}">${esc(p?.conclusion||'')}</textarea></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">🔧 ${t('Matériel didactique','Teaching materials')}</label>
+        <input id="pr_mat2" type="text" value="${esc(p?.materiel||'')}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)" placeholder="${t('Tableau, craie, fiches, cartes, manuel p.12...','Blackboard, chalk, handouts, cards, textbook p.12...')}"></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">📊 ${t('Mode d\'évaluation','Assessment method')}</label>
+        <input id="pr_eval" type="text" value="${esc(p?.evaluation||'')}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)" placeholder="${t('Questions orales, exercice individuel, interro rapide...','Oral questions, individual exercise, quick quiz...')}"></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">📝 ${t('Devoir à donner','Homework to assign')}</label>
+        <input id="pr_dv" type="text" value="${esc(p?.devoir_note||'')}" class="form-input" style="background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.15)" placeholder="${t('Exercice p.15 n°3, apprendre la leçon...','Exercise p.15 n°3, learn the lesson...')}"></div>
+      <div class="form-group"><label class="form-label" style="color:rgba(255,255,255,.7)">${t('Statut','Status')}</label>
+        <select id="pr_statut" style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(20,30,60,.9);color:#fff;font-size:13px">
+          <option value="brouillon" ${(!p||p.statut==='brouillon')?'selected':''}>${t('Brouillon (à compléter)','Draft (to complete)')}</option>
+          <option value="finalise" ${p?.statut==='finalise'?'selected':''}>${t('Finalisé (prêt pour inspection)','Final (ready for inspection)')}</option>
+        </select></div>
+    </div>
+  </div>`;
+
+  const footer=`<button onclick="savePrep('${prepId||''}')" class="btn btn-primary" style="flex:1;font-weight:700">${t('Enregistrer','Save')}</button>`;
+  openM(p?t('Modifier la préparation','Edit preparation'):t('Nouvelle préparation','New preparation'),body,footer);
+};
+
+window.savePrep = (prepId) => {
+  if(!DB.cahier_prep) DB.cahier_prep=[];
+  const isLinked=window._prepFormLinked!==false;
+  const slotVal=isLinked?(document.getElementById('pr_slot')?.value||''):'';
+  const [linked_day,linked_per]=slotVal.split('|');
+  const matInput=document.getElementById('pr_mat');
+  let matiere=matInput?.value||'';
+  if(matiere==='__autre__'){matiere=prompt(t('Entrez la matière :','Enter subject:')||'')||'';}
+  const titre=(document.getElementById('pr_titre')?.value||'').trim();
+  if(!titre){toast(t('Entrez un titre pour la leçon','Enter a lesson title'),'error');return;}
+  const mc=getMyClass(); const cl=mc.cl;
+  const now=today();
+  const data={
+    id: prepId||'prep_'+Date.now(),
+    teacher_id: S.user.id,
+    cid: cl?.id||null,
+    matiere: matiere.trim(),
+    titre,
+    date_lesson: document.getElementById('pr_date')?.value||now,
+    linked_day: isLinked&&linked_day?linked_day:null,
+    linked_period: isLinked&&linked_per!=null?parseInt(linked_per):null,
+    objectifs: (document.getElementById('pr_obj')?.value||'').trim(),
+    prerequis: (document.getElementById('pr_pre')?.value||'').trim(),
+    intro: (document.getElementById('pr_intro')?.value||'').trim(),
+    developpement: (document.getElementById('pr_dev')?.value||'').trim(),
+    conclusion: (document.getElementById('pr_concl')?.value||'').trim(),
+    materiel: (document.getElementById('pr_mat2')?.value||'').trim(),
+    evaluation: (document.getElementById('pr_eval')?.value||'').trim(),
+    devoir_note: (document.getElementById('pr_dv')?.value||'').trim(),
+    statut: document.getElementById('pr_statut')?.value||'brouillon',
+    updated_at: now
+  };
+  if(!prepId) data.created_at=now;
+  const idx=DB.cahier_prep.findIndex(x=>x.id===data.id);
+  if(idx>=0) DB.cahier_prep[idx]=data; else DB.cahier_prep.unshift(data);
+  pushSync('cahier_prep',prepId?'patch':'post',data,prepId?'id=eq.'+prepId:null);
+  saveToCrypt();
+  closeModal();
+  window._pTab='prep';
+  render();
+  toast(t('Fiche enregistrée','Sheet saved'),'success');
+};
+
+window.deletePrep = (prepId) => {
+  showC(t('Supprimer cette fiche ?','Delete this sheet?'),t('Cette action est irréversible.','This action cannot be undone.'),()=>{
+    if(!DB.cahier_prep) return;
+    DB.cahier_prep=DB.cahier_prep.filter(x=>x.id!==prepId);
+    pushSync('cahier_prep','delete',{},'id=eq.'+prepId);
+    saveToCrypt(); render();
+    toast(t('Fiche supprimée','Sheet deleted'),'info');
+  });
+};
+
+window.downloadPrepPDF = (prepId) => {
+  if(!DB.cahier_prep) return;
+  const p=DB.cahier_prep.find(x=>x.id===prepId); if(!p) return;
+  const sc=DB.settings?.school||{};
+  const cl=gc(p.cid);
+  const dir=DB.users.find(u=>u.role==='direction');
+  const teacher=DB.users.find(u=>u.id===p.teacher_id);
+  const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
+  const EDAY_L=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const EDAYS=['lun','mar','mer','jeu','ven','sam'];
+  const EPER=['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
+  const dayLbl=p.linked_day?EDAY_L[EDAYS.indexOf(p.linked_day)]||p.linked_day:'—';
+  const perLbl=p.linked_period!=null?EPER[p.linked_period]||'':'';
+  const sect=(title,content,color)=>content?`<div style="margin-bottom:16px">
+    <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:${color||'#243a6b'};margin-bottom:5px;border-bottom:1.5px solid ${color||'#243a6b'}33;padding-bottom:4px">${title}</div>
+    <div style="font-size:13px;color:#1a1a1a;line-height:1.65;white-space:pre-wrap">${esc(content)}</div>
+  </div>`:'';
+  const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:720px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:14px;border-bottom:4px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
+      ${logo}<div style="flex:1">
+        <div style="font-size:10px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px">Cahier de Préparation de Cours</div>
+        <div style="font-size:20px;font-weight:900;color:#1a1a2e">${esc(p.titre)}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#6f6557;flex-shrink:0">Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}<br>${p.statut==='finalise'?'<span style="color:#1f9d6b;font-weight:700">✅ FINALISÉ</span>':'<span style="color:#d98a2b">🟡 Brouillon</span>'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div style="background:#f8faff;border-radius:10px;padding:12px 14px;border-left:3px solid #243a6b">
+        <div style="font-size:10px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:5px">ENSEIGNANT</div>
+        <div style="font-weight:700">${esc(teacher?.name||S.user.name)}</div>
+        <div style="font-size:12px;color:#6f6557">${cl?esc(cl.name):''} · ${esc(p.matiere||'—')}</div>
+      </div>
+      <div style="background:#f8faff;border-radius:10px;padding:12px 14px;border-left:3px solid #243a6b">
+        <div style="font-size:10px;font-weight:700;color:#6f6557;letter-spacing:1px;margin-bottom:5px">SÉANCE</div>
+        <div style="font-weight:700">${new Date((p.date_lesson||today())+'T12:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+        <div style="font-size:12px;color:#6f6557">${p.linked_day?dayLbl+(perLbl?' · '+perLbl:''):'Mode libre'}</div>
+      </div>
+    </div>
+    ${sect('Objectifs pédagogiques',p.objectifs,'#205fae')}
+    ${sect('Prérequis',p.prerequis,'#6f6557')}
+    <div style="margin-bottom:16px;background:#fafafa;border-radius:12px;padding:16px;border:1px solid #efe3d3">
+      <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#243a6b;margin-bottom:12px">DÉROULEMENT DE LA LEÇON</div>
+      ${p.intro?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#2f7bd6;margin-bottom:4px">▶ Introduction</div><div style="font-size:13px;line-height:1.65;white-space:pre-wrap">${esc(p.intro)}</div></div>`:''}
+      ${p.developpement?`<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#1f9d6b;margin-bottom:4px">⚙ Développement</div><div style="font-size:13px;line-height:1.65;white-space:pre-wrap">${esc(p.developpement)}</div></div>`:''}
+      ${p.conclusion?`<div><div style="font-size:11px;font-weight:700;color:#d98a2b;margin-bottom:4px">✓ Conclusion</div><div style="font-size:13px;line-height:1.65;white-space:pre-wrap">${esc(p.conclusion)}</div></div>`:''}
+    </div>
+    ${sect('Matériel didactique',p.materiel,'#8255c4')}
+    ${sect("Mode d'évaluation",p.evaluation,'#dc2626')}
+    ${sect('Devoir à donner',p.devoir_note,'#1f9d6b')}
+    ${_officialFooter(teacher?.name||S.user.name,'Enseignant(e)')}
+  </div>`;
+  dlPDF(html,('prep_'+p.titre.replace(/\s+/g,'_').slice(0,40)+'.pdf'));
 };
 
 // ── HISTORIQUE ENTRÉES / SORTIES PARENT ──
