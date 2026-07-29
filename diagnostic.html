@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SchoolSafe — Diagnostic connexion</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b;
+    --ink:#e8eaf0; --muted:#9aa3b2; --line:#2a2f3a;
+    --ok:#34d399; --bad:#f87171; --warn:#fbbf24; --accent:#7dd3fc;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:light){
+    :root{--bg:#f6f7f9;--panel:#fff;--panel-2:#f0f2f5;--ink:#111826;--muted:#5b6472;--line:#e2e6ec;
+          --ok:#059669;--bad:#dc2626;--warn:#b45309;--accent:#0369a1;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px 16px 48px;background:var(--bg);color:var(--ink);
+       font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin-inline:auto}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+  button{width:100%;padding:14px 18px;border:0;border-radius:10px;background:var(--accent);
+         color:#04121c;font:600 15px/1 inherit;cursor:pointer}
+  @media (prefers-color-scheme:light){button{color:#fff}}
+  button:disabled{opacity:.5}
+  .test{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:14px 16px;margin-top:12px}
+  .head{display:flex;align-items:center;gap:10px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+  .name{font-weight:600;font-size:14px}
+  .verdict{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted)}
+  .verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)} .verdict.warn{color:var(--warn)}
+  pre{margin:10px 0 0;padding:11px 12px;background:var(--panel-2);border-radius:8px;
+      font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;
+      max-height:220px;overflow:auto;color:var(--muted)}
+  .hint{margin:9px 0 0;padding:10px 12px;border-left:3px solid var(--warn);
+        background:var(--panel-2);border-radius:0 8px 8px 0;font-size:13px}
+  label{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px;font-weight:600}
+  input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
+        background:var(--panel);color:var(--ink);font:14px/1 var(--mono)}
+</style>
+</head>
+<body>
+
+<h1>Diagnostic connexion SchoolSafe</h1>
+<p class="sub">Teste chaque couche séparément pour localiser exactement où la connexion échoue.</p>
+
+<label for="lk">Clé de licence</label>
+<input id="lk" value="LS-SAGE-2025-WISE">
+<label for="nm">Nom de connexion</label>
+<input id="nm" value="admin">
+<label for="pn">Code</label>
+<input id="pn" value="69210561190">
+
+<div style="margin-top:18px"><button id="run">Lancer le diagnostic</button></div>
+
+<div id="out"></div>
+
+<script>
+const CENTRAL = 'https://xryfvakkuffmckyybkeo.supabase.co';
+const CKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeWZ2YWtrdWZmbWNreXlia2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NzAsImV4cCI6MjEwMDkyNTg3MH0._klXeuQmCzwFYQpnTaZaphmNvg2H_dWC5xsBBnXEgB0';
+
+const out = document.getElementById('out');
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function card(name){
+  const el = document.createElement('div');
+  el.className = 'test';
+  el.innerHTML = `<div class="head"><span class="dot"></span><span class="name">${esc(name)}</span>
+                  <span class="verdict">en cours…</span></div>`;
+  out.appendChild(el);
+  return {
+    set(state, verdict, body, hint){
+      el.querySelector('.dot').className = 'dot ' + state;
+      const v = el.querySelector('.verdict');
+      v.className = 'verdict ' + state; v.textContent = verdict;
+      if (body) el.insertAdjacentHTML('beforeend', `<pre>${esc(body)}</pre>`);
+      if (hint) el.insertAdjacentHTML('beforeend', `<div class="hint">${hint}</div>`);
+    }
+  };
+}
+
+document.getElementById('run').onclick = async () => {
+  out.innerHTML = '';
+  const btn = document.getElementById('run');
+  btn.disabled = true; btn.textContent = 'Diagnostic en cours…';
+
+  const license = document.getElementById('lk').value.trim();
+  const name    = document.getElementById('nm').value.trim();
+  const pin     = document.getElementById('pn').value.trim();
+  let school = null;
+
+  // ── 1. Central joignable + table schools lisible ──────────────────────
+  const t1 = card('1. Projet central — table schools');
+  try {
+    const r = await fetch(`${CENTRAL}/rest/v1/schools?select=name,license_key,status,supabase_url&license_key=eq.${encodeURIComponent(license)}`,
+      { headers:{ apikey:CKEY, Authorization:'Bearer '+CKEY } });
+    const txt = await r.text();
+    let rows = null; try { rows = JSON.parse(txt); } catch(_){}
+    if (!r.ok) {
+      t1.set('bad', 'HTTP '+r.status, txt,
+        r.status === 401 ? 'Clé anon du central invalide ou expirée.'
+                         : 'La table <code>schools</code> est peut-être absente — relance le SQL du central.');
+    } else if (!Array.isArray(rows) || rows.length === 0) {
+      t1.set('bad', 'aucune ligne', txt,
+        `Aucune école avec la licence <code>${esc(license)}</code>, ou son <code>status</code> n'est pas <code>active</code>. Vérifie la table <code>schools</code>.`);
+    } else {
+      school = rows[0];
+      t1.set('ok', 'OK', JSON.stringify(rows[0], null, 2));
+    }
+  } catch (e) {
+    t1.set('bad', 'réseau', String(e), 'Le projet central est injoignable — vérifie l\'URL du projet.');
+  }
+
+  // ── 2. Base de l'école joignable ──────────────────────────────────────
+  const t2 = card('2. Base de l\'école — table users');
+  if (!school?.supabase_url) {
+    t2.set('warn', 'ignoré', null, 'Test 1 doit passer d\'abord.');
+  } else {
+    try {
+      const r = await fetch(`${CENTRAL}/rest/v1/schools?select=supabase_anon_key&license_key=eq.${encodeURIComponent(license)}`,
+        { headers:{ apikey:CKEY, Authorization:'Bearer '+CKEY } });
+      const rows = await r.json();
+      const akey = rows?.[0]?.supabase_anon_key;
+      if (!akey) {
+        t2.set('bad', 'clé absente', null,
+          'La colonne <code>supabase_anon_key</code> est vide pour cette école. Renseigne-la dans la table <code>schools</code> du central.');
+      } else {
+        const r2 = await fetch(`${school.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
+          { headers:{ apikey:akey, Authorization:'Bearer '+akey } });
+        const t = await r2.text();
+        if (!r2.ok) {
+          t2.set('bad', 'HTTP '+r2.status, t,
+            'La base de l\'école refuse la lecture — la table <code>users</code> manque, ou les policies RLS ne sont pas créées. Relance <code>supabase_setup.sql</code>.');
+        } else {
+          const u = JSON.parse(t);
+          t2.set(u.length ? 'ok' : 'warn', u.length ? u.length+' compte(s)' : 'table vide',
+            JSON.stringify(u, null, 2),
+            u.length ? null : 'La table <code>users</code> existe mais est vide — seul le code maître pourra ouvrir l\'app.');
+        }
+      }
+    } catch (e) {
+      t2.set('bad', 'réseau', String(e), 'L\'URL Supabase de l\'école est injoignable.');
+    }
+  }
+
+  // ── 3. Edge Function login ────────────────────────────────────────────
+  const t3 = card('3. Edge Function login');
+  try {
+    const r = await fetch(`${CENTRAL}/functions/v1/login`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', apikey:CKEY, Authorization:'Bearer '+CKEY },
+      body: JSON.stringify({ license_key: license, name, pin }),
+    });
+    const txt = await r.text();
+    let d = null; try { d = JSON.parse(txt); } catch(_){}
+    if (r.status === 404) {
+      t3.set('bad', '404', txt, 'La fonction <code>login</code> n\'existe pas sur ce projet — vérifie qu\'elle est déployée et nommée exactement <code>login</code>.');
+    } else if (r.status === 401 && !d?.error) {
+      t3.set('bad', '401 passerelle', txt, 'La passerelle a rejeté l\'appel avant la fonction — vérification JWT active. Désactive <em>Verify JWT</em> sur la fonction, ou garde l\'en-tête apikey.');
+    } else if (!r.ok) {
+      t3.set('bad', 'HTTP '+r.status, txt, 'Erreur renvoyée par la fonction — voir le message ci-dessus.');
+    } else if (!d?.user || !d?.supabase_url) {
+      t3.set('bad', 'réponse incomplète', txt, 'La fonction répond mais sans <code>user</code>/<code>supabase_url</code> — le code déployé n\'est pas la bonne version.');
+    } else {
+      t3.set('ok', 'connexion OK', JSON.stringify(d, null, 2));
+    }
+  } catch (e) {
+    t3.set('bad', 'réseau', String(e), 'Fonction injoignable (CORS ou non déployée).');
+  }
+
+  // ── 4. Version servie par GitHub Pages ────────────────────────────────
+  const t4 = card('4. Version de index.html servie');
+  try {
+    const r = await fetch('./index.html?_=' + Date.now(), { cache:'no-store' });
+    const src = await r.text();
+    const hasFix = src.includes("'apikey': CENTRAL_KEY");
+    const fnUrl = (src.match(/LOGIN_FN_URL\s*=\s*'([^']+)'/) || [])[1] || '(introuvable)';
+    t4.set(hasFix ? 'ok' : 'bad', hasFix ? 'à jour' : 'version ancienne',
+      'LOGIN_FN_URL = ' + fnUrl + '\ncorrectif apikey présent : ' + hasFix,
+      hasFix ? null : 'GitHub Pages sert encore l\'ancien fichier. Attends la fin du déploiement Pages, puis recharge en navigation privée.');
+  } catch (e) {
+    t4.set('warn', 'non vérifiable', String(e));
+  }
+
+  btn.disabled = false; btn.textContent = 'Relancer le diagnostic';
+};
+</script>
+</body>
+</html>
