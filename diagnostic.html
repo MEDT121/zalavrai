@@ -62,6 +62,10 @@ Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé
 <label for="fn">Nom de l'Edge Function</label>
 <input id="fn" value="dynamic-api">
 
+<h2>Admin PRODELI <span style="text-transform:none;letter-spacing:0;font-weight:400">— optionnel</span></h2>
+<label for="at">Token admin <span style="font-weight:400">(laisse vide pour ignorer ce test)</span></label>
+<input id="at" placeholder="collé depuis les secrets de l'Edge Function" autocomplete="off">
+
 <h2>Identifiants de test</h2>
 <div class="row">
   <div><label for="lk">Clé de licence</label><input id="lk" value="LS-SAGE-2025-WISE"></div>
@@ -231,6 +235,34 @@ document.getElementById('run').onclick = async () => {
       'LOGIN_FN_URL = ' + fu + '\nCENTRAL_KEY  = ' + (ck.slice(0, 22) || '(vide)') + '…',
       newFmt ? null : 'Le code contient encore une clé JWT legacy. Envoie-moi la clé publishable pour que je mette à jour <code>index.html</code>.');
   } catch (e) { t5('warn', 'non vérifiable', String(e)); }
+
+  // ── 6. Edge Function admin-api (si un token est fourni) ─────────────────
+  const ATOK = document.getElementById('at').value.trim();
+  if (ATOK) {
+    const t6 = card('6. Edge Function admin-api');
+    const AURL = `${CENTRAL}/functions/v1/admin-api`;
+    try {
+      const r = await fetch(AURL, {
+        method: 'POST',
+        headers: { ...H, 'Content-Type': 'application/json', 'x-admin-token': ATOK },
+        body: JSON.stringify({ action: 'stats' }),
+      });
+      const txt = await r.text();
+      let d = null; try { d = JSON.parse(txt); } catch(_){}
+      if (r.status === 404)                       t6('bad', '404', txt, 'Aucune fonction nommée <code>admin-api</code> sur ce projet — vérifie le nom exact.');
+      else if (d?.error === 'Unauthorized')       t6('bad', 'token refusé', txt, 'Le token ne correspond pas au secret <code>ADMIN_TOKEN</code> de la fonction.');
+      else if (/CENTRAL_SECRET_KEY/.test(d?.error || '')) t6('bad', 'secret manquant', txt, 'Ajoute <code>CENTRAL_SECRET_KEY</code> aux secrets du projet.');
+      else if (!r.ok)                             t6('bad', 'HTTP ' + r.status, txt);
+      else if (typeof d?.total !== 'number')      t6('warn', 'réponse inattendue', txt, 'La fonction répond mais pas au format attendu — le code déployé n\'est peut-être pas <code>admin-api</code>.');
+      else                                        t6('ok', d.total + ' école(s)', JSON.stringify(d, null, 2));
+    } catch (e) {
+      let reachable = false;
+      try { reachable = (await fetch(AURL, { method:'POST', mode:'no-cors' })).type === 'opaque'; } catch(_) {}
+      t6('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
+        reachable ? 'Désactive <strong>Verify JWT</strong> sur <code>admin-api</code>.'
+                  : 'Fonction non déployée, mal nommée, ou elle plante au démarrage (voir ses <em>Logs</em>).');
+    }
+  }
 
   btn.disabled = false; btn.textContent = 'Relancer le diagnostic';
 };
