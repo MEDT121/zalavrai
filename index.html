@@ -11556,14 +11556,25 @@ R.cantine = () => {
         const pr=presAuj.find(p=>p.sid===ins.sid);
         const isPresent=pr?.present===true;
         const [cc,cbg]=clsColor((DB.classes||[]).find(c=>c.id===s.cid)?.name||'');
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${isPresent?'#d8f3e6':'var(--bg)'};border-radius:10px;border:1px solid ${isPresent?'#95ddbb':'var(--border)'}">
+        const medRec=(DB.medical||[]).find(m=>m.sid===ins.sid);
+        const allergy=medRec?.allergies?.trim()||'';
+        const condition=medRec?.medical_notes?.trim()||'';
+        const hasAlert=!!(allergy||condition);
+        return `<div style="display:flex;flex-direction:column;gap:0;border-radius:10px;border:1px solid ${hasAlert?'#fca5a5':isPresent?'#95ddbb':'var(--border)'};overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:${isPresent?'#d8f3e6':'var(--bg)'}">
           <div style="width:34px;height:34px;border-radius:9px;background:${cbg};color:${cc};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
+              ${hasAlert?`<span style="font-size:14px;flex-shrink:0" title="${esc(allergy||condition)}">⚠️</span>`:''}
+            </div>
             <div style="font-size:11px;color:var(--text-muted)">${ins.type==='jour'?'Journalier':ins.type==='mois'?'Mensuel':'Annuel'}</div>
           </div>
-          <button class="btn btn-sm ${isPresent?'btn-outline':'btn-primary'}" onclick="toggleCantinaPresence('${ins.sid}','${isPresent}')">${isPresent?'Présent':'Marquer présent'}</button>
+          <button class="btn btn-sm ${isPresent?'btn-outline':'btn-primary'}" onclick="${hasAlert&&!isPresent?`cantinaPresenceWithAllergyCheck('${ins.sid}','${isPresent}','${esc(allergy)}','${esc(condition)}')`:`toggleCantinaPresence('${ins.sid}','${isPresent}')`}">${isPresent?'Présent':'Marquer présent'}</button>
           <button class="action-btn" onclick="desinscrireEleve('${ins.sid}')" title="Désinscrire" style="background:#fee2e2;border-color:#fca5a5;color:#dc2626">Suppr.</button>
+          </div>
+          ${hasAlert?`<div style="padding:5px 10px;background:#fef9c3;border-top:1px solid #fde68a;font-size:11px;color:#92400e">
+            ${allergy?`⚠️ Allergie : <strong>${esc(allergy)}</strong>`:''} ${condition?`${allergy?' · ':''}🩺 ${esc(condition.slice(0,80))}`:''}</div>`:''}
         </div>`;
       }).join('')}
     </div>`}
@@ -11728,6 +11739,19 @@ window.toggleCantinaPresence = (sid, isPresent) => {
     pushSync('cantine_presence','post',np);
   }
   saveToCrypt(); render();
+};
+
+window.cantinaPresenceWithAllergyCheck = (sid, isPresent, allergy, condition) => {
+  const s=(DB.students||[]).find(x=>x.id===sid);if(!s) return;
+  openM(`⚠️ Alerte médicale — ${esc(s.name)}`,`
+  <div style="background:#fef9c3;border:2px solid #f59e0b;border-radius:12px;padding:14px 16px;margin-bottom:16px">
+    <div style="font-weight:800;color:#92400e;margin-bottom:6px">⚠️ Cet élève a des alertes médicales</div>
+    ${allergy?`<div style="font-size:13px;margin-bottom:4px">🚫 <strong>Allergies :</strong> ${esc(allergy)}</div>`:''}
+    ${condition?`<div style="font-size:13px">🩺 <strong>Condition médicale :</strong> ${esc(condition)}</div>`:''}
+  </div>
+  <div style="font-size:13px;color:var(--text-secondary)">Vérifiez que le menu du jour est compatible avec les allergies de cet élève avant de valider la présence.</div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="closeModal();toggleCantinaPresence('${sid}','${isPresent}')">Confirmer présent</button>`);
 };
 
 // ── CANTINE VUE PARENT ──
