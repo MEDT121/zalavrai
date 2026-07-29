@@ -59,6 +59,9 @@ Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé
 <label for="ck">Clé publishable du central <span style="font-weight:400">(sb_publishable_…)</span></label>
 <input id="ck" value="sb_publishable_q4Mwf0wNzlNo8Lw-1TJ8NA_HYeZ3fkI">
 
+<label for="fn">Nom de l'Edge Function</label>
+<input id="fn" value="dynamic-api">
+
 <h2>Identifiants de test</h2>
 <div class="row">
   <div><label for="lk">Clé de licence</label><input id="lk" value="LS-SAGE-2025-WISE"></div>
@@ -102,6 +105,8 @@ document.getElementById('run').onclick = async () => {
 
   const CENTRAL = val('cu'), CKEY = val('ck');
   const license = val('lk'), name = val('nm'), pin = val('pn');
+  const FN = val('fn') || 'login';
+  const FN_URL = `${CENTRAL}/functions/v1/${FN}`;
   const H = { apikey: CKEY, Authorization: 'Bearer ' + CKEY };
 
   // ── 1. Le central répond et la clé publishable est acceptée ─────────────
@@ -143,10 +148,10 @@ document.getElementById('run').onclick = async () => {
   }
 
   // ── 3. Edge Function login : le vrai chemin de connexion ────────────────
-  const t3 = card('3. Edge Function login');
+  const t3 = card('3. Edge Function — ' + FN);
   let fn = null;
   try {
-    const r = await fetch(`${CENTRAL}/functions/v1/login`, {
+    const r = await fetch(FN_URL, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ license_key: license, name, pin }),
@@ -154,7 +159,7 @@ document.getElementById('run').onclick = async () => {
     const txt = await r.text();
     let d = null; try { d = JSON.parse(txt); } catch(_){}
     if (r.status === 404) {
-      t3('bad', '404', txt, 'Aucune fonction nommée <code>login</code> sur ce projet — vérifie le déploiement et le nom exact.');
+      t3('bad', '404', txt, `Aucune fonction nommée <code>${esc(FN)}</code> sur ce projet. Vérifie le nom exact dans <em>Edge Functions</em> et corrige le champ ci-dessus.`);
     } else if (r.status === 401 && !d?.error) {
       t3('bad', '401 passerelle', txt, 'Rejet avant la fonction : clé refusée ou <em>Verify JWT</em> actif. Désactive <em>Verify JWT</em> sur la fonction.');
     } else if (d?.error && /CENTRAL_SECRET_KEY/.test(d.error)) {
@@ -175,7 +180,7 @@ document.getElementById('run').onclick = async () => {
     // typiquement Verify JWT actif). Échec total = rien ne répond.
     let reachable = false;
     try {
-      const probe = await fetch(`${CENTRAL}/functions/v1/login`, { method: 'POST', mode: 'no-cors' });
+      const probe = await fetch(FN_URL, { method: 'POST', mode: 'no-cors' });
       reachable = probe.type === 'opaque';
     } catch (_) {}
     if (reachable) {
@@ -183,7 +188,7 @@ document.getElementById('run').onclick = async () => {
         'La fonction répond, mais le navigateur ne reçoit pas ses en-têtes CORS — le preflight <code>OPTIONS</code> est rejeté en amont. Ouvre la fonction <code>login</code> dans le dashboard et <strong>désactive « Verify JWT »</strong> (parfois nommé <em>Enforce JWT verification</em>), puis redéploie.');
     } else {
       t3('bad', 'injoignable', String(e),
-        'Rien ne répond à cette URL : la fonction n\'est pas déployée, porte un autre nom que <code>login</code>, ou plante au démarrage. Vérifie ses <em>Logs</em> dans le dashboard.');
+        `Rien ne répond à cette URL : la fonction n'est pas déployée, porte un autre nom que <code>${esc(FN)}</code>, ou plante au démarrage. Vérifie ses <em>Logs</em> dans le dashboard.`);
     }
   }
 
