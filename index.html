@@ -1186,6 +1186,10 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
     </div>
     <div id="LP_HINT" style="font-size:11px;color:rgba(255,255,255,.45);text-align:center;margin-bottom:12px;min-height:16px"></div>
     <div class="pin-message" id="PM"></div>
+    <div id="NO_SCHOOL_WARN" style="display:none;font-size:12px;line-height:1.5;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.4);color:#fde68a;border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      ⚠️ Aucune école associée à ce lien — la connexion se fera hors ligne.
+      Ouvre l'application depuis le lien fourni par ton école (il contient <code>?school=…</code>).
+    </div>
     <button class="btn-login" onclick="tryLogin()">🔓 Se connecter</button>
     <a href="site.html" class="btn-outline-login">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -26017,6 +26021,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Supabase charge en arrière-plan — n'est plus bloquant
   const ind=$('LOAD_IND');
   if(ind) ind.style.display='';
+  // Signale explicitement l'absence de contexte école : sans le ?school=… du
+  // lien de l'école, l'app ne peut pas joindre le central et retombe en local.
+  if (!SCHOOL_KEY && LOGIN_FN_URL) {
+    const _w = $('NO_SCHOOL_WARN'); if (_w) _w.style.display = '';
+  }
   if (SCHOOL_KEY && LOGIN_FN_URL) {
     // École migrée au central : RLS bloque toute lecture tant qu'aucun JWT
     // n'est posé (anon key = aucune ligne). Pas de préchargement ici —
