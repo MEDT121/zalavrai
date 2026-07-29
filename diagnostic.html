@@ -169,7 +169,22 @@ document.getElementById('run').onclick = async () => {
       t3('ok', 'connexion OK', JSON.stringify(shown, null, 2));
     }
   } catch (e) {
-    t3('bad', 'réseau', String(e), 'Fonction injoignable : non déployée, ou elle plante au démarrage (voir ses logs dans le dashboard).');
+    // « Failed to fetch » est opaque : on relance en no-cors pour savoir si
+    // quelque chose répond à cette URL. Réponse opaque = la fonction existe
+    // mais ses en-têtes CORS n'atteignent pas le navigateur (preflight rejeté,
+    // typiquement Verify JWT actif). Échec total = rien ne répond.
+    let reachable = false;
+    try {
+      const probe = await fetch(`${CENTRAL}/functions/v1/login`, { method: 'POST', mode: 'no-cors' });
+      reachable = probe.type === 'opaque';
+    } catch (_) {}
+    if (reachable) {
+      t3('bad', 'CORS bloqué', String(e),
+        'La fonction répond, mais le navigateur ne reçoit pas ses en-têtes CORS — le preflight <code>OPTIONS</code> est rejeté en amont. Ouvre la fonction <code>login</code> dans le dashboard et <strong>désactive « Verify JWT »</strong> (parfois nommé <em>Enforce JWT verification</em>), puis redéploie.');
+    } else {
+      t3('bad', 'injoignable', String(e),
+        'Rien ne répond à cette URL : la fonction n\'est pas déployée, porte un autre nom que <code>login</code>, ou plante au démarrage. Vérifie ses <em>Logs</em> dans le dashboard.');
+    }
   }
 
   // ── 4. Base de l'école accessible avec la clé renvoyée ──────────────────
