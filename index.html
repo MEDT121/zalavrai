@@ -3441,19 +3441,15 @@ window.tryLogin = async () => {
     try {
       const r = await fetch(LOGIN_FN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ license_key: SCHOOL_KEY, name: $('LN')?.value||'', pin }),
       });
       const data = await r.json().catch(() => null);
-      if (!r.ok || !data?.token) {
+      if (!r.ok || !data?.user || !data?.supabase_url) {
         $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
       }
-      window._jwt = data.token;
-      window._currentSchoolId = data.user?.school_id || '';
-      _H.Authorization = 'Bearer ' + data.token;
-      // Le JWT (avec school_id) est posé : on peut maintenant charger les
-      // données réelles de l'école via RLS (avant, l'anon key seule
-      // n'aurait renvoyé aucune ligne).
+      // Connecter SchoolSafe à la base Supabase propre à cette école
+      window._updateSupabase(data.supabase_url, data.supabase_anon_key);
       await loadFromSupabase();
       loginAs(data.user);
     } catch (e) {
