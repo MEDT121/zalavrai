@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v22';
+const CACHE = 'schoolsafe-v23';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
@@ -33,6 +33,10 @@ const BYPASS_HOSTS = [
 
 // Extensions qui ne sont jamais mises en cache (toujours réseau)
 const BYPASS_EXTENSIONS = ['.mp4', '.webm', '.mov', '.avi'];
+
+// Fichiers toujours servis du réseau : un outil de diagnostic mis en cache
+// diagnostiquerait sa propre version périmée.
+const BYPASS_PATHS = ['diagnostic.html'];
 
 // ── Installation ──────────────────────────────────────────────────────────────
 self.addEventListener('install', evt => {
@@ -85,6 +89,9 @@ self.addEventListener('fetch', evt => {
 
   // Bypass pour les vidéos — toujours chargées du réseau, jamais cachées
   if (BYPASS_EXTENSIONS.some(ext => url.pathname.endsWith(ext))) return;
+
+  // Bypass pour les pages outil (diagnostic) — jamais servies du cache
+  if (BYPASS_PATHS.some(p => url.pathname.endsWith(p))) return;
 
   // Stale-While-Revalidate pour index.html — répond du cache immédiatement,
   // met à jour le cache en arrière-plan (évite 1,54 Mo bloquant à chaque démarrage)
