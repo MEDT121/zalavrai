@@ -1875,6 +1875,7 @@ window.NAV = {
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
       {id:'activites',i:'⚽',l:'Activités Extrascolaires'},
+      {id:'sante',i:'🏥',l:'Santé / Infirmerie'},
       {s:'Communication'},
       {id:'messages',i:'💬',l:'Messages'},
       {id:'cahier_texte',i:'📖',l:'Cahier de texte'},
@@ -2030,6 +2031,7 @@ window.NAV = {
       {id:'timetable',i:'🗓️',l:'Emploi du temps'},
       {id:'cantine',i:'🍽️',l:'Cantine Scolaire'},
       {id:'activites',i:'⚽',l:'Activités Extrascolaires'},
+      {id:'sante',i:'🏥',l:'Santé / Infirmerie'},
       {id:'cards',i:'🪪',l:"Cartes d'élèves"},
       {s:'Communication'},
       {id:'messages',i:'💬',l:'Messages'},
@@ -2846,6 +2848,7 @@ window.PT = {
   cantine_parent:'Cantine',
   activites:'Activités Extrascolaires',
   activites_parent:'Activités',
+  sante:'Santé / Infirmerie',
 };
 
 // ── RENDERERS ──
@@ -24526,6 +24529,234 @@ window.saveMedicalRecord = (sid) => {
   if(idx>=0)DB.medical[idx]=obj;else DB.medical.push(obj);
   pushSync('medical','upsert',obj);saveToCrypt();
   toast('🏥 Dossier médical enregistré','success');closeModal();
+};
+
+// ═══════════════════════════════════════════
+//  SANTÉ / INFIRMERIE
+// ═══════════════════════════════════════════
+R.sante = () => {
+  const _g=_requireRole('direction','direction2'); if(_g) return _g;
+  if(!DB.medical) DB.medical=[];
+  if(!DB.medical_visits) DB.medical_visits=[];
+  const studs=DB.students||[];
+  const meds=DB.medical||[];
+  const visits=DB.medical_visits||[];
+
+  const q=(window._santeQ||'').toLowerCase();
+  const tab=window._santeTab||'apercu';
+
+  // Stats
+  const withRecord=studs.filter(s=>meds.find(m=>m.sid===s.id));
+  const withAllergy=meds.filter(m=>m.allergies&&m.allergies.trim());
+  const withCondition=meds.filter(m=>m.medical_notes&&m.medical_notes.trim());
+  const recentVisits=visits.filter(v=>{const d=new Date(v.date||'1970');return (Date.now()-d)<=30*86400000;}).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+
+  // Blood type count
+  const bloodMap={};
+  meds.forEach(m=>{if(m.blood_type){bloodMap[m.blood_type]=(bloodMap[m.blood_type]||0)+1;}});
+  const bloodTypes=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+
+  const tabBar=`<div style="display:flex;gap:6px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none">
+    ${[{id:'apercu',l:'📊 Aperçu'},{id:'visites',l:`🏥 Visites (${recentVisits.length})`},{id:'liste',l:`📋 Liste (${studs.length})`},{id:'urgence',l:'🚨 Urgences'}].map(t=>`<button onclick="window._santeTab='${t.id}';render()" style="flex-shrink:0;padding:8px 16px;border-radius:20px;border:2px solid ${tab===t.id?'#2f7bd6':'var(--border)'};cursor:pointer;font-size:12px;font-weight:700;background:${tab===t.id?'#2f7bd6':'var(--bg-card)'};color:${tab===t.id?'#fff':'var(--text-secondary)'};white-space:nowrap">${t.l}</button>`).join('')}
+  </div>`;
+
+  // ── Onglet Aperçu ──
+  if(tab==='apercu'){
+    return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🏥 Santé / Infirmerie</span><button class="btn btn-primary btn-sm" onclick="printKitUrgencePDF()" style="margin-left:auto">🚨 Kit urgence PDF</button></div>
+    ${tabBar}
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:linear-gradient(135deg,#2f7bd6,#3b82f6);border-radius:14px;padding:14px;color:#fff">
+        <div style="font-size:28px;font-weight:900">${withRecord.length}</div>
+        <div style="font-size:11px;opacity:.9">Dossiers médicaux</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:14px;padding:14px;color:#fff">
+        <div style="font-size:28px;font-weight:900">${withAllergy.length}</div>
+        <div style="font-size:11px;opacity:.9">Élèves avec allergie</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:14px;padding:14px;color:#fff">
+        <div style="font-size:28px;font-weight:900">${withCondition.length}</div>
+        <div style="font-size:11px;opacity:.9">Conditions médicales</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#1f9d6b,#15803d);border-radius:14px;padding:14px;color:#fff">
+        <div style="font-size:28px;font-weight:900">${recentVisits.length}</div>
+        <div style="font-size:11px;opacity:.9">Visites ce mois-ci</div>
+      </div>
+    </div>
+
+    <div class="premium-section" style="margin-bottom:14px">
+      <div class="premium-section-title">🩸 Groupes sanguins</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+        ${bloodTypes.map(bt=>{const n=bloodMap[bt]||0;return`<div style="text-align:center;padding:10px 6px;background:${n?'#fee2e2':'var(--bg)'};border:1.5px solid ${n?'#fca5a5':'var(--border)'};border-radius:12px">
+          <div style="font-size:16px;font-weight:800;color:${n?'#dc2626':'var(--text-muted)'}">${bt}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${n} élève${n>1?'s':''}</div>
+        </div>`;}).join('')}
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">${studs.length-withRecord.length} élève(s) sans dossier médical (groupe sanguin inconnu).</div>
+    </div>
+
+    ${withAllergy.length?`<div class="premium-section" style="margin-bottom:14px">
+      <div class="premium-section-title">⚠️ Allergies connues</div>
+      ${withAllergy.map(m=>{const s=studs.find(x=>x.id===m.sid);if(!s)return'';const cl=gc(s.cid);return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
+        <div style="width:32px;height:32px;border-radius:8px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#dc2626;flex-shrink:0">${ini(s.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${esc(s.name)}</div>
+          <div style="font-size:11px;color:#dc2626">⚠️ ${esc(m.allergies)}</div>
+        </div>
+        <span style="font-size:11px;color:var(--text-muted);flex-shrink:0">${cl?esc(cl.name):''}</span>
+        <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">📋</button>
+      </div>`;}).join('')}
+    </div>`:''}
+
+    ${recentVisits.length?`<div class="premium-section">
+      <div class="premium-section-title">🏥 Visites récentes (30 jours)</div>
+      ${recentVisits.slice(0,8).map(v=>{const s=studs.find(x=>x.id===v.sid);return`<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
+        <div style="text-align:center;min-width:34px;flex-shrink:0">
+          <div style="font-size:16px;font-weight:800">${new Date(v.date).getDate()}</div>
+          <div style="font-size:9px;color:var(--text-muted)">${new Date(v.date).toLocaleDateString('fr-FR',{month:'short'})}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${s?esc(s.name):'—'}</div>
+          <div style="font-size:12px;color:#0e7490">${esc(v.reason||'Visite')}</div>
+          ${v.treatment?`<div style="font-size:11px;color:var(--text-muted)">${esc(v.treatment)}</div>`:''}
+        </div>
+        ${s?`<button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">📋</button>`:''}
+      </div>`;}).join('')}
+      ${recentVisits.length>8?`<div style="text-align:center;padding:10px;font-size:12px;color:var(--text-muted)">+${recentVisits.length-8} autre(s) visite(s) — voir onglet Visites</div>`:''}
+    </div>`:''}`;
+  }
+
+  // ── Onglet Visites ──
+  if(tab==='visites'){
+    const allVisits=visits.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+    return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🏥 Visites Infirmerie</span></div>
+    ${tabBar}
+    ${!allVisits.length?`<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune visite enregistrée</div>`:`
+    <div class="premium-section">
+      <div class="premium-section-title">Toutes les visites</div>
+      ${allVisits.map(v=>{const s=studs.find(x=>x.id===v.sid);const cl=s?gc(s.cid):null;return`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
+        <div style="text-align:center;min-width:38px;flex-shrink:0">
+          <div style="font-size:17px;font-weight:900;color:#0e7490">${new Date(v.date||'').getDate()||'?'}</div>
+          <div style="font-size:9px;color:var(--text-muted)">${v.date?new Date(v.date).toLocaleDateString('fr-FR',{month:'short'}):''}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">${s?esc(s.name):'Inconnu'} ${cl?`<span style="font-size:10px;color:var(--text-muted)">${esc(cl.name)}</span>`:''}</div>
+          <div style="font-size:12px;color:#0e7490;font-weight:600">${esc(v.reason||'Visite')}</div>
+          ${v.treatment?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">→ ${esc(v.treatment)}</div>`:''}
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${v.time||''} — ${v.by||''}</div>
+        </div>
+        ${s?`<button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">📋</button>`:''}
+      </div>`;}).join('')}
+    </div>`}`;
+  }
+
+  // ── Onglet Liste ──
+  if(tab==='liste'){
+    const filtered=studs.filter(s=>!q||(s.name||'').toLowerCase().includes(q)||(s.mat||'').toLowerCase().includes(q)||(gc(s.cid)?.name||'').toLowerCase().includes(q));
+    return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📋 Dossiers médicaux</span></div>
+    ${tabBar}
+    <div class="ww-search" style="margin-bottom:12px"><input placeholder="Rechercher élève..." oninput="window._santeQ=this.value;clearTimeout(window._santeT);window._santeT=setTimeout(render,300)" value="${esc(window._santeQ||'')}"></div>
+    <div class="premium-section">
+      ${filtered.map(s=>{
+        const med=meds.find(m=>m.sid===s.id)||null;
+        const cl=gc(s.cid);
+        const [cc,cbg]=clsColor(cl?.name||'');
+        const hasAllergy=!!(med?.allergies);
+        const hasCondition=!!(med?.medical_notes);
+        const bt=med?.blood_type||'?';
+        return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
+          <div style="width:36px;height:36px;border-radius:10px;background:${cbg};color:${cc};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;overflow:hidden;flex-shrink:0">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:3px">
+              <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:${bt!=='?'?'#fee2e2':'#f3f4f6'};color:${bt!=='?'?'#dc2626':'#6b7280'}">${bt}</span>
+              ${hasAllergy?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#fef9c3;color:#92400e">⚠️ Allergie</span>`:''}
+              ${hasCondition?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;background:#fef2f2;color:#dc2626">🩺 Condition</span>`:''}
+              ${!med?`<span style="font-size:10px;color:#6b7280">Pas de dossier</span>`:''}
+            </div>
+          </div>
+          <span style="font-size:10px;color:var(--text-muted);flex-shrink:0;text-align:right">${cl?esc(cl.name):''}</span>
+          <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">📋</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // ── Onglet Urgences ──
+  return `<div class="ww-toolbar"><span style="font-size:16px;font-weight:700">🚨 Fiche d'urgences</span><button class="btn btn-primary btn-sm" onclick="printKitUrgencePDF()" style="margin-left:auto">💾 PDF</button></div>
+  ${tabBar}
+  <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:14px;padding:14px 16px;margin-bottom:14px">
+    <div style="font-weight:800;font-size:14px;color:#991b1b;margin-bottom:6px">🚨 En cas d'urgence médicale</div>
+    <div style="font-size:12px;color:#7f1d1d;line-height:1.6">Consulter immédiatement la liste ci-dessous pour le groupe sanguin et les allergies de l'élève concerné. Contacter le médecin traitant si indiqué.</div>
+  </div>
+  <div class="premium-section" style="margin-bottom:14px">
+    <div class="premium-section-title">🩸 Stocks de sang — Vue rapide</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+      ${bloodTypes.map(bt=>{const students_bt=meds.filter(m=>m.blood_type===bt).map(m=>studs.find(s=>s.id===m.sid)).filter(Boolean);const n=students_bt.length;return`<div style="padding:10px 6px;background:${n?'linear-gradient(135deg,#fee2e2,#fecaca)':'var(--bg)'};border:1.5px solid ${n?'#fca5a5':'var(--border)'};border-radius:12px;text-align:center;cursor:${n?'pointer':'default'}" ${n?`onclick="openM('🩸 Groupe sanguin ${bt}','<div style=\\'display:flex;flex-direction:column;gap:8px\\'>${students_bt.map(s=>`<div style=\\'padding:8px 12px;background:#fff5ea;border-radius:8px;font-weight:700\\'>${esc(s.name)}</div>`).join('')}</div>','<button class=\\"btn btn-outline\\" onclick=\\"closeModal()\\">Fermer</button>')"`:''}>
+          <div style="font-size:18px;font-weight:900;color:${n?'#dc2626':'#9ca3af'}">${bt}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${n} élève${n>1?'s':''}</div>
+        </div>`;}).join('')}
+    </div>
+  </div>
+  <div class="premium-section">
+    <div class="premium-section-title">⚠️ Élèves avec allergies ou conditions médicales</div>
+    ${(withAllergy.length||withCondition.length)?[...new Set([...withAllergy.map(m=>m.sid),...withCondition.map(m=>m.sid)])].map(sid=>{
+      const s=studs.find(x=>x.id===sid);if(!s)return'';
+      const med=meds.find(m=>m.sid===sid)||{};
+      const cl=gc(s.cid);
+      return`<div style="padding:12px;border:1.5px solid #fca5a5;border-radius:12px;background:#fef2f2;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="font-weight:800;font-size:14px;flex:1">${esc(s.name)}</div>
+          <span style="font-size:11px;color:var(--text-muted)">${cl?esc(cl.name):''}</span>
+          <span style="font-size:11px;font-weight:700;color:#dc2626;background:#fee2e2;padding:2px 8px;border-radius:8px">${med.blood_type||'?'}</span>
+          <button class="btn btn-outline btn-sm" onclick="openMedicalDossier('${s.id}')">📋</button>
+        </div>
+        ${med.allergies?`<div style="font-size:12px;color:#92400e;margin-bottom:4px">⚠️ Allergies : <strong>${esc(med.allergies)}</strong></div>`:''}
+        ${med.medical_notes?`<div style="font-size:12px;color:#dc2626">🩺 ${esc(med.medical_notes)}</div>`:''}
+        ${med.doctor_name?`<div style="font-size:11px;color:#374151;margin-top:4px">👨‍⚕️ Dr. ${esc(med.doctor_name)}${med.doctor_phone?' — '+esc(med.doctor_phone):''}</div>`:''}
+      </div>`;
+    }).join(''):`<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px">Aucune allergie ou condition médicale connue</div>`}
+  </div>`;
+};
+
+window.printKitUrgencePDF = () => {
+  const studs=DB.students||[];
+  const meds=DB.medical||[];
+  const bloodTypes=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+  const bloodMap={};
+  bloodTypes.forEach(bt=>{bloodMap[bt]=meds.filter(m=>m.blood_type===bt).map(m=>studs.find(s=>s.id===m.sid)).filter(Boolean);});
+  const withAlert=meds.filter(m=>m.allergies||m.medical_notes);
+  const schoolName=DB.settings.school?.name||'SchoolSafe';
+
+  const htmlStr=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Kit d'Urgence Médicale</title>
+  <style>body{font-family:Arial,sans-serif;margin:20px;color:#1a1a1a}h1{color:#dc2626}h2{color:#374151;font-size:15px;margin-top:20px}table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}th{background:#dc2626;color:#fff;padding:7px 10px;text-align:left}td{padding:6px 10px;border-bottom:1px solid #f3f4f6}.bt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.bt-card{border:2px solid #fca5a5;border-radius:8px;padding:10px;text-align:center;background:#fef2f2}.bt-type{font-size:20px;font-weight:900;color:#dc2626}.bt-n{font-size:12px;color:#6b7280}.alert{background:#fef9c3;border-left:4px solid #f59e0b;padding:10px 14px;border-radius:4px;margin-bottom:8px}.sig{margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}.sig-line{border-top:2px solid #374151;padding-top:6px;font-size:11px;color:#6b7280;text-align:center}@media print{body{margin:8px}}</style>
+  </head><body>
+  <div style="text-align:center;border-bottom:3px solid #dc2626;padding-bottom:14px;margin-bottom:18px">
+    <div style="font-size:22px;font-weight:900;color:#dc2626">🚨 KIT D'URGENCE MÉDICALE</div>
+    <div style="font-size:14px;font-weight:700;color:#374151">${esc(schoolName)}</div>
+    <div style="font-size:12px;color:#6b7280">Imprimé le ${today()} — À conserver dans la salle des profs et à l'infirmerie</div>
+  </div>
+
+  <div style="background:#fef2f2;border:2px solid #fca5a5;padding:12px 16px;border-radius:8px;margin-bottom:18px">
+    <div style="font-weight:800;color:#991b1b;margin-bottom:6px">⚠️ CONSIGNES D'URGENCE</div>
+    <div style="font-size:12px;color:#7f1d1d">1. Vérifier le groupe sanguin et les allergies de l'élève. 2. Contacter le médecin traitant. 3. Alerter la direction. 4. Si nécessaire, appeler les services d'urgence.</div>
+  </div>
+
+  <h2>🩸 GROUPES SANGUINS PAR TYPE</h2>
+  <div class="bt-grid">
+    ${bloodTypes.map(bt=>{const list=bloodMap[bt]||[];return`<div class="bt-card"><div class="bt-type">${bt}</div><div class="bt-n">${list.length} élève${list.length!==1?'s':''}</div>${list.map(s=>`<div style="font-size:11px;margin-top:2px">${esc(s.name)}</div>`).join('')}</div>`;}).join('')}
+  </div>
+
+  <h2>⚠️ ALERTES MÉDICALES — ALLERGIES ET CONDITIONS</h2>
+  ${withAlert.length?`<table><thead><tr><th>#</th><th>Élève</th><th>Classe</th><th>Groupe sanguin</th><th>Allergies</th><th>Conditions / Médecin</th></tr></thead>
+  <tbody>${withAlert.map((m,i)=>{const s=studs.find(x=>x.id===m.sid);if(!s)return'';const cl=gc(s.cid);return`<tr style="background:${i%2?'#fef2f2':'#fff'}"><td style="color:#6b7280">${i+1}</td><td style="font-weight:700">${esc(s.name)}</td><td>${cl?esc(cl.name):'—'}</td><td style="font-weight:700;color:#dc2626">${m.blood_type||'?'}</td><td style="color:#92400e">${esc(m.allergies||'—')}</td><td style="font-size:11px">${m.medical_notes?esc(m.medical_notes.slice(0,80)):''} ${m.doctor_name?`Dr. ${esc(m.doctor_name)} ${m.doctor_phone?m.doctor_phone:''}`:''}</td></tr>`;}).join('')}</tbody></table>`:`<div style="padding:16px;text-align:center;color:#6b7280;font-size:13px">Aucune alerte médicale connue</div>`}
+
+  <div class="sig">
+    <div><div style="height:40px"></div><div class="sig-line">Directeur(trice)</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Infirmier(ère)</div></div>
+    <div><div style="height:40px"></div><div class="sig-line">Direction 2</div></div>
+  </div>
+  </body></html>`;
+  dlPDF(htmlStr,`Kit-Urgence-Medicale-${DB.settings.year||'2025'}.pdf`);
 };
 
 // ═══════════════════════════════════════════
