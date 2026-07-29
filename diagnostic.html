@@ -16,54 +16,65 @@
           --ok:#059669;--bad:#dc2626;--warn:#b45309;--accent:#0369a1;}
   }
   *{box-sizing:border-box}
-  body{margin:0;padding:20px 16px 48px;background:var(--bg);color:var(--ink);
-       font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin-inline:auto}
+  body{margin:0 auto;padding:22px 16px 56px;background:var(--bg);color:var(--ink);
+       font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:780px}
   h1{font-size:20px;margin:0 0 4px;letter-spacing:-.01em}
-  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+     margin:26px 0 10px;font-weight:700}
+  .sub{color:var(--muted);font-size:13px;margin:0}
   button{width:100%;padding:14px 18px;border:0;border-radius:10px;background:var(--accent);
-         color:#04121c;font:600 15px/1 inherit;cursor:pointer}
+         color:#04121c;font:600 15px/1 inherit;cursor:pointer;margin-top:20px}
   @media (prefers-color-scheme:light){button{color:#fff}}
-  button:disabled{opacity:.5}
+  button:disabled{opacity:.5;cursor:default}
   .test{background:var(--panel);border:1px solid var(--line);border-radius:12px;
         padding:14px 16px;margin-top:12px}
   .head{display:flex;align-items:center;gap:10px}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
   .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
   .name{font-weight:600;font-size:14px}
-  .verdict{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted)}
+  .verdict{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);text-align:right}
   .verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)} .verdict.warn{color:var(--warn)}
   pre{margin:10px 0 0;padding:11px 12px;background:var(--panel-2);border-radius:8px;
       font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-word;
       max-height:220px;overflow:auto;color:var(--muted)}
   .hint{margin:9px 0 0;padding:10px 12px;border-left:3px solid var(--warn);
         background:var(--panel-2);border-radius:0 8px 8px 0;font-size:13px}
-  label{display:block;font-size:12px;color:var(--muted);margin:14px 0 5px;font-weight:600}
+  .hint code{font:12px var(--mono);background:var(--bg);padding:1px 5px;border-radius:4px}
+  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px;font-weight:600}
   input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:8px;
-        background:var(--panel);color:var(--ink);font:14px/1 var(--mono)}
+        background:var(--panel);color:var(--ink);font:13px/1.3 var(--mono)}
+  .row{display:grid;gap:0}
+  @media(min-width:620px){.row{grid-template-columns:1fr 1fr;gap:0 14px}}
 </style>
 </head>
 <body>
 
 <h1>Diagnostic connexion SchoolSafe</h1>
-<p class="sub">Teste chaque couche séparément pour localiser exactement où la connexion échoue.</p>
+<p class="sub">Teste chaque couche indépendamment pour localiser où la connexion échoue.
+Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé ailleurs.</p>
 
-<label for="lk">Clé de licence</label>
-<input id="lk" value="LS-SAGE-2025-WISE">
-<label for="nm">Nom de connexion</label>
-<input id="nm" value="admin">
+<h2>Projet central</h2>
+<label for="cu">URL du central</label>
+<input id="cu" value="https://xryfvakkuffmckyybkeo.supabase.co">
+<label for="ck">Clé publishable du central <span style="font-weight:400">(sb_publishable_…)</span></label>
+<input id="ck" placeholder="sb_publishable_…">
+
+<h2>Identifiants de test</h2>
+<div class="row">
+  <div><label for="lk">Clé de licence</label><input id="lk" value="LS-SAGE-2025-WISE"></div>
+  <div><label for="nm">Nom</label><input id="nm" value="admin"></div>
+</div>
 <label for="pn">Code</label>
 <input id="pn" value="69210561190">
 
-<div style="margin-top:18px"><button id="run">Lancer le diagnostic</button></div>
-
+<button id="run">Lancer le diagnostic</button>
 <div id="out"></div>
 
 <script>
-const CENTRAL = 'https://xryfvakkuffmckyybkeo.supabase.co';
-const CKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeWZ2YWtrdWZmbWNreXlia2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NzAsImV4cCI6MjEwMDkyNTg3MH0._klXeuQmCzwFYQpnTaZaphmNvg2H_dWC5xsBBnXEgB0';
-
 const out = document.getElementById('out');
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const val = id => document.getElementById(id).value.trim().replace(/\/+$/,'');
+const cut = (s, n = 1200) => s.length > n ? s.slice(0, n) + '\n… (tronqué)' : s;
 
 function card(name){
   const el = document.createElement('div');
@@ -71,119 +82,132 @@ function card(name){
   el.innerHTML = `<div class="head"><span class="dot"></span><span class="name">${esc(name)}</span>
                   <span class="verdict">en cours…</span></div>`;
   out.appendChild(el);
-  return {
-    set(state, verdict, body, hint){
-      el.querySelector('.dot').className = 'dot ' + state;
-      const v = el.querySelector('.verdict');
-      v.className = 'verdict ' + state; v.textContent = verdict;
-      if (body) el.insertAdjacentHTML('beforeend', `<pre>${esc(body)}</pre>`);
-      if (hint) el.insertAdjacentHTML('beforeend', `<div class="hint">${hint}</div>`);
-    }
+  return (state, verdict, body, hint) => {
+    el.querySelector('.dot').className = 'dot ' + state;
+    const v = el.querySelector('.verdict');
+    v.className = 'verdict ' + state; v.textContent = verdict;
+    if (body) el.insertAdjacentHTML('beforeend', `<pre>${esc(cut(body))}</pre>`);
+    if (hint) el.insertAdjacentHTML('beforeend', `<div class="hint">${hint}</div>`);
   };
 }
+
+// Détecte le message Supabase « legacy keys disabled » dans une réponse
+const isLegacyDisabled = txt => /legacy api keys are disabled/i.test(txt || '');
+const LEGACY_HINT = 'Cette clé est une ancienne clé <code>anon</code>/<code>service_role</code>, désactivée sur ce projet. Récupère la clé <strong>publishable</strong> dans <em>Project Settings → API Keys</em> — elle commence par <code>sb_publishable_</code>.';
 
 document.getElementById('run').onclick = async () => {
   out.innerHTML = '';
   const btn = document.getElementById('run');
   btn.disabled = true; btn.textContent = 'Diagnostic en cours…';
 
-  const license = document.getElementById('lk').value.trim();
-  const name    = document.getElementById('nm').value.trim();
-  const pin     = document.getElementById('pn').value.trim();
-  let school = null;
+  const CENTRAL = val('cu'), CKEY = val('ck');
+  const license = val('lk'), name = val('nm'), pin = val('pn');
+  const H = { apikey: CKEY, Authorization: 'Bearer ' + CKEY };
 
-  // ── 1. Central joignable + table schools lisible ──────────────────────
-  const t1 = card('1. Projet central — table schools');
-  try {
-    const r = await fetch(`${CENTRAL}/rest/v1/schools?select=name,license_key,status,supabase_url&license_key=eq.${encodeURIComponent(license)}`,
-      { headers:{ apikey:CKEY, Authorization:'Bearer '+CKEY } });
-    const txt = await r.text();
-    let rows = null; try { rows = JSON.parse(txt); } catch(_){}
-    if (!r.ok) {
-      t1.set('bad', 'HTTP '+r.status, txt,
-        r.status === 401 ? 'Clé anon du central invalide ou expirée.'
-                         : 'La table <code>schools</code> est peut-être absente — relance le SQL du central.');
-    } else if (!Array.isArray(rows) || rows.length === 0) {
-      t1.set('bad', 'aucune ligne', txt,
-        `Aucune école avec la licence <code>${esc(license)}</code>, ou son <code>status</code> n'est pas <code>active</code>. Vérifie la table <code>schools</code>.`);
-    } else {
-      school = rows[0];
-      t1.set('ok', 'OK', JSON.stringify(rows[0], null, 2));
-    }
-  } catch (e) {
-    t1.set('bad', 'réseau', String(e), 'Le projet central est injoignable — vérifie l\'URL du projet.');
-  }
-
-  // ── 2. Base de l'école joignable ──────────────────────────────────────
-  const t2 = card('2. Base de l\'école — table users');
-  if (!school?.supabase_url) {
-    t2.set('warn', 'ignoré', null, 'Test 1 doit passer d\'abord.');
+  // ── 1. Le central répond et la clé publishable est acceptée ─────────────
+  const t1 = card('1. Central joignable — clé publishable valide');
+  let keyOk = false;
+  if (!CKEY) {
+    t1('bad', 'clé manquante', null, 'Renseigne la clé publishable du central ci-dessus.');
   } else {
     try {
-      const r = await fetch(`${CENTRAL}/rest/v1/schools?select=supabase_anon_key&license_key=eq.${encodeURIComponent(license)}`,
-        { headers:{ apikey:CKEY, Authorization:'Bearer '+CKEY } });
-      const rows = await r.json();
-      const akey = rows?.[0]?.supabase_anon_key;
-      if (!akey) {
-        t2.set('bad', 'clé absente', null,
-          'La colonne <code>supabase_anon_key</code> est vide pour cette école. Renseigne-la dans la table <code>schools</code> du central.');
-      } else {
-        const r2 = await fetch(`${school.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
-          { headers:{ apikey:akey, Authorization:'Bearer '+akey } });
-        const t = await r2.text();
-        if (!r2.ok) {
-          t2.set('bad', 'HTTP '+r2.status, t,
-            'La base de l\'école refuse la lecture — la table <code>users</code> manque, ou les policies RLS ne sont pas créées. Relance <code>supabase_setup.sql</code>.');
-        } else {
-          const u = JSON.parse(t);
-          t2.set(u.length ? 'ok' : 'warn', u.length ? u.length+' compte(s)' : 'table vide',
-            JSON.stringify(u, null, 2),
-            u.length ? null : 'La table <code>users</code> existe mais est vide — seul le code maître pourra ouvrir l\'app.');
-        }
-      }
+      // school_sites est lisible publiquement : test parfait de validité de clé
+      const r = await fetch(`${CENTRAL}/rest/v1/school_sites?select=license_key&limit=1`, { headers: H });
+      const txt = await r.text();
+      if (isLegacyDisabled(txt))      t1('bad', 'clé legacy', txt, LEGACY_HINT);
+      else if (r.status === 401)      t1('bad', '401', txt, 'Clé refusée — vérifie que tu as copié la clé <strong>publishable</strong> du BON projet.');
+      else if (r.status === 404)      t1('bad', '404', txt, 'La table <code>school_sites</code> n\'existe pas — relance le SQL de setup du central.');
+      else if (!r.ok)                 t1('bad', 'HTTP ' + r.status, txt);
+      else { keyOk = true;            t1('ok', 'OK', 'Clé acceptée, REST opérationnel.'); }
     } catch (e) {
-      t2.set('bad', 'réseau', String(e), 'L\'URL Supabase de l\'école est injoignable.');
+      t1('bad', 'réseau', String(e), 'URL du central injoignable — vérifie l\'adresse.');
     }
   }
 
-  // ── 3. Edge Function login ────────────────────────────────────────────
+  // ── 2. schools ne doit PAS être lisible côté client ──────────────────────
+  const t2 = card('2. Table schools protégée (sécurité)');
+  if (!keyOk) {
+    t2('warn', 'ignoré', null, 'Nécessite le test 1.');
+  } else {
+    try {
+      const r = await fetch(`${CENTRAL}/rest/v1/schools?select=license_key,supabase_anon_key&limit=5`, { headers: H });
+      const txt = await r.text();
+      let rows = null; try { rows = JSON.parse(txt); } catch(_){}
+      if (Array.isArray(rows) && rows.length > 0) {
+        t2('bad', 'exposée', txt,
+          'N\'importe quel visiteur peut lire les credentials de toutes les écoles. Lance <code>central_rls_hardening.sql</code> sur le central pour fermer cet accès.');
+      } else {
+        t2('ok', 'protégée', 'Aucune ligne lisible avec la clé publishable — correct.');
+      }
+    } catch (e) { t2('warn', 'non vérifiable', String(e)); }
+  }
+
+  // ── 3. Edge Function login : le vrai chemin de connexion ────────────────
   const t3 = card('3. Edge Function login');
+  let fn = null;
   try {
     const r = await fetch(`${CENTRAL}/functions/v1/login`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', apikey:CKEY, Authorization:'Bearer '+CKEY },
+      method: 'POST',
+      headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ license_key: license, name, pin }),
     });
     const txt = await r.text();
     let d = null; try { d = JSON.parse(txt); } catch(_){}
     if (r.status === 404) {
-      t3.set('bad', '404', txt, 'La fonction <code>login</code> n\'existe pas sur ce projet — vérifie qu\'elle est déployée et nommée exactement <code>login</code>.');
+      t3('bad', '404', txt, 'Aucune fonction nommée <code>login</code> sur ce projet — vérifie le déploiement et le nom exact.');
     } else if (r.status === 401 && !d?.error) {
-      t3.set('bad', '401 passerelle', txt, 'La passerelle a rejeté l\'appel avant la fonction — vérification JWT active. Désactive <em>Verify JWT</em> sur la fonction, ou garde l\'en-tête apikey.');
+      t3('bad', '401 passerelle', txt, 'Rejet avant la fonction : clé refusée ou <em>Verify JWT</em> actif. Désactive <em>Verify JWT</em> sur la fonction.');
+    } else if (d?.error && /CENTRAL_SECRET_KEY/.test(d.error)) {
+      t3('bad', 'secret manquant', txt, 'Ajoute le secret <code>CENTRAL_SECRET_KEY</code> = la clé <code>sb_secret_…</code> du central, dans les secrets de l\'Edge Function.');
     } else if (!r.ok) {
-      t3.set('bad', 'HTTP '+r.status, txt, 'Erreur renvoyée par la fonction — voir le message ci-dessus.');
+      t3('bad', 'HTTP ' + r.status, txt, 'Message renvoyé par la fonction ci-dessus — il indique la cause exacte.');
     } else if (!d?.user || !d?.supabase_url) {
-      t3.set('bad', 'réponse incomplète', txt, 'La fonction répond mais sans <code>user</code>/<code>supabase_url</code> — le code déployé n\'est pas la bonne version.');
+      t3('bad', 'réponse incomplète', txt, 'La fonction répond mais sans <code>user</code>/<code>supabase_url</code> : le code déployé n\'est pas la dernière version.');
     } else {
-      t3.set('ok', 'connexion OK', JSON.stringify(d, null, 2));
+      fn = d;
+      const shown = { ...d, supabase_key: (d.supabase_key || '').slice(0, 18) + '…' };
+      t3('ok', 'connexion OK', JSON.stringify(shown, null, 2));
     }
   } catch (e) {
-    t3.set('bad', 'réseau', String(e), 'Fonction injoignable (CORS ou non déployée).');
+    t3('bad', 'réseau', String(e), 'Fonction injoignable : non déployée, ou elle plante au démarrage (voir ses logs dans le dashboard).');
   }
 
-  // ── 4. Version servie par GitHub Pages ────────────────────────────────
-  const t4 = card('4. Version de index.html servie');
-  try {
-    const r = await fetch('./index.html?_=' + Date.now(), { cache:'no-store' });
-    const src = await r.text();
-    const hasFix = src.includes("'apikey': CENTRAL_KEY");
-    const fnUrl = (src.match(/LOGIN_FN_URL\s*=\s*'([^']+)'/) || [])[1] || '(introuvable)';
-    t4.set(hasFix ? 'ok' : 'bad', hasFix ? 'à jour' : 'version ancienne',
-      'LOGIN_FN_URL = ' + fnUrl + '\ncorrectif apikey présent : ' + hasFix,
-      hasFix ? null : 'GitHub Pages sert encore l\'ancien fichier. Attends la fin du déploiement Pages, puis recharge en navigation privée.');
-  } catch (e) {
-    t4.set('warn', 'non vérifiable', String(e));
+  // ── 4. Base de l'école accessible avec la clé renvoyée ──────────────────
+  const t4 = card('4. Base de l\'école — table users');
+  if (!fn?.supabase_url) {
+    t4('warn', 'ignoré', null, 'Nécessite le test 3.');
+  } else {
+    try {
+      const sk = fn.supabase_key;
+      const r = await fetch(`${fn.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
+        { headers: { apikey: sk, Authorization: 'Bearer ' + sk } });
+      const txt = await r.text();
+      if (isLegacyDisabled(txt)) {
+        t4('bad', 'clé legacy', txt,
+          'La clé stockée dans <code>schools.supabase_anon_key</code> est une ancienne clé désactivée. Remplace-la par la clé <code>sb_publishable_…</code> du projet de l\'école.');
+      } else if (!r.ok) {
+        t4('bad', 'HTTP ' + r.status, txt, 'Lecture refusée : table <code>users</code> absente ou policies RLS manquantes. Relance <code>supabase_setup.sql</code> sur la base de l\'école.');
+      } else {
+        const u = JSON.parse(txt);
+        t4(u.length ? 'ok' : 'warn', u.length ? u.length + ' compte(s)' : 'table vide',
+          JSON.stringify(u, null, 2),
+          u.length ? null : 'La table existe mais aucun compte : seul le code maître pourra ouvrir l\'app.');
+      }
+    } catch (e) { t4('bad', 'réseau', String(e)); }
   }
+
+  // ── 5. Version de index.html réellement servie ──────────────────────────
+  const t5 = card('5. Version de index.html servie');
+  try {
+    const r = await fetch('./index.html?_=' + Date.now(), { cache: 'no-store' });
+    const src = await r.text();
+    const ck = (src.match(/CENTRAL_KEY\s*=\s*'([^']*)'/) || [])[1] || '';
+    const fu = (src.match(/LOGIN_FN_URL\s*=\s*'([^']*)'/) || [])[1] || '(introuvable)';
+    const newFmt = ck.startsWith('sb_publishable_');
+    t5(newFmt ? 'ok' : 'warn', newFmt ? 'clés à jour' : 'clé legacy dans le code',
+      'LOGIN_FN_URL = ' + fu + '\nCENTRAL_KEY  = ' + (ck.slice(0, 22) || '(vide)') + '…',
+      newFmt ? null : 'Le code contient encore une clé JWT legacy. Envoie-moi la clé publishable pour que je mette à jour <code>index.html</code>.');
+  } catch (e) { t5('warn', 'non vérifiable', String(e)); }
 
   btn.disabled = false; btn.textContent = 'Relancer le diagnostic';
 };
