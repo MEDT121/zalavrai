@@ -170,7 +170,10 @@ document.getElementById('run').onclick = async () => {
       t3('bad', 'réponse incomplète', txt, 'La fonction répond mais sans <code>user</code>/<code>supabase_url</code> : le code déployé n\'est pas la dernière version.');
     } else {
       fn = d;
-      const shown = { ...d, supabase_key: (d.supabase_key || '').slice(0, 18) + '…' };
+      const sk0 = d.supabase_key || d.supabase_anon_key || '';
+      const shown = { ...d };
+      if (shown.supabase_key)      shown.supabase_key      = sk0.slice(0, 18) + '…';
+      if (shown.supabase_anon_key) shown.supabase_anon_key = sk0.slice(0, 18) + '…';
       t3('ok', 'connexion OK', JSON.stringify(shown, null, 2));
     }
   } catch (e) {
@@ -194,11 +197,11 @@ document.getElementById('run').onclick = async () => {
 
   // ── 4. Base de l'école accessible avec la clé renvoyée ──────────────────
   const t4 = card('4. Base de l\'école — table users');
-  if (!fn?.supabase_url) {
+  if (!fn?.supabase_url || !(fn.supabase_key || fn.supabase_anon_key)) {
     t4('warn', 'ignoré', null, 'Nécessite le test 3.');
   } else {
     try {
-      const sk = fn.supabase_key;
+      const sk = fn.supabase_key || fn.supabase_anon_key;
       const r = await fetch(`${fn.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
         { headers: { apikey: sk, Authorization: 'Bearer ' + sk } });
       const txt = await r.text();
