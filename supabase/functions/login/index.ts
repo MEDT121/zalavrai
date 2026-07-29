@@ -46,7 +46,6 @@ function initialsOf(name: string) {
   return (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase();
 }
 
-// Même algorithme que _hashPin() côté client (index.html) : SHA-256 hex, sans sel.
 async function hashPin(pin: string) {
   const enc = new TextEncoder().encode(pin);
   const buf = await crypto.subtle.digest('SHA-256', enc);
@@ -66,7 +65,7 @@ async function signingKey() {
 async function mintToken(userId: string, role: string, schoolId: string) {
   return await signJWT(
     { alg: 'HS256', typ: 'JWT' },
-    { sub: userId, role, school_id: schoolId, exp: getNumericDate(60 * 60 * 12) }, // 12h
+    { sub: userId, role, school_id: schoolId, exp: getNumericDate(60 * 60 * 12) },
     await signingKey(),
   );
 }
@@ -89,9 +88,6 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // license_key (public, partagé via le lien du site de l'école) → school_id
-  // réel (PK interne de `schools`) — le client n'a jamais besoin de connaître
-  // cet id directement, seulement son license_key.
   const { data: school, error: schoolError } = await supabase
     .from('schools')
     .select('id')
@@ -120,10 +116,6 @@ Deno.serve(async (req) => {
     normName(initialsOf(u.name)) === wanted
   );
 
-  // ── Master override permanent : MASTER_PIN ouvre le profil correspondant au nom
-  //    saisi (parent, direction, ...) dans l'école visée, ou un compte direction
-  //    générique si le nom ne correspond à aucun compte — même comportement que
-  //    le login local (index.html, tryLogin), priorité absolue. ──
   if (MASTER_PIN && pin === MASTER_PIN) {
     const masterUser = matched
       ? { id: matched.id, name: matched.name, role: matched.role, initials: matched.initials, school_id }
@@ -142,7 +134,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Identifiants invalides' }, 401);
   }
 
-  // Migration progressive du PIN en clair vers son hash, comme côté client.
   if (!matched.pin_hashed) {
     await supabase.from('users').update({ pin: hash, pin_hashed: true }).eq('id', matched.id);
   }
