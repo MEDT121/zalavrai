@@ -2,8 +2,8 @@
 // Set SITE_LICENSE_KEY once in your school's fork — never change after deploy
 const SITE_LICENSE_KEY = '__SCHOOL_KEY__';
 
-const _SS_CENTRAL = 'https://vcifxatmlgzueavalfks.supabase.co';
-const _SS_CKEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
+const _SS_CENTRAL = 'https://owkgfrxduwodvkqustmg.supabase.co';
+const _SS_CKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93a2dmcnhkdXdvZHZrcXVzdG1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzMzAwNjcsImV4cCI6MjEwMDkwNjA2N30.p-KTMvMTm95eAu_DymOKzAf8ICzdMEMeJKzR6NAntDk';
 
 // Fait de chaque lien "Espace App" le point d'entrée qui porte le contexte
 // école jusqu'à l'app (index.html lit ?school=... et le retient en
