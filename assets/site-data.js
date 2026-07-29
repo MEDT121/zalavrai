@@ -3,7 +3,7 @@
 const SITE_LICENSE_KEY = '__SCHOOL_KEY__';
 
 const _SS_CENTRAL = 'https://xryfvakkuffmckyybkeo.supabase.co';
-const _SS_CKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeWZ2YWtrdWZmbWNreXlia2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NzAsImV4cCI6MjEwMDkyNTg3MH0._klXeuQmCzwFYQpnTaZaphmNvg2H_dWC5xsBBnXEgB0';
+const _SS_CKEY = 'sb_publishable_q4Mwf0wNzlNo8Lw-1TJ8NA_HYeZ3fkI';
 
 // Fait de chaque lien "Espace App" le point d'entrée qui porte le contexte
 // école jusqu'à l'app (index.html lit ?school=... et le retient en
