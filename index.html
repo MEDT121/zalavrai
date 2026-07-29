@@ -1491,8 +1491,9 @@ window.compressImage = (file, maxW, maxH, quality, cb) => {
   img.src = url;
 };
 // ── Central control (configure once per school fork) ──
-const CENTRAL_URL = ''; // serveur de licences supprimé
-const CENTRAL_KEY = 'sb_publishable_o-S9cAWjPnXvI5r--_OY2g_bKjwYbhV';
+// Projet central PRODELI — licences (schools), site public, commandes cartes.
+const CENTRAL_URL = 'https://xryfvakkuffmckyybkeo.supabase.co';
+const CENTRAL_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyeWZ2YWtrdWZmbWNreXlia2VvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDk4NzAsImV4cCI6MjEwMDkyNTg3MH0._klXeuQmCzwFYQpnTaZaphmNvg2H_dWC5xsBBnXEgB0';
 const LICENSE_GRACE_DAYS = 3;
 // Contexte école courante : porté par le lien d'entrée du site de l'école
 // (ex. https://app.schoolsafe.cd/?school=<license_key>, le même license_key
@@ -3439,14 +3440,22 @@ window.tryLogin = async () => {
   //    s'applique. ──
   if (SCHOOL_KEY && LOGIN_FN_URL) {
     try {
+      // apikey + Authorization = clé anon du projet CENTRAL : exigée par la
+      // passerelle Supabase avant d'atteindre le code de l'Edge Function.
       const r = await fetch(LOGIN_FN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': CENTRAL_KEY,
+          'Authorization': 'Bearer ' + CENTRAL_KEY,
+        },
         body: JSON.stringify({ license_key: SCHOOL_KEY, name: $('LN')?.value||'', pin }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok || !data?.user || !data?.supabase_url) {
-        $('PM').textContent='Nom ou code incorrect'; $('LP').value=''; setTimeout(()=>$('PM').textContent='',2000); return;
+        console.warn('[login]', r.status, data);
+        $('PM').textContent = data?.error || 'Nom ou code incorrect';
+        $('LP').value=''; setTimeout(()=>$('PM').textContent='',3000); return;
       }
       // Connecter SchoolSafe à la base Supabase propre à cette école
       window._updateSupabase(data.supabase_url, data.supabase_anon_key);
