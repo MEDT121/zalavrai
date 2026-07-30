@@ -61,6 +61,14 @@ ALTER TABLE messages
 ALTER TABLE notifs
   ADD COLUMN IF NOT EXISTS receipt JSONB;
 
+-- ── JUSTIFICATIONS D'ABSENCE — trace de la décision ───────────────
+-- Qui a tranché, et quand : le journal ne le retenait pas, alors qu'une
+-- absence excusée efface une arrivée tardive du dossier de l'élève.
+ALTER TABLE absences
+  ADD COLUMN IF NOT EXISTS validated_by TEXT,
+  ADD COLUMN IF NOT EXISTS validated_at TEXT,
+  ADD COLUMN IF NOT EXISTS school_id    TEXT;
+
 -- ── ABSENCES D'ENSEIGNANTS ────────────────────────────────────────
 -- `duree` est saisie librement — « 1 jour », « 2 semaines » — donc du texte.
 ALTER TABLE teacher_absences

@@ -9809,26 +9809,82 @@ window.approveApr = (id, status) => {
   saveToCrypt(); render();
 };
 
+// Les dates d'absence sont saisies librement par le parent — « 28/04/2025 »,
+// « du 28 au 30/04/2025 », « 2025-04-28 ». Sans les lire, approuver une
+// justification de deux jours effaçait TOUTES les arrivées tardives de
+// l'élève, sur l'année entière.
+window._datesJustifiees = (txt) => {
+  const s = String(txt||'').toLowerCase();
+  const anCourant = Number(today().slice(0,4));
+  const iso = (d,m,y) => {
+    d=Number(d); m=Number(m);
+    y = (y===undefined||y===null||y==='') ? anCourant : Number(y);
+    if(y<100) y+=2000;
+    if(!(d>=1&&d<=31)||!(m>=1&&m<=12)||!(y>=2000&&y<=2100)) return null;
+    const dt = new Date(Date.UTC(y,m-1,d));
+    if(dt.getUTCDate()!==d||dt.getUTCMonth()!==m-1) return null;
+    return dt.toISOString().slice(0,10);
+  };
+  const intervalle = (a,b) => {
+    let t=Date.parse(a+'T00:00:00Z'); const f=Date.parse(b+'T00:00:00Z');
+    if(!isFinite(t)||!isFinite(f)||f<t||(f-t)>60*86400000) return null;
+    const out=[]; for(;t<=f;t+=86400000) out.push(new Date(t).toISOString().slice(0,10));
+    return out;
+  };
+  // « du 28 au 30/04/2025 » : le jour de début ne porte ni mois ni année.
+  const court = s.match(/du\s+(\d{1,2})\s+(?:au|a|à)\s+(\d{1,2})\s*[\/.]\s*(\d{1,2})(?:\s*[\/.]\s*(\d{2,4}))?/);
+  if(court){
+    const r = intervalle(iso(court[1],court[3],court[4]), iso(court[2],court[3],court[4]));
+    if(r) return r;
+  }
+  const vues = [];
+  let m;
+  const reIso = /(\d{4})-(\d{1,2})-(\d{1,2})/g;
+  while((m=reIso.exec(s))){ const v=iso(m[3],m[2],m[1]); if(v) vues.push(v); }
+  const reFr = /(\d{1,2})\s*[\/.]\s*(\d{1,2})(?:\s*[\/.]\s*(\d{2,4}))?/g;
+  while((m=reFr.exec(s))){ const v=iso(m[1],m[2],m[3]); if(v) vues.push(v); }
+  const tri = [...new Set(vues)].sort();
+  if(!tri.length) return [];
+  // « du <date> au <date> » : tout ce qui sépare les deux bornes.
+  if(tri.length>=2 && /\bdu\b/.test(s) && /\b(au|a|à)\b/.test(s)){
+    const r = intervalle(tri[0], tri[tri.length-1]);
+    if(r) return r;
+  }
+  return tri;
+};
+
 window.validateAbs = (id, status) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const a = DB.absences.find(x=>x.id===id); if (!a) return;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(status!=='approved'&&status!=='refused') return;
+  const a = (DB.absences||[]).find(x=>x.id===id); if (!a) return;
+  // Une justification ne se tranche qu'une fois : sans ce garde, un double
+  // clic renvoyait deux notifications au parent pour la même décision.
+  if(a.status&&a.status!=='pending'){ toast('Justification déjà traitée','info'); return; }
   a.status = status;
-  pushSync('absences','patch',{status},'id=eq.'+id);
-  // If approved, mark matching attendance records as excused
+  a.validated_by = S.user.id; a.validated_at = today();
+  pushSync('absences','patch',{status,validated_by:S.user.id,validated_at:today()},'id=eq.'+id);
+  let jours = [], excusees = 0;
   if(status==='approved') {
-    const affectedAtt = (DB.attendance||[]).filter(x=>x.sid===a.sid&&x.status==='late');
-    affectedAtt.forEach(att=>{
+    jours = _datesJustifiees(a.dates);
+    const cible = (DB.attendance||[]).filter(x=>x.sid===a.sid && !x.excused
+      && (x.status==='late'||x.status==='absent') && jours.indexOf(x.date)>=0);
+    cible.forEach(att=>{
       att.excused=true; att.status='excused';
       pushSync('attendance','patch',{excused:true,status:'excused'},'id=eq.'+att.id);
     });
+    excusees = cible.length;
+    if(!jours.length) console.warn('[absences] dates illisibles, présences inchangées :', a.dates);
   }
-  const s=DB.students.find(x=>x.id===a.sid);
+  const s=(DB.students||[]).find(x=>x.id===a.sid);
   if(a.pid){
-    const notif={id:'n'+Date.now(),uid:a.pid,msg:`Justification ${status==='approved'?'approuvée':'refusée'} — ${s?s.name:'?'} · ${a.dates} · ${a.motif}`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif);
+    const notif={id:_uid('n_'),uid:a.pid,msg:`Justification ${status==='approved'?'approuvée':'refusée'} — ${s?s.name:'?'} · ${a.dates} · ${a.motif}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(notif);
     pushSync('notifs','post',notif);
   }
-  toast(status==='approved'?'Approuvée — présences marquées excusées':'❌ Refusée', status==='approved'?'success':'info');
+  toast(status!=='approved' ? '❌ Refusée'
+      : !jours.length ? 'Approuvée — dates non reconnues, présences inchangées'
+      : `Approuvée — ${excusees} présence(s) excusée(s)`,
+    status==='approved'?'success':'info');
   saveToCrypt(); render();
 };
 
@@ -11446,10 +11502,22 @@ window.checkRattrapageAuto = (cid) => {
   toast(`⚠️ ${newRats.length} rattrapage${newRats.length>1?'s':''} détecté${newRats.length>1?'s':''} — Direction notifiée`, 'warning');
 };
 
+// Statuts admis. Sans cette liste, un statut inconnu entrait en base et
+// faussait tous les calculs qui comparent à des valeurs précises — taux de
+// ponctualité, bulletins, alertes d'absence.
+window.ATT_STATUS = ['ontime','late','absent','excused','sick'];
+
 window.markAttendance = (sid,status) => {
+  // Le rendu masquait le bouton aux non-enseignants, mais la fonction est
+  // exposée globalement : masquer n'est pas interdire. La présence conditionne
+  // les bulletins et le suivi d'assiduité, elle mérite la même garde que les
+  // cent vingt-cinq autres mutations de l'application.
+  if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(!ATT_STATUS.includes(status)){console.warn('[presence] statut inconnu:',status);return;}
+  const _absent = status==='excused' || status==='absent';
   let a=(DB.attendance||[]).find(x=>x.sid===sid&&x.date===today());
   if(a){ a.status=status; pushSync('attendance','patch',{status},'id=eq.'+a.id); }
-  else{ a={id:'a'+Date.now(),sid,date:today(),arr_time:nowTime(),status,school_id:window._currentSchoolId||null}; (DB.attendance=DB.attendance||[]).push(a); pushSync('attendance','post',a); }
+  else{ a={id:_uid('a_'),sid,date:today(),arr_time:_absent?null:nowTime(),status,school_id:window._currentSchoolId||null}; (DB.attendance=DB.attendance||[]).push(a); pushSync('attendance','post',a); }
   const s=DB.students.find(x=>x.id===sid);
   const labels={excused:'Absent justifié',sick:'🤒 Sorti pour maladie',ontime:'À l\'heure',late:'⚠️ Retard'};
   toast(`${s?s.name:''} — ${labels[status]||status}`,'info');
@@ -15799,7 +15867,7 @@ R.absences = () => {
   const role = S.user.role;
   // Direction: voir toutes les justifications
   if (role === 'direction' || role === 'direction2') {
-    const all = (DB.absences||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const all = (DB.absences||[]).slice().sort((a,b)=>((b.submitted||b.date||'')+(b.time||'')).localeCompare((a.submitted||a.date||'')+(a.time||'')));
     if (!all.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">Aucune justification soumise</div>`;
     const statusColor={pending:'#f59e0b',approved:'#1f9d6b',refused:'#ef5b5b'};
     const statusLabel={pending:'En attente',approved:'Approuvée',refused:'Refusée'};
@@ -15899,17 +15967,25 @@ R.absences = () => {
 
 window._absFilter = '';
 window.submitAbsence = () => {
-  const sid=$('abs_sid').value;
-  const dates=($('abs_dates').value||'').trim();
+  if(!S.user||S.user.role!=='parent'){toast('Accès non autorisé','error');return;}
+  const sid=$('abs_sid')?.value;
+  // Le menu ne propose que ses enfants, mais il est reconstruit à chaque
+  // rendu : on revérifie le lien plutôt que de faire confiance au DOM.
+  const enfant=(DB.students||[]).find(s=>s.id===sid&&s.pid===S.user.id);
+  if(!enfant){toast('Enfant introuvable','error');return;}
+  const dates=($('abs_dates').value||'').trim().slice(0,120);
   const motif=$('abs_motif').value;
   if(!dates){toast('Entrez les dates d\'absence','error');return;}
-  const note=($('abs_note').value||'').trim();
-  const abs={id:'ab'+Date.now(),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today()};
-  DB.absences.push(abs);
+  const note=($('abs_note').value||'').trim().slice(0,300);
+  const abs={id:_uid('ab_'),sid,pid:S.user.id,dates,motif,note:note||null,status:'pending',submitted:today(),date:today(),time:nowTime(),school_id:window._currentSchoolId||null};
+  (DB.absences=DB.absences||[]).push(abs);
   pushSync('absences','post',abs);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const notif={id:'n'+Date.now(),uid:u.id,msg:`Justification d'absence — ${DB.students.find(x=>x.id===sid)?.name||'?'} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif);
+  // `'n'+Date.now()` donnait le MÊME identifiant à chaque destinataire :
+  // la clé primaire n'en retenait qu'un, les autres directions ne
+  // recevaient jamais la demande.
+  (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:_uid('n_'),uid:u.id,msg:`Justification d'absence — ${enfant.name} · ${dates} · ${motif}`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(notif);
     pushSync('notifs','post',notif);
   });
   toast('Justification soumise — en attente de validation','success');
@@ -25041,6 +25117,7 @@ window.notifyAbsentParents = async (cid) => {
 
 // ── CORRECTION RÉTROACTIVE PRÉSENCES ──
 window.manualMarkPresent = (sid) => {
+  if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const existing=(DB.attendance||[]).find(a=>a.sid===sid&&a.date===today());
   if(existing){toast(`${s.name} est déjà enregistré(e) comme présent(e)`,'info');return;}
@@ -25059,10 +25136,16 @@ window.manualMarkPresent = (sid) => {
 };
 
 window.doManualPresent = async (sid) => {
+  if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  // Le doublon était contrôlé à l'ouverture de la fenêtre seulement. Entre
+  // celle-ci et la confirmation, le portail peut avoir scanné l'élève : on
+  // enregistrait alors deux présences pour la même journée.
+  const _deja=(DB.attendance||[]).find(x=>x.sid===sid&&x.date===today());
+  if(_deja){ closeModal(); toast(`${s.name} a été enregistré(e) entre-temps à ${_deja.arr_time||'?'}`,'info'); render(); return; }
   const time=document.getElementById('manualArrTime')?.value||nowTime();
   const note=document.getElementById('manualArrNote')?.value.trim()||'';
-  const att={id:'a'+Date.now(),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined};
+  const att={id:_uid('a_'),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined,school_id:window._currentSchoolId||null};
   const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
   (DB.attendance=DB.attendance||[]).push(att);
   DB.scan_log.unshift(log);
