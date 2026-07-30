@@ -1827,25 +1827,40 @@ window.syncQueue = {
     localStorage.removeItem(PARKED_KEY);
     return parked.length;
   },
-  async flush() {
+  // `force` : demandé explicitement par l'utilisateur. Les délais de réessai
+  // sont alors ignorés — sans quoi le bouton « Forcer la sync » ne faisait
+  // rien du tout quand tous les éléments dormaient en backoff, ce qui est
+  // précisément le moment où l'on appuie dessus.
+  async flush(force) {
     let queue = this.load();
     if (!queue.length || !DB_ONLINE) return 0;
 
     const now = Date.now();
 
     // Séparer les items prêts (backoff expiré) des items en attente de backoff
-    const ready = queue.filter(i => !i.nextRetry || now >= i.nextRetry);
-    const deferred = queue.filter(i => i.nextRetry && now < i.nextRetry);
+    const ready = force ? queue : queue.filter(i => !i.nextRetry || now >= i.nextRetry);
+    const deferred = force ? [] : queue.filter(i => i.nextRetry && now < i.nextRetry);
     if (!ready.length) return 0;
+    if (force) ready.forEach(i => { delete i.nextRetry; });
 
     // Dédupliquer : supprimer les DELETEs zombies annulés par un POST/UPSERT ultérieur
     const _before = ready.length;
-    const deduped = ready.filter((i, idx) => {
+    let deduped = ready.filter((i, idx) => {
       if (i.op !== 'delete') return true;
       const m = /(?:^|&)id=eq\.([^&]+)/.exec(i.data?.query || '');
       if (!m) return true;
       const key = i.table + ':' + m[1];
       return !ready.some((j, jdx) => jdx > idx && (j.op === 'post' || j.op === 'upsert') && j.data?.id != null && (j.table + ':' + j.data.id) === key);
+    });
+
+    // Ne garder que le dernier upsert d'une même ligne : un upsert porte l'état
+    // complet, donc les précédents sont déjà contenus dans lui. Huit écritures
+    // de `settings` en attente représentaient huit fois le même objet.
+    deduped = deduped.filter((i, idx) => {
+      if (i.op !== 'upsert' || i.data?.id == null) return true;
+      const key = i.table + ':' + i.data.id;
+      return !deduped.some((j, jdx) => jdx > idx && j.op === 'upsert'
+        && j.data?.id != null && (j.table + ':' + j.data.id) === key);
     });
 
     // Trier par priorité (1=critique en premier), puis FIFO à priorité égale
@@ -2869,7 +2884,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', async evt => {
     if (evt.data?.type === 'BG_SYNC_REQUEST') {
       if (window.DB_ONLINE && S.user) {
-        const n = await syncQueue.flush();
+        const n = await syncQueue.flush(true);
         if (n > 0) { updateSyncIndicator(); render(); }
       }
     }
@@ -2940,7 +2955,7 @@ window.forceSyncDB = async () => {
   try {
     // Pousser d'abord : un instantané serveur tiré avant l'envoi effacerait
     // les écritures encore en file.
-    const flushed = await syncQueue.flush();
+    const flushed = await syncQueue.flush(true);   // geste explicite : ignorer les backoffs
     const ok = await loadFromSupabase();
     window._lastSyncTime = nowTime();
     if (ok) {
@@ -4119,20 +4134,33 @@ window.toggleWeekendException = () => {
 function dashboardDirection() {
   if(typeof window.runSmokeTests==='function') window.runSmokeTests();
   if(typeof window._maybeAutoCleanup==='function') window._maybeAutoCleanup();
-  // Génération unique du secret HMAC pour les QR signés
-  if (DB.settings && !DB.settings.qr_secret) {
-    const arr = crypto.getRandomValues(new Uint8Array(16));
-    DB.settings.qr_secret = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
-    DB.settings.qr_secret_date = today();
+  // Secrets de l'école, générés une seule fois.
+  //
+  // Ces gardes testaient uniquement la présence de la valeur dans DB.settings.
+  // Tant que la colonne correspondante manquait côté serveur, l'écriture
+  // échouait, le serveur ne renvoyait jamais la valeur, et elle était donc
+  // régénérée à chaque chargement. Deux conséquences : deux écritures vouées
+  // à l'échec par démarrage, et surtout un secret QR qui changeait sans cesse
+  // — donc tous les codes déjà imprimés devenaient invalides.
+  //
+  // Une copie locale sert de mémoire indépendante du serveur : un secret ne
+  // doit jamais dépendre d'une écriture réseau pour rester stable.
+  const _keep = (name, bytes) => {
+    if (!DB.settings) return;
+    const store = '_ss_' + name + '_' + (window.SCHOOL_KEY || 'local');
+    let val = DB.settings[name];
+    if (!val) { try { val = localStorage.getItem(store) || ''; } catch(e) {} }
+    if (val) { DB.settings[name] = val; return; }   // déjà connu : ne rien réécrire
+    const arr = crypto.getRandomValues(new Uint8Array(bytes));
+    val = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+    DB.settings[name] = val;
+    try { localStorage.setItem(store, val); } catch(e) {}
+    if (name === 'qr_secret') DB.settings.qr_secret_date = today();
     pushSync('settings','upsert',DB.settings);
     saveToCrypt();
-  }
-  if (DB.settings && !DB.settings.msg_enc_key) {
-    const arr = crypto.getRandomValues(new Uint8Array(32));
-    DB.settings.msg_enc_key = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
-    pushSync('settings','upsert',DB.settings);
-    saveToCrypt();
-  }
+  };
+  _keep('qr_secret', 16);
+  _keep('msg_enc_key', 32);
   const u = S.user;
   const students = DB.students?.filter(s => !s.archived) || [];
   const teachers = DB.users?.filter(u => u.role === 'enseignant') || [];
@@ -20950,7 +20978,7 @@ R.settings = () => {
     </div>
     <div class="premium-item"><div class="pi-icon" style="background:#fdeccd">🔄</div>
       <div style="flex:1"><div class="pi-title">File en attente</div><div class="pi-sub">${syncQueue.count()} opération(s) non synchronisée(s)</div></div>
-      ${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush().then(n=>{updateSyncIndicator();toast(n>0?n+' envoyés ✅':'Aucun envoyé — vérifier connexion','info');render();})">Envoyer</button>
+      ${syncQueue.count()>0?`<button class="btn btn-outline btn-sm" onclick="syncQueue.flush(true).then(n=>{updateSyncIndicator();toast(n>0?n+' envoyés ✅':'Aucun envoyé — vérifier connexion','info');render();})">Envoyer</button>
       <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="showC('Effacer la file','Supprimer les ${syncQueue.count()} opération(s) bloquées ? (les données déjà en base ne seront pas affectées)',()=>{syncQueue.clear();updateSyncIndicator();toast('File vidée','success');render();})">Effacer</button>`:''}
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="forceSyncNow()">🔄 Forcer la synchronisation complète</button>
