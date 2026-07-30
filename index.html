@@ -3608,6 +3608,24 @@ window._updateLoginPinHint = () => {
   }
 };
 window.tryLogin = async () => {
+  // Verrou de ré-entrance : une connexion un peu lente invitait à appuyer
+  // plusieurs fois, et chaque appui relançait tout le cycle — d'où plusieurs
+  // « Bienvenue » empilés et autant de chargements concurrents.
+  if (window._loginBusy) return;
+  window._loginBusy = true;
+  const _btnLogin = document.querySelector('.btn-login');
+  const _btnTxt = _btnLogin ? _btnLogin.innerHTML : '';
+  if (_btnLogin) { _btnLogin.disabled = true; _btnLogin.innerHTML = '⏳ Connexion…'; }
+  const _release = () => {
+    window._loginBusy = false;
+    if (_btnLogin) { _btnLogin.disabled = false; _btnLogin.innerHTML = _btnTxt; }
+  };
+  try {
+    await _tryLoginInner();
+  } finally { _release(); }
+};
+
+async function _tryLoginInner() {
   const normName = s => (s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
   const name = normName($('LN')?.value||'');
   const pin = ($('LP')?.value||'').trim();
@@ -9487,6 +9505,13 @@ window.getStudentBalance = (sid) => {
 // ── Types de frais configurables ──────────────────────────────────────────────
 window._seedFeeTypes = () => {
   if ((DB.fee_types||[]).length) return; // déjà peuplé (Supabase ou crypt)
+  // Verrou d'amorçage. Le garde-fou ci-dessus dépend d'une lecture réussie :
+  // si la table est absente côté serveur, la lecture renvoie toujours vide et
+  // l'amorçage repartait à chaque rechargement, ajoutant neuf écritures
+  // vouées à l'échec toutes les trois minutes. Un amorçage ne doit avoir lieu
+  // qu'une fois par école, quoi qu'en dise le serveur.
+  const seedKey = '_fee_types_seeded_' + (window.SCHOOL_KEY || 'local');
+  try { if (localStorage.getItem(seedKey)) return; } catch(e) {}
   const fees = getFees();
   const schoolId = window._currentSchoolId || null;
   const base = [
@@ -9502,6 +9527,7 @@ window._seedFeeTypes = () => {
   ].map(f=>({...f, school_id: schoolId}));
   DB.fee_types = base;
   base.forEach(f => pushSync('fee_types','upsert',f));
+  try { localStorage.setItem(seedKey, today()); } catch(e) {}
   saveToCrypt();
 };
 
