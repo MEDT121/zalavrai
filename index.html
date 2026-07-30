@@ -1855,14 +1855,22 @@ window.syncQueue = {
       return pa !== pb ? pa - pb : (a.ts||0) - (b.ts||0);
     });
 
-    // Backoffs exponentiels : 30s → 2min → 10min → 40min → dead-letter
+    // Backoffs exponentiels : 30s → 2min → 10min → 40min → mise de côté
     const _BACKOFFS = [30000, 120000, 600000, 2400000];
 
+    // Un lot par passage. Sans ce plafond, une file de plusieurs dizaines
+    // d'éléments enchaîne autant de requêtes réseau d'affilée : l'appareil
+    // rame et la synchronisation devient perceptible. Le reste part au
+    // battement suivant, quelques secondes plus tard.
+    const _BATCH = 20;
+    const batch = deduped.slice(0, _BATCH);
+    const later = deduped.slice(_BATCH);
+
     let done = 0;
-    const remaining = [...deferred];
+    const remaining = [...deferred, ...later];
     let deadCount = 0;
 
-    for (const item of deduped) {
+    for (const item of batch) {
       try {
         let ok = false;
         if (item.op === 'upsert') ok = await _upsert(item.table, item.data);
@@ -1951,7 +1959,13 @@ window.addEventListener('offline', () => { window.DB_ONLINE = false; updateSyncI
 // Poussée régulière : c'est ce qui fait vivre les backoffs de la file.
 // Sans ce battement, un élément en attente n'était jamais réessayé tant que
 // l'appareil restait connecté — la file ne se vidait plus du tout.
-window._iv_sync_push = setInterval(() => window.autoSync(), 45000);
+window._iv_sync_push = setInterval(() => {
+  window.autoSync().then(function (done) {
+    // Un lot vient de passer et il en reste : enchaîner sans attendre 45 s,
+    // pour qu'un rattrapage important ne s'étale pas sur plusieurs minutes.
+    if (done > 0 && window.syncQueue.count() > 0) window.syncSoon(2000);
+  });
+}, 45000);
 
 // Cycle complet moins souvent : pousser puis tirer pour rester à jour.
 window._iv_sync_full = setInterval(() => window.autoSync({ pull: true }), 180000);
@@ -3635,15 +3649,22 @@ window.tryLogin = async () => {
       }
       // Connecter SchoolSafe à la base Supabase propre à cette école
       window._updateSupabase(data.supabase_url, data.supabase_key || data.supabase_anon_key);
-      // Vider la file d'attente AVANT de recharger. Sans cela, une écriture
-      // encore en attente est écrasée par l'instantané du serveur qui ne la
-      // contient pas — la donnée semble alors disparaître d'elle-même.
-      // DB_ONLINE est posé provisoirement pour débloquer flush() ; en cas
-      // d'échec réseau les éléments restent en file, rien n'est perdu, et
-      // loadFromSupabase() rétablit ensuite la vraie valeur.
       window.DB_ONLINE = true;
-      try { await window.syncQueue.flush(); } catch(_) {}
-      await loadFromSupabase();
+
+      // Une file d'attente non vide signifie que le serveur est en retard sur
+      // l'appareil : tirer son instantané effacerait les écritures en attente.
+      // On part donc du cache local, et la file s'écoule en arrière-plan — la
+      // vider ici ferait patienter l'utilisateur une requête par élément.
+      const _pend = window.syncQueue.count();
+      if (_pend > 0) {
+        await loadFromCrypt().catch(() => {});
+        // Le cache local peut être vide sur un appareil neuf : dans ce cas
+        // seul le serveur a des données, et il faut bien les charger.
+        if (!(DB.users || []).length) await loadFromSupabase();
+        window.syncSoon(800);
+      } else {
+        await loadFromSupabase();
+      }
       loginAs(data.user);
     } catch (e) {
       $('PM').textContent='Connexion impossible — réessayez'; setTimeout(()=>$('PM').textContent='',2500);
