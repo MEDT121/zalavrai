@@ -1549,11 +1549,16 @@ window.compressImage = (file, maxW, maxH, quality, cb, maxKo) => {
   img.onerror = () => { URL.revokeObjectURL(url); cb(null); };
   img.src = url;
 };
-// ── Central control (configure once per school fork) ──
-// Projet central PRODELI — licences (schools), site public, commandes cartes.
-// Clé publishable : publique par conception, aucun privilège. La table
-// `schools` n'est pas lisible avec cette clé (voir central_rls_hardening.sql)
-// — seule l'Edge Function login y accède, via la clé secrète côté serveur.
+// ── Vestige d'un projet central, désormais sans emploi ──
+// L'application a servi plusieurs écoles via un projet central qui portait
+// les licences, le site public et les commandes de cartes. Elle sert
+// aujourd'hui une seule école et parle directement à sa base.
+//
+// Ces deux constantes restent vides et non supprimées : trois écrans
+// secondaires — habillage, site vitrine, annonces — les testent en tête de
+// fonction et se taisent d'eux-mêmes. Les renseigner suffirait à tout
+// réactiver ; les laisser pointer vers un projet éteint ferait attendre
+// chaque appel jusqu'à son délai d'expiration.
 const CENTRAL_URL = '';
 const CENTRAL_KEY = '';
 const LICENSE_GRACE_DAYS = 3;
@@ -8065,9 +8070,6 @@ window._schoolUpload = async (blob, folder, name) => {
   }
 };
 
-// Un fichier, trois recours dans l'ordre : R2 mutualisé de PRODELI, puis le
-// stockage propre à l'école, puis rien — l'appelant garde alors sa copie
-// locale. Le premier qui répond gagne.
 // Une seule destination : le stockage du projet de l'école. L'appelant
 // retombe sur son mode local (base64 dans la ligne) si l'envoi échoue.
 window._uploadFile = async (blob, folder, name) =>
@@ -21735,8 +21737,6 @@ window._processAndUploadSitePhoto = function(file, name) {
         cnv.toBlob(async (blob) => {
           try {
             const fname = name+'_'+Date.now()+'.jpg';
-            // R2 d'abord (stockage centralisé PRODELI), sinon le bucket
-            // Supabase de l'école — les deux chemins restent valides.
             const _sk = _PHOTO_KIND.site;
             const url = await window._uploadFile(blob, _sk.folder, _sk.prefix + fname);
             if (!url) { reject(new Error('upload_failed')); return; }

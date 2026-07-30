@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SchoolSafe — Diagnostic connexion</title>
+<title>SchoolSafe — Diagnostic</title>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel-2:#1e222b;
@@ -49,37 +49,21 @@
 </head>
 <body>
 
-<h1>Diagnostic connexion SchoolSafe</h1>
-<p class="sub">Teste chaque couche indépendamment pour localiser où la connexion échoue.
-Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé ailleurs.</p>
-<p class="sub" style="margin-top:6px">Page <strong>v12</strong> · 8 tests
+<h1>Diagnostic SchoolSafe</h1>
+<p class="sub">Teste chaque couche séparément pour situer d'où vient une panne.
+La clé n'est utilisée que dans ce navigateur — rien n'est envoyé ailleurs.
+La sonde d'écriture supprime sa propre ligne.</p>
+<p class="sub" style="margin-top:6px">Page <strong>v13</strong> · 7 tests · école unique
 <span id="jsok" style="color:var(--bad)">— script non démarré</span></p>
 <div id="fatal" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
      background:rgba(248,113,113,.12);border:1px solid var(--bad);color:var(--bad);
      font:12px/1.5 var(--mono);white-space:pre-wrap"></div>
 
-<h2>Projet central</h2>
-<label for="cu">URL du central</label>
-<input id="cu" value="https://xryfvakkuffmckyybkeo.supabase.co">
-<label for="ck">Clé publishable du central <span style="font-weight:400">(sb_publishable_…)</span></label>
-<input id="ck" value="sb_publishable_q4Mwf0wNzlNo8Lw-1TJ8NA_HYeZ3fkI">
-
-<label for="fn">Nom de l'Edge Function</label>
-<input id="fn" value="dynamic-api">
-
-<h2>Admin PRODELI <span style="text-transform:none;letter-spacing:0;font-weight:400">— optionnel</span></h2>
-<label for="af">Slug de la fonction admin <span style="font-weight:400">(la colonne URL, pas le nom affiché)</span></label>
-<input id="af" value="clever-responder">
-<label for="at">Token admin <span style="font-weight:400">(laisse vide pour ignorer ce test)</span></label>
-<input id="at" placeholder="collé depuis les secrets de l'Edge Function" autocomplete="off">
-
-<h2>Identifiants de test</h2>
-<div class="row">
-  <div><label for="lk">Clé de licence</label><input id="lk" value="LS-SAGE-2025-WISE"></div>
-  <div><label for="nm">Nom</label><input id="nm" value="admin"></div>
-</div>
-<label for="pn">Code</label>
-<input id="pn" value="69210561190">
+<h2>Base de l'école</h2>
+<label for="su">URL du projet Supabase</label>
+<input id="su" value="https://loggezdryupyyuifzxky.supabase.co">
+<label for="sk">Clé publiable <span style="font-weight:400">(sb_publishable_… — jamais sb_secret_)</span></label>
+<input id="sk" placeholder="sb_publishable_…" autocomplete="off">
 
 <button id="run">Lancer le diagnostic</button>
 <div id="out"></div>
@@ -154,331 +138,199 @@ document.getElementById('run').onclick = async () => {
   const btn = document.getElementById('run');
   btn.disabled = true; btn.textContent = 'Diagnostic en cours…';
 
-  const CENTRAL = val('cu'), CKEY = val('ck');
-  const license = val('lk'), name = val('nm'), pin = val('pn');
-  const FN = val('fn') || 'login';
-  const FN_URL = `${CENTRAL}/functions/v1/${FN}`;
-  const H = { apikey: CKEY, Authorization: 'Bearer ' + CKEY };
+  const SUPA = val('su'), KEY = val('sk');
+  const H = { apikey: KEY, Authorization: 'Bearer ' + KEY };
 
-  // ── 0. Quelle version de la fonction est réellement en ligne ────────────
-  // Placé en premier : sans cette information, chaque échec plus bas se
-  // confond avec « le redéploiement n'a pas eu lieu ».
-  const t0 = card('0. Version déployée de la Passerelle École');
-  let fnVer = null;
+  if (!KEY) {
+    const t0 = card('Clé publiable');
+    t0('bad', 'absente', null,
+       'Colle la clé <code>sb_publishable_…</code> du projet dans le champ ci-dessus. ' +
+       'Elle se trouve dans <em>Project Settings → API Keys</em>.');
+    btn.disabled = false; btn.textContent = 'Relancer le diagnostic';
+    return;
+  }
+
+  // ── 1. La base répond et accepte la clé ─────────────────────────────────
+  const t1 = card('1. Base joignable — clé acceptée');
+  let baseOk = false;
   try {
-    const r = await fetchT(FN_URL, {
-      method: 'POST',
-      headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'version' }),
-    });
+    const r = await fetchT(`${SUPA}/rest/v1/settings?select=id&limit=1`, { headers: H });
     const txt = await r.text();
-    let d = null; try { d = JSON.parse(txt); } catch(_){}
-    if (d?.version) {
-      fnVer = d;
-      const r2 = d.r2 || {};
-      const manque = ['account','key_id','secret'].filter(k => !r2[k])
-        .concat(r2.bucket ? [] : ['bucket'])
-        .concat(r2.public_base ? [] : ['public_base']);
-      t0(r2.ready && r2.public_base ? 'ok' : 'warn',
-         d.version,
-         JSON.stringify(d, null, 2),
-         (r2.ready && r2.public_base) ? null
-           : `Secrets R2 incomplets : <code>${manque.join('</code>, <code>')}</code>.`);
-    } else if (/license_key requis/i.test(d?.error || '')) {
-      t0('bad', 'version ancienne', txt,
-        'Cette version ne connaît pas l\'action <code>version</code> — donc ni les commandes de cartes, ni R2. <strong>Le redéploiement n\'a pas été appliqué.</strong>');
-    } else {
-      t0('warn', 'réponse inattendue', txt);
-    }
+    if (r.ok) { baseOk = true; t1('ok', 'HTTP ' + r.status, txt.slice(0, 200)); }
+    else if (isLegacyDisabled(txt)) t1('bad', 'clé obsolète', txt, LEGACY_HINT);
+    else t1('bad', 'HTTP ' + r.status, txt,
+            r.status === 401 ? 'Clé refusée : vérifie qu\'elle vient bien de CE projet.'
+                             : 'Le projet répond mais rejette la requête.');
   } catch (e) {
-    t0('bad', e.timeout ? 'délai dépassé' : 'injoignable', String(e.message || e),
-      e.timeout
-        ? 'La fonction accepte la connexion mais ne répond jamais — signe qu\'elle plante au démarrage (import impossible, erreur de module). Ouvre ses <em>Logs</em> dans le dashboard : l\'erreur de démarrage y figure.'
-        : 'Aucune réponse à cette adresse : soit le slug est faux, soit la fonction n\'existe pas.');
+    t1('bad', e.timeout ? 'délai dépassé' : 'injoignable', String(e.message),
+       'Vérifie l\'URL du projet, et que le projet n\'est pas en pause dans le tableau de bord Supabase.');
   }
 
-  // ── 1. Le central répond et la clé publishable est acceptée ─────────────
-  const t1 = card('1. Central joignable — clé publishable valide');
-  let keyOk = false;
-  if (!CKEY) {
-    t1('bad', 'clé manquante', null, 'Renseigne la clé publishable du central ci-dessus.');
-  } else {
+  // ── 2. Les tables se lisent ─────────────────────────────────────────────
+  const t2 = card('2. Lecture des tables — comptes, élèves, réglages');
+  if (!baseOk) t2('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
+  else {
     try {
-      // school_sites est lisible publiquement : test parfait de validité de clé
-      const r = await fetchT(`${CENTRAL}/rest/v1/school_sites?select=license_key&limit=1`, { headers: H });
-      const txt = await r.text();
-      if (isLegacyDisabled(txt))      t1('bad', 'clé legacy', txt, LEGACY_HINT);
-      else if (r.status === 401)      t1('bad', '401', txt, 'Clé refusée — vérifie que tu as copié la clé <strong>publishable</strong> du BON projet.');
-      else if (r.status === 404)      t1('bad', '404', txt, 'La table <code>school_sites</code> n\'existe pas — relance le SQL de setup du central.');
-      else if (!r.ok)                 t1('bad', 'HTTP ' + r.status, txt);
-      else { keyOk = true;            t1('ok', 'OK', 'Clé acceptée, REST opérationnel.'); }
-    } catch (e) {
-      t1('bad', 'réseau', String(e), 'URL du central injoignable — vérifie l\'adresse.');
-    }
-  }
-
-  // ── 2. schools ne doit PAS être lisible côté client ──────────────────────
-  const t2 = card('2. Table schools protégée (sécurité)');
-  if (!keyOk) {
-    t2('warn', 'ignoré', null, 'Nécessite le test 1.');
-  } else {
-    try {
-      const r = await fetchT(`${CENTRAL}/rest/v1/schools?select=license_key,supabase_anon_key&limit=5`, { headers: H });
-      const txt = await r.text();
-      let rows = null; try { rows = JSON.parse(txt); } catch(_){}
-      if (Array.isArray(rows) && rows.length > 0) {
-        t2('bad', 'exposée', txt,
-          'N\'importe quel visiteur peut lire les credentials de toutes les écoles. Lance <code>central_rls_hardening.sql</code> sur le central pour fermer cet accès.');
-      } else {
-        t2('ok', 'protégée', 'Aucune ligne lisible avec la clé publishable — correct.');
+      const noms = ['users', 'students', 'classes', 'settings'];
+      const lignes = [];
+      let echec = 0;
+      for (const t of noms) {
+        const r = await fetchT(`${SUPA}/rest/v1/${t}?select=id`, {
+          headers: Object.assign({ Prefer: 'count=exact' }, H, { Range: '0-0' }),
+        });
+        const cr = r.headers.get('content-range') || '';
+        const n = cr.indexOf('/') >= 0 ? cr.split('/')[1] : '?';
+        if (!r.ok) echec++;
+        lignes.push(t.padEnd(10) + (r.ok ? n + ' ligne(s)' : 'HTTP ' + r.status));
       }
-    } catch (e) { t2('warn', 'non vérifiable', String(e)); }
+      if (echec) t2('bad', echec + ' table(s) en échec', lignes.join('\n'),
+                    'Une table refusée signale une policy SELECT manquante.');
+      else t2('ok', 'toutes lisibles', lignes.join('\n'));
+    } catch (e) { t2('bad', 'erreur', String(e.message)); }
   }
 
-  // ── 3. Edge Function login : le vrai chemin de connexion ────────────────
-  const t3 = card('3. Edge Function — ' + FN);
-  let fn = null;
-  try {
-    const r = await fetchT(FN_URL, {
-      method: 'POST',
-      headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ license_key: license, name, pin }),
-    });
-    const txt = await r.text();
-    let d = null; try { d = JSON.parse(txt); } catch(_){}
-    if (r.status === 404) {
-      t3('bad', '404', txt, `Aucune fonction nommée <code>${esc(FN)}</code> sur ce projet. Vérifie le nom exact dans <em>Edge Functions</em> et corrige le champ ci-dessus.`);
-    } else if (r.status === 401 && !d?.error) {
-      t3('bad', '401 passerelle', txt, 'Rejet avant la fonction : clé refusée ou <em>Verify JWT</em> actif. Désactive <em>Verify JWT</em> sur la fonction.');
-    } else if (d?.error && /CENTRAL_SECRET_KEY/.test(d.error)) {
-      t3('bad', 'secret manquant', txt, 'Ajoute le secret <code>CENTRAL_SECRET_KEY</code> = la clé <code>sb_secret_…</code> du central, dans les secrets de l\'Edge Function.');
-    } else if (!r.ok) {
-      t3('bad', 'HTTP ' + r.status, txt, 'Message renvoyé par la fonction ci-dessus — il indique la cause exacte.');
-    } else if (!d?.user || !d?.supabase_url) {
-      t3('bad', 'réponse incomplète', txt, 'La fonction répond mais sans <code>user</code>/<code>supabase_url</code> : le code déployé n\'est pas la dernière version.');
-    } else {
-      fn = d;
-      const sk0 = d.supabase_key || d.supabase_anon_key || '';
-      const shown = { ...d };
-      if (shown.supabase_key)      shown.supabase_key      = sk0.slice(0, 18) + '…';
-      if (shown.supabase_anon_key) shown.supabase_anon_key = sk0.slice(0, 18) + '…';
-      t3('ok', 'connexion OK', JSON.stringify(shown, null, 2));
-    }
-  } catch (e) {
-    // « Failed to fetch » est opaque : on relance en no-cors pour savoir si
-    // quelque chose répond à cette URL. Réponse opaque = la fonction existe
-    // mais ses en-têtes CORS n'atteignent pas le navigateur (preflight rejeté,
-    // typiquement Verify JWT actif). Échec total = rien ne répond.
-    let reachable = false;
+  // ── 3. Le schéma porte bien la migration ────────────────────────────────
+  // Les colonnes les plus tardives de la migration consolidée : elles sont
+  // ajoutées par une boucle unique, donc leur présence prouve l'ensemble.
+  const t3 = card('3. Schéma — la migration est-elle passée ?');
+  if (!baseOk) t3('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
+  else {
+    const temoins = [
+      ['students', 'created_at'], ['students', 'school_id'],
+      ['daily_records', 'ref'], ['cahier_prep', 'ct_id'],
+      ['rattrapages', 'paid_date'], ['scan_log', 'escort_kind'],
+      ['absences', 'validated_by'], ['messages', 'school_id'],
+      ['advances', 'school_id'],
+    ];
+    const manquantes = [];
     try {
-      const probe = await fetchT(FN_URL, { method: 'POST', mode: 'no-cors' });
-      reachable = probe.type === 'opaque';
-    } catch (_) {}
-    if (reachable) {
-      t3('bad', 'CORS bloqué', String(e),
-        'La fonction répond, mais le navigateur ne reçoit pas ses en-têtes CORS — le preflight <code>OPTIONS</code> est rejeté en amont. Ouvre la fonction <code>login</code> dans le dashboard et <strong>désactive « Verify JWT »</strong> (parfois nommé <em>Enforce JWT verification</em>), puis redéploie.');
-    } else {
-      t3('bad', 'injoignable', String(e),
-        `Rien ne répond à cette URL : la fonction n'est pas déployée, porte un autre nom que <code>${esc(FN)}</code>, ou plante au démarrage. Vérifie ses <em>Logs</em> dans le dashboard.`);
-    }
-  }
-
-  // ── 4. Base de l'école accessible avec la clé renvoyée ──────────────────
-  const t4 = card('4. Base de l\'école — table users');
-  if (!fn?.supabase_url || !(fn.supabase_key || fn.supabase_anon_key)) {
-    t4('warn', 'ignoré', null, 'Nécessite le test 3.');
-  } else {
-    try {
-      const sk = fn.supabase_key || fn.supabase_anon_key;
-      const r = await fetchT(`${fn.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
-        { headers: { apikey: sk, Authorization: 'Bearer ' + sk } });
-      const txt = await r.text();
-      if (isLegacyDisabled(txt)) {
-        t4('bad', 'clé legacy', txt,
-          'La clé stockée dans <code>schools.supabase_anon_key</code> est une ancienne clé désactivée. Remplace-la par la clé <code>sb_publishable_…</code> du projet de l\'école.');
-      } else if (!r.ok) {
-        t4('bad', 'HTTP ' + r.status, txt, 'Lecture refusée : table <code>users</code> absente ou policies RLS manquantes. Relance <code>supabase_setup.sql</code> sur la base de l\'école.');
-      } else {
-        const u = JSON.parse(txt);
-        t4(u.length ? 'ok' : 'warn', u.length ? u.length + ' compte(s)' : 'table vide',
-          JSON.stringify(u, null, 2),
-          u.length ? null : 'La table existe mais aucun compte : seul le code maître pourra ouvrir l\'app.');
-      }
-    } catch (e) { t4('bad', 'réseau', String(e)); }
-  }
-
-  // ── 5. Version de index.html réellement servie ──────────────────────────
-  const t5 = card('5. Version de index.html servie');
-  try {
-    const r = await fetchT('./index.html?_=' + Date.now(), { cache: 'no-store' });
-    const src = await r.text();
-    const ck = (src.match(/CENTRAL_KEY\s*=\s*'([^']*)'/) || [])[1] || '';
-    const fu = (src.match(/LOGIN_FN_URL\s*=\s*'([^']*)'/) || [])[1] || '(introuvable)';
-    const newFmt = ck.startsWith('sb_publishable_');
-    t5(newFmt ? 'ok' : 'warn', newFmt ? 'clés à jour' : 'clé legacy dans le code',
-      'LOGIN_FN_URL = ' + fu + '\nCENTRAL_KEY  = ' + (ck.slice(0, 22) || '(vide)') + '…',
-      newFmt ? null : 'Le code contient encore une clé JWT legacy. Envoie-moi la clé publishable pour que je mette à jour <code>index.html</code>.');
-  } catch (e) { t5('warn', 'non vérifiable', String(e)); }
-
-  // ── 5b. Écriture réelle dans la base de l'école ─────────────────────────
-  // Décisif : si l'insertion échoue, l'app met ses écritures en file d'attente
-  // et l'instantané serveur les écrase au rechargement — la donnée « se perd ».
-  const tW = card('5b. Écriture dans la base de l\'école');
-  if (!fn?.supabase_url) {
-    tW('warn', 'ignoré', null, 'Nécessite le test 3.');
-  } else {
-    const sk = fn.supabase_key || fn.supabase_anon_key;
-    // Sonde dans `notifs`, qui autorise la suppression — la ligne de test est
-    // retirée aussitôt. `audit_log` serait un mauvais choix : elle est
-    // volontairement inaltérable, donc chaque test y laisserait une trace
-    // définitive dans le journal réel de l'école.
-    const pid = 'diag_' + Math.floor(performance.now());
-    const probe = {
-      id: pid, uid: '__diagnostic__', msg: 'Sonde de diagnostic (supprimée aussitôt)',
-      type: 'info', date: new Date().toISOString().slice(0,10),
-      time: new Date().toTimeString().slice(0,5), read: true,
-    };
-    const hdr = { apikey: sk, Authorization: 'Bearer ' + sk, 'Content-Type': 'application/json' };
-    try {
-      const r = await fetchT(`${fn.supabase_url}/rest/v1/notifs`, {
-        method: 'POST', headers: hdr, body: JSON.stringify(probe),
-      });
-      const txt = await r.text();
-      if (r.ok) {
-        // Nettoyage immédiat : le test ne doit rien laisser derrière lui.
-        let cleaned = false;
-        try {
-          const del = await fetchT(`${fn.supabase_url}/rest/v1/notifs?id=eq.${pid}`,
-            { method: 'DELETE', headers: hdr }, 10000);
-          cleaned = del.ok;
-        } catch (_) {}
-        tW('ok', cleaned ? 'lecture et écriture OK' : 'écriture OK',
-           cleaned ? 'Ligne de test créée puis supprimée — aucune trace laissée.'
-                   : 'Écriture réussie, mais la suppression de la sonde a échoué : une ligne « __diagnostic__ » subsiste dans notifs.');
-      } else if (r.status === 401 || r.status === 403 || /row-level security/i.test(txt)) {
-        tW('bad', 'écriture refusée', txt,
-          'La base accepte la lecture mais refuse l\'écriture : les policies <code>INSERT</code> pour le rôle <code>anon</code> manquent. Relance <code>supabase_setup.sql</code> sur la base de l\'école.');
-      } else if (r.status === 404) {
-        tW('bad', 'table absente', txt, 'La table <code>notifs</code> n\'existe pas — le script des 41 tables n\'a pas été appliqué entièrement.');
-      } else {
-        tW('bad', 'HTTP ' + r.status, txt);
-      }
-    } catch (e) {
-      tW('bad', e.timeout ? 'délai dépassé' : 'réseau', String(e.message || e));
-    }
-  }
-
-  // ── 6. Stockage R2 de bout en bout ──────────────────────────────────────
-  const t6 = card('6. Stockage R2 (signature → envoi → lecture)');
-  try {
-    const r = await fetchT(FN_URL, {
-      method: 'POST',
-      headers: { ...H, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action:'storage_sign', license_key: license,
-                             folder:'cards', name:'_diagnostic.png', contentType:'image/png' }),
-    });
-    const txt = await r.text();
-    let d = null; try { d = JSON.parse(txt); } catch(_){}
-
-    if (r.status === 503 || /R2 non configuré/i.test(d?.error || '')) {
-      t6('warn', 'non configuré', txt,
-        'R2 n\'est pas encore branché : les cartes voyageront en base64 dans la commande. Ajoute les 5 secrets <code>R2_*</code> puis redéploie la fonction.');
-    } else if (/action inconnue|name et pin requis|pin requis/i.test(d?.error || '')) {
-      t6('bad', 'fonction ancienne', txt,
-        'La fonction déployée ne connaît pas l\'action <code>storage_sign</code> — redéploie-la avec la dernière version.');
-    } else if (!r.ok || !d?.upload_url) {
-      t6('bad', 'signature refusée', txt, d?.error ? '' : 'Réponse inattendue de la fonction.');
-    } else {
-      // 1×1 PNG transparent — charge utile minimale pour un aller-retour réel
-      const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
-      const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-      // L'envoi est isolé : un refus CORS lève une exception, à ne pas
-      // confondre avec un problème de signature côté fonction.
-      let up;
-      try {
-        up = await fetchT(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin }, 25000);
-      } catch (upErr) {
-        if (upErr.timeout) {
-          t6('bad', 'envoi sans réponse', 'Signature obtenue (clé : ' + d.key + ')\n' + String(upErr.message),
-             'R2 n\'a pas répondu dans le délai imparti.');
-          throw { handled: true };
+      for (const paire of temoins) {
+        const r = await fetchT(
+          `${SUPA}/rest/v1/${paire[0]}?select=${paire[1]}&limit=1`, { headers: H });
+        if (!r.ok) {
+          const txt = await r.text();
+          if (/does not exist|42703|42P01/i.test(txt)) manquantes.push(paire[0] + '.' + paire[1]);
         }
-        // « Failed to fetch » ne distingue pas un blocage CORS d'un refus de
-        // signature : R2 renvoie ses erreurs sans en-têtes CORS, donc le
-        // navigateur masque le code dans les deux cas.
-        //
-        // On retente en no-cors : la requête PART réellement, seule la réponse
-        // devient illisible. Si l'objet est ensuite accessible par son URL
-        // publique, la signature était bonne et seule la politique CORS
-        // manquait. Le Content-Type n'étant pas signé, l'envoi reste valide.
-        let landed = false;
-        try {
-          await fetch(d.upload_url, { method:'PUT', mode:'no-cors', body: bin });
-          await new Promise(function(res){ setTimeout(res, 1500); });
-          if (d.public_url) {
-            const chk = await fetchT(d.public_url + '?_=' + Math.floor(performance.now()), { cache:'no-store' }, 10000);
-            landed = chk.ok;
-          }
-        } catch (_) {}
-
-        if (landed) {
-          t6('warn', 'envoi effectif, réponse masquée',
-             'Signature valide et objet bien écrit :\n' + d.public_url,
-             'L\'envoi <strong>fonctionne</strong> — le navigateur ne peut simplement pas lire la réponse de R2. Vérifie que la politique CORS du bucket expose <code>ETag</code> et couvre exactement l\'origine <code>' + esc(location.origin) + '</code>. L\'application, elle, téléversera correctement.');
-        } else {
-          t6('bad', 'envoi refusé par R2',
-             'Signature obtenue (clé : ' + d.key + ')\nL\'objet n\'est pas arrivé dans le bucket.',
-             'Deux causes possibles, indiscernables depuis un navigateur : la politique CORS ne couvre pas l\'origine <code>' + esc(location.origin) + '</code>, ou le jeton R2 n\'a pas la permission <strong>Object Read &amp; Write</strong> sur <code>prodeli-media</code>. Vérifie les deux.');
-        }
-        throw { handled: true };
       }
-      if (!up.ok) {
-        t6('bad', 'envoi refusé — HTTP ' + up.status, (await up.text()).slice(0, 600),
-          'L\'URL est signée mais R2 refuse l\'écriture : vérifie que le jeton a la permission <strong>Object Read &amp; Write</strong> et que <code>R2_BUCKET</code> correspond au bucket réel.');
-      } else if (!d.public_url) {
-        t6('warn', 'envoyé, non lisible', 'Clé : ' + d.key,
-          'Le fichier est bien stocké mais aucun domaine public n\'est configuré. Renseigne <code>R2_PUBLIC_BASE</code> avec l\'URL <code>pub-….r2.dev</code> du bucket.');
-      } else {
-        const back = await fetchT(d.public_url + '?_=' + Math.floor(performance.now()), { cache:'no-store' });
-        t6(back.ok ? 'ok' : 'warn',
-           back.ok ? 'bout en bout OK' : 'lecture HTTP ' + back.status,
-           'Clé : ' + d.key + '\nURL publique : ' + d.public_url,
-           back.ok ? null : 'Le fichier est envoyé mais pas servi publiquement — active <em>Public Development URL</em> sur le bucket.');
-      }
-    }
-  } catch (e) {
-    if (e && e.handled) { /* verdict déjà rendu ci-dessus */ }
-    else t6('bad', e.timeout ? 'délai dépassé' : 'réseau', String(e.message || e),
-      e.timeout ? 'Aucune réponse dans le délai imparti — voir le test 0.' : 'Appel impossible — voir le test 0.');
+      if (manquantes.length) t3('bad', manquantes.length + ' colonne(s) absente(s)', manquantes.join('\n'),
+        'Lance <code>supabase_migration_finale.sql</code> dans l\'éditeur SQL du projet. ' +
+        'Tant qu\'une colonne manque, PostgREST rejette la ligne ENTIÈRE et les saisies se perdent en silence.');
+      else t3('ok', '9 témoins présents', temoins.map(p => p[0] + '.' + p[1]).join('\n'));
+    } catch (e) { t3('bad', 'erreur', String(e.message)); }
   }
 
-  // ── 7. Edge Function admin-api (si un token est fourni) ─────────────────
-  const ATOK = document.getElementById('at').value.trim();
-  if (ATOK) {
-    const AFN = val('af') || 'admin-api';
-    const t7 = card('7. Edge Function admin — ' + AFN);
-    const AURL = `${CENTRAL}/functions/v1/${AFN}`;
+  // ── 4. Écriture réelle, sans laisser de trace ───────────────────────────
+  // La sonde passe par `notifs` et supprime sa ligne. Elle n'écrit surtout
+  // pas dans `audit_log`, volontairement inaltérable : chaque exécution
+  // polluerait le journal réel de l'école.
+  const t4 = card('4. Écriture — une ligne créée puis retirée');
+  if (!baseOk) t4('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
+  else {
+    const sondeId = 'diag_' + Date.now();
     try {
-      const r = await fetchT(AURL, {
+      const w = await fetchT(`${SUPA}/rest/v1/notifs`, {
         method: 'POST',
-        headers: { ...H, 'Content-Type': 'application/json', 'x-admin-token': ATOK },
-        body: JSON.stringify({ action: 'stats' }),
+        headers: Object.assign({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }, H),
+        body: JSON.stringify({ id: sondeId, uid: 'diagnostic', msg: 'Sonde de diagnostic',
+                               date: new Date().toISOString().slice(0, 10), read: true }),
       });
-      const txt = await r.text();
-      let d = null; try { d = JSON.parse(txt); } catch(_){}
-      if (r.status === 404)                       t7('bad', '404', txt, `Aucune fonction à l'URL <code>${esc(AFN)}</code>. Dans Edge Functions, c'est la colonne <strong>URL</strong> qui compte, pas le nom affiché.`);
-      else if (d?.error === 'Unauthorized')       t7('bad', 'token refusé', txt, 'Le token ne correspond pas au secret <code>ADMIN_TOKEN</code> de la fonction.');
-      else if (/CENTRAL_SECRET_KEY/.test(d?.error || '')) t7('bad', 'secret manquant', txt, 'Ajoute <code>CENTRAL_SECRET_KEY</code> aux secrets du projet.');
-      else if (!r.ok)                             t7('bad', 'HTTP ' + r.status, txt);
-      else if (typeof d?.total !== 'number')      t7('warn', 'réponse inattendue', txt, 'La fonction répond mais pas au format attendu — le code déployé n\'est peut-être pas <code>admin-api</code>.');
-      else                                        t7('ok', d.total + ' école(s)', JSON.stringify(d, null, 2));
+      if (!w.ok) {
+        const txt = await w.text();
+        t4('bad', 'écriture refusée — HTTP ' + w.status, txt,
+           w.status === 401 || w.status === 403
+             ? 'Policy INSERT manquante sur <code>notifs</code>.'
+             : 'Une colonne inconnue fait rejeter toute la ligne — relance la migration.');
+      } else {
+        const del = await fetchT(`${SUPA}/rest/v1/notifs?id=eq.${sondeId}`, { method: 'DELETE', headers: H });
+        t4(del.ok ? 'ok' : 'warn',
+           del.ok ? 'écriture et suppression réussies' : 'écrite, non supprimée',
+           'Sonde : ' + sondeId,
+           del.ok ? null : 'La ligne de sonde est restée en base — supprime-la à la main.');
+      }
+    } catch (e) { t4('bad', 'erreur', String(e.message)); }
+  }
+
+  // ── 5. Droits que l'application exige vraiment ──────────────────────────
+  const t5 = card('5. Droits — enregistrer les réglages de l\'école');
+  if (!baseOk) t5('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
+  else {
+    try {
+      // L'application enregistre les réglages par upsert, qui est un INSERT
+      // avec résolution de conflit : sans policy INSERT, tout est rejeté.
+      const r = await fetchT(`${SUPA}/rest/v1/settings?on_conflict=id`, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json',
+                                 Prefer: 'resolution=merge-duplicates,return=minimal' }, H),
+        body: JSON.stringify({ id: 'main' }),
+      });
+      const txt = r.ok ? '' : await r.text();
+      if (r.ok) t5('ok', 'upsert accepté', 'Les réglages peuvent être enregistrés.');
+      else t5('bad', 'HTTP ' + r.status, txt,
+        'Il manque la policy INSERT sur <code>settings</code>. ' +
+        'Sans elle, aucun réglage de l\'école ne peut être enregistré — ' +
+        'relance <code>supabase_migration_finale.sql</code>.');
+    } catch (e) { t5('bad', 'erreur', String(e.message)); }
+  }
+
+  // ── 6. Stockage des photos ──────────────────────────────────────────────
+  // « Failed to fetch » ne prouve rien : un refus d'écriture et une absence
+  // d'en-têtes CORS donnent le même message. On tranche par une relecture
+  // publique de l'objet déposé.
+  const t6 = card('6. Stockage — photos déposées et relues');
+  if (!baseOk) t6('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
+  else {
+    const nom = 'diagnostic/sonde_' + Date.now() + '.txt';
+    try {
+      const w = await fetchT(`${SUPA}/storage/v1/object/photos/${nom}`, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'text/plain', 'x-upsert': 'true' }, H),
+        body: 'sonde',
+      });
+      if (!w.ok) {
+        const txt = await w.text();
+        t6('bad', 'dépôt refusé — HTTP ' + w.status, txt,
+           /not found|bucket/i.test(txt)
+             ? 'Le bucket <code>photos</code> n\'existe pas. Crée-le dans <em>Storage</em>, coché <strong>Public</strong>.'
+             : 'Le bucket existe mais refuse l\'écriture : vérifie ses policies.');
+      } else {
+        const pub = await fetchT(`${SUPA}/storage/v1/object/public/photos/${nom}`, {}, 8000);
+        const corps = pub.ok ? await pub.text() : '';
+        if (pub.ok && corps === 'sonde') {
+          t6('ok', 'dépôt et relecture publique', nom);
+        } else {
+          t6('warn', 'déposé, relecture publique impossible', 'HTTP ' + pub.status,
+             'Le bucket <code>photos</code> n\'est pas public : les photos se déposeraient ' +
+             'sans jamais s\'afficher. Passe-le en <strong>Public</strong> dans <em>Storage</em>.');
+        }
+        await fetchT(`${SUPA}/storage/v1/object/photos/${nom}`, { method: 'DELETE', headers: H })
+          .catch(function(){});
+      }
     } catch (e) {
-      let reachable = false;
-      try { reachable = (await fetchT(AURL, { method:'POST', mode:'no-cors' }, 8000)).type === 'opaque'; } catch(_) {}
-      t7('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
-        reachable ? `Soit le slug <code>${esc(AFN)}</code> est faux, soit <strong>Verify JWT</strong> est actif sur cette fonction.`
-                  : 'Fonction non déployée, mal nommée, ou elle plante au démarrage (voir ses <em>Logs</em>).');
+      t6('bad', e.timeout ? 'délai dépassé' : 'erreur', String(e.message),
+         'Sans stockage, les photos restent en base64 dans la base : ' +
+         'l\'application fonctionne, mais la base s\'alourdit vite.');
     }
+  }
+
+  // ── 7. Version de l'application réellement servie ───────────────────────
+  const t7 = card('7. Application — version servie par le serveur');
+  try {
+    const r = await fetchT('index.html?nocache=' + Date.now(), { cache: 'no-store' });
+    const src = await r.text();
+    const cle = (src.match(/SCHOOL_SUPA_KEY\s*=\s*'([^']*)'/) || [])[1];
+    const fn  = (src.match(/const LOGIN_FN_URL\s*=\s*'([^']*)'/) || [])[1];
+    const det = 'Taille          : ' + Math.round(src.length / 1024) + ' Ko\n' +
+                'Clé inscrite    : ' + (cle ? cle.slice(0, 22) + '…' : '(vide)') + '\n' +
+                'Passerelle      : ' + (fn ? fn : '(débranchée — attendu)');
+    if (fn) t7('warn', 'passerelle encore active', det,
+      'LOGIN_FN_URL devrait être vide : l\'école ne passe plus par un service central.');
+    else if (!cle) t7('warn', 'clé non inscrite', det,
+      'L\'application demandera la clé à chaque nouvel appareil. ' +
+      'Colle-la dans <code>SCHOOL_SUPA_KEY</code> pour que la connexion soit automatique.');
+    else t7('ok', 'à jour', det);
+  } catch (e) {
+    t7('warn', 'non vérifiable', String(e.message),
+       'Ouvre cette page depuis le même dossier que <code>index.html</code>.');
   }
 
   btn.disabled = false; btn.textContent = 'Relancer le diagnostic';

@@ -2,7 +2,7 @@
 
 **Fichier unique :** `index.html` (~10 600 lignes)  
 **École :** Complexe Scolaire Le Sage / The Wise School International (Kinshasa, DRC)  
-**Backend :** Supabase (URL + KEY ligne ~880)
+**Backend :** Supabase — projet unique de l'école (URL + clé publiable ~ligne 1586)
 
 ---
 
@@ -264,18 +264,73 @@ window.NAV = {
 
 ---
 
-## Multi-tenant central (PRODELI)
+## Architecture : une école, une base, rien d'autre
 
-- `SCHOOL_KEY` (index.html, ~ligne 1274) = `license_key` de l'école, lu depuis `?school=...` à l'arrivée puis mémorisé dans `localStorage._active_school_key` — permet à UNE app centrale de servir plusieurs écoles via le lien propre à chacune (pas de rebuild par école).
-- `LOGIN_FN_URL` (vide par défaut) : une fois renseigné avec l'URL de l'Edge Function `login` (`supabase/functions/login/index.ts`), `tryLogin()` bascule sur le flux JWT central. Tant qu'il est vide, login 100% local inchangé.
-- L'Edge Function résout `license_key → schools.id` côté serveur (jamais exposé au client), vérifie nom+PIN scopé à cette école, signe un JWT `{sub, role, school_id}` qui devient le Bearer token de toutes les requêtes PostgREST suivantes — voir RLS dans `supabase_multitenant_migration.sql`.
-- `assets/site-data.js` (`_ssPatchAppLinks`) réécrit automatiquement tous les liens "Espace App" (`href="index.html"`) du site public en `index.html?school=<SITE_LICENSE_KEY>` — c'est le lien du site qui porte le contexte école, pas une sélection manuelle.
-- Code maître universel `69210561190` (voir `tryLogin`) : ouvre le profil de n'importe quel nom existant (parent, direction, ...) ; si le nom ne correspond à personne, ouvre un compte direction générique. Implémenté côté client ET côté Edge Function (`MASTER_PIN`) — décision produit validée, ne pas l'affaiblir.
+L'application sert **une seule école** et parle **directement** à sa base
+Supabase. Il n'y a plus de service intermédiaire.
+
+```
+index.html  ──►  projet Supabase de l'école  (PostgREST + Storage)
+```
+
+- `SCHOOL_SUPA_URL` / `SCHOOL_SUPA_KEY` (~ligne 1586) : l'URL et la clé
+  **publiable** du projet. La clé `sb_secret_…` ne doit jamais y figurer —
+  la protection vient des policies, pas de la discrétion de la chaîne.
+- Clé absente → l'écran de configuration s'ouvre seul, la saisie est
+  mémorisée dans `localStorage`. La clé du code prime toujours sur la saisie
+  manuelle. Trois cas de démarrage vérifiés.
+- `LOGIN_FN_URL = ''` et `CENTRAL_URL`/`CENTRAL_KEY = ''` : vidées, pas
+  supprimées. Trois écrans secondaires — habillage du login, site vitrine,
+  annonces — les testent en tête de fonction et se taisent d'eux-mêmes.
+
+### Pourquoi le central a été abandonné
+
+L'empreinte du code de connexion était calculée par **deux programmes** —
+l'application et une Edge Function — qui devaient rester d'accord :
+
+```
+application     SHA-256(uid + '|SchoolSafe_v2|' + code)
+Edge Function   SHA-256(code)
+```
+
+L'un a évolué, l'autre non. **Tous les comptes se sont fermés**, sans autre
+message que « Nom ou code incorrect ». La vérification du code est désormais
+faite en un seul endroit ; cette classe de panne ne peut plus revenir.
+
+Les fichiers SQL du central sont dans `archive/central-supprime/`, avec la
+marche à suivre si le multi-école devait revenir.
+
+### Ce que l'école a perdu, sciemment
+
+Le multi-école · le verrou de licence à distance · la production physique
+des cartes par un tiers · le stockage R2 mutualisé.
+
+**Dette assumée** : en connexion directe, les policies laissent `anon` tout
+lire. Le contrôle du nom et du code ne tient que côté client. C'était l'état
+antérieur au multi-tenant, mais c'est une régression par rapport au JWT.
+
+### Cartes élèves : générées et imprimées sur place
+
+`submitCardOrder(sid)` — le nom est hérité — rend la carte, attend le QR,
+capture recto et verso par `html2canvas`, les assemble, puis :
+
+- `imprimerCarte()` — fenêtre d'impression, `@page size: 86mm 110mm`. Sans
+  cette règle le navigateur étire la carte sur une A4 entière.
+- `telechargerCarte()` — le PNG sur l'appareil.
+
+Chaque tirage écrit `card_printed`, `card_print_date`, `card_print_count` —
+premier tirage ou duplicata numéroté. Une copie part dans le bucket `cards`
+quand le stockage répond, pour rééditer depuis un autre poste.
 
 ### Installer l'app (PWA + limites)
 
-- Bouton "Installer l'application" sur l'écran de login (`#btnInstallApp`) : écoute `beforeinstallprompt`, fonctionne sur Android/Desktop Chrome/Edge. Reste caché sur iOS Safari (l'événement n'existe pas côté iOS) — seule voie là-bas : "Sur l'écran d'accueil" via le partage Safari natif, pas automatisable.
-- Pas d'outil de packaging natif (Capacitor/Bubblewrap/PWABuilder) dans ce repo : aucun `.apk`/`.exe` n'est généré automatiquement. Pour produire un fichier installable réel, processus manuel ponctuel : passer l'URL de l'app déployée dans [PWABuilder](https://www.pwabuilder.com/) (le manifest + service worker existants suffisent), télécharger le package signé, et le distribuer à l'école séparément — à documenter par école si PRODELI le demande.
+- Bouton « Installer l'application » sur l'écran de login (`#btnInstallApp`) :
+  écoute `beforeinstallprompt`, fonctionne sur Android/Desktop Chrome/Edge.
+  Reste caché sur iOS Safari (l'événement n'existe pas) — seule voie là-bas :
+  « Sur l'écran d'accueil » via le partage Safari, pas automatisable.
+- Pas d'outil de packaging natif dans ce dépôt. Pour un `.apk` réel :
+  passer l'URL déployée dans [PWABuilder](https://www.pwabuilder.com/), le
+  manifest et le service worker existants suffisent.
 
 ---
 
@@ -343,49 +398,31 @@ window.NAV = {
 
 ---
 
-## Infrastructure réelle (30/07/2026)
+## Infrastructure réelle
 
-Ne jamais désigner un projet par son identifiant Supabase dans une conversation :
-personne ne les distingue, et cela a coûté plusieurs allers-retours.
+| Nom | Identifiant | Contenu |
+|-----|-------------|---------|
+| **Le Sage** | `loggezdryupyyuifzxky` | Les 49 tables scolaires, le stockage des photos |
 
-| Nom à employer | Identifiant | Contenu |
-|----------------|-------------|---------|
-| **PRODELI Central** | `xryfvakkuffmckyybkeo` | `schools`, `card_orders`, `school_announcements`, `school_sites` + les Edge Functions |
-| **Le Sage** | `loggezdryupyyuifzxky` | Les 49 tables scolaires |
-| **Stockage PRODELI** | bucket R2 `prodeli-media` | Cloisonné par préfixe `<license_key>/` |
-
-### Edge Functions — le nom affiché n'est pas l'URL
-
-Supabase distingue le **nom** d'une fonction de son **slug**, qui seul figure
-dans l'URL. Dans la liste des Edge Functions, toujours lire la colonne URL.
-
-| Slug (ce qui compte) | Nom affiché | Rôle |
-|----------------------|-------------|------|
-| `dynamic-api` | dynamic-api | Login · commandes de cartes · signature R2 |
-| `clever-responder` | admin-api | API de la console PRODELI |
-
-Actions de `dynamic-api` : *(sans action)* login · `card_order` · `card_orders`
-· `storage_sign` · `version`. L'action `version` répond sans licence et
-rapporte l'état des secrets R2 — première chose à interroger avant de
-supposer qu'un redéploiement a eu lieu.
+C'est tout. Le projet central PRODELI et le bucket R2 ont été abandonnés —
+voir « Architecture » plus haut, et `archive/central-supprime/`.
 
 ### Clés API : les legacy sont désactivées
 
 Supabase a coupé les anciennes clés `anon`/`service_role` sur les projets
-récents. Utiliser `sb_publishable_…` côté client et `sb_secret_…` dans les
-secrets des fonctions. Le message `Legacy API keys are disabled` signale ce
-cas ; il n'a rien à voir avec une clé mal copiée.
+récents. Utiliser `sb_publishable_…` côté client. Le message
+`Legacy API keys are disabled` signale ce cas ; il n'a rien à voir avec une
+clé mal copiée.
 
-### Aucune dépendance externe dans une Edge Function
+### Stockage des photos
 
-Un import qui ne se résout pas dans le runtime Supabase fait **tomber la
-fonction entière au démarrage** — login compris. `aws4fetch` a ainsi tué
-`dynamic-api` pendant des heures, et le login continuait de répondre grâce à
-une instance restée chaude, ce qui a masqué la cause. La signature SigV4 de R2
-est écrite sur place, vérifiée contre le vecteur de test officiel AWS.
+Bucket `photos` du projet de l'école, **public en lecture**. `_uploadFile()`
+y dépose et renvoie l'URL publique ; en cas d'échec l'appelant garde sa copie
+en base64 — l'application continue de fonctionner, la base s'alourdit.
 
-Corollaire de diagnostic : une fonction qui **accepte la connexion sans jamais
-répondre** plante au démarrage. Une fonction qui répond une erreur est vivante.
+Seule la photo d'un **parent** circule (`_photoIsShared`) : le gardien doit
+pouvoir la confronter à qui se présente au portail. Les autres rôles gardent
+la leur sur l'appareil, dans `localStorage`.
 
 ---
 
@@ -471,9 +508,14 @@ une application en service — le risque dépasse le bénéfice.
 
 ## Diagnostic
 
-`diagnostic.html` — 8 tests indépendants, hors du cache du service worker.
+`diagnostic.html` — 7 tests indépendants, hors du cache du service worker.
 Un tampon de version figure sous le titre : sans lui, « rien ne se passe »
 reste indécidable.
+
+Ce qu'il vérifie : base joignable · lecture des tables · les neuf colonnes
+témoins de la migration · une écriture réelle · le droit d'enregistrer les
+réglages · le stockage des photos · la version de `index.html` réellement
+servie, avec l'état de la clé et de la passerelle.
 
 Leçons de conception, apprises en le cassant :
 
@@ -484,9 +526,9 @@ Leçons de conception, apprises en le cassant :
 - **Une sonde ne laisse aucune trace.** La première écrivait dans `audit_log`,
   table volontairement inaltérable — chaque exécution polluait le journal réel
   de l'école. Elle passe par `notifs` et supprime sa ligne.
-- **`Failed to fetch` ne prouve rien.** R2 renvoie ses erreurs sans en-têtes
-  CORS : une signature refusée et une politique CORS absente produisent le même
-  message. Une sonde `no-cors` suivie d'une relecture publique tranche.
+- **Un dépôt réussi ne prouve pas une lecture possible.** Un bucket privé
+  accepte l'écriture et refuse l'affichage : les photos partiraient sans
+  jamais apparaître. La sonde relit l'objet par son URL publique.
 
 ---
 
