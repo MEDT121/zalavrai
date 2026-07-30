@@ -19589,7 +19589,12 @@ window.confirmNewYear = () => {
     pushSync('cahier_prep','delete',{},'date_prevue=lte.'+_cut);
     pushSync('daily_records','delete',{},'date=lte.'+_cut);
     pushSync('daily_expenses','delete',{},'date=lte.'+_cut);
-    pushSync('daily_reports','delete',{},'date=lte.'+_cut);
+    // `daily_reports` est délibérément épargné. Le détail des recettes et des
+    // dépenses peut être purgé — il est dans l'instantané d'archive — mais le
+    // rapport de caisse consolidé et validé est la pièce justificative de
+    // l'année. La table en interdit d'ailleurs la suppression : le code la
+    // demandait quand même, et l'opération échouait en silence à chaque
+    // clôture. Environ deux cents lignes par an, sans poids notable.
     // Incrémenter année
     const parts=yr.split('-');
     const newYr=parts.length===2?`${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`:yr;

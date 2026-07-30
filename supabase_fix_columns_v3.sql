@@ -1,0 +1,109 @@
+-- ══════════════════════════════════════════════════════════════════
+--  SchoolSafe — Conformité du schéma, vague finale
+--  À lancer sur la base de l'ÉCOLE
+--
+--  Produite non plus par recherche de motifs dans le texte, mais par
+--  `node tools/audit-schema.mjs` : un analyseur qui lit l'arbre syntaxique du
+--  programme, suit les portées de variables, les spreads et les champs
+--  conditionnels. Les trois vagues précédentes venaient d'expressions
+--  régulières, aveugles à ces formes — d'où trois angles morts successifs,
+--  chacun révélé par un bug en service.
+--
+--  313 écritures analysées, 22 colonnes manquantes, 3 défauts de droits.
+--
+--  Sans dommage à relancer.
+-- ══════════════════════════════════════════════════════════════════
+
+-- ── CLASSES — apparence des cartes de classe ──────────────────────
+ALTER TABLE classes
+  ADD COLUMN IF NOT EXISTS option           TEXT,
+  ADD COLUMN IF NOT EXISTS card_color       TEXT,
+  ADD COLUMN IF NOT EXISTS card_color_soft  TEXT,
+  ADD COLUMN IF NOT EXISTS card_color_dark  TEXT;
+
+-- ── CAHIER DE TEXTE ───────────────────────────────────────────────
+ALTER TABLE cahier_texte
+  ADD COLUMN IF NOT EXISTS chapitre  TEXT,
+  ADD COLUMN IF NOT EXISTS devoirs   TEXT,
+  ADD COLUMN IF NOT EXISTS prochain  TEXT;
+
+-- ── SANCTIONS ─────────────────────────────────────────────────────
+-- La table déclare `description`, le code écrit `reason`. Les deux coexistent
+-- plutôt que d'imposer une reprise des lectures sur une application en service.
+ALTER TABLE sanctions
+  ADD COLUMN IF NOT EXISTS reason TEXT;
+
+UPDATE sanctions SET reason = COALESCE(reason, description) WHERE reason IS NULL;
+
+-- ── CAISSE ────────────────────────────────────────────────────────
+ALTER TABLE daily_records
+  ADD COLUMN IF NOT EXISTS mvt_type TEXT;
+
+ALTER TABLE daily_expenses
+  ADD COLUMN IF NOT EXISTS beneficiary     TEXT,
+  ADD COLUMN IF NOT EXISTS category_code   TEXT,
+  ADD COLUMN IF NOT EXISTS invoice_ref     TEXT,
+  ADD COLUMN IF NOT EXISTS payment_method  TEXT;
+
+-- ── SALAIRES — le bénéficiaire n'est pas toujours un enseignant ───
+ALTER TABLE salaries
+  ADD COLUMN IF NOT EXISTS person_name     TEXT,
+  ADD COLUMN IF NOT EXISTS person_role     TEXT,
+  ADD COLUMN IF NOT EXISTS payment_method  TEXT;
+
+-- ── MESSAGES ──────────────────────────────────────────────────────
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS to_class TEXT;
+
+-- ── NOTIFICATIONS — reçu joint ────────────────────────────────────
+-- Une notification de paiement transporte le détail du reçu, pour que le
+-- parent puisse le rouvrir sans dépendre d'une autre requête.
+ALTER TABLE notifs
+  ADD COLUMN IF NOT EXISTS receipt JSONB;
+
+-- ── ABSENCES D'ENSEIGNANTS ────────────────────────────────────────
+-- `duree` est saisie librement — « 1 jour », « 2 semaines » — donc du texte.
+ALTER TABLE teacher_absences
+  ADD COLUMN IF NOT EXISTS motif TEXT,
+  ADD COLUMN IF NOT EXISTS duree TEXT;
+
+-- ══════════════════════════════════════════════════════════════════
+--  DROITS D'ACCÈS
+-- ══════════════════════════════════════════════════════════════════
+
+-- `inscriptions` : le site public dépose une demande, l'application la valide
+-- ou la refuse — ce qui suppose de pouvoir modifier la ligne. Sans policy
+-- UPDATE, aucune demande d'inscription ne pouvait être traitée.
+DROP POLICY IF EXISTS "anon_update" ON inscriptions;
+CREATE POLICY "anon_update" ON inscriptions
+  FOR UPDATE TO anon USING (true) WITH CHECK (true);
+
+-- `daily_reports` : le code supprime un rapport de caisse non validé. La table
+-- l'interdit volontairement — un rapport financier ne s'efface pas. On garde
+-- l'interdiction : c'est le code qui devra annuler par écriture inverse.
+-- Aucune policy DELETE n'est donc ajoutée ici, sciemment.
+
+-- ── VÉRIFICATION ──────────────────────────────────────────────────
+SELECT
+  count(*) FILTER (WHERE table_name='classes'          AND column_name='card_color')     AS classes_ok,
+  count(*) FILTER (WHERE table_name='cahier_texte'     AND column_name='chapitre')       AS cahier_ok,
+  count(*) FILTER (WHERE table_name='sanctions'        AND column_name='reason')         AS sanctions_ok,
+  count(*) FILTER (WHERE table_name='daily_expenses'   AND column_name='beneficiary')    AS depenses_ok,
+  count(*) FILTER (WHERE table_name='salaries'         AND column_name='person_name')    AS salaires_ok,
+  count(*) FILTER (WHERE table_name='messages'         AND column_name='to_class')       AS messages_ok,
+  count(*) FILTER (WHERE table_name='notifs'           AND column_name='receipt')        AS notifs_ok,
+  count(*) FILTER (WHERE table_name='teacher_absences' AND column_name='duree')          AS absences_ok
+FROM information_schema.columns WHERE table_schema='public';
+
+SELECT policyname, cmd FROM pg_policies
+WHERE schemaname='public' AND tablename='inscriptions' ORDER BY cmd;
+
+-- ── SETTINGS — permission d'insertion ─────────────────────────────
+-- Le code enregistre les réglages par `upsert`, qui est un INSERT avec
+-- résolution de conflit. Sans policy INSERT, PostgREST le rejette même quand
+-- l'opération se résout en simple mise à jour : aucun réglage de l'école ne
+-- pouvait être enregistré. `id` étant clé primaire, aucun doublon n'est
+-- possible.
+DROP POLICY IF EXISTS "anon_insert" ON settings;
+CREATE POLICY "anon_insert" ON settings
+  FOR INSERT TO anon WITH CHECK (true);
