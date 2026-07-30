@@ -1779,7 +1779,7 @@ window.syncQueue = {
     queue.push({ table, op, data, ts: Date.now(), retries: 0, nextRetry: 0 });
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
     if (queue.length === 200 && typeof toast === 'function') {
-      toast('⚠️ 200 opérations en attente de sync — connectez-vous au réseau','warning');
+      console.warn('[SYNC] 200 opérations en attente — file saturée');
     }
     // Enregistrer un Background Sync pour que le SW flush même onglet fermé
     if ('serviceWorker' in navigator) {
@@ -1893,7 +1893,8 @@ window.syncQueue = {
         } else { deadCount++; this.park(item, e.message); }
       }
     }
-    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) mise(s) de côté — récupérables dans Paramètres`, 'warning');
+    // Rien à l'écran : la pastille d'état et la file d'attente en rendent compte.
+    if (deadCount > 0) console.warn('[SYNC]', deadCount, 'opération(s) mise(s) de côté');
     if (remaining.length === 0) this.clear();
     else localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
     return done;
@@ -1925,9 +1926,9 @@ window.autoSync = async (o = {}) => {
     const pending = syncQueue.count();
     let done = 0;
     if (pending > 0) {
-      if (announce) toast(`🔄 Synchronisation de ${pending} changement(s)…`, 'info');
+      if (announce) console.info('[SYNC] envoi de', pending, 'changement(s)');
       done = await syncQueue.flush();
-      if (done > 0 && announce) toast(`✅ ${done} changement(s) synchronisé(s)`, 'success');
+      if (done > 0 && announce) console.info('[SYNC]', done, 'changement(s) envoyé(s)');
     }
     // Un reste en file signifie un backoff en cours : on garde l'état local,
     // qui est alors plus à jour que le serveur.
@@ -2418,7 +2419,7 @@ window.loadFromSupabase = async () => {
   } catch(e) {
     console.warn('[SB] ❌', e.message);
     window.DB_ONLINE = false;
-    if (await loadFromCrypt()) { console.log('[CRYPT] 🟡 Mode hors ligne'); toast('🟡 Mode hors ligne','info'); }
+    if (await loadFromCrypt()) console.log('[CRYPT] mode hors ligne — la pastille d\'état l\'indique');
     return false;
   }
 };
@@ -2443,7 +2444,7 @@ window.pushSync = async (table, op, data, query) => {
     window._syncConflicts = window._syncConflicts||[];
     const _cfl={table, op, ts:new Date().toISOString(), id:typeof data==='object'&&data?data.id:null};
     window._syncConflicts.push(_cfl);
-    if(window._syncConflicts.length===1&&S.user?.role==='direction') toast('⚠️ Synchronisation différée — réessai automatique','warning');
+    // Un réessai automatique n'est pas un événement digne d'interrompre l'utilisateur.
     try{const _cflStr=JSON.stringify(window._syncConflicts.slice(-50));localStorage.setItem('_syncConflictLog',_cflStr);}catch(_){}
     // Réessai rapproché : n'attend pas le battement de 45 s.
     if (window.syncSoon) window.syncSoon(3000);
@@ -3225,7 +3226,7 @@ window.updateBadges = () => {
 // Heartbeat — auto-rerender si #PC devient vide (app freeze)
 if(!window._iv_heartbeat) window._iv_heartbeat = setInterval(() => {
   if (S.user && $('PC') && !$('PC').innerHTML.trim()) {
-    toast('App rechargée automatiquement', 'info');
+    console.info('[UI] page vide — nouveau rendu');
     try { render(); } catch(e) {}
   }
 }, 90000);
@@ -26314,7 +26315,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadFromSupabase()
       .then(ok=>{
         if(ind) ind.style.display='none';
-        if(!ok) { try { toast('🟡 Mode hors ligne','info'); } catch(e){} }
+        if(!ok) console.log('[SB] démarrage hors ligne');
       })
       .catch(()=>{ if(ind) ind.style.display='none'; });
   }
