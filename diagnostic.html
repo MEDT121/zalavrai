@@ -115,6 +115,41 @@ document.getElementById('run').onclick = async () => {
   const FN_URL = `${CENTRAL}/functions/v1/${FN}`;
   const H = { apikey: CKEY, Authorization: 'Bearer ' + CKEY };
 
+  // ── 0. Quelle version de la fonction est réellement en ligne ────────────
+  // Placé en premier : sans cette information, chaque échec plus bas se
+  // confond avec « le redéploiement n'a pas eu lieu ».
+  const t0 = card('0. Version déployée de la Passerelle École');
+  let fnVer = null;
+  try {
+    const r = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'version' }),
+    });
+    const txt = await r.text();
+    let d = null; try { d = JSON.parse(txt); } catch {}
+    if (d?.version) {
+      fnVer = d;
+      const r2 = d.r2 || {};
+      const manque = ['account','key_id','secret'].filter(k => !r2[k])
+        .concat(r2.bucket ? [] : ['bucket'])
+        .concat(r2.public_base ? [] : ['public_base']);
+      t0(r2.ready && r2.public_base ? 'ok' : 'warn',
+         d.version,
+         JSON.stringify(d, null, 2),
+         (r2.ready && r2.public_base) ? null
+           : `Secrets R2 incomplets : <code>${manque.join('</code>, <code>')}</code>.`);
+    } else if (/license_key requis/i.test(d?.error || '')) {
+      t0('bad', 'version ancienne', txt,
+        'Cette version ne connaît pas l\'action <code>version</code> — donc ni les commandes de cartes, ni R2. <strong>Le redéploiement n\'a pas été appliqué.</strong>');
+    } else {
+      t0('warn', 'réponse inattendue', txt);
+    }
+  } catch (e) {
+    t0('bad', 'injoignable', String(e),
+      'La fonction ne répond pas du tout à cette adresse : soit le slug est faux, soit elle plante au démarrage. Regarde ses <em>Logs</em> dans le dashboard.');
+  }
+
   // ── 1. Le central répond et la clé publishable est acceptée ─────────────
   const t1 = card('1. Central joignable — clé publishable valide');
   let keyOk = false;
