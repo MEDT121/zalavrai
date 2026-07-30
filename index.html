@@ -7980,12 +7980,25 @@ const _dataUrlToBlob = (d) => {
 
 // Renvoie une URL de stockage, ou la valeur d'origine si le transfert échoue.
 // Ne jamais renvoyer null : perdre une photo coûte plus cher qu'une base lourde.
-window._photoToStorage = async (value, folder, name) => {
+// Les dossiers acceptés par le stockage mutualisé sont limités (`photos`,
+// `cards`, `logos`, `documents`). Le genre de photo devient donc un préfixe de
+// nom de fichier plutôt qu'un dossier : les deux stockages l'acceptent, et
+// aucun envoi ne se fait refuser au premier essai.
+const _PHOTO_KIND = {
+  eleves:     { folder:'photos', prefix:'eleve_' },
+  comptes:    { folder:'photos', prefix:'compte_' },
+  autorisees: { folder:'photos', prefix:'autorisee_' },
+  site:       { folder:'photos', prefix:'site_' },
+  cards:      { folder:'cards',  prefix:'' },
+};
+
+window._photoToStorage = async (value, kind, name) => {
   if (!value || typeof value !== 'string' || value.indexOf('data:') !== 0) return value;
+  const k = _PHOTO_KIND[kind] || _PHOTO_KIND.eleves;
   try {
     const blob = _dataUrlToBlob(value);
     const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-    const url = await window._uploadFile(blob, folder, name + '.' + ext);
+    const url = await window._uploadFile(blob, k.folder, k.prefix + name + '.' + ext);
     return url || value;
   } catch (e) {
     console.warn('[photo]', e.message);
@@ -20817,7 +20830,8 @@ window._processAndUploadSitePhoto = function(file, name) {
             const fname = name+'_'+Date.now()+'.jpg';
             // R2 d'abord (stockage centralisé PRODELI), sinon le bucket
             // Supabase de l'école — les deux chemins restent valides.
-            const url = await window._uploadFile(blob, 'site', fname);
+            const _sk = _PHOTO_KIND.site;
+            const url = await window._uploadFile(blob, _sk.folder, _sk.prefix + fname);
             if (!url) { reject(new Error('upload_failed')); return; }
             resolve(url);
           } catch(e) { reject(e); }
