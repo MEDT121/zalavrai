@@ -52,6 +52,11 @@
 <h1>Diagnostic connexion SchoolSafe</h1>
 <p class="sub">Teste chaque couche indépendamment pour localiser où la connexion échoue.
 Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé ailleurs.</p>
+<p class="sub" style="margin-top:6px">Page <strong>v8</strong> · 8 tests
+<span id="jsok" style="color:var(--bad)">— script non démarré</span></p>
+<div id="fatal" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
+     background:rgba(248,113,113,.12);border:1px solid var(--bad);color:var(--bad);
+     font:12px/1.5 var(--mono);white-space:pre-wrap"></div>
 
 <h2>Projet central</h2>
 <label for="cu">URL du central</label>
@@ -80,6 +85,20 @@ Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé
 <div id="out"></div>
 
 <script>
+// Signale toute erreur, y compris celles qui empêcheraient le bouton de
+// fonctionner : « rien ne se passe » est le pire des messages d'erreur.
+window.onerror = function (msg, src, line, col) {
+  var f = document.getElementById('fatal');
+  if (f) { f.style.display = 'block';
+           f.textContent = 'Erreur script : ' + msg + '\n(ligne ' + line + ':' + col + ')'; }
+  return false;
+};
+window.addEventListener('unhandledrejection', function (e) {
+  var f = document.getElementById('fatal');
+  if (f) { f.style.display = 'block';
+           f.textContent = 'Requête échouée : ' + ((e.reason && e.reason.message) || e.reason); }
+});
+
 const out = document.getElementById('out');
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const val = id => document.getElementById(id).value.trim().replace(/\/+$/,'');
@@ -104,8 +123,12 @@ function card(name){
 const isLegacyDisabled = txt => /legacy api keys are disabled/i.test(txt || '');
 const LEGACY_HINT = 'Cette clé est une ancienne clé <code>anon</code>/<code>service_role</code>, désactivée sur ce projet. Récupère la clé <strong>publishable</strong> dans <em>Project Settings → API Keys</em> — elle commence par <code>sb_publishable_</code>.';
 
+(function(){ var j=document.getElementById('jsok');
+  if(j){ j.textContent='— script actif'; j.style.color='var(--ok)'; } })();
+
 document.getElementById('run').onclick = async () => {
   out.innerHTML = '';
+  document.getElementById('fatal').style.display = 'none';
   const btn = document.getElementById('run');
   btn.disabled = true; btn.textContent = 'Diagnostic en cours…';
 
@@ -127,7 +150,7 @@ document.getElementById('run').onclick = async () => {
       body: JSON.stringify({ action: 'version' }),
     });
     const txt = await r.text();
-    let d = null; try { d = JSON.parse(txt); } catch {}
+    let d = null; try { d = JSON.parse(txt); } catch(_){}
     if (d?.version) {
       fnVer = d;
       const r2 = d.r2 || {};
@@ -320,7 +343,7 @@ document.getElementById('run').onclick = async () => {
                              folder:'cards', name:'_diagnostic.png', contentType:'image/png' }),
     });
     const txt = await r.text();
-    let d = null; try { d = JSON.parse(txt); } catch {}
+    let d = null; try { d = JSON.parse(txt); } catch(_){}
 
     if (r.status === 503 || /R2 non configuré/i.test(d?.error || '')) {
       t6('warn', 'non configuré', txt,
