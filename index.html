@@ -1338,6 +1338,22 @@ window._serverNow = () => new Date(Date.now() + window._serverTimeOffset);
 window.today = () => { const d=window._serverNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 window.nowTime = () => { const d = window._serverNow(); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); };
 // Identifiant universel — UUID v4 si disponible, fallback timestamp+aléatoire
+// Une échéance s'écrit en ISO, comme toutes les autres dates de la base :
+// c'est le seul format dont la comparaison textuelle — celle que fait
+// PostgREST sur une colonne TEXT — donne le bon ordre.
+window._expireDans = (ms) => new Date(Date.now() + ms).toISOString();
+
+// Tolère les valeurs héritées enregistrées en millisecondes.
+window._msExpiration = (v) => {
+  if (v === null || v === undefined || v === '') return Infinity;
+  if (typeof v === 'number') return v;
+  const s = String(v);
+  if (/^\d{10,}$/.test(s)) return Number(s);
+  const t = Date.parse(s);
+  return isFinite(t) ? t : Infinity;
+};
+window._estExpire = (v) => window._msExpiration(v) <= Date.now();
+
 window._uid = (p='') => p+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
 // Hash du code maître (ne pas stocker le code en clair)
 const _MC='ef4868de35b6a0917791c25b37c3ec440ab46e2295187f5f7edebf88db711b85';
@@ -1587,7 +1603,7 @@ window.runAutoCleanup = async (force=false) => {
   const c_msg=cutoffFor(ret.messages||30);
   const c_msg_unread=cutoffFor(ret.messages_unread||60);
   const c_conv=cutoffFor(ret.convocations||90);
-  const now_iso=today();
+  const now_iso=new Date().toISOString();
   const _del = async (url) => { try { const r=await fetch(url,{method:'DELETE',headers:_H}); return r.ok; } catch(_){ return false; } };
   const tables=[
     {t:'scan_log',col:'date',cutoff:c_scan},
@@ -1610,7 +1626,7 @@ window.runAutoCleanup = async (force=false) => {
   if(_aproOk) DB.approbations=(DB.approbations||[]).filter(a=>a.status!=='done'||a.date>=c_appro);
   if(_msgOk) DB.messages=(DB.messages||[]).filter(m=>m.read?m.date>=c_msg:m.date>=c_msg_unread);
   if(_convOk) DB.convocations=(DB.convocations||[]).filter(cv=>cv.status!=='done'||cv.date>=c_conv);
-  if(_dvOk) DB.devoirs=(DB.devoirs||[]).filter(dv=>!dv.expires_at||dv.expires_at>=now_iso);
+  if(_dvOk) DB.devoirs=(DB.devoirs||[]).filter(dv=>!_estExpire(dv.expires_at));
   const removed=(prev.s-(DB.scan_log||[]).length)+(prev.a-(DB.audit_log||[]).length)+(prev.n-(DB.notifs||[]).length)+(prev.m-(DB.messages||[]).length)+(prev.cv-(DB.convocations||[]).length)+(prev.dv-(DB.devoirs||[]).length);
   saveToCrypt();
   if(force) toast('🧹 '+(removed||'Aucune')+' entrée'+(removed>1?'s':'')+' supprimée'+(removed>1?'s':''),'success');
@@ -2815,8 +2831,8 @@ function _cryptSnap() {
     scan_log:[...(DB.scan_log||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
     conduct:[...(DB.conduct||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500), grades:DB.grades, absences:[...(DB.absences||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,200),
     notifs:[...(DB.notifs||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100), events:DB.events, messages:[...(DB.messages||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100),
-    aps:apsNoPhoto, devoirs:(DB.devoirs||[]).filter(d=>!d.expires_at||d.expires_at>Date.now()), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
-    approbations:DB.approbations, teacher_notes:DB.teacher_notes.filter(n=>!n.expires_at||n.expires_at>Date.now()), settings:DB.settings,
+    aps:apsNoPhoto, devoirs:(DB.devoirs||[]).filter(d=>!_estExpire(d.expires_at)), cahier_texte:DB.cahier_texte, matieres:DB.matieres,
+    approbations:DB.approbations, teacher_notes:(DB.teacher_notes||[]).filter(n=>!_estExpire(n.expires_at)), settings:DB.settings,
     daily_records:[...(DB.daily_records||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500),
     daily_expenses:[...(DB.daily_expenses||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,500),
     daily_reports:[...(DB.daily_reports||[])].sort((a,b)=>(b.date||'')>(a.date||'')?1:-1).slice(0,100),
@@ -13478,7 +13494,7 @@ R.devoirs_parent = () => {
         </div>
       </div>`;
     const _now=Date.now();
-    const allDevoirs=(DB.devoirs||[]).filter(d=>d.cid===k.cid&&d.status==='published'&&(!d.expires_at||d.expires_at>_now)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const allDevoirs=(DB.devoirs||[]).filter(d=>d.cid===k.cid&&d.status==='published'&&!_estExpire(d.expires_at)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const devoirsList=allDevoirs.filter(d=>d.category==='devoir'||!d.category);
     const interroList=allDevoirs.filter(d=>d.category==='interro');
     const examenList=allDevoirs.filter(d=>d.category==='examen');
@@ -13843,8 +13859,9 @@ window.openPdfDevoir = (dvId) => {
 };
 
 window.saveDevoir = () => {
-  const mc=getMyClass(); if(!mc.cl) return;
-  const title=($('dvTitle')?.value||'').trim();
+  const mc=getMyClass();
+  if(!mc.cl){toast('Vous n\'êtes titulaire d\'aucune classe','error');return;}
+  const title=($('dvTitle')?.value||'').trim().slice(0,140);
   if(!title){toast('Titre obligatoire','error');return;}
   const category=window._devoirCategory||'devoir';
   const matiere=($('dvMatiere')?.value||'');
@@ -13866,10 +13883,10 @@ window.saveDevoir = () => {
     type='annonce'; content=chapters; description=chapters;
   }
   const devoir={
-    id:'dv'+Date.now(), cid:mc.cl.id, title, type, content, lang:mc.lang,
+    id:_uid('dv_'), cid:mc.cl.id, title, type, content, lang:mc.lang,
     matiere, description, chapters, duration, category, date:today(), deadline,
     teacher_id:S.user.id, status:'published',
-    expires_at: Date.now() + 90*24*60*60*1000
+    expires_at: _expireDans(90*24*60*60*1000)
   };
   (DB.devoirs=DB.devoirs||[]).unshift(devoir);
   // PDF content is base64 — too large for Supabase rows, push metadata only
@@ -13878,20 +13895,22 @@ window.saveDevoir = () => {
     : devoir;
   pushSync('devoirs','post',syncPayload);
   // Notification directe aux parents — gratuit, sans approbation
-  const kids=DB.students.filter(s=>s.cid===mc.cl.id);
+  const kids=(DB.students||[]).filter(s=>s.cid===mc.cl.id);
   kids.forEach(k=>{
     if(k.pid){
-      const dateStr=deadline?new Date(deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
+      const _d=deadline?new Date(deadline):null;
+      const dateStr=(_d&&!isNaN(_d))?_d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
       const chapterNote=chapters?` · Réviser: ${chapters.slice(0,60)}${chapters.length>60?'…':''}` :'';
-      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:k.pid,
+      const n={id:_uid('n_'),uid:k.pid,
         msg:`${cm.icon} ${cm.notif} — ${k.name} · ${matiere} · ${title}${dateStr?' le '+dateStr:''}${category!=='devoir'?chapterNote:''}`,
-        time:nowTime(),date:today(),read:false,type:'academic'};
-      DB.notifs.unshift(n); pushSync('notifs','post',n);
+        time:nowTime(),date:today(),read:false,type:'academic',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
     }
   });
   window._devoirPhoto=null; window._devoirPdf=null; window._devoirCategory='devoir';
   logAudit('devoir_add', `${mc.cl.name} · ${matiere} · "${title.slice(0,40)}"`, devoir.id);
   toast(`${cm.icon} ${cm.notif} publié — parents notifiés directement`,'success');
+  if(type==='pdf') toast('⚠️ Le PDF reste sur cet appareil — les parents verront le titre, pas le fichier','warning');
   saveToCrypt(); closeModal(); render();
 };
 
@@ -14423,21 +14442,21 @@ window.saveCahier = () => {
   const prochain=($('ctProchain')?.value||'').trim()||null;
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
-    id:'ct'+Date.now(), cid:mc.cl.id, matiere, content, lang:mc.lang,
+    id:_uid('ct_'), cid:mc.cl.id, matiere, content, lang:mc.lang,
     date, by:S.user.id, status:'published',
-    chapitre, devoirs, prochain
+    chapitre, devoirs, prochain, school_id:window._currentSchoolId||null
   };
   (DB.cahier_texte=DB.cahier_texte||[]).unshift(entry);
   pushSync('cahier_texte','post',entry);
   // Notifier les parents de la classe
-  const kids=DB.students.filter(s=>s.cid===mc.cl.id&&s.pid);
+  const kids=(DB.students||[]).filter(s=>s.cid===mc.cl.id&&s.pid);
   const pids=[...new Set(kids.map(k=>k.pid))];
   pids.forEach(pid=>{
     const hw=devoirs?` 📚 Devoirs: ${devoirs.slice(0,40)}${devoirs.length>40?'...':''}`:'';
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:pid,
+    const n={id:_uid('n_'),uid:pid,
       msg:`📖 Cahier de texte — ${mc.cl.name} · ${matiere}${chapitre?' ('+chapitre+')':''} : ${content.slice(0,50)}${content.length>50?'...':''}${hw}`,
-      time:nowTime(),date:today(),read:false,type:'academic'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'academic',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
   logAudit('cahier_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
   toast('Cahier publié — parents notifiés','success');
@@ -14537,21 +14556,23 @@ window.saveCahierPrep = () => {
   const content=($('cpContent')?.value||'').trim();
   if(!content){toast('Contenu obligatoire','error');return;}
   const entry={
-    id:'cp'+Date.now(), cid:mc.cl.id, matiere, content, lang:mc.lang,
-    date_prevue, by:S.user.id, status:'planifie', validated:false
+    id:_uid('cp_'), cid:mc.cl.id, matiere, content, lang:mc.lang,
+    date_prevue, by:S.user.id, status:'planifie', validated:false,
+    created_at:today(), school_id:window._currentSchoolId||null
   };
   DB.cahier_prep=DB.cahier_prep||[];
   DB.cahier_prep.unshift(entry);
   pushSync('cahier_prep','post',entry);
-  const apr={id:'apr'+Date.now(),type:'cahier_prep',status:'pending',
-    content:`Préparation: ${matiere} — ${new Date(date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})} pour ${mc.cl.name} — "${content.slice(0,60)}"`,
+  const _dp=new Date(date_prevue);
+  const _dpLib=isNaN(_dp)?date_prevue:_dp.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  const apr={id:_uid('apr_'),type:'cahier_prep',status:'pending',
+    content:`Préparation: ${matiere} — ${_dpLib} pour ${mc.cl.name} — "${content.slice(0,60)}"`,
     data:{prepId:entry.id,cid:mc.cl.id},date:today(),by:S.user.id};
-  DB.approbations=DB.approbations||[];
   (DB.approbations=DB.approbations||[]).push(apr);
   pushSync('approbations','post',apr);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:`📋 Préparation à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const n={id:_uid('n_'),uid:u.id,msg:`📋 Préparation à valider — ${matiere} (${mc.cl.name}) par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
   logAudit('cahier_prep_add', `${mc.cl.name} · ${matiere} · "${content.slice(0,40)}"`, entry.id);
   toast('Préparation enregistrée — en attente de validation','success');
@@ -14564,20 +14585,20 @@ window.markCahierPrepDone = (id) => {
   const mc=getMyClass(); if(!mc.cl||mc.cl.id!==prep.cid) return;
   prep.status='fait';
   const ctEntry={
-    id:'ct'+Date.now(), cid:prep.cid, matiere:prep.matiere, content:prep.content, lang:prep.lang,
-    date:today(), by:S.user.id, status:'published'
+    id:_uid('ct_'), cid:prep.cid, matiere:prep.matiere, content:prep.content, lang:prep.lang,
+    date:today(), by:S.user.id, status:'published', school_id:window._currentSchoolId||null
   };
   (DB.cahier_texte=DB.cahier_texte||[]).unshift(ctEntry);
   prep.ct_id=ctEntry.id;
-  pushSync('cahier_prep','patch',prep,'id=eq.'+prep.id);
+  pushSync('cahier_prep','patch',{status:'fait',ct_id:ctEntry.id,updated_at:today()},'id=eq.'+prep.id);
   pushSync('cahier_texte','post',ctEntry);
-  const kids=DB.students.filter(s=>s.cid===prep.cid&&s.pid);
+  const kids=(DB.students||[]).filter(s=>s.cid===prep.cid&&s.pid);
   const pids=[...new Set(kids.map(k=>k.pid))];
   pids.forEach(pid=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:pid,
+    const n={id:_uid('n_'),uid:pid,
       msg:`📖 Cahier de texte — ${mc.cl.name} · ${prep.matiere} : ${prep.content.slice(0,60)}${prep.content.length>60?'...':''}`,
-      time:nowTime(),date:today(),read:false,type:'academic'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'academic',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
   logAudit('cahier_prep_done', `${mc.cl.name} · ${prep.matiere}`, prep.id);
   toast('Leçon publiée dans le cahier de texte','success');
@@ -14702,7 +14723,7 @@ R.teacher_comm = () => {
 
   // Filter notes for this class
   const now=Date.now();
-  const notes=DB.teacher_notes.filter(n=>n.cid===cl.id&&(!n.expires_at||n.expires_at>now)).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  const notes=(DB.teacher_notes||[]).filter(n=>n.cid===cl.id&&!_estExpire(n.expires_at)).sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
 
   return `
   <div class="premium-section">
@@ -14734,7 +14755,7 @@ R.teacher_comm = () => {
       return `<div class="ww-item" style="animation-delay:${i*.04}s">
         <div style="width:36px;height:36px;border-radius:10px;background:${isMe?'#dbeafe':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${author?ini(author.name):'?'}</div>
         <div class="ww-item-content">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((n.expires_at-Date.now())/3600000))}${t('h restantes','h remaining')}`:''}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">${author?author.name:''} · ${n.date} ${n.time}${n.expires_at?` · ⏳ ${Math.max(0,Math.round((_msExpiration(n.expires_at)-Date.now())/3600000))}${t('h restantes','h remaining')}`:''}</div>
           <div style="font-size:14px;line-height:1.6">${esc(n.content)}</div>
           ${n.sid?`<div style="font-size:11px;color:var(--primary);margin-top:4px">👤 ${t('Concerne:','Re:')} ${DB.students.find(s=>s.id===n.sid)?.name||''}</div>`:''}
         </div>
@@ -14750,7 +14771,7 @@ window.sendTeacherNote = () => {
   const note={
     id:'tn'+Date.now(), cid:mc.cl.id, by:S.user.id,
     content:msg, date:today(), time:nowTime(), sid:null,
-    expires_at: Date.now() + 72*60*60*1000
+    expires_at: _expireDans(72*60*60*1000)
   };
   DB.teacher_notes.push(note);
   pushSync('teacher_notes','post',note);

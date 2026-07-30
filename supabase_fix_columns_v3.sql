@@ -25,7 +25,17 @@ ALTER TABLE classes
 ALTER TABLE cahier_texte
   ADD COLUMN IF NOT EXISTS chapitre  TEXT,
   ADD COLUMN IF NOT EXISTS devoirs   TEXT,
-  ADD COLUMN IF NOT EXISTS prochain  TEXT;
+  ADD COLUMN IF NOT EXISTS prochain  TEXT,
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
+
+-- ── CAHIER DE PRÉPARATION ─────────────────────────────────────────
+-- `ct_id` relie la préparation à la leçon publiée quand l'enseignant la
+-- marque « faite ». La colonne manquait, et comme la mise à jour renvoyait
+-- la ligne entière, PostgREST la rejetait en bloc : la préparation restait
+-- « planifiée » côté serveur quoi que fasse l'enseignant.
+ALTER TABLE cahier_prep
+  ADD COLUMN IF NOT EXISTS ct_id     TEXT,
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
 
 -- ── SANCTIONS ─────────────────────────────────────────────────────
 -- La table déclare `description`, le code écrit `reason`. Les deux coexistent
