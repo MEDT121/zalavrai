@@ -52,7 +52,7 @@
 <h1>Diagnostic connexion SchoolSafe</h1>
 <p class="sub">Teste chaque couche indépendamment pour localiser où la connexion échoue.
 Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé ailleurs.</p>
-<p class="sub" style="margin-top:6px">Page <strong>v9</strong> · 8 tests
+<p class="sub" style="margin-top:6px">Page <strong>v10</strong> · 8 tests
 <span id="jsok" style="color:var(--bad)">— script non démarré</span></p>
 <div id="fatal" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
      background:rgba(248,113,113,.12);border:1px solid var(--bad);color:var(--bad);
@@ -381,7 +381,19 @@ document.getElementById('run').onclick = async () => {
       // 1×1 PNG transparent — charge utile minimale pour un aller-retour réel
       const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
       const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-      const up = await fetchT(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin }, 25000);
+      // L'envoi est isolé : un refus CORS lève une exception, à ne pas
+      // confondre avec un problème de signature côté fonction.
+      let up;
+      try {
+        up = await fetchT(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin }, 25000);
+      } catch (upErr) {
+        t6('bad', upErr.timeout ? 'envoi sans réponse' : 'CORS du bucket',
+           'Signature obtenue (clé : ' + d.key + ')\nMais l\'envoi vers R2 a échoué :\n' + String(upErr.message || upErr),
+           upErr.timeout
+             ? 'R2 n\'a pas répondu dans le délai imparti.'
+             : 'La signature est valide — <strong>c\'est le bucket qui refuse le navigateur</strong>. R2 bloque par défaut toute écriture venant d\'une autre origine. Ajoute une politique CORS sur le bucket : Cloudflare → R2 → <code>prodeli-media</code> → <em>Settings</em> → <em>CORS Policy</em>.');
+        throw { handled: true };
+      }
       if (!up.ok) {
         t6('bad', 'envoi refusé — HTTP ' + up.status, (await up.text()).slice(0, 600),
           'L\'URL est signée mais R2 refuse l\'écriture : vérifie que le jeton a la permission <strong>Object Read &amp; Write</strong> et que <code>R2_BUCKET</code> correspond au bucket réel.');
@@ -397,7 +409,8 @@ document.getElementById('run').onclick = async () => {
       }
     }
   } catch (e) {
-    t6('bad', e.timeout ? 'délai dépassé' : 'réseau', String(e.message || e),
+    if (e && e.handled) { /* verdict déjà rendu ci-dessus */ }
+    else t6('bad', e.timeout ? 'délai dépassé' : 'réseau', String(e.message || e),
       e.timeout ? 'Aucune réponse dans le délai imparti — voir le test 0.' : 'Appel impossible — voir le test 0.');
   }
 
