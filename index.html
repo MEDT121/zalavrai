@@ -9051,9 +9051,29 @@ window.saveUser = async () => {
   const phoneRaw=($('usr_phone')?.value||'').trim();
   if(phoneRaw && !/^[+]?[0-9\s\-()+]{9,15}$/.test(phoneRaw)){markFieldError('usr_phone','Format invalide — ex: +243 8XX XXX XXX');return;}
   const phone=phoneRaw||null;
-  const _norm=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
-  if(!uid && (DB.users||[]).some(u=>u.role===role&&_norm(u.name)===_norm(name))){
-    markFieldError('usr_name',`Un compte ${ROLE_META[role]?.label||role} avec ce nom existe déjà — ajoutez un prénom ou une initiale`);return;
+  const _norm=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+  // La connexion identifie un compte par son nom OU ses initiales, sans tenir
+  // compte du rôle. Un homonyme, même dans un autre rôle, rend donc l'un des
+  // deux comptes inaccessible : la recherche s'arrête au premier trouvé, et le
+  // code du second ne correspondra jamais.
+  //
+  // Le contrôle ne valait qu'à la création et à l'intérieur d'un même rôle. Il
+  // vaut désormais aussi à la modification, et sur l'ensemble des comptes.
+  const _autres = (DB.users||[]).filter(u => u.id !== uid);
+
+  const _homonyme = _autres.find(u => _norm(u.name) === _norm(name));
+  if (_homonyme) {
+    markFieldError('usr_name',
+      `${_homonyme.name} (${ROLE_META[_homonyme.role]?.label||_homonyme.role}) porte déjà ce nom — l'un des deux ne pourrait plus se connecter`);
+    return;
+  }
+
+  const _memeInit = _autres.find(u => u.initials && _norm(u.initials) === _norm(initials));
+  if (_memeInit) {
+    markFieldError('usr_init',
+      `Initiales déjà utilisées par ${_memeInit.name} — la connexion par initiales deviendrait ambiguë`);
+    return;
   }
   // newId est désormais connu, y compris pour un compte tout neuf : la photo
   // peut être rangée du bon côté.
@@ -9073,6 +9093,7 @@ window.saveUser = async () => {
   if(uid){
     // Edit existing user
     Object.assign(existingUser, data);
+    let _deloges = [];
     if(role==='enseignant'){
       const langEn=document.querySelector('[name="usr_lang"]:checked')?.value==='en';
       const changedClasses=[];
@@ -9080,19 +9101,36 @@ window.saveUser = async () => {
         const c=(DB.classes||[]).find(x=>x.id===cb.dataset.cid); if(!c) return;
         let changed=false;
         if(cb.checked){
+          // Prendre un créneau déjà tenu en délogeait l'occupant sans que
+          // personne ne le sache : un enseignant se retrouvait retiré de sa
+          // classe, et ne le découvrait qu'en ne la voyant plus.
+          const _sortant = langEn ? c.teacher_id_en : c.teacher_id;
+          if (_sortant && _sortant !== uid) {
+            const _u = gu(_sortant);
+            _deloges.push(`${_u ? _u.name : 'un enseignant'} en ${c.name}`);
+          }
           if(langEn){if(c.teacher_id_en!==uid){if(c.teacher_id===uid){c.teacher_id=null;changed=true;}c.teacher_id_en=uid;changed=true;}}
           else{if(c.teacher_id!==uid){if(c.teacher_id_en===uid){c.teacher_id_en=null;changed=true;}c.teacher_id=uid;changed=true;}}
         } else {
           if(c.teacher_id===uid){c.teacher_id=null;changed=true;}
           if(c.teacher_id_en===uid){c.teacher_id_en=null;changed=true;}
         }
+        // Un titulaire qui n'enseigne plus dans sa classe laisse un en-tête
+        // de bulletin incohérent.
+        if(c.titulaire_id && c.titulaire_id!==c.teacher_id && c.titulaire_id!==c.teacher_id_en){
+          c.titulaire_id = c.teacher_id || c.teacher_id_en || null;
+          changed = true;
+        }
         if(changed) changedClasses.push(c);
       });
       changedClasses.forEach(c=>pushSync('classes','upsert',c));
     }
     pushSync('users','upsert',{id:uid,...data});
-    logAudit('user_edit', `${name} — ${role}`, uid);
+    logAudit('user_edit', `${name} — ${role}${_deloges.length?' · remplace '+_deloges.join(', '):''}`, uid);
     toast(`${name} mis à jour`,'success');
+    // Signalé après coup plutôt que bloquant : la direction sait ce qu'elle
+    // fait, mais elle doit savoir ce qu'elle vient de faire.
+    if(_deloges.length) setTimeout(()=>toast(`ℹ️ Remplace ${_deloges.join(', ')}`,'info'), 600);
   } else {
     // Create new user
     if(role==='enseignant'){
@@ -9140,10 +9178,23 @@ window.deleteUser = (uid) => {
     if(linked.length){const _sids=linked.map(s=>s.id).join(',');pushSync('students','patch',{pid:null},'id=in.('+_sids+')');}
     const _clsFr=DB.classes.filter(c=>c.teacher_id===uid);
     const _clsEn=DB.classes.filter(c=>c.teacher_id_en===uid);
+    // Le titulaire était oublié : la classe gardait une référence vers un
+    // compte disparu, et son en-tête affichait un titulaire introuvable.
+    const _clsTit=DB.classes.filter(c=>c.titulaire_id===uid);
     _clsFr.forEach(c=>{c.teacher_id=null;});
     _clsEn.forEach(c=>{c.teacher_id_en=null;});
+    _clsTit.forEach(c=>{c.titulaire_id=null;});
     if(_clsFr.length) pushSync('classes','patch',{teacher_id:null},'id=in.('+_clsFr.map(c=>c.id).join(',')+')');
     if(_clsEn.length) pushSync('classes','patch',{teacher_id_en:null},'id=in.('+_clsEn.map(c=>c.id).join(',')+')');
+    if(_clsTit.length) pushSync('classes','patch',{titulaire_id:null},'id=in.('+_clsTit.map(c=>c.id).join(',')+')');
+
+    // Notifications et abonnements aux alertes visent un destinataire qui
+    // n'existe plus : ils ne seront jamais lus et encombrent la base. Les
+    // salaires, primes et évaluations sont en revanche conservés — ce sont des
+    // pièces d'historique, pas des références vivantes.
+    DB.notifs=(DB.notifs||[]).filter(x=>x.uid!==uid);
+    pushSync('notifs','delete',{},'uid=eq.'+uid);
+    pushSync('push_subscriptions','delete',{},'uid=eq.'+uid);
 
     DB.users=DB.users.filter(x=>x.id!==uid);
     pushSync('users','delete',{},'id=eq.'+uid);

@@ -3,7 +3,7 @@
 //  Cache offline + Background Sync
 // ════════════════════════════════════════════════════════════════════════════
 
-const CACHE = 'schoolsafe-v47';
+const CACHE = 'schoolsafe-v48';
 
 // Ressources à mettre en cache au démarrage
 const PRECACHE = [
