@@ -2012,10 +2012,20 @@ window.autoSync = async (o = {}) => {
       done = await syncQueue.flush();
       if (done > 0 && announce) console.info('[SYNC]', done, 'changement(s) envoyé(s)');
     }
-    // Un reste en file signifie un backoff en cours : on garde l'état local,
-    // qui est alors plus à jour que le serveur.
-    if (pull && window.DB_ONLINE && syncQueue.count() === 0) {
-      if (await loadFromSupabase()) render();
+    // Tirer efface l'état local au profit de celui du serveur : on s'en abstient
+    // tant qu'une écriture attend, sinon elle disparaîtrait de l'écran.
+    //
+    // Sauf si tout ce qui reste est durablement coincé — deux échecs ou plus.
+    // Dans ce cas l'écriture ne partira pas de sitôt, et priver l'utilisateur de
+    // toute nouvelle en attendant serait pire : un parent qui attend une note ne
+    // doit pas rester aveugle parce qu'une notification lue refuse de partir.
+    // Rien n'est perdu pour autant, la file conserve l'écriture.
+    if (pull && window.DB_ONLINE) {
+      const q = syncQueue.load() || [];
+      const bloque = q.length > 0 && q.every(i => (i.retries || 0) >= 2);
+      if (!q.length || bloque) {
+        if (await loadFromSupabase()) render();
+      }
     }
     updateSyncIndicator();
     return done;
@@ -2050,13 +2060,49 @@ window._iv_sync_push = setInterval(() => {
   });
 }, 45000);
 
-// Cycle complet moins souvent : pousser puis tirer pour rester à jour.
-window._iv_sync_full = setInterval(() => window.autoSync({ pull: true }), 180000);
+// ── RÉCEPTION CONTINUE ───────────────────────────────────────────────────
+// Un parent ouvre l'application pour VOIR : une note publiée, une convocation,
+// un devoir. Il n'a pas à demander la mise à jour, ni à savoir qu'elle existe.
+//
+// La cadence s'adapte à ce que fait l'appareil plutôt que d'être fixe :
+// interroger le serveur toutes les minutes alors que le téléphone est en poche
+// ne sert à personne et vide la batterie ; attendre trois minutes alors que
+// quelqu'un regarde l'écran est trop long.
+const _PULL = {
+  actif:   60000,    // écran allumé, application au premier plan
+  repos:  180000,    // au premier plan mais sans interaction depuis 5 min
+  cache:       0,    // en arrière-plan : rien, la reprise se fait au retour
+};
+window._lastTouch = Date.now();
+['pointerdown','keydown','scroll'].forEach(ev =>
+  document.addEventListener(ev, () => { window._lastTouch = Date.now(); }, { passive: true }));
 
-// Retour sur l'application (onglet réactivé, téléphone déverrouillé) :
-// le moment le plus probable où des changements attendent de part et d'autre.
+let _pullTimer = null;
+function _scheduleNextPull() {
+  clearTimeout(_pullTimer);
+  let delay;
+  if (document.visibilityState !== 'visible') delay = _PULL.repos;   // simple veille du minuteur
+  else delay = (Date.now() - window._lastTouch < 300000) ? _PULL.actif : _PULL.repos;
+
+  _pullTimer = setTimeout(async () => {
+    // En arrière-plan on ne sollicite pas le réseau : le retour à l'écran
+    // déclenche une réception immédiate, ce qui est le moment qui compte.
+    if (document.visibilityState === 'visible') {
+      await window.autoSync({ pull: true });
+    }
+    _scheduleNextPull();
+  }, delay);
+}
+_scheduleNextPull();
+
+// Retour sur l'application : réception immédiate. C'est l'instant où
+// l'utilisateur regarde, donc celui où la fraîcheur compte le plus.
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') window.autoSync({ pull: true });
+  if (document.visibilityState === 'visible') {
+    window._lastTouch = Date.now();
+    window.autoSync({ pull: true });
+    _scheduleNextPull();
+  }
 });
 
 // Dernière chance avant fermeture : une tentative brève, sans bloquer la sortie.
