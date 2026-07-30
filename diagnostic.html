@@ -238,6 +238,43 @@ document.getElementById('run').onclick = async () => {
       newFmt ? null : 'Le code contient encore une clé JWT legacy. Envoie-moi la clé publishable pour que je mette à jour <code>index.html</code>.');
   } catch (e) { t5('warn', 'non vérifiable', String(e)); }
 
+  // ── 5b. Écriture réelle dans la base de l'école ─────────────────────────
+  // Décisif : si l'insertion échoue, l'app met ses écritures en file d'attente
+  // et l'instantané serveur les écrase au rechargement — la donnée « se perd ».
+  const tW = card('5b. Écriture dans la base de l\'école');
+  if (!fn?.supabase_url) {
+    tW('warn', 'ignoré', null, 'Nécessite le test 3.');
+  } else {
+    const sk = fn.supabase_key || fn.supabase_anon_key;
+    const probe = {
+      id: 'diag_' + Math.floor(performance.now()) + '_' + String(Math.trunc(performance.now()*1000)%100000),
+      action: 'diagnostic', detail: 'Test d\'écriture depuis la page de diagnostic',
+      by_name: 'Diagnostic', date: new Date().toISOString().slice(0,10),
+      time: new Date().toTimeString().slice(0,5),
+    };
+    try {
+      const r = await fetch(`${fn.supabase_url}/rest/v1/audit_log`, {
+        method: 'POST',
+        headers: { apikey: sk, Authorization: 'Bearer ' + sk,
+                   'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify(probe),
+      });
+      const txt = await r.text();
+      if (r.ok) {
+        tW('ok', 'écriture OK', 'Ligne créée dans audit_log :\n' + cut(txt, 400));
+      } else if (r.status === 401 || r.status === 403 || /row-level security/i.test(txt)) {
+        tW('bad', 'écriture refusée', txt,
+          'La base de l\'école accepte la lecture mais refuse l\'écriture : les policies <code>INSERT</code>/<code>UPDATE</code> pour le rôle <code>anon</code> manquent. <strong>C\'est la cause d\'une donnée qui disparaît après rechargement.</strong> Relance <code>supabase_setup.sql</code> sur la base de l\'école.');
+      } else if (r.status === 404) {
+        tW('bad', 'table absente', txt, 'La table <code>audit_log</code> n\'existe pas — le script des 41 tables n\'a pas été appliqué entièrement.');
+      } else {
+        tW('bad', 'HTTP ' + r.status, txt);
+      }
+    } catch (e) {
+      tW('bad', 'réseau', String(e));
+    }
+  }
+
   // ── 6. Stockage R2 de bout en bout ──────────────────────────────────────
   const t6 = card('6. Stockage R2 (signature → envoi → lecture)');
   try {

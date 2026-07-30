@@ -3468,6 +3468,14 @@ window.tryLogin = async () => {
       }
       // Connecter SchoolSafe à la base Supabase propre à cette école
       window._updateSupabase(data.supabase_url, data.supabase_key || data.supabase_anon_key);
+      // Vider la file d'attente AVANT de recharger. Sans cela, une écriture
+      // encore en attente est écrasée par l'instantané du serveur qui ne la
+      // contient pas — la donnée semble alors disparaître d'elle-même.
+      // DB_ONLINE est posé provisoirement pour débloquer flush() ; en cas
+      // d'échec réseau les éléments restent en file, rien n'est perdu, et
+      // loadFromSupabase() rétablit ensuite la vraie valeur.
+      window.DB_ONLINE = true;
+      try { await window.syncQueue.flush(); } catch(_) {}
       await loadFromSupabase();
       loginAs(data.user);
     } catch (e) {
