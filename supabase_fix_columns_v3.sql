@@ -50,7 +50,12 @@ ALTER TABLE rattrapages
 -- La table déclare `description`, le code écrit `reason`. Les deux coexistent
 -- plutôt que d'imposer une reprise des lectures sur une application en service.
 ALTER TABLE sanctions
-  ADD COLUMN IF NOT EXISTS reason TEXT;
+  ADD COLUMN IF NOT EXISTS reason    TEXT,
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
+
+-- ── CONVOCATIONS ──────────────────────────────────────────────────
+ALTER TABLE convocations
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
 
 UPDATE sanctions SET reason = COALESCE(reason, description) WHERE reason IS NULL;
 

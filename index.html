@@ -15019,6 +15019,23 @@ window._notifDirection = async (msg) => {
 // lectures interrogeaient donc un champ toujours vide.
 window._estBloque = (s) => !!(s && (s.access_blocked || s.blocked));
 
+// Sanction en cours qui interdit l'entrée, ou null.
+window._sanctionBloquante = (sid) => {
+  const j = today();
+  return (DB.sanctions||[]).find(sc => {
+    if (sc.sid !== sid || sc.lifted) return false;
+    if (sc.type === 'exclusion') return true;
+    if (sc.type !== 'renvoi') return false;
+    if (sc.return_date) return sc.return_date > j;
+    const d = Number(sc.duration_days) || 0;
+    if (!d || !sc.date) return false;
+    const fin = new Date(sc.date + 'T00:00:00Z');
+    if (isNaN(fin)) return false;
+    fin.setUTCDate(fin.getUTCDate() + d);
+    return fin.toISOString().slice(0,10) > j;
+  }) || null;
+};
+
 // ── SCANNER ENTRÉE ──
 R.scanner = () => `
 <div class="scan-container" style="position:relative">
@@ -15137,6 +15154,19 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
       saveToCrypt();
       return;
     }
+  }
+
+  // ── SANCTION DISCIPLINAIRE EN COURS ───────────────────────────────────────
+  const _sanc=_sanctionBloquante(student.id);
+  if(_sanc){
+    const _finSanc=_sanc.return_date||'';
+    const _libSanc=_sanc.type==='exclusion'?'Exclusion définitive':'Renvoi temporaire';
+    const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_sanction',label:`${_libSanc} ⚖️`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
+    (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
+    await window._notifDirection(`⚖️ ${student.name} (${cls?cls.name:''}) s'est présenté(e) au portail à ${time} alors qu'il/elle est sous ${_libSanc.toLowerCase()}.`);
+    if(student.pid) await pushNotif(student.pid,`⚖️ ${student.name} n'a pas pu entrer — ${_libSanc} en cours${_finSanc?` jusqu'au ${_finSanc}`:''}.`);
+    showScanResult('red','⚖','SANCTION EN COURS',student.name,_libSanc+(_finSanc?` — retour le ${_finSanc}`:''),time);
+    saveToCrypt(); return;
   }
 
   // Check per-student access block set by Direction
@@ -15506,8 +15536,8 @@ R.scan_log = () => {
   const ontime=entries.filter(l=>l.status==='ontime').length;
   const late=entries.filter(l=>l.status==='late').length;
   const refused=rawLogs.filter(_estIncident).length;
-  const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',refused_fees:'pill-red',refused_access:'pill-red',refused_fake_qr:'pill-red',authorized:'pill-green',unauthorized:'pill-red',excused:'pill-blue'};
-  const statusLib={ontime:'OK',late:'Retard',refused:'Refusé',refused_fees:'Impayé',refused_access:'Bloqué',refused_fake_qr:'QR faux',authorized:'Sorti',unauthorized:'Refusé'};
+  const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',refused_fees:'pill-red',refused_access:'pill-red',refused_fake_qr:'pill-red',refused_sanction:'pill-red',authorized:'pill-green',unauthorized:'pill-red',excused:'pill-blue'};
+  const statusLib={ontime:'OK',late:'Retard',refused:'Refusé',refused_fees:'Impayé',refused_access:'Bloqué',refused_fake_qr:'QR faux',refused_sanction:'Sanction',authorized:'Sorti',unauthorized:'Refusé'};
   const typeIcon={entry:'📥',exit:'🚪'};
   const incidents=rawLogs.filter(_estIncident);
   return _wrapDark(`
@@ -15973,36 +16003,44 @@ window.planifierConvocation = (cid) => {
 };
 
 window.confirmerRDV = (cid) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   const rdv_date=$('rdv_date')?.value; if(!rdv_date){toast('Choisissez une date','error');return;}
-  const note=$('rdv_note')?.value||'';
+  const _d=new Date(rdv_date+'T12:00:00');
+  if(isNaN(_d)){toast('Date invalide','error');return;}
+  // Convoquer un parent pour la semaine dernière n'a pas de sens, et le
+  // formulaire acceptait n'importe quelle date passée sans rien dire.
+  if(rdv_date<today()){toast('La date du rendez-vous est déjà passée','error');return;}
+  const note=($('rdv_note')?.value||'').slice(0,200);
   conv.status='scheduled'; conv.rdv_date=rdv_date; conv.note=note;
   pushSync('convocations','patch',{status:'scheduled',rdv_date,note},'id=eq.'+cid);
-  const s=DB.students.find(x=>x.id===conv.sid);
+  const s=(DB.students||[]).find(x=>x.id===conv.sid);
   // Notifier le parent
   if(s&&s.pid){
-    const dateStr=new Date(rdv_date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+    const dateStr=_d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+    const n={id:_uid('n_'),uid:s.pid,
       msg:`📅 Convocation — ${s.name} · RDV fixé le ${dateStr} à la Direction${note?' · '+note:''}`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   }
   toast(`✅ RDV fixé — parent notifié`,'success');
   closeModal(); saveToCrypt(); render();
 };
 
 window.cloturerConvocation = (cid, status) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  // Le statut arrivait tel quel depuis un attribut onclick, sans être
+  // confronté à la liste des valeurs que le reste de l'écran sait afficher.
+  if(!['completed','missed','done','cancelled'].includes(status)) return;
   const conv=(DB.convocations||[]).find(x=>x.id===cid); if(!conv) return;
   conv.status=status;
   pushSync('convocations','patch',{status},'id=eq.'+cid);
-  const s=DB.students.find(x=>x.id===conv.sid);
+  const s=(DB.students||[]).find(x=>x.id===conv.sid);
   if(status==='missed'&&s&&s.pid){
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+    const n={id:_uid('n_'),uid:s.pid,
       msg:`⚠️ Convocation manquée — ${s.name} · Veuillez recontacter la Direction pour fixer un nouveau RDV`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   }
   toast(status==='completed'?'Parent reçu — convocation clôturée':'❌ Absent — parent renotifié',
     status==='completed'?'success':'info');
@@ -19915,24 +19953,32 @@ window.showConvocationSeal = (name, reason) => {
   setTimeout(()=>{render();el.remove();},1950);
 };
 window.saveConvocation = () => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim();
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const sid=$('convSid')?.value; const reason=$('convReason')?.value; const note=($('convNote')?.value||'').trim().slice(0,500);
   const convoc_type=$('convType')?.value||'pedagogique';
   if(!sid){toast('Sélectionner un élève','error');return;}
-  const conv={id:'cv'+Date.now(),sid,reason,note,status:'pending',date:today(),by:S.user.id,convoc_type};
+  const s=(DB.students||[]).find(x=>x.id===sid);
+  if(!s){toast('Élève introuvable','error');return;}
+  // Une convocation déjà ouverte pour le même élève et le même motif n'a pas
+  // à être doublée : le parent recevait deux fois la même demande.
+  const _ouverte=(DB.convocations||[]).find(c=>c.sid===sid&&c.reason===reason&&(c.status==='pending'||c.status==='scheduled'));
+  if(_ouverte){toast(`Une convocation « ${reason} » est déjà en cours pour ${s.name}`,'info');return;}
+  const conv={id:_uid('cv_'),sid,reason,note,status:'pending',date:today(),by:S.user.id,convoc_type,
+    school_id:window._currentSchoolId||null};
   (DB.convocations=DB.convocations||[]).push(conv);
   pushSync('convocations','post',conv);
-  const s=DB.students.find(x=>x.id===sid);
-  if(s&&s.pid){
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:s.pid,
+  if(s.pid){
+    const n={id:_uid('n_'),uid:s.pid,
       msg:`📋 Convocation — ${s.name} · ${reason}. Veuillez vous présenter à la Direction pour fixer un rendez-vous.`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
+  } else {
+    toast('⚠️ Aucun parent lié — la convocation ne sera pas notifiée','warning');
   }
-  logAudit('convocation_create', `${DB.students.find(x=>x.id===sid)?.name||''} · ${reason}`, conv.id);
+  logAudit('convocation_create', `${s.name} · ${reason}`, conv.id);
   saveToCrypt();
   closeModal();
-  showConvocationSeal(DB.students.find(x=>x.id===sid)?.name||'', reason);
+  showConvocationSeal(s.name, reason);
 };
 
 window.deleteConvocation = (id) => {
@@ -22346,16 +22392,25 @@ window.saveSanction = () => {
   if(!sid){toast('Choisissez un élève','error');return;}
   if(!type){toast('Choisissez le type de sanction','error');return;}
   if(!reason){toast('Décrivez le motif','error');return;}
-  const id='sanc-'+Date.now();
-  const obj={id,sid,type,reason,date,by:S.user.id,parent_notified:false,lifted:false,
-    duration_days:type==='renvoi'?dur:null, return_date:type==='renvoi'?ret:null};
+  if(type==='renvoi'&&!dur&&!ret){toast('Indiquez la durée ou la date de retour','error');return;}
+  // Un renvoi sans date de retour ne finit jamais : la date se déduit de la
+  // durée quand elle n'est pas saisie.
+  let retFinal = type==='renvoi' ? ret : null;
+  if(type==='renvoi'&&!retFinal&&dur){
+    const f=new Date(date+'T00:00:00Z');
+    if(!isNaN(f)){ f.setUTCDate(f.getUTCDate()+dur); retFinal=f.toISOString().slice(0,10); }
+  }
+  const obj={id:_uid('sanc_'),sid,type,reason:reason.slice(0,600),date,by:S.user.id,parent_notified:false,lifted:false,
+    duration_days:type==='renvoi'?dur:null, return_date:retFinal,
+    school_id:window._currentSchoolId||null};
   (DB.sanctions=DB.sanctions||[]).push(obj);
   pushSync('sanctions','post',obj);
   // Notification au parent
-  const s=DB.students.find(x=>x.id===sid);
-  if(s?.pid) pushNotif(s.pid,`⚖️ Sanction disciplinaire pour ${s.name} : ${type.replace('_',' ')} — ${reason.slice(0,60)}`);
+  const s=(DB.students||[]).find(x=>x.id===sid);
+  if(s?.pid) pushNotif(s.pid,`⚖️ Sanction disciplinaire pour ${s.name} : ${type.replace('_',' ')} — ${reason.slice(0,60)}${retFinal?` · retour le ${retFinal}`:''}`);
+  logAudit('sanction_add',`${s?s.name:''} · ${type}${retFinal?' → '+retFinal:''} · "${reason.slice(0,40)}"`,obj.id);
   saveToCrypt();closeModal();render();
-  toast('Sanction enregistrée','success');
+  toast(retFinal?`Sanction enregistrée — retour le ${retFinal}`:'Sanction enregistrée','success');
 };
 
 window.markSanctionParentNotified = (id) => {
@@ -22402,12 +22457,13 @@ window.printSanctionLetter = (id) => {
   const cl=gc(s.cid);
   const par=s.pid?gu(s.pid):null;
   const byU=gu(sanc.by);
-  const sc=DB.settings.school||{};
+  const sc=DB.settings?.school||{};
   const school=sc.name||'SchoolSafe';
-  const yr=DB.settings.year||'2025-2026';
+  const yr=DB.settings?.year||'2025-2026';
   const typeLabels={avertissement_oral:'AVERTISSEMENT ORAL',avertissement_ecrit:'AVERTISSEMENT ÉCRIT',blame:'BLÂME',renvoi:'RENVOI TEMPORAIRE',exclusion:'EXCLUSION DÉFINITIVE'};
-  const typeLabel=typeLabels[sanc.type]||sanc.type.toUpperCase();
-  const d=new Date(sanc.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const typeLabel=typeLabels[sanc.type]||String(sanc.type||'SANCTION').toUpperCase();
+  const _dObj=new Date((sanc.date||today())+'T12:00:00');
+  const d=isNaN(_dObj)?(sanc.date||''):_dObj.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const _sanctionHtmlStart=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Sanction — ${esc(s.name)}</title>
   <style>
     body{font-family:'Times New Roman',serif;margin:0;padding:40px;color:#111;max-width:700px;margin:0 auto}
