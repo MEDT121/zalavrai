@@ -2748,8 +2748,16 @@ async function _encryptMsgField(str) {
     const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(str));
     const buf = new Uint8Array(12 + ct.byteLength);
     buf.set(iv); buf.set(new Uint8Array(ct), 12);
-    return 'enc:' + btoa(String.fromCharCode(...buf));
-  } catch(e) { return str; }
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 8192) {
+      bin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+    }
+    return 'enc:' + btoa(bin);
+  } catch(e) {
+    // Ne jamais rendre le texte en clair en croyant l'avoir chiffré.
+    console.warn('[messages] chiffrement impossible:', e.message);
+    throw e;
+  }
 }
 async function _decryptMsgField(str) {
   if (!str || !str.startsWith('enc:')) return str;
@@ -18795,20 +18803,34 @@ R.caisse_rapport = () => {
 
 // ── DIRECTION: autres pages ──
 // ── ÉTAPE 6 — MESSAGES INTERNES ──
+// Un message m'est-il destiné ? Trois écritures coexistent — `to_class_cid`,
+// `to = "class:<cid>"` et `to = "role:<rôle>"` — parce que deux générations de
+// code se croisent. Une seule lecture les couvre toutes.
+window._msgPourMoi = (m, uid, role, kidCids) => {
+  if (!m) return false;
+  const to = String(m.to||'');
+  if (to === uid) return true;
+  if (m.to_role && m.to_role === role) return true;
+  if (to.indexOf('role:') === 0 && to.slice(5) === role) return true;
+  const cids = kidCids || [];
+  if (role === 'parent') {
+    const cl = m.to_class_cid || m.to_class || (to.indexOf('class:') === 0 ? to.slice(6) : null);
+    if (cl && cids.indexOf(cl) >= 0) return true;
+  }
+  return false;
+};
+
 R.messages = () => {
   const role=S.user.role, uid=S.user.id;
   const isDir=role==='direction'||role==='direction2';
   const myKidCids=role==='parent'?DB.students.filter(s=>s.pid===uid).map(s=>s.cid):[];
-  const received=DB.messages.filter(m=>m.status==='sent'&&(
-    m.to===uid||
-    (m.to_role&&m.to_role===role)||
-    (role==='parent'&&m.to&&m.to.startsWith('class:')&&myKidCids.includes(m.to.slice(6)))
-  )).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
-  const sent=DB.messages.filter(m=>m.from===uid)
+  const received=(DB.messages||[]).filter(m=>m.status==='sent'&&_msgPourMoi(m,uid,role,myKidCids))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
-  const fromParents=isDir?DB.messages.filter(m=>m.from_role==='parent'&&m.status==='sent')
+  const sent=(DB.messages||[]).filter(m=>m.from===uid)
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||''));
+  const fromParents=isDir?(DB.messages||[]).filter(m=>m.from_role==='parent'&&m.status==='sent')
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')):[];
-  const pending=isDir?DB.messages.filter(m=>m.status==='pending'):[];
+  const pending=isDir?(DB.messages||[]).filter(m=>m.status==='pending'):[];
   const tab=window._msgTab||(isDir?'parents':'inbox');
   const unreadRec=received.filter(m=>!m.read).length;
   const unreadPar=fromParents.filter(m=>!m.read).length;
@@ -18818,8 +18840,9 @@ R.messages = () => {
 
   const card=(m,showReply=false)=>{
     const from=gu(m.from), toU=m.to?gu(m.to):null;
-    const isNew=!m.read&&(m.to===uid||(m.to_role&&m.to_role===role));
-    const destLabel=toU?toU.name:m.to_role==='parent'?'Tous les parents':m.to_role==='enseignant'?'Tous les enseignants':m.to_role||'?';
+    const isNew=!m.read&&_msgPourMoi(m,uid,role,myKidCids);
+    const _clDest=gc(m.to_class_cid||m.to_class||(String(m.to||'').indexOf('class:')===0?String(m.to).slice(6):''));
+    const destLabel=toU?toU.name:_clDest?('Parents — '+_clDest.name):m.to_role==='parent'?'Tous les parents':m.to_role==='enseignant'?'Tous les enseignants':m.to_role||'?';
     return `<div style="background:${isNew?'#eaf3fc':'var(--bg)'};border:1px solid ${isNew?'#bfdbfe':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
         <div style="width:38px;height:38px;border-radius:10px;background:${isNew?'#dbeafe':'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${TI[m.msg_type]||'✉️'}</div>
@@ -19068,51 +19091,60 @@ window.sendMsg = async (mode) => {
     const mc=getMyClass();
     if(!mc.cl){toast('Aucune classe assignée','error');return;}
     toClassCid=mc.cl.id; needsApproval=true;
-    const pids=[...new Set(DB.students.filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
-    targets=DB.users.filter(u=>pids.includes(u.id));
+    const pids=[...new Set((DB.students||[]).filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
+    targets=(DB.users||[]).filter(u=>pids.includes(u.id));
   } else if(mode==='dir_send'){
     const toVal=($('msg_to')?.value||'').trim();
     if(!toVal){toast('Sélectionnez un destinataire','error');return;}
     if(toVal.startsWith('role:')){
       if(!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-      toRole=toVal.replace('role:','');targets=DB.users.filter(u=>u.role===toRole);
+      toRole=toVal.replace('role:','');targets=(DB.users||[]).filter(u=>u.role===toRole);
     }
-    else {toId=toVal.replace('uid:','');targets=[DB.users.find(u=>u.id===toId)].filter(Boolean);}
-    // Enseignant ne peut pas contacter un parent directement sans validation Direction
+    else {toId=toVal.replace('uid:','');targets=[(DB.users||[]).find(u=>u.id===toId)].filter(Boolean);}
+    // Enseignant ne peut pas contacter un parent directement sans validation
+    // Direction. Le destinataire est CONSERVÉ : un message en attente est déjà
+    // exclu des boîtes de réception, qui ne retiennent que les envoyés.
     if(S.user.role==='enseignant'){
       const hasParent=targets.some(u=>u&&u.role==='parent');
-      if(hasParent){needsApproval=true;toId=null;toRole=null;toClassCid=null;}
+      if(hasParent) needsApproval=true;
     }
   }
 
-  const msg={id:'msg'+Date.now(),from:S.user.id,from_role:S.user.role,to:toId,to_role:toRole,
+  const msg={id:_uid('msg_'),from:S.user.id,from_role:S.user.role,to:toId,to_role:toRole,
     to_class_cid:toClassCid||null,subject,body,msg_type:msgType,
-    date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false};
-  DB.messages.push(msg);
-  // Chiffre subject+body avant envoi Supabase — plaintext reste en mémoire locale
-  const encS=await _encryptMsgField(subject), encB=await _encryptMsgField(body);
+    date:today(),time:nowTime(),status:needsApproval?'pending':'sent',read:false,
+    school_id:window._currentSchoolId||null};
+  (DB.messages=DB.messages||[]).push(msg);
+  // Chiffre subject+body avant envoi Supabase — le clair reste en mémoire locale
+  let encS, encB;
+  try { encS=await _encryptMsgField(subject); encB=await _encryptMsgField(body); }
+  catch(e){
+    DB.messages=DB.messages.filter(x=>x.id!==msg.id);
+    toast('Message non envoyé — le chiffrement a échoué','error');
+    return;
+  }
   pushSync('messages','post',{...msg,subject:encS,body:encB});
 
   if(needsApproval){
-    DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+    (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+      const n={id:_uid('n_'),uid:u.id,
         msg:`⏳ Message enseignant à approuver — ${S.user.name} : "${subject}"`,
-        time:nowTime(),date:today(),read:false,type:'approval'};
-      DB.notifs.unshift(n);pushSync('notifs','post',n);
+        time:nowTime(),date:today(),read:false,type:'approval',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
     });
     toast('Message soumis à la Direction','info');
   } else {
     targets.filter(Boolean).forEach(u=>{
-      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-        msg:`✉️ ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(n);pushSync('notifs','post',n);
+      const n={id:_uid('n_'),uid:u.id,
+        msg:`✉️ ${S.user.name} : "${subject}"`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
     });
     if(mode==='parent_to_dir'||(mode==='parent_direct'&&toRole==='direction')){
-      DB.users.filter(u=>u.role==='direction').forEach(u=>{
-        const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+      (DB.users||[]).filter(u=>u.role==='direction').forEach(u=>{
+        const n={id:_uid('n_'),uid:u.id,
           msg:`📨 MESSAGE PARENT — ${S.user.name} : "${subject}"`,
-          time:nowTime(),date:today(),read:false,type:'alert'};
-        DB.notifs.unshift(n);pushSync('notifs','post',n);
+          time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+        (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
       });
     }
     toast('Message envoyé','success');
@@ -19121,7 +19153,7 @@ window.sendMsg = async (mode) => {
 };
 
 window.replyToParent = (mid) => {
-  const m=DB.messages.find(x=>x.id===mid);if(!m)return;
+  const m=(DB.messages||[]).find(x=>x.id===mid);if(!m||!m.body)return;
   const parent=gu(m.from);if(!parent)return;
   openM(`↩️ Répondre à ${parent.name}`,`
   <div style="background:#f8faff;border-left:3px solid #243a6b;border-radius:8px;padding:10px 12px;margin-bottom:14px">
@@ -19142,7 +19174,7 @@ window.replyToParent = (mid) => {
 };
 
 window.replyToDirection = (mid) => {
-  const m=DB.messages.find(x=>x.id===mid);if(!m)return;
+  const m=(DB.messages||[]).find(x=>x.id===mid);if(!m||!m.body)return;
   const dirUser=gu(m.from);if(!dirUser)return;
   openM(`↩️ Répondre à ${dirUser.name}`,`
   <div style="background:#f8faff;border-left:3px solid #243a6b;border-radius:8px;padding:10px 12px;margin-bottom:14px">
@@ -19160,38 +19192,50 @@ window.replyToDirection = (mid) => {
    <button class="btn btn-primary" onclick="sendMsg('dir_send')">↩️ Envoyer</button>`);
 };
 window.approveMsg = (mid, status) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
-  const m=DB.messages.find(x=>x.id===mid); if(!m) return;
-  m.status=status;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  if(status!=='approved'&&status!=='refused') return;
+  const m=(DB.messages||[]).find(x=>x.id===mid); if(!m) return;
+  if(m.status!=='pending'){toast('Message déjà traité','info');return;}
+  // `status` alimente la boîte de réception, qui ne montre que « sent » :
+  // écrire « approved » revenait à laisser le message invisible.
+  m.status = status==='approved' ? 'sent' : 'refused';
   if(status==='approved'){
     let targets=[];
     if(m.to_class_cid){
-      const pids=[...new Set(DB.students.filter(s=>s.cid===m.to_class_cid).map(s=>s.pid).filter(Boolean))];
-      targets=DB.users.filter(u=>pids.includes(u.id));
+      const pids=[...new Set((DB.students||[]).filter(s=>s.cid===m.to_class_cid).map(s=>s.pid).filter(Boolean))];
+      targets=(DB.users||[]).filter(u=>pids.includes(u.id));
     } else if(m.to){
-      targets=[DB.users.find(u=>u.id===m.to)].filter(Boolean);
-    } else {
-      targets=DB.users.filter(u=>u.role===m.to_role);
+      targets=[(DB.users||[]).find(u=>u.id===m.to)].filter(Boolean);
+    } else if(m.to_role){
+      targets=(DB.users||[]).filter(u=>u.role===m.to_role);
     }
     targets.forEach(u=>{
-      const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
-        msg:`✉️ ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(n);pushSync('notifs','post',n);
+      const n={id:_uid('n_'),uid:u.id,
+        msg:`✉️ ${gu(m.from)?.name||'?'} : "${m.subject}"`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
     });
-    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé.`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(sn); pushSync('notifs','post',sn);
-    toast('Message approuvé et envoyé','success');
+    const sn={id:_uid('n_'),uid:m.from,msg:`✅ Votre message "${m.subject}" a été approuvé et envoyé à ${targets.length} destinataire(s).`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(sn); pushSync('notifs','post',sn);
+    if(!targets.length) toast('⚠️ Message approuvé mais aucun destinataire trouvé','warning');
+    else toast(`Message approuvé — ${targets.length} destinataire(s) notifié(s)`,'success');
   } else {
-    const sn={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(sn); pushSync('notifs','post',sn);
+    const sn={id:_uid('n_'),uid:m.from,msg:`❌ Votre message "${m.subject}" a été refusé par la Direction.`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(sn); pushSync('notifs','post',sn);
     toast('❌ Message refusé','info');
   }
-  pushSync('messages','patch',{status},'id=eq.'+mid);
+  pushSync('messages','patch',{status:m.status},'id=eq.'+mid);
   saveToCrypt();render();
 };
 
 window.markMsgRead = (mid) => {
-  const m=DB.messages.find(x=>x.id===mid); if(!m) return;
+  const m=(DB.messages||[]).find(x=>x.id===mid); if(!m) return;
+  // Marquer lu n'appartient qu'au destinataire : la fonction est exposée sur
+  // window et acceptait n'importe quel identifiant.
+  const mien = m.to===S.user.id
+    || (m.to_role&&m.to_role===S.user.role)
+    || (S.user.role==='parent'&&m.to_class_cid&&(DB.students||[]).some(s=>s.pid===S.user.id&&s.cid===m.to_class_cid))
+    || (['direction','direction2'].includes(S.user.role)&&m.from_role==='parent');
+  if(!mien) return;
   m.read=true;
   pushSync('messages','patch',{read:true},'id=eq.'+mid);
   saveToCrypt(); render();
@@ -19886,24 +19930,33 @@ window.sendCommunique = async () => {
   // Find target parents
   let targetParentIds=[];
   if(target==='all'){
-    targetParentIds=[...new Set(DB.students.filter(s=>s.pid).map(s=>s.pid))];
+    targetParentIds=[...new Set((DB.students||[]).filter(s=>s.pid).map(s=>s.pid))];
   } else {
-    targetParentIds=[...new Set(DB.students.filter(s=>s.cid===cid&&s.pid).map(s=>s.pid))];
+    targetParentIds=[...new Set((DB.students||[]).filter(s=>s.cid===cid&&s.pid).map(s=>s.pid))];
   }
   if(!targetParentIds.length){toast('Aucun parent trouvé pour cette cible','info');return;}
   const cl=cid?DB.classes.find(c=>c.id===cid):null;
   const toLabel=target==='all'?'role:parent':('class:'+cid);
-  const msg={id:'m'+Date.now(),from:S.user.id,from_role:S.user.role,to:toLabel,to_class:cid||null,type:'communique',subject,body,date:today(),status:'sent',read:false};
+  const msg={id:_uid('m_'),from:S.user.id,from_role:S.user.role,to:toLabel,to_class:cid||null,
+    to_class_cid:cid||null,to_role:target==='all'?'parent':null,
+    type:'communique',msg_type:'annonce',subject,body,date:today(),time:nowTime(),status:'sent',read:false,
+    school_id:window._currentSchoolId||null};
   if(!DB.messages) DB.messages=[];
   DB.messages.unshift(msg);
-  const encS=await _encryptMsgField(subject), encB=await _encryptMsgField(body);
+  let encS, encB;
+  try { encS=await _encryptMsgField(subject); encB=await _encryptMsgField(body); }
+  catch(e){
+    DB.messages=DB.messages.filter(x=>x.id!==msg.id);
+    toast('Communiqué non envoyé — le chiffrement a échoué','error');
+    return;
+  }
   pushSync('messages','post',{...msg,subject:encS,body:encB});
-  // In-app notification for each parent
+  // Notification dans l'application pour chaque parent
   targetParentIds.forEach(pid=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,6),uid:pid,
+    const n={id:_uid('n_'),uid:pid,
       msg:`📣 ${subject} — ${body.slice(0,80)}${body.length>80?'…':''}`,
-      time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
   const targetDesc=cl?`parents de ${cl.name}`:`tous les parents (${targetParentIds.length})`;
   logAudit('broadcast',`📣 ${subject} → ${targetDesc}`,msg.id);

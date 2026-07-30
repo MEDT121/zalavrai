@@ -86,7 +86,8 @@ ALTER TABLE salaries
 
 -- ── MESSAGES ──────────────────────────────────────────────────────
 ALTER TABLE messages
-  ADD COLUMN IF NOT EXISTS to_class TEXT;
+  ADD COLUMN IF NOT EXISTS to_class  TEXT,
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
 
 -- ── NOTIFICATIONS — reçu joint ────────────────────────────────────
 -- Une notification de paiement transporte le détail du reçu, pour que le
