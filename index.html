@@ -9057,6 +9057,7 @@ window._simpleList = (role, icon, gradient) => {
           <span style="flex:1"></span>
           ${u.phone?waBtn(u.phone,u.name):''}
           <button class="btn btn-outline btn-sm" onclick="openUserForm('${role}','${u.id}')">Modifier</button>
+          <button class="btn btn-outline btn-sm" onclick="resetUserPin('${u.id}')">🔑 Code</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">Suppr.</button>
         </div>
       </div>
@@ -9136,10 +9137,13 @@ window.saveUser = async () => {
   const existingUser=uid?users.find(x=>x.id===uid):null;
   if(uid && !existingUser){toast('Utilisateur introuvable — rechargez','error');return;}
   const newId=uid||_uid('u_'); // SEC-04 : id fixé AVANT le hash — le sel V2 doit être l'id réel du compte
-  let pinFinal=pinInput||existingUser?.pin||'';
-  let pinHashedFinal=pinInput?false:(existingUser?.pin_hashed||false);
-  let pinHashedV2Final=pinInput?false:(existingUser?.pin_hashed_v2||false);
-  if(pinInput){ pinFinal=await _hashPinSalted(pinInput,newId); pinHashedFinal=true; pinHashedV2Final=true; }
+  // Le code ne figure dans l'écriture QUE s'il vient d'être saisi. Le
+  // reconstruire depuis la mémoire est impossible : elle est purgée après
+  // chaque connexion, et l'on y écrivait donc une chaîne vide.
+  const _credentials = pinInput
+    ? {pin: await _hashPinSalted(pinInput,newId), pin_hashed:true, pin_hashed_v2:true}
+    : null;
+  if(!uid && !_credentials){toast('Code requis pour un nouveau compte','error');return;}
   const phoneRaw=($('usr_phone')?.value||'').trim();
   if(phoneRaw && !/^[+]?[0-9\s\-()+]{9,15}$/.test(phoneRaw)){markFieldError('usr_phone','Format invalide — ex: +243 8XX XXX XXX');return;}
   const phone=phoneRaw||null;
@@ -9179,7 +9183,7 @@ window.saveUser = async () => {
       photo = null;
     }
   }
-  const data={name,pin:pinFinal,pin_hashed:pinHashedFinal,pin_hashed_v2:pinHashedV2Final,role,initials,phone,...(photo?{photo_url:photo}:{})};
+  const data={name,role,initials,phone,...(_credentials||{}),...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
 
   if(uid){
@@ -9217,7 +9221,7 @@ window.saveUser = async () => {
       });
       changedClasses.forEach(c=>pushSync('classes','upsert',c));
     }
-    pushSync('users','upsert',{id:uid,...data});
+    pushSync('users','patch',data,'id=eq.'+uid);
     logAudit('user_edit', `${name} — ${role}${_deloges.length?' · remplace '+_deloges.join(', '):''}`, uid);
     toast(`${name} mis à jour`,'success');
     // Signalé après coup plutôt que bloquant : la direction sait ce qu'elle
@@ -9258,6 +9262,44 @@ window.previewUserPhoto = input => {
     const prev=document.getElementById('usr_photo_preview');
     if(prev) prev.innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
   });
+};
+
+// Un compte dont le code a été effacé par l'ancienne version de saveUser
+// ne peut plus se connecter et rien ne le distingue à l'écran. Cette
+// fonction rend à la Direction le moyen de le rouvrir sans passer par la
+// base — et sert aussi au cas ordinaire du code oublié.
+window.resetUserPin = (uid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const u=(DB.users||[]).find(x=>x.id===uid); if(!u){toast('Compte introuvable','error');return;}
+  if(S.user.role==='direction2' && _isDirRole(u.role)){toast('Accès non autorisé','error');return;}
+  const dir=_isDirRole(u.role);
+  openM(`🔑 Nouveau code — ${esc(u.name)}`,`
+  <div style="font-size:13px;color:var(--text-secondary);padding:10px 12px;background:var(--bg);border-radius:10px;margin-bottom:14px">
+    ${dir?'Mot de passe : au moins 6 caractères.':'Code PIN : exactement 6 chiffres.'}
+    Communiquez-le à ${esc(u.name)} — il remplace l'ancien immédiatement.
+  </div>
+  <div class="form-group"><label class="form-label">Nouveau code *</label>
+    <input class="form-input" id="rst_pin" type="${dir?'text':'tel'}" inputmode="${dir?'text':'numeric'}" autocomplete="off" placeholder="${dir?'6 caractères minimum':'6 chiffres'}">
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="doResetUserPin('${uid}')">Enregistrer le code</button>`);
+};
+
+window.doResetUserPin = async (uid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const u=(DB.users||[]).find(x=>x.id===uid); if(!u) return;
+  if(S.user.role==='direction2' && _isDirRole(u.role)){toast('Accès non autorisé','error');return;}
+  const dir=_isDirRole(u.role);
+  const raw=($('rst_pin')?.value||'').trim();
+  const pin=dir?raw:raw.replace(/\D/g,'');
+  if(dir && pin.length<6){toast('Mot de passe : 6 caractères minimum','error');return;}
+  if(!dir && !/^\d{6}$/.test(pin)){toast('Code PIN : exactement 6 chiffres','error');return;}
+  const hash=await _hashPinSalted(pin,uid);
+  u.pin=hash; u.pin_hashed=true; u.pin_hashed_v2=true;
+  pushSync('users','patch',{pin:hash,pin_hashed:true,pin_hashed_v2:true},'id=eq.'+uid);
+  logAudit('user_pin_reset',`${u.name} — code réinitialisé`,uid);
+  closeModal(); saveToCrypt();
+  toast(`Code de ${u.name} remplacé — communiquez-le-lui`,'success');
 };
 
 window.deleteUser = (uid) => {
