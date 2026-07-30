@@ -63,6 +63,8 @@ Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé
 <input id="fn" value="dynamic-api">
 
 <h2>Admin PRODELI <span style="text-transform:none;letter-spacing:0;font-weight:400">— optionnel</span></h2>
+<label for="af">Slug de la fonction admin <span style="font-weight:400">(la colonne URL, pas le nom affiché)</span></label>
+<input id="af" value="clever-responder">
 <label for="at">Token admin <span style="font-weight:400">(laisse vide pour ignorer ce test)</span></label>
 <input id="at" placeholder="collé depuis les secrets de l'Edge Function" autocomplete="off">
 
@@ -282,8 +284,9 @@ document.getElementById('run').onclick = async () => {
   // ── 7. Edge Function admin-api (si un token est fourni) ─────────────────
   const ATOK = document.getElementById('at').value.trim();
   if (ATOK) {
-    const t7 = card('7. Edge Function admin-api');
-    const AURL = `${CENTRAL}/functions/v1/admin-api`;
+    const AFN = val('af') || 'admin-api';
+    const t7 = card('7. Edge Function admin — ' + AFN);
+    const AURL = `${CENTRAL}/functions/v1/${AFN}`;
     try {
       const r = await fetch(AURL, {
         method: 'POST',
@@ -292,7 +295,7 @@ document.getElementById('run').onclick = async () => {
       });
       const txt = await r.text();
       let d = null; try { d = JSON.parse(txt); } catch(_){}
-      if (r.status === 404)                       t7('bad', '404', txt, 'Aucune fonction nommée <code>admin-api</code> sur ce projet — vérifie le nom exact.');
+      if (r.status === 404)                       t7('bad', '404', txt, `Aucune fonction à l'URL <code>${esc(AFN)}</code>. Dans Edge Functions, c'est la colonne <strong>URL</strong> qui compte, pas le nom affiché.`);
       else if (d?.error === 'Unauthorized')       t7('bad', 'token refusé', txt, 'Le token ne correspond pas au secret <code>ADMIN_TOKEN</code> de la fonction.');
       else if (/CENTRAL_SECRET_KEY/.test(d?.error || '')) t7('bad', 'secret manquant', txt, 'Ajoute <code>CENTRAL_SECRET_KEY</code> aux secrets du projet.');
       else if (!r.ok)                             t7('bad', 'HTTP ' + r.status, txt);
@@ -302,7 +305,7 @@ document.getElementById('run').onclick = async () => {
       let reachable = false;
       try { reachable = (await fetch(AURL, { method:'POST', mode:'no-cors' })).type === 'opaque'; } catch(_) {}
       t7('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
-        reachable ? 'Désactive <strong>Verify JWT</strong> sur <code>admin-api</code>.'
+        reachable ? `Soit le slug <code>${esc(AFN)}</code> est faux, soit <strong>Verify JWT</strong> est actif sur cette fonction.`
                   : 'Fonction non déployée, mal nommée, ou elle plante au démarrage (voir ses <em>Logs</em>).');
     }
   }
