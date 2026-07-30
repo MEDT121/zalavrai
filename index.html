@@ -8438,8 +8438,7 @@ R.notifications = () => {
   const unreadVisible=paginated.filter(n=>!n.read);
   unreadVisible.forEach(n=>{ n.read=true; });
   if(unreadVisible.length) {
-    const _nids=unreadVisible.map(n=>n.id).join(',');
-    pushSync('notifs','patch',{read:true},'id=in.('+_nids+')');
+    window._patchLot('notifs', {read:true}, unreadVisible.map(n=>n.id));
     setTimeout(()=>render(),300);
   }
   const typeColor={academic:'#2f7bd6',alert:'#ef5b5b',urgent:'#dc2626',info:'#a89c8b',approval:'#d98a2b',receipt:'#1f9d6b',report:'#9b6fd4',correction:'#2f8fa6',correction_dir:'#9b6fd4',message:'#ec4899'};
@@ -8483,7 +8482,9 @@ window.clearAllNotifs = () => {
   // Direction efface uniquement ses propres notifications — pas celles de toute l'école
   const toDelete = (DB.notifs||[]).filter(n=>n.uid===uid);
   showC('Effacer mes notifications ?',`${toDelete.length} notification${toDelete.length>1?'s':''} personnelles seront supprimées.`,()=>{
-    if(toDelete.length){const _ids=toDelete.map(n=>n.id).join(',');pushSync('notifs','delete',{},'id=in.('+_ids+')');}
+    // Un parent peut avoir des centaines de notifications : une seule requête
+    // dépasserait la longueur d'URL admise et serait rejetée sans un mot.
+    if(toDelete.length) window._bulkLot('notifs', 'delete', {}, toDelete.map(n=>n.id));
     DB.notifs=(DB.notifs||[]).filter(n=>n.uid!==uid);
     saveToCrypt(); toast('🗑️ Notifications effacées','info'); render();
   });
@@ -10296,15 +10297,51 @@ window.toggleStudentAccess = sid => {
   saveToCrypt(); render();
 };
 
+// Une mise à jour massive passe par une URL de la forme id=in.(a,b,c…).
+// Au-delà de quelques dizaines d'identifiants elle dépasse la taille admise
+// par le serveur, qui la rejette — le blocage d'une école entière échouait
+// donc en silence. On procède par tranches.
+window._patchLot = (table, patch, ids, taille) => window._bulkLot(table, 'patch', patch, ids, taille);
+window._bulkLot = (table, op, payload, ids, taille) => {
+  const T = taille || 60;
+  for (let i = 0; i < ids.length; i += T) {
+    pushSync(table, op, payload, 'id=in.(' + ids.slice(i, i + T).join(',') + ')');
+  }
+};
+
 window.blockAllUnpaid = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const unpaid=DB.students.filter(s=>{const pays=(DB.payments||[]).filter(p=>p.sid===s.id);return pays.some(p=>!p.paid)&&!s.access_blocked;});
+  // Le portail n'exige que le trimestre configuré dans « Contrôle des frais ».
+  // Ce bouton exigeait TOUS les trimestres : en octobre, T2 et T3 ne sont
+  // évidemment pas réglés, si bien qu'il aurait bloqué presque toute l'école
+  // pour des sommes qui ne sont pas encore dues. Les deux appliquent
+  // désormais la même règle.
+  const fc = DB.settings?.feesControl || {};
+  if (!fc.active || !fc.trimestre) {
+    toast('Activez d\'abord le contrôle des frais et choisissez le trimestre','warning');
+    return;
+  }
+  const _libTrim = fc.trimestre === 'inscription' ? 'les frais d\'inscription' : fc.trimestre;
+  const unpaid = (DB.students||[]).filter(s =>
+    !s.access_blocked && !s.archived &&
+    !(DB.payments||[]).some(p => p.sid === s.id && p.t === fc.trimestre && p.paid));
+
   if(!unpaid.length){toast('Aucun nouvel élève à bloquer','info');return;}
-  showC(`Bloquer ${unpaid.length} élève(s) non-payé(s) ?`,`Ces élèves ne pourront plus entrer à l'école jusqu'au règlement des frais.`,()=>{
+  showC(`Bloquer ${unpaid.length} élève(s) ?`,
+    `Élèves n'ayant pas réglé ${_libTrim}. Ils ne pourront plus entrer à l'école, et leurs parents en seront informés.`,()=>{
     unpaid.forEach(s=>{s.access_blocked=true;});
-    const _bids=unpaid.map(s=>s.id).join(',');
-    pushSync('students','patch',{access_blocked:true},'id=in.('+_bids+')');
-    toast(`${unpaid.length} élève(s) bloqué(s)`,'info');
+    window._patchLot('students', {access_blocked:true}, unpaid.map(s=>s.id));
+    // Un enfant refoulé au portail sans que son parent sache pourquoi, c'est
+    // l'enfant qui porte la sanction. Le parent est prévenu au moment du
+    // blocage, pas au moment du refus.
+    let avertis = 0;
+    unpaid.forEach(s => {
+      if (!s.pid) return;
+      pushNotif(s.pid, `🔒 Accès suspendu pour ${s.name} — ${_libTrim} non réglé${_libTrim===fc.trimestre?'':''}. Merci de vous rapprocher de la Direction.`);
+      avertis++;
+    });
+    logAudit('block_unpaid', `${unpaid.length} élève(s) — ${fc.trimestre}`);
+    toast(`${unpaid.length} élève(s) bloqué(s) · ${avertis} parent(s) averti(s)`,'info');
     saveToCrypt(); render();
   });
 };
@@ -10315,8 +10352,7 @@ window.unblockAll = () => {
   if(!blocked.length){toast('Aucun élève bloqué','info');return;}
   showC(`Débloquer ${blocked.length} élève(s) ?`,'Tous les élèves bloqués auront à nouveau accès à l\'école.',()=>{
     blocked.forEach(s=>{s.access_blocked=false;});
-    const _ubids=blocked.map(s=>s.id).join(',');
-    pushSync('students','patch',{access_blocked:false},'id=in.('+_ubids+')');
+    window._patchLot('students', {access_blocked:false}, blocked.map(s=>s.id));
     toast(`${blocked.length} élève(s) débloqué(s)`,'success');
     saveToCrypt(); render();
   });
