@@ -4,12 +4,22 @@
 **École :** Complexe Scolaire Le Sage / The Wise School International (Kinshasa, DRC)  
 **Backend :** Supabase — projet unique de l'école (URL + clé publiable ~ligne 1563)
 
-**Identité :** `ECOLE_NOM` / `ECOLE_NOM_EN` (~ligne 1569) servent de repli
-partout où `DB.settings.school` n'est pas encore chargé. Les réglages
-enregistrés dans la base les remplacent dès leur arrivée : la Direction garde
-le dernier mot, y compris sur le nom. Une colonne `school` nulle n'efface
-pas le repli — sans quoi un reçu imprimé avant la première synchronisation
-porterait le nom du logiciel, pas celui de l'école qui encaisse.
+**Deux noms à ne pas confondre :**
+
+| | Nom | Où il paraît |
+|---|---|---|
+| Le **logiciel** | SchoolSafe | titre, écran de démarrage, icône du téléphone, manifest |
+| L'**école branchée** | Complexe Scolaire Le Sage | bulletins, reçus, convocations, en-têtes de documents |
+
+`ECOLE_NOM` / `ECOLE_NOM_EN` (~ligne 1576) sont le repli de l'ÉCOLE, pas du
+produit. Ils servent partout où `DB.settings.school` n'est pas encore
+descendu du serveur — un reçu imprimé avant la première synchronisation doit
+porter le nom de l'école qui encaisse, jamais celui du logiciel.
+
+Les réglages enregistrés dans la base les remplacent dès leur arrivée : la
+Direction garde le dernier mot sur le nom de son école. Une colonne `school`
+nulle n'efface pas le repli, sinon un vide venu du serveur écraserait
+l'identité.
 
 **Ne jamais changer :** `SchoolSafe_v2` (sel des mots de passe — tout compte
 deviendrait inaccessible) et `SchoolSafe2026!TWSI` (clé du cache chiffré —
