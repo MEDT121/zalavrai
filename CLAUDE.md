@@ -2,7 +2,18 @@
 
 **Fichier unique :** `index.html` (~10 600 lignes)  
 **École :** Complexe Scolaire Le Sage / The Wise School International (Kinshasa, DRC)  
-**Backend :** Supabase — projet unique de l'école (URL + clé publiable ~ligne 1586)
+**Backend :** Supabase — projet unique de l'école (URL + clé publiable ~ligne 1563)
+
+**Identité :** `ECOLE_NOM` / `ECOLE_NOM_EN` (~ligne 1569) servent de repli
+partout où `DB.settings.school` n'est pas encore chargé. Les réglages
+enregistrés dans la base les remplacent dès leur arrivée : la Direction garde
+le dernier mot, y compris sur le nom. Une colonne `school` nulle n'efface
+pas le repli — sans quoi un reçu imprimé avant la première synchronisation
+porterait le nom du logiciel, pas celui de l'école qui encaisse.
+
+**Ne jamais changer :** `SchoolSafe_v2` (sel des mots de passe — tout compte
+deviendrait inaccessible) et `SchoolSafe2026!TWSI` (clé du cache chiffré —
+les données hors ligne deviendraient illisibles).
 
 ---
 
