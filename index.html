@@ -7562,6 +7562,29 @@ window._callCentral = async (action, extra = {}) => {
   return d;
 };
 
+// Téléverse un fichier dans le stockage R2 de PRODELI et renvoie son URL
+// publique, ou null si R2 n'est pas configuré / l'envoi échoue — l'appelant
+// retombe alors sur son mode local (base64). Les identifiants R2 restent
+// côté serveur : on ne reçoit qu'une URL signée à usage unique.
+window._r2Upload = async (blob, folder, name) => {
+  try {
+    const s = await window._callCentral('storage_sign', {
+      folder, name, contentType: blob.type || 'application/octet-stream',
+    });
+    if (!s?.upload_url) return null;
+    const up = await fetch(s.upload_url, {
+      method: 'PUT',
+      headers: { 'Content-Type': blob.type || 'application/octet-stream' },
+      body: blob,
+    });
+    if (!up.ok) throw new Error('HTTP ' + up.status);
+    return s.public_url || null;
+  } catch (e) {
+    console.warn('[R2]', e.message);
+    return null;
+  }
+};
+
 window.loadMyCardOrders = async () => {
   if(!SCHOOL_KEY||!LOGIN_FN_URL) return;
   try {
@@ -7639,18 +7662,12 @@ window.submitCardOrder = async (sid) => {
       // Sanitiser la clé de licence et le sid avant de les utiliser dans l'URL de stockage
       const safeKey = licenseKey.replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64);
       const safeSid = (sid+'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,64);
-      // Essayer upload vers le storage PRODELI (bucket public "card-images")
+      // La carte finie part dans le stockage R2 de PRODELI, rangée sous
+      // <license_key>/cards/. Si R2 n'est pas configuré, elle voyage en
+      // base64 dans la commande — l'opérateur la reçoit dans les deux cas.
       const orderRef = safeKey+'_'+safeSid+'_'+Date.now();
       const blob = await new Promise(res => finalCV.toBlob(res,'image/png',0.92));
-      try {
-        const upResp = await fetch(CENTRAL_URL+'/storage/v1/object/card-images/'+orderRef+'.png',{
-          method:'POST',
-          headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'image/png','x-upsert':'true'},
-          body:blob
-        });
-        if(upResp.ok) card_image_url = CENTRAL_URL+'/storage/v1/object/public/card-images/'+orderRef+'.png';
-      } catch(_) {}
-      // Fallback : base64 JPEG compact si le bucket n'est pas configuré
+      card_image_url = await window._r2Upload(blob, 'cards', orderRef+'.png');
       if(!card_image_url) card_image_url = finalCV.toDataURL('image/jpeg',0.82);
       finalCV.width = finalCV.height = 0; // libérer dernier buffer canvas
       // N'afficher l'aperçu que si c'est une URL distante (pas de data: URI dans le DOM)
@@ -20273,6 +20290,10 @@ window._processAndUploadSitePhoto = function(file, name) {
         cnv.toBlob(async (blob) => {
           try {
             const fname = name+'_'+Date.now()+'.jpg';
+            // R2 d'abord (stockage centralisé PRODELI), sinon le bucket
+            // Supabase de l'école — les deux chemins restent valides.
+            const r2url = window._r2Upload ? await window._r2Upload(blob, 'photos', fname) : null;
+            if (r2url) { resolve(r2url); return; }
             const upR = await fetch(SUPA_URL+'/storage/v1/object/photos/site/'+fname, {
               method: 'POST',
               headers: { apikey: SUPA_KEY, Authorization: 'Bearer '+SUPA_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
