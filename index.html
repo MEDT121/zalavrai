@@ -2832,12 +2832,29 @@ window.updateSyncIndicator = () => {
   const el = $('SYNC_IND'); if(!el) return;
   const q = syncQueue.count();
   const t = window._lastSyncTime ? ' · '+window._lastSyncTime : '';
+
+  // La synchronisation est une affaire de la machine, pas de l'utilisateur.
+  // La pastille ne s'affiche donc que si quelque chose demande une décision
+  // humaine : perte de réseau, blocage durable, ou opérations mises de côté.
+  // Un envoi en cours ou une file qui s'écoule normalement reste invisible.
+  const parkedN = (syncQueue.parked() || []).length;
+  const stuck = q > 0 && (syncQueue.load() || []).some(i =>
+    (i.retries || 0) >= 2 || (i.ts && Date.now() - i.ts > 600000));
+  if (!window._syncInProgress && window.DB_ONLINE && !parkedN && !stuck) {
+    el.style.display = 'none';
+    el.onclick = () => showSyncQueueDetail();
+    return;
+  }
+  el.style.display = '';
+
   if (window._syncInProgress) {
     el.textContent='🔄 Sync...'; el.style.background='#fdeeda'; el.style.color='#205fae'; el.title='Synchronisation en cours...';
   } else if (!window.DB_ONLINE) {
     el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c'; el.title='Hors ligne — les changements repartiront seuls dès le retour du réseau';
-  } else if (q > 0) {
-    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — envoi automatique en cours, cliquer pour le détail`;
+  } else if (q > 0 || parkedN) {
+    const n = q + parkedN;
+    el.textContent=`🟡 ${n}`; el.style.background='#fef9c3'; el.style.color='#92400e';
+    el.title=`${n} changement(s) bloqué(s) — cliquer pour le détail`;
     el.onclick = () => showSyncQueueDetail();
   } else {
     el.onclick = () => forceSyncDB();

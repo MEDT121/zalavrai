@@ -142,3 +142,40 @@ WHERE table_schema = 'public'
                      'daily_reports','activites_inscriptions','settings',
                      'push_subscriptions','inscriptions','cahier_prep')
 GROUP BY table_name ORDER BY table_name;
+
+-- ══════════════════════════════════════════════════════════════════
+--  SETTINGS — colonnes révélées par le blocage résiduel
+--
+--  Après les migrations précédentes, la file s'est vidée de 160 à 5 : ne
+--  restaient que des `settings · upsert` en réessai. L'audit initial les
+--  avait manqués parce que cette écriture envoie l'objet DB.settings entier
+--  et non un objet littéral — quinze clés n'avaient aucune colonne.
+--
+--  Une seule colonne inconnue fait rejeter tout l'objet : aucun réglage de
+--  l'école ne pouvait plus être enregistré côté serveur.
+-- ══════════════════════════════════════════════════════════════════
+ALTER TABLE settings
+  ADD COLUMN IF NOT EXISTS school_type            TEXT,
+  ADD COLUMN IF NOT EXISTS license_key            TEXT,
+  ADD COLUMN IF NOT EXISTS rattrapage_threshold   NUMERIC,
+  ADD COLUMN IF NOT EXISTS rattrapage_rate        NUMERIC,
+  ADD COLUMN IF NOT EXISTS opening_cash           NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS opening_bank           NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS staff_postes           JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS archived_years         JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS year_locked            BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS year_locked_by         TEXT,
+  ADD COLUMN IF NOT EXISTS year_locked_date       TEXT,
+  ADD COLUMN IF NOT EXISTS qr_secret              TEXT,
+  ADD COLUMN IF NOT EXISTS qr_secret_date         TEXT,
+  ADD COLUMN IF NOT EXISTS msg_enc_key            TEXT,
+  ADD COLUMN IF NOT EXISTS "_last_recu_no"        NUMERIC DEFAULT 0,
+  -- Lues par l'application sans jamais être écrites pour l'instant : les
+  -- déclarer maintenant évite le même blocage silencieux le jour où un écran
+  -- de configuration les renseignera.
+  ADD COLUMN IF NOT EXISTS vapid_public_key       TEXT,
+  ADD COLUMN IF NOT EXISTS operator_wa            TEXT;
+
+SELECT count(*) AS colonnes_settings
+FROM information_schema.columns
+WHERE table_schema='public' AND table_name='settings';
