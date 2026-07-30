@@ -3861,6 +3861,12 @@ async function _tryLoginInner() {
 };
 window.loginAs = async user => {
   S.user=user; S.page='dashboard'; S._history=[];
+  // Les rôles non partagés gardent leur photo sur l'appareil : on la remet en
+  // mémoire pour que les écrans habituels l'affichent sans rien changer d'eux.
+  if (!S.user.photo_url && !window._photoIsShared(S.user.role)) {
+    const _lp = window._localPhotoGet(S.user.id);
+    if (_lp) S.user.photo_url = _lp;
+  }
   S.lockdown = !!DB.settings?.lockdown;
   $('LS').classList.add('hidden');
   window._stopLoginHeroRotation&&window._stopLoginHeroRotation();
@@ -7959,6 +7965,24 @@ window._uploadFile = async (blob, folder, name) => {
   return window._schoolUpload(blob, folder, name);
 };
 
+// ── PHOTOS DE COMPTE : CE QUI DOIT ÊTRE PARTAGÉ ──────────────────────────
+// Seule la photo d'un parent circule. Le parent principal apparaît
+// automatiquement dans la liste des personnes autorisées à récupérer l'enfant,
+// et le gardien doit pouvoir la confronter à qui se présente au portail.
+// C'est une fonction de sécurité, pas un ornement.
+//
+// Pour les autres rôles — direction, enseignant, gardien, caisse — la photo ne
+// sert qu'à son propriétaire, dans son en-tête et sa barre latérale. Elle reste
+// donc sur l'appareil et ne touche jamais la base.
+window._photoIsShared = (role) => role === 'parent';
+
+const _LOCAL_PHOTO = (uid) => '_ss_photo_' + (window.SCHOOL_KEY || 'local') + '_' + uid;
+window._localPhotoGet = (uid) => { try { return localStorage.getItem(_LOCAL_PHOTO(uid)) || null; } catch(e) { return null; } };
+window._localPhotoSet = (uid, data) => {
+  try { data ? localStorage.setItem(_LOCAL_PHOTO(uid), data) : localStorage.removeItem(_LOCAL_PHOTO(uid)); }
+  catch(e) { console.warn('[photo] mémoire locale saturée'); }
+};
+
 // ── PHOTOS : DU BASE64 VERS LE STOCKAGE ──────────────────────────────────
 // Une photo en base64 gonfle de 33 %, occupe la base, et se télécharge en
 // entier à chaque chargement de l'application. Dans le stockage, la base ne
@@ -8043,9 +8067,15 @@ window.migratePhotosToStorage = async (opts) => {
 
   const jobs = [];
   (DB.students || []).forEach(x => { if (isB64(x.photo)) jobs.push({ t:'students', id:x.id, row:x, f:'photo', dir:'eleves' }); });
+  // Seuls les comptes dont la photo circule sont transférés. Pour les autres,
+  // elle est déplacée sur l'appareil et retirée de la base.
   (DB.users || []).forEach(x => {
-    if (isB64(x.photo))     jobs.push({ t:'users', id:x.id, row:x, f:'photo',     dir:'comptes' });
-    if (isB64(x.photo_url)) jobs.push({ t:'users', id:x.id, row:x, f:'photo_url', dir:'comptes' });
+    const shared = window._photoIsShared(x.role);
+    ['photo', 'photo_url'].forEach(f => {
+      if (!isB64(x[f])) return;
+      if (shared) jobs.push({ t:'users', id:x.id, row:x, f, dir:'comptes' });
+      else        jobs.push({ t:'users', id:x.id, row:x, f, dir:'comptes', toLocal:true });
+    });
   });
   (DB.aps || []).forEach(x => { if (isB64(x.photo)) jobs.push({ t:'aps', id:x.id, row:x, f:'photo', dir:'autorisees' }); });
 
@@ -8054,6 +8084,16 @@ window.migratePhotosToStorage = async (opts) => {
   let done = 0;
 
   for (const j of slice) {
+    // Photo non partagée : elle rejoint l'appareil et quitte la base.
+    if (j.toLocal) {
+      window._localPhotoSet(j.id, j.row[j.f]);
+      if (S.user && S.user.id === j.id) S.user.photo_url = j.row[j.f];
+      j.row[j.f] = null;
+      const clear = {}; clear[j.f] = null;
+      pushSync(j.t, 'patch', clear, 'id=eq.' + j.id);
+      done++;
+      continue;
+    }
     const url = await window._photoToStorage(j.row[j.f], j.dir, j.t + '_' + j.id + '_' + j.f);
     if (url && url !== j.row[j.f]) {
       j.row[j.f] = url;
@@ -8915,10 +8955,9 @@ window.saveUser = async () => {
     if(pinInput && pinInput.length!==6){markFieldError('usr_pin','Exactement 6 chiffres');return;}
   }
   const initials=($('usr_init')?.value||'').trim()||ini(name);
-  // La photo de compte passe par le stockage : elle s'affiche dans la barre
-  // latérale et l'en-tête, donc à chaque écran.
+  // La photo ne part en base que si le rôle la rend utile à autrui.
   let photo = window._userPhoto || null;
-  if (photo) photo = await window._photoToStorage(photo, 'comptes', 'u_' + (($('usr_id')?.value) || Date.now()));
+  const _shared = window._photoIsShared(role);
   const users=DB.users||[];
   const existingUser=uid?users.find(x=>x.id===uid):null;
   if(uid && !existingUser){toast('Utilisateur introuvable — rechargez','error');return;}
@@ -8933,6 +8972,18 @@ window.saveUser = async () => {
   const _norm=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
   if(!uid && (DB.users||[]).some(u=>u.role===role&&_norm(u.name)===_norm(name))){
     markFieldError('usr_name',`Un compte ${ROLE_META[role]?.label||role} avec ce nom existe déjà — ajoutez un prénom ou une initiale`);return;
+  }
+  // newId est désormais connu, y compris pour un compte tout neuf : la photo
+  // peut être rangée du bon côté.
+  if (photo) {
+    if (_shared) {
+      photo = await window._photoToStorage(photo, 'comptes', 'u_' + newId);
+    } else {
+      window._localPhotoSet(newId, photo);
+      // Visible tout de suite pour son propriétaire, sans passer par la base.
+      if (S.user && S.user.id === newId) S.user.photo_url = photo;
+      photo = null;
+    }
   }
   const data={name,pin:pinFinal,pin_hashed:pinHashedFinal,pin_hashed_v2:pinHashedV2Final,role,initials,phone,...(photo?{photo_url:photo}:{})};
   window._userPhoto=null;
@@ -21230,8 +21281,8 @@ R.settings = () => {
           const n = (DB.students||[]).filter(x=>b64(x.photo)).length
                   + (DB.users||[]).filter(x=>b64(x.photo)||b64(x.photo_url)).length
                   + (DB.aps||[]).filter(x=>b64(x.photo)).length;
-          return n ? n + ' photo(s) encore stockée(s) dans la base — environ ' + Math.round(n*60/1024*10)/10 + ' Mo'
-                   : 'Toutes les photos sont dans le stockage ✅';
+          if (!n) return 'Base allégée ✅ — élèves et parents dans le stockage, autres comptes sur l\'appareil';
+          return n + ' photo(s) encore dans la base — environ ' + Math.round(n*60/1024*10)/10 + ' Mo';
         })()}</div>
       </div>
       ${(() => {
