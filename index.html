@@ -7847,6 +7847,41 @@ window._r2Upload = async (blob, folder, name) => {
   }
 };
 
+// Téléverse dans le stockage de l'école (bucket public `photos`) et renvoie
+// l'URL publique, ou null. Sert de second recours après R2 : chaque école a son
+// propre projet Supabase, donc le cloisonnement est structurel — aucune ne peut
+// écrire chez une autre, sans qu'aucune règle n'ait à le garantir.
+window._schoolUpload = async (blob, folder, name) => {
+  if (!SUPA_URL || !SUPA_KEY) return null;
+  const path = `${folder}/${name}`;
+  try {
+    const r = await fetch(`${SUPA_URL}/storage/v1/object/photos/${path}`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY,
+        'Content-Type': blob.type || 'image/png', 'x-upsert': 'true',
+      },
+      body: blob,
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return `${SUPA_URL}/storage/v1/object/public/photos/${path}`;
+  } catch (e) {
+    console.warn('[storage]', e.message);
+    return null;
+  }
+};
+
+// Un fichier, trois recours dans l'ordre : R2 mutualisé de PRODELI, puis le
+// stockage propre à l'école, puis rien — l'appelant garde alors sa copie
+// locale. Le premier qui répond gagne.
+window._uploadFile = async (blob, folder, name) => {
+  if (window._r2Upload) {
+    const url = await window._r2Upload(blob, folder, name);
+    if (url) return url;
+  }
+  return window._schoolUpload(blob, folder, name);
+};
+
 window.loadMyCardOrders = async () => {
   if(!SCHOOL_KEY||!LOGIN_FN_URL) return;
   try {
@@ -7929,7 +7964,9 @@ window.submitCardOrder = async (sid) => {
       // base64 dans la commande — l'opérateur la reçoit dans les deux cas.
       const orderRef = safeKey+'_'+safeSid+'_'+Date.now();
       const blob = await new Promise(res => finalCV.toBlob(res,'image/png',0.92));
-      card_image_url = await window._r2Upload(blob, 'cards', orderRef+'.png');
+      card_image_url = await window._uploadFile(blob, 'cards', orderRef+'.png');
+      // Dernier recours : la carte voyage en base64 dans la commande. L'opérateur
+      // la reçoit dans tous les cas, au prix d'une base plus lourde.
       if(!card_image_url) card_image_url = finalCV.toDataURL('image/jpeg',0.82);
       finalCV.width = finalCV.height = 0; // libérer dernier buffer canvas
       // N'afficher l'aperçu que si c'est une URL distante (pas de data: URI dans le DOM)
@@ -20583,15 +20620,9 @@ window._processAndUploadSitePhoto = function(file, name) {
             const fname = name+'_'+Date.now()+'.jpg';
             // R2 d'abord (stockage centralisé PRODELI), sinon le bucket
             // Supabase de l'école — les deux chemins restent valides.
-            const r2url = window._r2Upload ? await window._r2Upload(blob, 'photos', fname) : null;
-            if (r2url) { resolve(r2url); return; }
-            const upR = await fetch(SUPA_URL+'/storage/v1/object/photos/site/'+fname, {
-              method: 'POST',
-              headers: { apikey: SUPA_KEY, Authorization: 'Bearer '+SUPA_KEY, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
-              body: blob
-            });
-            if (!upR.ok) { reject(new Error('upload_'+upR.status)); return; }
-            resolve(SUPA_URL+'/storage/v1/object/public/photos/site/'+fname);
+            const url = await window._uploadFile(blob, 'site', fname);
+            if (!url) { reject(new Error('upload_failed')); return; }
+            resolve(url);
           } catch(e) { reject(e); }
         }, 'image/jpeg', 0.85);
       };
