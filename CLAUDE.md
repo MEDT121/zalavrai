@@ -297,8 +297,11 @@ L'un a évolué, l'autre non. **Tous les comptes se sont fermés**, sans autre
 message que « Nom ou code incorrect ». La vérification du code est désormais
 faite en un seul endroit ; cette classe de panne ne peut plus revenir.
 
-Les fichiers SQL du central sont dans `archive/central-supprime/`, avec la
-marche à suivre si le multi-école devait revenir.
+Tout ce qui s'y rapportait a été supprimé du dépôt : la console
+d'administration, ses quatre migrations SQL, l'éditeur de site vitrine et
+ses auxiliaires, la publication d'actualités, et le bloc de connexion
+centrale. L'historique git les conserve — mais rien dans le code n'y
+renvoie plus.
 
 ### Ce que l'école a perdu, sciemment
 

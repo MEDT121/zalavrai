@@ -1549,54 +1549,23 @@ window.compressImage = (file, maxW, maxH, quality, cb, maxKo) => {
   img.onerror = () => { URL.revokeObjectURL(url); cb(null); };
   img.src = url;
 };
-// ── Vestige d'un projet central, désormais sans emploi ──
-// L'application a servi plusieurs écoles via un projet central qui portait
-// les licences, le site public et les commandes de cartes. Elle sert
-// aujourd'hui une seule école et parle directement à sa base.
+// ── Une école, une base ──────────────────────────────────────────────────
+// L'application a servi plusieurs écoles par l'intermédiaire d'un projet
+// central. Elle sert aujourd'hui une seule école et parle directement à sa
+// base : plus d'Edge Function, plus de licence, plus de stockage mutualisé.
 //
-// Ces deux constantes restent vides et non supprimées : trois écrans
-// secondaires — habillage, site vitrine, annonces — les testent en tête de
-// fonction et se taisent d'eux-mêmes. Les renseigner suffirait à tout
-// réactiver ; les laisser pointer vers un projet éteint ferait attendre
-// chaque appel jusqu'à son délai d'expiration.
-const CENTRAL_URL = '';
-const CENTRAL_KEY = '';
-const LICENSE_GRACE_DAYS = 3;
-// Contexte école courante : porté par le lien d'entrée du site de l'école
-// (ex. https://app.schoolsafe.cd/?school=<license_key>, le même license_key
-// déjà connu du site public — SITE_LICENSE_KEY dans assets/site-data.js),
-// mémorisé localement pour les visites suivantes — permet à UNE SEULE app
-// centrale de servir plusieurs écoles sans rebuild par école. Vide par
-// défaut = école pas encore migrée au central, login 100% local inchangé
-// (voir tryLogin). L'Edge Function résout ce license_key en school_id réel
-// (PK interne de `schools`) — l'app n'a jamais besoin de connaître cet id.
-(function _resolveSchoolContext(){
-  try {
-    const fromUrl = new URLSearchParams(location.search).get('school');
-    if (fromUrl) localStorage.setItem('_active_school_key', fromUrl);
-  } catch(e) {}
-})();
-const SCHOOL_KEY = (() => { try { return localStorage.getItem('_active_school_key') || ''; } catch(e) { return ''; } })();
-// Edge Function `login` du projet central — la même URL pour toutes les
-// écoles (le license_key envoyé dans le body la scope) ; à renseigner une
-// fois le projet central et l'Edge Function déployés (supabase/functions/login).
-// Nom réel de la fonction déployée sur le central (`dynamic-api` est le nom
-// par défaut proposé par Supabase à la création).
-// Vidée : l'école ne passe plus par la passerelle centrale. Les gardes qui
-// la testent — `if (SCHOOL_KEY && LOGIN_FN_URL)` — retombent d'eux-mêmes sur
-// le chemin direct, qui était déjà écrit et éprouvé.
-const LOGIN_FN_URL = '';
-// Projet Supabase central OPÉRATIONNEL (les 41 tables métier + RLS, voir
-// supabase_multitenant_migration.sql) — distinct de CENTRAL_URL/CENTRAL_KEY
-// ci-dessus (qui sert le site marketing). Vide par défaut = aucune connexion
-// réelle, comportement actuel (local pur) inchangé. Une fois renseigné,
-// l'app charge/écrit réellement via ce projet pour les écoles basculées.
+// La clé ci-dessous est la clé PUBLIABLE du projet — celle que Supabase
+// destine au navigateur. Ce n'est pas un secret : la protection repose sur
+// les policies de la base, jamais sur la discrétion de cette chaîne. La clé
+// `sb_secret_…` ne doit JAMAIS figurer ici.
 const SCHOOL_SUPA_URL = 'https://loggezdryupyyuifzxky.supabase.co';
 const SCHOOL_SUPA_KEY = '';   // ← coller ici la clé sb_publishable_… du projet
 
-// Noms hérités, conservés pour ne pas disperser la configuration.
-const OPS_SUPA_URL = SCHOOL_SUPA_URL;
-const OPS_SUPA_KEY = SCHOOL_SUPA_KEY;
+// Préfixe des clés locales — photos gardées sur l'appareil, verrou
+// d'amorçage des types de frais. Conservé pour ne pas invalider ce qui est
+// déjà rangé sous ce nom sur les téléphones en service.
+const SCHOOL_KEY = 'lesage';
+
 window.SCHOOL_LOGO = null;
 window._OPERATOR_WA = localStorage.getItem('_operator_wa') || '243978444167';
 window._imgFallback = el => { try { const p=el.parentNode; if(!p) return; p.innerHTML='<div style="width:100%;height:100%;background:'+el.dataset.bg+';color:'+el.dataset.cc+';display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:800">'+el.dataset.ini+'</div>'; } catch(e){} };
@@ -1769,7 +1738,8 @@ window.compressWithProfile = (file, profile, cb) => {
 };
 
 // Identifiant de la ligne settings : 'main' en mono-école (1 base = 1 école),
-// school_id en central multi-tenant — rempli par le login (Edge Function JWT)
+// school_id : hérité du fonctionnement multi-école, conservé sur les lignes
+// pour ne pas rendre les données existantes illisibles.
 // dans window._currentSchoolId. Un seul point à brancher, pas 4.
 window._settingsId = () => window._currentSchoolId || 'main';
 
@@ -2181,7 +2151,6 @@ window.NAV = {
       {id:'absences',i:'📝',l:'Justifications'},
       {id:'calendar',i:'📅',l:'Calendrier'},
       {id:'notifications',i:'🔔',l:'Notifications'},
-      {id:'mon_site',i:'🌐',l:'Mon site web'},
       {s:'Sécurité Portail'},
       {id:'scan_log',i:'📜',l:'Historique scans'},
       {id:'alert_urgent',i:'🚨',l:'Alerte Urgence'},
@@ -3766,7 +3735,7 @@ window.closeSB = () => { S.sbOpen=false; $('SB').classList.remove('open'); $('SO
 // Différencie l'écran de connexion par école : couleur d'accent (.btn-login,
 // via --login-accent) + petit badge logo de l'école accolé au logo SchoolSafe
 // (qui reste affiché tel quel). Source : school_sites (site public), via le
-// même license_key que _loadSiteDataForPage(). Best-effort, silencieux hors ligne.
+// Best-effort, silencieux si aucun logo n'est configuré.
 window._loginBrandingApplied = false;
 // L'habillage du login — logo et couleur — venait de la table `school_sites`
 // du projet central. L'école ne l'interroge plus. Le logo et l'identité se
@@ -3873,56 +3842,10 @@ async function _tryLoginInner() {
     try { const _sk=await _pbkdf2DeriveKey(pin); _aesKey=_sk; await loadFromCrypt(); } catch(_) {}
   }
 
-  // ── École migrée au central : login via Edge Function, qui résout SCHOOL_KEY
-  //    (license_key public) en school_id réel, vérifie nom+code contre `users`
-  //    scopé à cette école, et renvoie un JWT signé school_id+role. Ce JWT
-  //    devient le Bearer token de toutes les requêtes PostgREST suivantes.
-  //    Tant que SCHOOL_KEY/LOGIN_FN_URL ne sont pas configurés (école pas
-  //    encore basculée), ce bloc est ignoré et le login 100% local ci-dessous
-  //    s'applique. ──
-  if (SCHOOL_KEY && LOGIN_FN_URL) {
-    try {
-      // apikey + Authorization = clé anon du projet CENTRAL : exigée par la
-      // passerelle Supabase avant d'atteindre le code de l'Edge Function.
-      const r = await fetch(LOGIN_FN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': CENTRAL_KEY,
-          'Authorization': 'Bearer ' + CENTRAL_KEY,
-        },
-        body: JSON.stringify({ license_key: SCHOOL_KEY, name: $('LN')?.value||'', pin }),
-      });
-      const data = await r.json().catch(() => null);
-      if (!r.ok || !data?.user || !data?.supabase_url) {
-        console.warn('[login]', r.status, data);
-        $('PM').textContent = data?.error || 'Nom ou code incorrect';
-        $('LP').value=''; setTimeout(()=>$('PM').textContent='',3000); return;
-      }
-      // Connecter SchoolSafe à la base Supabase propre à cette école
-      window._updateSupabase(data.supabase_url, data.supabase_key || data.supabase_anon_key);
-      window.DB_ONLINE = true;
-
-      // Une file d'attente non vide signifie que le serveur est en retard sur
-      // l'appareil : tirer son instantané effacerait les écritures en attente.
-      // On part donc du cache local, et la file s'écoule en arrière-plan — la
-      // vider ici ferait patienter l'utilisateur une requête par élément.
-      const _pend = window.syncQueue.count();
-      if (_pend > 0) {
-        await loadFromCrypt().catch(() => {});
-        // Le cache local peut être vide sur un appareil neuf : dans ce cas
-        // seul le serveur a des données, et il faut bien les charger.
-        if (!(DB.users || []).length) await loadFromSupabase();
-        window.syncSoon(800);
-      } else {
-        await loadFromSupabase();
-      }
-      loginAs(data.user);
-    } catch (e) {
-      $('PM').textContent='Connexion impossible — réessayez'; setTimeout(()=>$('PM').textContent='',2500);
-    }
-    return;
-  }
+  // La vérification du code se fait ici, et nulle part ailleurs. Elle passait
+  // autrefois par une Edge Function qui calculait l'empreinte de son côté :
+  // les deux implémentations ont divergé, et tous les comptes se sont fermés.
+  // Un seul endroit décide désormais si un code est valide.
 
   const u = DB.users.find(u =>
     normName(u.name)===name ||
@@ -3931,7 +3854,7 @@ async function _tryLoginInner() {
   );
 
   // Charger credentials ciblés en mode local — évite l'exposition en masse dans le bulk SELECT
-  if (!LOGIN_FN_URL && window.DB_ONLINE && u && !u.pin) {
+  if (window.DB_ONLINE && u && !u.pin) {
     try {
       const cr = await _get('users','select=pin,pin_hashed,pin_hashed_v2&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
       const c = (Array.isArray(cr)?cr:[])[0];
@@ -8043,9 +7966,6 @@ ${css}</style></head><body>
 // contiennent des données personnelles d'élèves et de parents, que la clé
 // publishable ne doit pas pouvoir lire d'une école à l'autre. Le serveur
 // vérifie la licence puis ne renvoie que les commandes de cette école.
-// _callCentral a été retiré : la passerelle centrale n'a plus d'appelant.
-// Login, stockage et cartes passent désormais en direct par le projet de
-// l'école. Rien ne doit dépendre d'un second service pour fonctionner.
 
 // Téléverse dans le stockage de l'école (bucket public `photos`) et renvoie
 // l'URL publique, ou null si le bucket n'existe pas ou refuse l'écriture —
@@ -21390,485 +21310,27 @@ window.exportAllBulletinsPDF = (cid, forceTrim) => {
 // ── MON SITE WEB ──
 window._siteDataReady   = false;
 window._siteDataLoading = false;
-window._siteData        = null;
-window._siteGallery     = [];
-window._sitePillars     = [];
-window._siteHeroPhotos  = [];
-window._selSiteColor    = null;
-
-window._loadSiteDataForPage = async function() {
-  const key = (DB.settings?.license_key||'').trim();
-  if (!key || !CENTRAL_URL || !CENTRAL_KEY) {
-    window._siteData = {}; window._siteDataReady = true;
-    window._siteGallery = []; window._sitePillars = [];
-    return;
-  }
-  try {
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 8000);
-    const r = await fetch(
-      CENTRAL_URL + '/rest/v1/school_sites?license_key=eq.' + encodeURIComponent(key) + '&limit=1',
-      { headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY }, signal: ctrl.signal }
-    );
-    const rows = r.ok ? await r.json() : [];
-    window._siteData = rows[0] || {};
-  } catch(e) { window._siteData = {}; }
-  window._siteDataReady = true;
-  window._siteGallery    = JSON.parse(JSON.stringify((window._siteData||{}).gallery     || []));
-  window._sitePillars    = JSON.parse(JSON.stringify((window._siteData||{}).pillars     || []));
-  window._siteHeroPhotos = JSON.parse(JSON.stringify((window._siteData||{}).hero_photos || []));
-};
+// L'éditeur de site vitrine et ses auxiliaires — galerie, piliers, photos
+// d'en-tête, extraction de couleur, enregistrement — ont été retirés avec le
+// projet central qui les hébergeait. R.mon_site ne garde qu'un écran
+// d'explication : un formulaire qui n'enregistre nulle part vaut moins que
+// pas de formulaire du tout.
 
 R.mon_site = () => {
   const _g=_requireRole('direction'); if(_g) return _g;
-  if (!window._siteDataReady && !window._siteDataLoading) {
-    window._siteDataLoading = true;
-    window._loadSiteDataForPage().then(() => { window._siteDataLoading = false; render(); });
-    return _wrapDark(`<div style="text-align:center;padding:80px 20px;color:var(--text-secondary)">
-      <div style="font-size:40px;margin-bottom:14px">🌐</div>
-      <div style="font-size:15px;font-weight:600">Chargement des données du site…</div>
-    </div>`);
-  }
-
-  const d   = window._siteData || {};
-  const sc  = DB.settings?.school || {};
-  const totalS  = (DB.students||[]).filter(s=>!s.access_blocked).length;
-  const totalT  = (DB.users||[]).filter(u=>u.role==='enseignant').length;
-  const totalCl = (DB.classes||[]).length;
-  const pub     = d.published || false;
-  const clr     = d.primary_color || '#c0962e';
-  const theme   = d.theme || 'dark';
-  const gallery = window._siteGallery || [];
-  const pillars = window._sitePillars || [];
-  const progs   = d.programs || {};
-  const origin  = window.location.origin;
-  const base    = window.location.pathname.replace(/\/[^/]*$/, '/');
-  const siteUrl = origin + base + 'site.html';
-
-  const COLORS = [
-    {c:'#c0962e',l:'Or'},   {c:'#1a4db6',l:'Bleu'},    {c:'#157a5b',l:'Vert'},
-    {c:'#d42b2b',l:'Rouge'},{c:'#7c3aed',l:'Violet'},  {c:'#db6d14',l:'Orange'},
-    {c:'#0f7f7f',l:'Cyan'}, {c:'#374151',l:'Gris'},    {c:'#be185d',l:'Rose'},
-    {c:'#1e40af',l:'Marine'},{c:'#065f46',l:'Émeraude'},{c:'#92400e',l:'Marron'},
-  ];
-
-  return _wrapDark(`
-  <div class="ww-toolbar">
-    <span style="font-size:16px;font-weight:700">🌐 Mon site web</span>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-outline btn-sm" onclick="window.open('site.html','_blank')">👁️ Aperçu</button>
-      <button class="btn btn-primary btn-sm" onclick="saveSiteData()">💾 Enregistrer</button>
+  // L'éditeur écrivait dans `school_sites`, table d'un projet central retiré.
+  // Le laisser accessible ferait croire à une publication qui n'a pas lieu.
+  return _wrapDark(`<div style="text-align:center;padding:70px 24px;color:var(--text-secondary)">
+    <div style="font-size:44px;margin-bottom:16px">🌐</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text)">Éditeur de site retiré</div>
+    <div style="font-size:13px;line-height:1.6;max-width:420px;margin:0 auto">
+      Cet écran modifiait le site vitrine par l'intermédiaire d'un service central,
+      qui n'existe plus. Les pages publiques de l'école restent en ligne — leur
+      contenu se modifie désormais dans les fichiers du site.
     </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid ${pub?'#1f9d6b':'#f59e0b'}">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="premium-section-title" style="margin-bottom:4px">${pub?'🟢 Site publié':'🟡 Site non publié'}</div>
-        <div style="font-size:12px;color:var(--text-secondary)">${pub?'Votre site est visible par le public.':'Publiez-le pour qu\'il soit visible.'}</div>
-      </div>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <span style="font-size:13px;color:var(--text-secondary)">${pub?'Publié':'Brouillon'}</span>
-        <span style="position:relative;display:inline-block;width:48px;height:26px">
-          <input type="checkbox" id="site_published" ${pub?'checked':''} style="opacity:0;width:0;height:0">
-          <span style="position:absolute;cursor:pointer;inset:0;background:${pub?'#1f9d6b':'#ddd'};border-radius:26px;transition:.2s"><span style="position:absolute;height:20px;width:20px;left:${pub?'25px':'3px'};bottom:3px;background:#fff;border-radius:50%;transition:.2s;pointer-events:none"></span></span>
-        </span>
-      </label>
-    </div>
-    <div style="margin-top:10px;padding:9px 12px;background:var(--bg-secondary,#f8fafc);border-radius:8px;font-size:12px;color:var(--text-muted);font-family:monospace;word-break:break-all">🔗 ${siteUrl}</div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #6366f1">
-    <div class="premium-section-title">📊 Données automatiques</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Ces données sont synchronisées automatiquement depuis SchoolSafe.</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#2f7bd6">${totalS}</div><div style="font-size:11px;color:var(--text-muted)">Élèves</div>
-      </div>
-      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#1f9d6b">${totalT}</div><div style="font-size:11px;color:var(--text-muted)">Enseignants</div>
-      </div>
-      <div style="background:var(--bg-secondary,#f8fafc);border-radius:10px;padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:#f59e0b">${totalCl}</div><div style="font-size:11px;color:var(--text-muted)">Classes</div>
-      </div>
-    </div>
-    <div style="padding:10px 12px;background:var(--bg-secondary,#f8fafc);border-radius:8px;display:flex;align-items:center;gap:10px">
-      ${window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0">`:'<div style="width:38px;height:38px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏫</div>'}
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sc.name||'—')}</div><div style="font-size:11px;color:var(--text-muted)">${esc(sc.address||'')}</div></div>
-      <button class="btn btn-outline btn-sm" onclick="go('settings')" style="flex-shrink:0">⚙️</button>
-    </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #2f7bd6">
-    <div class="premium-section-title">✍️ Identité publique</div>
-    <div class="form-group"><label class="form-label">Slogan / Tagline</label>
-      <input class="form-input" id="site_tagline" value="${esc(d.tagline||sc.site_tagline||'')}" placeholder="Ex: L'excellence au service de l'avenir">
-    </div>
-    <div class="form-group"><label class="form-label">À propos de l'école</label>
-      <textarea class="form-input" id="site_about" rows="4" style="resize:vertical">${esc(d.about_text||sc.site_about||'')}</textarea>
-    </div>
-    <div class="form-group"><label class="form-label">Mission</label>
-      <textarea class="form-input" id="site_mission" rows="2" style="resize:vertical" placeholder="Ex: Former des leaders intègres…">${esc(d.mission||'')}</textarea>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Année de fondation</label>
-        <input class="form-input" id="site_founded_year" type="number" min="1900" max="2030" value="${d.founded_year||''}" placeholder="2017">
-      </div>
-      <div class="form-group"><label class="form-label">Ville</label>
-        <input class="form-input" id="site_city" value="${esc(d.city||'')}" placeholder="Kinshasa">
-      </div>
-    </div>
-    <div class="form-group"><label class="form-label">WhatsApp public</label>
-      <input class="form-input" id="site_whatsapp" value="${esc(d.whatsapp||sc.phone||'')}" placeholder="+243…">
-    </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #f59e0b">
-    <div class="premium-section-title">🎨 Apparence du site</div>
-    <div class="form-group">
-      <label class="form-label">Couleur principale</label>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        ${COLORS.map(({c,l}) => `<div title="${l}" onclick="window._selSiteColor='${c}';document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent');this.style.outline='3px solid #2f7bd6';document.getElementById('site_color_val').value='${c}'" class="ss-csw" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;outline:${clr===c?'3px solid #2f7bd6':'2px solid transparent'};outline-offset:2px;transition:.1s"></div>`).join('')}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="color" id="site_color_val" value="${clr}" oninput="window._selSiteColor=this.value;document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent')" style="width:42px;height:36px;padding:2px 4px;cursor:pointer;border:1px solid var(--border);border-radius:6px;flex-shrink:0">
-        <span style="font-size:12px;color:var(--text-muted)">Couleur personnalisée</span>
-        <button class="btn btn-outline btn-sm" onclick="extractSiteLogoColor()">🔍 Auto depuis logo</button>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Thème</label>
-      <select class="form-input" id="site_theme_val">
-        <option value="dark" ${theme==='dark'?'selected':''}>🌑 Sombre — fond noir élégant (Le Sage)</option>
-        <option value="light" ${theme==='light'?'selected':''}>☀️ Clair — fond blanc moderne</option>
-        <option value="custom" ${theme==='custom'?'selected':''}>✨ Personnalisé — adapté à la couleur choisie</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #0f7f7f">
-    <div class="premium-section-title">🖼️ Photos principales (Défilement)</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Ajoutez jusqu'à 5 photos — elles défileront automatiquement sur votre site. Compression et amélioration automatiques.</div>
-    <div id="site-hero-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-      ${(window._siteHeroPhotos||[]).map((url,i) => `
-        <div style="position:relative;width:110px;height:78px;border-radius:8px;overflow:hidden;background:#111;flex-shrink:0">
-          <img src="${esc(url)}" style="width:100%;height:100%;object-fit:cover;filter:saturate(1.15) contrast(1.05)" onerror="this.style.opacity='.3'">
-          <button onclick="removeSiteHeroPhoto(${i})" style="position:absolute;top:3px;right:3px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;line-height:22px;padding:0;display:flex;align-items:center;justify-content:center">✕</button>
-        </div>`).join('')}
-      ${(window._siteHeroPhotos||[]).length < 5 ? `<label style="width:110px;height:78px;border-radius:8px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;gap:4px;font-size:12px;color:var(--text-muted);text-align:center">
-        <span style="font-size:22px">📤</span>Ajouter
-        <input type="file" accept="image/*" style="display:none" onchange="if(this.files[0])uploadSiteHeroPhoto(this.files[0])">
-      </label>` : ''}
-    </div>
-    <div style="font-size:11px;color:var(--text-muted)">Photo redimensionnée à 1920px max · JPEG 85% · Saturation et luminosité augmentées.</div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #7c3aed">
-    <div class="premium-section-title">📷 Galerie photos</div>
-    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez plusieurs photos en une fois. Compression et amélioration automatiques.</div>
-    <div id="site-gallery-list" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px">
-      ${gallery.map((g,i) => `
-        <div style="flex-shrink:0">
-          <div style="position:relative;width:90px;height:68px;border-radius:8px;overflow:hidden;background:#111">
-            ${g.url?`<img src="${esc(g.url)}" style="width:100%;height:100%;object-fit:cover;filter:saturate(1.15) contrast(1.05)" onerror="this.style.opacity='.3'">`:'<div style="width:100%;height:100%;background:var(--bg-secondary,#f8fafc)"></div>'}
-            <button onclick="removeSiteGalleryPhoto(${i})" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;line-height:20px;padding:0;display:flex;align-items:center;justify-content:center">✕</button>
-          </div>
-          <input class="form-input" style="width:90px;font-size:10px;margin-top:4px;padding:3px 6px" value="${esc(g.caption||'')}" placeholder="Légende" oninput="window._siteGallery[${i}].caption=this.value">
-        </div>`).join('')}
-      <label style="width:90px;height:68px;border-radius:8px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;gap:4px;font-size:11px;color:var(--text-muted);text-align:center">
-        <span style="font-size:20px">📤</span>Ajouter
-        <input type="file" accept="image/*" multiple style="display:none" onchange="addSiteGalleryPhotos(this.files)">
-      </label>
-    </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #be185d">
-    <div class="premium-section-title">🏆 Valeurs / Piliers</div>
-    <div id="site-pillars-list">
-      ${pillars.map((p,i) => `
-        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-          <input class="form-input" style="flex:1;font-size:13px" value="${esc(p.title||'')}" placeholder="Titre" oninput="window._sitePillars[${i}].title=this.value">
-          <input class="form-input" style="flex:2;font-size:13px" value="${esc(p.desc||'')}" placeholder="Description" oninput="window._sitePillars[${i}].desc=this.value">
-          <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSitePillar(${i})">✕</button>
-        </div>`).join('')}
-    </div>
-    <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addSitePillar()">➕ Ajouter</button>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #157a5b">
-    <div class="premium-section-title">📚 Descriptions des programmes</div>
-    <div class="form-group"><label class="form-label">🌱 Maternelle</label>
-      <textarea class="form-input" id="site_prog_mat" rows="2" style="resize:vertical">${esc(progs.maternelle||'')}</textarea>
-    </div>
-    <div class="form-group"><label class="form-label">📖 Primaire</label>
-      <textarea class="form-input" id="site_prog_pri" rows="2" style="resize:vertical">${esc(progs.primaire||'')}</textarea>
-    </div>
-    <div class="form-group"><label class="form-label">🎓 Secondaire</label>
-      <textarea class="form-input" id="site_prog_sec" rows="2" style="resize:vertical">${esc(progs.secondaire||'')}</textarea>
-    </div>
-  </div>
-
-  <div class="premium-section" style="border-left:4px solid #d42b2b">
-    <div class="premium-section-title">📢 Publier une actualité</div>
-    <div class="form-group"><label class="form-label">Titre</label>
-      <input class="form-input" id="site_ann_title" placeholder="Ex: Rentrée scolaire 2026-2027">
-    </div>
-    <div class="form-group"><label class="form-label">Contenu</label>
-      <textarea class="form-input" id="site_ann_content" rows="2" style="resize:vertical"></textarea>
-    </div>
-    <button class="btn btn-outline" style="width:100%" onclick="publishAnnFromApp()">📢 Publier l'actualité</button>
-  </div>
-
-  <button class="btn btn-primary" style="width:100%;margin-bottom:40px;font-size:15px;padding:14px" onclick="saveSiteData()">💾 Enregistrer toutes les modifications</button>`);
+  </div>`);
 };
 
-window.addSiteGalleryPhoto = () => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const i = window._siteGallery.length;
-  window._siteGallery.push({url:'', caption:''});
-  const list = document.getElementById('site-gallery-list');
-  if (!list) return;
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px';
-  div.innerHTML = '<div style="width:50px;height:38px;background:var(--bg-secondary,#f8fafc);border-radius:6px;flex-shrink:0"></div>'
-    + '<input class="form-input" style="flex:1;font-size:12px" value="" placeholder="URL photo" oninput="window._siteGallery['+i+'].url=this.value">'
-    + '<input class="form-input" style="width:110px;font-size:12px" value="" placeholder="Légende" oninput="window._siteGallery['+i+'].caption=this.value">'
-    + '<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSiteGalleryPhoto('+i+')">✕</button>';
-  list.appendChild(div);
-};
-
-window.removeSiteGalleryPhoto = (i) => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  window._siteGallery.splice(i, 1);
-  render();
-};
-
-window.addSitePillar = () => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const i = window._sitePillars.length;
-  window._sitePillars.push({title:'', desc:''});
-  const list = document.getElementById('site-pillars-list');
-  if (!list) return;
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center';
-  div.innerHTML = '<input class="form-input" style="flex:1;font-size:13px" value="" placeholder="Titre" oninput="window._sitePillars['+i+'].title=this.value">'
-    + '<input class="form-input" style="flex:2;font-size:13px" value="" placeholder="Description" oninput="window._sitePillars['+i+'].desc=this.value">'
-    + '<button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="removeSitePillar('+i+')">✕</button>';
-  list.appendChild(div);
-};
-
-window.removeSitePillar = (i) => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  window._sitePillars.splice(i, 1);
-  render();
-};
-
-window.extractSiteLogoColor = () => {
-  if (!window.SCHOOL_LOGO) { toast('Aucun logo configuré dans les paramètres','info'); return; }
-  try {
-    const img = new Image();
-    img.onload = () => {
-      const cnv = document.createElement('canvas');
-      cnv.width = img.width; cnv.height = img.height;
-      const ctx = cnv.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      const px = ctx.getImageData(0, 0, img.width, img.height).data;
-      const freq = {};
-      for (let i = 0; i < px.length; i += 4) {
-        if (px[i+3] < 100) continue;
-        const bright = (px[i]*299 + px[i+1]*587 + px[i+2]*114) / 1000;
-        if (bright > 220 || bright < 25) continue;
-        const k = (Math.round(px[i]/16)*16) + ',' + (Math.round(px[i+1]/16)*16) + ',' + (Math.round(px[i+2]/16)*16);
-        freq[k] = (freq[k]||0)+1;
-      }
-      const top = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
-      if (!top.length) { toast('Couleur non détectée — choisissez manuellement','info'); return; }
-      const [r,g,b] = top[0][0].split(',').map(Number);
-      const hex = '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-      const el = document.getElementById('site_color_val');
-      if (el) el.value = hex;
-      window._selSiteColor = hex;
-      document.querySelectorAll('.ss-csw').forEach(el=>el.style.outline='2px solid transparent');
-      toast('Couleur extraite du logo : '+hex, 'success');
-    };
-    img.crossOrigin = 'anonymous';
-    img.src = window.SCHOOL_LOGO;
-  } catch(e) { toast('Erreur extraction couleur','error'); }
-};
-
-window._processAndUploadSitePhoto = function(file, name) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const maxW = 1920, maxH = 1920;
-        let w = img.width, h = img.height;
-        if (w > maxW || h > maxH) { const ratio=Math.min(maxW/w,maxH/h); w=Math.round(w*ratio); h=Math.round(h*ratio); }
-        const cnv = document.createElement('canvas');
-        cnv.width = w; cnv.height = h;
-        const ctx = cnv.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        // HSL boost: saturation +20%, brightness +3%
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const px = imgData.data;
-        const h2r = (p,q,t) => { if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<.5)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
-        for (let i = 0; i < px.length; i += 4) {
-          const r=px[i]/255, g=px[i+1]/255, b=px[i+2]/255;
-          const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
-          let hh=0, s=0, l=(mx+mn)/2;
-          if (mx!==mn) {
-            const d=mx-mn;
-            s = l>.5 ? d/(2-mx-mn) : d/(mx+mn);
-            if(mx===r) hh=(g-b)/d+(g<b?6:0);
-            else if(mx===g) hh=(b-r)/d+2;
-            else hh=(r-g)/d+4;
-            hh/=6;
-          }
-          s=Math.min(1,s*1.20); l=Math.min(1,l*1.03);
-          let r2,g2,b2;
-          if (s===0) { r2=g2=b2=l; }
-          else { const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q; r2=h2r(p,q,hh+1/3); g2=h2r(p,q,hh); b2=h2r(p,q,hh-1/3); }
-          px[i]=Math.round(r2*255); px[i+1]=Math.round(g2*255); px[i+2]=Math.round(b2*255);
-        }
-        ctx.putImageData(imgData, 0, 0);
-        cnv.toBlob(async (blob) => {
-          try {
-            const fname = name+'_'+Date.now()+'.jpg';
-            const _sk = _PHOTO_KIND.site;
-            const url = await window._uploadFile(blob, _sk.folder, _sk.prefix + fname);
-            if (!url) { reject(new Error('upload_failed')); return; }
-            resolve(url);
-          } catch(e) { reject(e); }
-        }, 'image/jpeg', 0.85);
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
-window.uploadSiteHeroPhoto = async function(file) {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  if (!file) return;
-  if ((window._siteHeroPhotos||[]).length >= 5) { toast('Maximum 5 photos hero','info'); return; }
-  try {
-    toast('⏳ Compression et envoi…','info');
-    const url = await window._processAndUploadSitePhoto(file, 'hero');
-    window._siteHeroPhotos = window._siteHeroPhotos || [];
-    window._siteHeroPhotos.push(url);
-    toast('✅ Photo ajoutée','success');
-    render();
-  } catch(e) { toast('Erreur upload — vérifiez le bucket "photos" dans Supabase Storage','error'); }
-};
-
-window.removeSiteHeroPhoto = (i) => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  (window._siteHeroPhotos||[]).splice(i, 1);
-  render();
-};
-
-window.addSiteGalleryPhotos = async function(files) {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  if (!files || !files.length) return;
-  toast('⏳ Traitement de '+files.length+' photo(s)…','info');
-  let added = 0;
-  for (const f of Array.from(files)) {
-    try {
-      const url = await window._processAndUploadSitePhoto(f, 'gal');
-      window._siteGallery = window._siteGallery || [];
-      window._siteGallery.push({url, caption:''});
-      added++;
-    } catch(e) {}
-  }
-  if (added) { toast('✅ '+added+' photo(s) ajoutée(s)','success'); render(); }
-  else toast('Erreur upload — vérifiez Supabase Storage','error');
-};
-
-window.saveSiteData = async () => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const key = (DB.settings?.license_key||'').trim();
-  if (!key) { toast('Licence non configurée — allez dans Paramètres','error'); return; }
-  if (!CENTRAL_URL || !CENTRAL_KEY) return;
-
-  const sc = DB.settings?.school || {};
-  const tagline      = ($('site_tagline')?.value||'').trim() || null;
-  const about_text   = ($('site_about')?.value||'').trim() || null;
-  const mission      = ($('site_mission')?.value||'').trim() || null;
-  const founded_year = parseInt($('site_founded_year')?.value) || null;
-  const city         = ($('site_city')?.value||'').trim() || null;
-  const whatsapp     = ($('site_whatsapp')?.value||'').trim() || null;
-  const hero_photos  = (window._siteHeroPhotos||[]).filter(u=>(u||'').trim());
-  const published    = $('site_published')?.checked || false;
-  const primary_color = ($('site_color_val')?.value || window._selSiteColor || '#c0962e');
-  const theme        = $('site_theme_val')?.value || 'dark';
-  const gallery      = (window._siteGallery||[]).filter(g=>(g.url||'').trim());
-  const pillars      = (window._sitePillars||[]).filter(p=>(p.title||'').trim());
-  const programs     = {
-    maternelle: ($('site_prog_mat')?.value||'').trim() || null,
-    primaire:   ($('site_prog_pri')?.value||'').trim() || null,
-    secondaire: ($('site_prog_sec')?.value||'').trim() || null,
-  };
-  const stats = {
-    students: (DB.students||[]).filter(s=>!s.access_blocked).length,
-    teachers: (DB.users||[]).filter(u=>u.role==='enseignant').length,
-    classes:  (DB.classes||[]).length,
-  };
-  const staff = (DB.users||[])
-    .filter(u=>u.role==='enseignant'||u.role==='direction'||u.role==='direction2')
-    .map(u => ({
-      name:      u.name,
-      position:  u.position || (u.role==='direction'?'Directeur Général':u.role==='direction2'?'Direction Pédagogique':'Enseignant'),
-      cycle:     (DB.classes||[]).find(c=>c.teacher_id===u.id)?.cycle || null,
-      photo_url: (u.photo && !u.photo.startsWith('data:') ? u.photo : null),
-      quote:     u.site_quote || null,
-    }));
-  const school_name    = sc.name || null;
-  const school_name_en = sc.name_en || sc.sub || null;
-  const address        = sc.address || null;
-  const phone          = sc.phone || null;
-  const email          = sc.email || null;
-  const logo_url       = (window.SCHOOL_LOGO && !window.SCHOOL_LOGO.startsWith('data:') ? window.SCHOOL_LOGO : null);
-
-  const body = {
-    tagline, about_text, mission, founded_year, city, whatsapp,
-    hero_photos, published, primary_color, theme, gallery, pillars,
-    programs, stats, staff, school_name, school_name_en, address,
-    phone, email, logo_url,
-  };
-
-  if (!DB.settings.school) DB.settings.school = {};
-  DB.settings.school.site_tagline = tagline;
-  DB.settings.school.site_about   = about_text;
-  pushSync('settings','upsert', DB.settings);
-  saveToCrypt();
-
-  try {
-    toast('⏳ Sauvegarde…','info');
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 10000);
-    const r = await fetch(
-      CENTRAL_URL + '/rest/v1/school_sites?license_key=eq.' + encodeURIComponent(key),
-      {
-        method: 'PATCH',
-        headers: { apikey: CENTRAL_KEY, Authorization: 'Bearer ' + CENTRAL_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-        body: JSON.stringify(body),
-        signal: ctrl.signal
-      }
-    );
-    if (r.status >= 400) throw new Error('http_'+r.status);
-    window._siteData = Object.assign(window._siteData||{}, body);
-    window._siteGallery    = JSON.parse(JSON.stringify(gallery));
-    window._sitePillars    = JSON.parse(JSON.stringify(pillars));
-    window._siteHeroPhotos = JSON.parse(JSON.stringify(hero_photos));
-    toast('✅ Site mis à jour','success');
-    render();
-  } catch(e) { toast('Sauvegardé localement (vérifier connexion)','info'); }
-};
-
-// ── SETTINGS ──
 R.settings = () => {
   const _g=_requireRole('direction'); if(_g) return _g;
   const sc=DB.settings.school||{};
@@ -21984,7 +21446,10 @@ R.settings = () => {
   <div class="premium-section" style="border-left:4px solid #0f7f7f">
     <div class="premium-section-title">🌐 Mon site web</div>
     <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">Gérez l'apparence, les couleurs, les photos et le contenu de votre site public SchoolSafe.</div>
-    <button class="btn btn-primary" style="width:100%" onclick="go('mon_site')">🌐 Gérer mon site web →</button>
+    <div style="font-size:12px;color:var(--text-muted);padding:10px 12px;background:var(--bg);border-radius:10px">
+      Le site vitrine était géré par un service central, aujourd'hui retiré.
+      Les pages publiques restent en ligne ; leur contenu se modifie dans les fichiers du site.
+    </div>
   </div>` : ''}
 
   <!-- ══ CONNEXION SUPABASE ══ -->
@@ -22331,36 +21796,14 @@ window.saveSessionTimeout = (val) => {
   toast('⏱️ Délai de session mis à jour : '+val+' min','success');
 };
 
+// Les actualités partaient dans `school_announcements`, table du projet
+// central retiré. La fonction reste appelée par deux boutons ; la garder
+// honnête coûte moins que de traquer chaque appel, et elle dit clairement
+// pourquoi rien ne part.
 window.publishAnnFromApp = async () => {
-  const key   = (DB.settings?.license_key||'').trim();
-  if(!key){ toast('Licence non configurée','error'); return; }
-  if(!CENTRAL_URL||!CENTRAL_KEY) return;
-  const titleEl   = $('site_ann_title') || $('cfg_ann_title');
-  const contentEl = $('site_ann_content') || $('cfg_ann_content');
-  const title   = (titleEl?.value||'').trim();
-  const content = (contentEl?.value||'').trim()||null;
-  if(!title){ toast('Entrez un titre','error'); return; }
-  try {
-    const ctrl = new AbortController();
-    setTimeout(()=>ctrl.abort(),8000);
-    const r = await fetch(CENTRAL_URL+'/rest/v1/school_announcements', {
-      method:'POST',
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({
-        license_key: key,
-        school_name: DB.settings?.school?.name||'',
-        title, content,
-        date: today(),
-        published: true
-      }),
-      signal: ctrl.signal
-    });
-    if(!r.ok) throw new Error('http_'+r.status);
-    if(titleEl) titleEl.value='';
-    if(contentEl) contentEl.value='';
-    toast('✅ Actualité publiée sur le site','success');
-  } catch(e){ toast('Erreur publication : hors ligne ?','error'); }
+  toast('Publication d\'actualités retirée avec le service central', 'info');
 };
+
 
 // ── SANCTIONS DISCIPLINAIRES ──
 R.sanctions = () => {
@@ -27610,27 +27053,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const ind=$('LOAD_IND');
   if(ind) ind.style.display='';
   // Signale explicitement l'absence de contexte école : sans le ?school=… du
-  // lien de l'école, l'app ne peut pas joindre le central et retombe en local.
   // Aucune base jointe : l'application ne peut ni lire ni écrire. Le dire, et
   // offrir le moyen de la relier, plutôt que de laisser un écran inerte.
   if (!window._supaConfigured()) {
     setTimeout(() => { if (typeof showSupaSetup === 'function') showSupaSetup(); }, 400);
   }
-  if (SCHOOL_KEY && LOGIN_FN_URL) {
-    // École migrée au central : RLS bloque toute lecture tant qu'aucun JWT
-    // n'est posé (anon key = aucune ligne). Pas de préchargement ici —
-    // loadFromSupabase() est appelé après tryLogin(), une fois le JWT
-    // (et school_id) connus. On restaure seulement l'instantané chiffré
-    // local éventuel en attendant.
-    loadFromCrypt().catch(()=>{}).then(()=>{ if(ind) ind.style.display='none'; });
-  } else {
-    loadFromSupabase()
-      .then(ok=>{
-        if(ind) ind.style.display='none';
-        if(!ok) console.log('[SB] démarrage hors ligne');
-      })
-      .catch(()=>{ if(ind) ind.style.display='none'; });
-  }
+  // Les données se chargent dès le démarrage : plus de jeton à obtenir d'abord.
+  loadFromSupabase()
+    .then(ok=>{
+      if(ind) ind.style.display='none';
+      if(!ok) console.log('[SB] démarrage hors ligne');
+    })
+    .catch(()=>{ if(ind) ind.style.display='none'; });
 });
 </script>
 
