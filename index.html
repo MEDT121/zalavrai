@@ -21383,7 +21383,29 @@ R.settings = () => {
   </div>`;
 };
 
-window.saveSettingsSchool = () => {
+// ── Enregistrement d'un réglage : dire la vérité sur ce qui s'est passé ──
+// Les vingt-trois enregistrements de cette page annonçaient « enregistré »
+// sans attendre le résultat de l'écriture. Quand celle-ci échouait — et elle
+// a échoué pendant des semaines faute de droit d'insertion — l'utilisateur
+// voyait un succès et repartait tranquille.
+//
+// `render()` est également retiré : cette page compte une dizaine de sections,
+// chacune avec son bouton. Réafficher la page entière après en avoir enregistré
+// une seule effaçait ce qui était saisi dans les autres.
+window._saveSettings = async (msg, opts) => {
+  const o = opts || {};
+  if (window._settingsBusy) return false;
+  window._settingsBusy = true;
+  try {
+    const ok = await pushSync('settings', 'upsert', DB.settings);
+    saveToCrypt();
+    toast(ok ? msg : msg + ' — envoi différé', ok ? 'success' : 'info');
+    if (o.render) render();
+    return ok;
+  } finally { window._settingsBusy = false; }
+};
+
+window.saveSettingsSchool = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.school) DB.settings.school={};
   const n=($('cfg_school_name')?.value||'').trim();
@@ -21398,8 +21420,10 @@ window.saveSettingsSchool = () => {
   DB.settings.school.motto=($('cfg_school_motto')?.value||'').trim()||null;
   DB.settings.school.website=($('cfg_school_website')?.value||'').trim()||null;
   DB.settings.school.devise=$('cfg_school_devise')?.value||'$';
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt(); toast('Identité école enregistrée','success'); render();
+  // L'en-tête et le titre reflètent l'identité : on les met à jour sur place
+  // plutôt que de réafficher la page et perdre les autres sections saisies.
+  await window._saveSettings('Identité école enregistrée');
+  const _t = DB.settings.school?.name; if (_t) document.title = 'SchoolSafe — ' + _t;
 };
 
 
@@ -21416,75 +21440,99 @@ window.checkLicenseManual = async () => {
   }
 };
 
-window.saveSettingsYear = () => {
+window.saveSettingsYear = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const y=($('cfg_year')?.value||'').trim();
-  if(!y){toast('Entrez une année valide','error');return;}
+  // Format attendu : 2025-2026. Une année mal formée se retrouve sur les
+  // bulletins, les cartes et les reçus, où personne ne pense à la vérifier.
+  if(!/^\d{4}-\d{4}$/.test(y)){toast('Format attendu : 2025-2026','error');return;}
+  const [a,b]=y.split('-').map(Number);
+  if(b!==a+1){toast('La seconde année doit suivre la première','error');return;}
   DB.settings.year=y;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt(); toast('Année scolaire mise à jour : '+y,'success'); render();
+  await window._saveSettings('Année scolaire mise à jour : '+y);
 };
 
-window.saveSettingsSchoolType = () => {
+window.saveSettingsSchoolType = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const st=($('cfg_school_type')?.value)||'complet';
   if(!DB.settings) DB.settings={};
   DB.settings.school_type=st;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt();
   const labels={mat_primaire:'Maternel + Primaire',secondaire:'Humanités / Secondaire',complet:'Tous les cycles'};
-  toast('Configuration mise à jour : '+(labels[st]||st),'success');
-  render();
+  // Seul cas où réafficher se justifie : le choix des cycles change les
+  // sections visibles de la page elle-même.
+  await window._saveSettings('Configuration mise à jour : '+(labels[st]||st), {render:true});
 };
 
-window.saveSettingsFees = () => {
+window.saveSettingsFees = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
+  // Un montant négatif passait sans broncher, et se serait propagé aux soldes,
+  // aux reçus et aux relances. Un frais nul reste licite — un frais négatif non.
+  const lus = {
+    T1: parseFloat($('cfg_fee_t1')?.value),
+    T2: parseFloat($('cfg_fee_t2')?.value),
+    T3: parseFloat($('cfg_fee_t3')?.value),
+    inscription: parseFloat($('cfg_fee_ins')?.value),
+  };
+  for (const [k,v] of Object.entries(lus)) {
+    if (v < 0) { toast(`Montant négatif refusé (${k})`,'error'); return; }
+  }
   if(!DB.settings.fees) DB.settings.fees={};
-  DB.settings.fees.T1=parseFloat($('cfg_fee_t1')?.value)||0;
-  DB.settings.fees.T2=parseFloat($('cfg_fee_t2')?.value)||0;
-  DB.settings.fees.T3=parseFloat($('cfg_fee_t3')?.value)||0;
-  DB.settings.fees.inscription=parseFloat($('cfg_fee_ins')?.value)||0;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt(); toast('Frais scolaires enregistrés','success'); render();
+  Object.entries(lus).forEach(([k,v]) => { DB.settings.fees[k] = isNaN(v) ? 0 : v; });
+  await window._saveSettings('Frais scolaires enregistrés');
 };
 
-window.saveSettingsHoraires = () => {
+window.saveSettingsHoraires = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const timeToMins=t=>{const[h,m]=(t||'').split(':').map(Number);return(h||0)*60+(m||0);};
+  // Un champ vide donnait 0 — soit minuit — et tout élève se présentant au
+  // portail était alors compté en retard. Ces horaires décident du statut de
+  // chaque entrée : une valeur absurde se voit sur les bulletins des semaines
+  // plus tard, quand plus personne ne fait le lien.
+  const mins = t => {
+    if (!t || !/^\d{1,2}:\d{2}$/.test(t)) return null;
+    const [h,m] = t.split(':').map(Number);
+    if (h > 23 || m > 59) return null;
+    return h*60 + m;
+  };
+  const cycles = [
+    { cle:'primaire',   lib:'Primaire',   on:'cfg_p_ontime', la:'cfg_p_late' },
+    { cle:'maternelle', lib:'Maternelle', on:'cfg_m_ontime', la:'cfg_m_late' },
+    { cle:'secondaire', lib:'Secondaire', on:'cfg_s_ontime', la:'cfg_s_late' },
+  ];
+  const lus = {};
+  for (const c of cycles) {
+    const on = mins($(c.on)?.value), la = mins($(c.la)?.value);
+    if (on === null || la === null) { toast(`Horaire manquant ou invalide — ${c.lib}`,'error'); return; }
+    if (la < on) { toast(`${c.lib} : l'heure de retard précède l'heure d'arrivée`,'error'); return; }
+    lus[c.cle] = { ontime:on, late:la };
+  }
   if(!DB.settings.horaires) DB.settings.horaires={};
-  DB.settings.horaires.primaire={
-    ontime:timeToMins($('cfg_p_ontime')?.value),
-    late:timeToMins($('cfg_p_late')?.value)
-  };
-  DB.settings.horaires.maternelle={
-    ontime:timeToMins($('cfg_m_ontime')?.value),
-    late:timeToMins($('cfg_m_late')?.value)
-  };
-  DB.settings.horaires.secondaire={
-    ontime:timeToMins($('cfg_s_ontime')?.value),
-    late:timeToMins($('cfg_s_late')?.value)
-  };
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt(); toast('Horaires d\'entrée mis à jour','success'); render();
+  Object.assign(DB.settings.horaires, lus);
+  await window._saveSettings('Horaires d\'entrée mis à jour');
 };
 
-window.saveSettingsRattrapage = () => {
+window.saveSettingsRattrapage = async () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const v = parseInt($('cfg_rat_threshold')?.value);
   if(isNaN(v) || v < 1 || v > 100){toast('Seuil invalide (1–100)','error');return;}
   DB.settings.rattrapage_threshold = v;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt(); toast(`✅ Seuil de rattrapage : ${v}%`,'success'); render();
+  await window._saveSettings(`Seuil de rattrapage : ${v}%`);
 };
 
-window.saveSettingsToggle = (key, val) => {
+window.saveSettingsToggle = async (key, val) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.toggles) DB.settings.toggles={};
+  const avant = DB.settings.toggles[key];
   DB.settings.toggles[key]=val;
-  pushSync('settings','upsert',DB.settings);
-  saveToCrypt();
-  toast(`${val?'Activé':'⛔ Désactivé'} : ${key}`,'success');
-  render();
+  const LIB = {palmares:'Palmarès', devoirs:'Devoirs', notes_parent:'Notes aux parents',
+               cahier_texte:'Cahier de texte', remarques:'Remarques', presences:'Présences',
+               bulletin:'Bulletins'};
+  const ok = await window._saveSettings(`${LIB[key]||key} ${val?'activé':'désactivé'}`);
+  // L'interrupteur a déjà basculé à l'écran : si l'enregistrement échoue, il
+  // afficherait un état que la base ignore. On le remet dans son état réel.
+  if (!ok) {
+    DB.settings.toggles[key] = avant;
+    const el = $('tog_'+key); if (el) el.checked = !!avant;
+  }
 };
 window.saveSessionTimeout = (val) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
