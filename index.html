@@ -2490,58 +2490,75 @@ window.loadFromSupabase = async () => {
       _get('versements','select=*&order=date.desc&limit=1000'+_sf()),
       _get('journal_entries','select=*&order=date.desc&limit=500'+_sf()),
     ]);
-    const safe = r => Array.isArray(r) ? r : [];
-    const fd = arr => safe(arr).map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
+    // _get() renvoie null quand une lecture ÉCHOUE, et [] quand la table est
+    // réellement vide. Confondre les deux effaçait la table localement à la
+    // moindre coupure, et saveToCrypt() enregistrait ensuite ce vide.
+    //
+    // Une lecture ratée conserve donc ce qui était déjà chargé. Seule une
+    // réponse valide — un vrai tableau — remplace les données.
+    let _lectFail = 0;
+    const safe = (r, cur) => {
+      if (Array.isArray(r)) return r;
+      _lectFail++;
+      return Array.isArray(cur) ? cur : [];
+    };
+    const fd = (arr, cur) => {
+      const v = safe(arr, cur);
+      return v === cur ? v : v.map(x=>({...x,date:x.date?.slice(0,10)||x.date}));
+    };
     // Exclure pin/pin_hashed du chargement en masse — fetchés à la demande dans tryLogin
-    DB.users=safe(users).map(({pin:_p,pin_hashed:_ph,...u})=>u); DB.classes=safe(classes); DB.students=safe(students);
-    DB.payments=safe(payments); DB.attendance=fd(attendance);
-    DB.scan_log=fd(scan_log); DB.conduct=fd(conduct);
-    DB.grades=safe(grades); DB.absences=fd(absences);
-    DB.notifs=safe(notifs); DB.events=fd(events);
-    DB.messages=fd(messages); DB.aps=safe(aps);
-    DB.daily_records=fd(daily_records); DB.daily_expenses=fd(daily_expenses);
-    DB.daily_reports=fd(daily_reports);
-    DB.devoirs=fd(devoirs);
-    DB.cahier_texte=fd(cahier_texte);
-    DB.matieres=safe(matieres);
-    DB.rattrapages=fd(rattrapages);
-    DB.convocations=fd(convocations);
-    DB.sanctions=fd(sanctions);
-    DB.cantine=safe(cantine);
-    DB.cantine_menus=fd(cantine_menus);
-    DB.cantine_presence=fd(cantine_presence);
-    DB.activites=safe(activites);
-    DB.activites_inscriptions=safe(activites_inscriptions);
-    DB.appreciations=safe(appreciations);
-    DB.medical_visits=fd(medical_visits);
-    DB.timetables=safe(timetables);
-    DB.inscriptions=safe(inscriptions);
-    DB.cahier_prep=fd(cahier_prep);
-    DB.prevision_matiere=safe(prevision_matiere);
-    DB.fee_types=safe(fee_types);
-    DB.versements=fd(versements);
-    DB.journal_entries=fd(journal_entries);
+    DB.users=(()=>{const v=safe(users, DB.users); return v===DB.users ? v : v.map(({pin:_p,pin_hashed:_ph,...u})=>u);})(); DB.classes=safe(classes, DB.classes); DB.students=safe(students, DB.students);
+    DB.payments=safe(payments, DB.payments); DB.attendance=fd(attendance, DB.attendance);
+    DB.scan_log=fd(scan_log, DB.scan_log); DB.conduct=fd(conduct, DB.conduct);
+    DB.grades=safe(grades, DB.grades); DB.absences=fd(absences, DB.absences);
+    DB.notifs=safe(notifs, DB.notifs); DB.events=fd(events, DB.events);
+    DB.messages=fd(messages, DB.messages); DB.aps=safe(aps, DB.aps);
+    DB.daily_records=fd(daily_records, DB.daily_records); DB.daily_expenses=fd(daily_expenses, DB.daily_expenses);
+    DB.daily_reports=fd(daily_reports, DB.daily_reports);
+    DB.devoirs=fd(devoirs, DB.devoirs);
+    DB.cahier_texte=fd(cahier_texte, DB.cahier_texte);
+    DB.matieres=safe(matieres, DB.matieres);
+    DB.rattrapages=fd(rattrapages, DB.rattrapages);
+    DB.convocations=fd(convocations, DB.convocations);
+    DB.sanctions=fd(sanctions, DB.sanctions);
+    DB.cantine=safe(cantine, DB.cantine);
+    DB.cantine_menus=fd(cantine_menus, DB.cantine_menus);
+    DB.cantine_presence=fd(cantine_presence, DB.cantine_presence);
+    DB.activites=safe(activites, DB.activites);
+    DB.activites_inscriptions=safe(activites_inscriptions, DB.activites_inscriptions);
+    DB.appreciations=safe(appreciations, DB.appreciations);
+    DB.medical_visits=fd(medical_visits, DB.medical_visits);
+    DB.timetables=safe(timetables, DB.timetables);
+    DB.inscriptions=safe(inscriptions, DB.inscriptions);
+    DB.cahier_prep=fd(cahier_prep, DB.cahier_prep);
+    DB.prevision_matiere=safe(prevision_matiere, DB.prevision_matiere);
+    DB.fee_types=safe(fee_types, DB.fee_types);
+    DB.versements=fd(versements, DB.versements);
+    DB.journal_entries=fd(journal_entries, DB.journal_entries);
     _seedFeeTypes();
     const sRow=safe(settings_rows)[0];
     if(sRow){const{id,...rest}=sRow;DB.settings={...DB.settings,...rest,id:_settingsId()};}
     // Déchiffre subject/body si chiffrés (enc:...) — clé disponible maintenant dans DB.settings
     if (DB.settings?.msg_enc_key) DB.messages = await _decryptMsgs(DB.messages);
-    DB.approbations=fd(approbations);
-    DB.teacher_notes=fd(teacher_notes);
-    DB.audit_log=fd(audit_log);
-    DB.teacher_absences=fd(teacher_absences);
-    DB.medical=safe(medical);
-    DB.tenafep=safe(tenafep);
-    DB.evaluations=safe(evaluations);
-    DB.salaries=safe(salaries);
-    DB.advances=safe(advances);
-    DB.direct_primes=fd(direct_primes);
+    DB.approbations=fd(approbations, DB.approbations);
+    DB.teacher_notes=fd(teacher_notes, DB.teacher_notes);
+    DB.audit_log=fd(audit_log, DB.audit_log);
+    DB.teacher_absences=fd(teacher_absences, DB.teacher_absences);
+    DB.medical=safe(medical, DB.medical);
+    DB.tenafep=safe(tenafep, DB.tenafep);
+    DB.evaluations=safe(evaluations, DB.evaluations);
+    DB.salaries=safe(salaries, DB.salaries);
+    DB.advances=safe(advances, DB.advances);
+    DB.direct_primes=fd(direct_primes, DB.direct_primes);
     const uids=DB.users.map(u=>parseInt(u.id?.replace(/\D/g,''))||0);
     DB._uid=(uids.length?Math.max(...uids):1)+1;
     const sids=DB.students.map(s=>parseInt(s.id?.replace(/\D/g,''))||0);
     DB._sid=(sids.length?Math.max(...sids):0)+1;
     console.log('[SB] ✅',DB.students.length,'élèves',DB.users.length,'users');
     _rebuildIdx();
+    // Une lecture ratée n'efface plus rien, mais elle mérite d'être visible :
+    // c'est le signe d'un réseau instable ou d'une table inaccessible.
+    if (_lectFail) console.warn('[SB]', _lectFail, 'lecture(s) en échec — données locales conservées pour ces tables');
     saveToCrypt();
     return true;
   } catch(e) {
