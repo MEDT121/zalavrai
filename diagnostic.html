@@ -236,10 +236,53 @@ document.getElementById('run').onclick = async () => {
       newFmt ? null : 'Le code contient encore une clé JWT legacy. Envoie-moi la clé publishable pour que je mette à jour <code>index.html</code>.');
   } catch (e) { t5('warn', 'non vérifiable', String(e)); }
 
-  // ── 6. Edge Function admin-api (si un token est fourni) ─────────────────
+  // ── 6. Stockage R2 de bout en bout ──────────────────────────────────────
+  const t6 = card('6. Stockage R2 (signature → envoi → lecture)');
+  try {
+    const r = await fetch(FN_URL, {
+      method: 'POST',
+      headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action:'storage_sign', license_key: license,
+                             folder:'cards', name:'_diagnostic.png', contentType:'image/png' }),
+    });
+    const txt = await r.text();
+    let d = null; try { d = JSON.parse(txt); } catch {}
+
+    if (r.status === 503 || /R2 non configuré/i.test(d?.error || '')) {
+      t6('warn', 'non configuré', txt,
+        'R2 n\'est pas encore branché : les cartes voyageront en base64 dans la commande. Ajoute les 5 secrets <code>R2_*</code> puis redéploie la fonction.');
+    } else if (/action inconnue|name et pin requis|pin requis/i.test(d?.error || '')) {
+      t6('bad', 'fonction ancienne', txt,
+        'La fonction déployée ne connaît pas l\'action <code>storage_sign</code> — redéploie-la avec la dernière version.');
+    } else if (!r.ok || !d?.upload_url) {
+      t6('bad', 'signature refusée', txt, d?.error ? '' : 'Réponse inattendue de la fonction.');
+    } else {
+      // 1×1 PNG transparent — charge utile minimale pour un aller-retour réel
+      const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
+      const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      const up = await fetch(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin });
+      if (!up.ok) {
+        t6('bad', 'envoi refusé — HTTP ' + up.status, (await up.text()).slice(0, 600),
+          'L\'URL est signée mais R2 refuse l\'écriture : vérifie que le jeton a la permission <strong>Object Read &amp; Write</strong> et que <code>R2_BUCKET</code> correspond au bucket réel.');
+      } else if (!d.public_url) {
+        t6('warn', 'envoyé, non lisible', 'Clé : ' + d.key,
+          'Le fichier est bien stocké mais aucun domaine public n\'est configuré. Renseigne <code>R2_PUBLIC_BASE</code> avec l\'URL <code>pub-….r2.dev</code> du bucket.');
+      } else {
+        const back = await fetch(d.public_url + '?_=' + Math.floor(performance.now()), { cache:'no-store' });
+        t6(back.ok ? 'ok' : 'warn',
+           back.ok ? 'bout en bout OK' : 'lecture HTTP ' + back.status,
+           'Clé : ' + d.key + '\nURL publique : ' + d.public_url,
+           back.ok ? null : 'Le fichier est envoyé mais pas servi publiquement — active <em>Public Development URL</em> sur le bucket.');
+      }
+    }
+  } catch (e) {
+    t6('bad', 'réseau', String(e), 'Appel impossible — voir le test 3.');
+  }
+
+  // ── 7. Edge Function admin-api (si un token est fourni) ─────────────────
   const ATOK = document.getElementById('at').value.trim();
   if (ATOK) {
-    const t6 = card('6. Edge Function admin-api');
+    const t7 = card('7. Edge Function admin-api');
     const AURL = `${CENTRAL}/functions/v1/admin-api`;
     try {
       const r = await fetch(AURL, {
@@ -249,16 +292,16 @@ document.getElementById('run').onclick = async () => {
       });
       const txt = await r.text();
       let d = null; try { d = JSON.parse(txt); } catch(_){}
-      if (r.status === 404)                       t6('bad', '404', txt, 'Aucune fonction nommée <code>admin-api</code> sur ce projet — vérifie le nom exact.');
-      else if (d?.error === 'Unauthorized')       t6('bad', 'token refusé', txt, 'Le token ne correspond pas au secret <code>ADMIN_TOKEN</code> de la fonction.');
-      else if (/CENTRAL_SECRET_KEY/.test(d?.error || '')) t6('bad', 'secret manquant', txt, 'Ajoute <code>CENTRAL_SECRET_KEY</code> aux secrets du projet.');
-      else if (!r.ok)                             t6('bad', 'HTTP ' + r.status, txt);
-      else if (typeof d?.total !== 'number')      t6('warn', 'réponse inattendue', txt, 'La fonction répond mais pas au format attendu — le code déployé n\'est peut-être pas <code>admin-api</code>.');
-      else                                        t6('ok', d.total + ' école(s)', JSON.stringify(d, null, 2));
+      if (r.status === 404)                       t7('bad', '404', txt, 'Aucune fonction nommée <code>admin-api</code> sur ce projet — vérifie le nom exact.');
+      else if (d?.error === 'Unauthorized')       t7('bad', 'token refusé', txt, 'Le token ne correspond pas au secret <code>ADMIN_TOKEN</code> de la fonction.');
+      else if (/CENTRAL_SECRET_KEY/.test(d?.error || '')) t7('bad', 'secret manquant', txt, 'Ajoute <code>CENTRAL_SECRET_KEY</code> aux secrets du projet.');
+      else if (!r.ok)                             t7('bad', 'HTTP ' + r.status, txt);
+      else if (typeof d?.total !== 'number')      t7('warn', 'réponse inattendue', txt, 'La fonction répond mais pas au format attendu — le code déployé n\'est peut-être pas <code>admin-api</code>.');
+      else                                        t7('ok', d.total + ' école(s)', JSON.stringify(d, null, 2));
     } catch (e) {
       let reachable = false;
       try { reachable = (await fetch(AURL, { method:'POST', mode:'no-cors' })).type === 'opaque'; } catch(_) {}
-      t6('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
+      t7('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
         reachable ? 'Désactive <strong>Verify JWT</strong> sur <code>admin-api</code>.'
                   : 'Fonction non déployée, mal nommée, ou elle plante au démarrage (voir ses <em>Logs</em>).');
     }
