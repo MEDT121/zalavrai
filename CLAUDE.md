@@ -247,6 +247,20 @@ window.NAV = {
 - **Push** : toujours `git push -u origin claude/integrate-external-map-system-kCSm6 && git push origin HEAD:main`
 - **Onglets profil** : ne pas appeler `render()` pour changer d'onglet — utiliser `_setProfileTab(id)`
 - Les `t(fr, en)` ne s'appliquent qu'aux enseignants (getLang). Les autres rôles voient toujours le français.
+- **Identifiants** : toujours `_uid('prefix_')`, jamais `'x'+Date.now()`. Deux
+  écritures de la même milliseconde partageaient une clé primaire ; une seule
+  survivait côté serveur. C'est ce qui privait les autres directions de leurs
+  notifications dans toutes les boucles `forEach`.
+- **Argent** : toujours `lireMontant()`, jamais `parseFloat()`. `parseFloat('12,50')`
+  vaut **12** — la virgule est le séparateur décimal ici. De même `lireNote()`
+  pour les notes.
+- **Écritures partielles** : `pushSync(t,'patch',{champs modifiés},query)`, jamais
+  l'objet entier. Un seul champ local sans colonne fait rejeter toute la ligne.
+- **Schéma** : après toute nouvelle écriture, `node tools/audit-schema.mjs`.
+  Toute colonne manquante va dans `supabase_migration_finale.sql`.
+- **SQL** : ne jamais livrer une migration sans l'avoir exécutée. Voir
+  « Éprouver une migration » plus bas — c'est ainsi qu'a été trouvée une
+  apostrophe qui aurait fait échouer les 78 colonnes d'un bloc.
 
 ---
 
@@ -499,3 +513,113 @@ de paramètres n'employaient pas les mêmes noms — des emplacements restaient
 vides en permanence.
 
 Avant d'ajouter un champ dans Paramètres, vérifier **où il aboutit**.
+
+
+---
+
+## Audit page par page (30/07/2026) — normaliseurs nés de l'audit
+
+Quatorze domaines relus un à un, ~145 défauts corrigés. Ce qu'il faut en
+retenir pour la suite.
+
+### Les cinq pannes silencieuses les plus coûteuses
+
+| Domaine | Ce qui se passait |
+|---------|-------------------|
+| Caisse | `parseFloat('12,50')` → **12**. 31 saisies d'argent concernées. |
+| Devoirs | `expires_at` écrit en millisecondes, comparé en ISO sur colonne TEXT : le nettoyage hebdomadaire **effaçait tous les devoirs**, serveur compris. |
+| Portail | `${JSON.stringify(nom)}` dans un attribut `onclick` en guillemets doubles → la puce d'accompagnant **n'a jamais fonctionné**. |
+| Messages | Le destinataire était mis à `null` avant approbation → **aucun message d'enseignant n'atteignait les parents**. |
+| Caisse | `year_locked` (année en texte) dans une colonne BOOLEAN → archiver une année **bloquait tout enregistrement de réglages**. |
+
+### Normaliseurs de lecture — le motif à réutiliser
+
+Quand deux générations de code emploient des noms différents, on **réconcilie
+à la lecture** plutôt que de reprendre les écritures d'une application en
+service :
+
+```js
+gTrim(g)                     // grades.trimester | trimestre
+_schoolInfo()                // motto|slogan, name_en|sub, website|site
+_estBloque(s)                // students.access_blocked | blocked  (blocked jamais écrit)
+_msgPourMoi(m,uid,role,cids) // messages : to_class_cid | "class:x" | "role:parent"
+_estIncident(l)              // scan_log : tout statut commençant par refused
+_cibleFrais(ftId,trim)       // settings.fees fait foi, pas fee_types.montant_defaut
+_estExpire(v)                // expires_at : millisecondes héritées ou ISO
+_msExpiration(v)             // idem, en millisecondes
+```
+
+### Champs morts trouvés — jamais écrits, seulement lus
+
+`students.blocked` (6 lectures) · `messages.to_class` seul · `settings.currentYear`
+(cartes de classe). Avant de lire un champ, vérifier qu'**une écriture le
+renseigne**.
+
+### Helpers financiers
+
+```js
+lireMontant(raw, max)   // « 12,50 » « 1 200 » « 1.200,50 » ; refuse « 1O0 »
+_recettes()             // daily_records sans les annulées
+_salairesVerses()       // la masse salariale ne passe PAS par daily_expenses
+_primesRatDues()        // au tarif enseignant, pas au montant facturé aux familles
+_enregistrerMouvement() // SEULE porte d'entrée de l'argent : reçu + recette + OHADA
+```
+
+Tout encaissement passe par `_enregistrerMouvement`. Les rattrapages ne le
+faisaient pas : l'argent n'apparaissait dans aucun total.
+
+### Gardes de rôle
+
+Toute fonction exposée sur `window` qui écrit doit vérifier `S.user.role`.
+Un contrôle dans le *rendu* (`const canModify = …`) n'est pas une sécurité.
+L'audit a trouvé une vingtaine de mutations sans garde, dont trois sur les
+présences et deux qui manipulaient de l'argent.
+
+---
+
+## État Supabase (30/07/2026)
+
+`supabase_migration_finale.sql` — **exécutée et vérifiée** sur la base de
+l'école. 78 colonnes sur 23 tables, `settings.year_locked` passée de BOOLEAN
+à TEXT, policies `inscriptions/UPDATE` et `settings/INSERT`, 2 index.
+
+Elle remplace `supabase_fix_columns_v2.sql` et `v3.sql` : ne plus les lancer.
+Toute nouvelle colonne s'ajoute **dans ce fichier**, dans la liste de tuples
+de la section 1 puis dans les deux blocs de vérification.
+
+`supabase_verification.sql` — 35 lignes, à coller seul dans un onglet **vide**.
+Rend « TOUT EST EN PLACE ». Dix colonnes suffisent à prouver l'ensemble : la
+boucle qui les ajoute est atomique, une erreur en cours annulerait tout.
+
+### Éprouver une migration avant de la livrer
+
+Le conteneur a PostgreSQL 16. `initdb` refuse de tourner en root — passer par
+l'utilisateur `postgres` :
+
+```bash
+export PATH=/usr/lib/postgresql/16/bin:$PATH
+D=/tmp/pg; rm -rf $D; mkdir -p $D; chown postgres:postgres $D
+su postgres -s /bin/bash -c "PATH=$PATH initdb -D $D -U postgres --auth=trust"
+su postgres -s /bin/bash -c "PATH=$PATH pg_ctl -D $D -o '-k /tmp -p 55432 -c listen_addresses=' -l $D/log start"
+# CREATE ROLE anon;  puis CREATE DATABASE (jamais dans le même -c : transaction)
+# rejouer setup + missing_tables + fix_columns → réplique exacte : 49 tables
+```
+
+Éprouver **dans les deux sens** : la migration doit dire « incomplet » avant,
+« en place » après. Une vérification qui ne sait dire que oui ne vérifie rien.
+
+### La forme d'une migration
+
+Chaque colonne passe par une boucle `DO $$` qui teste d'abord l'existence de sa
+table, et **signale** une table absente au lieu d'interrompre. Sans cela un seul
+nom divergent fait tout échouer et l'on ignore ce qui est passé.
+
+Attention aux apostrophes dans les types : `JSONB DEFAULT '[]'::jsonb` doit
+s'écrire `'JSONB DEFAULT ''[]''::jsonb'` dans le tuple. C'est l'exécution
+réelle qui l'a révélé, pas la relecture.
+
+### L'éditeur SQL de Supabase n'affiche que le DERNIER résultat
+
+Un fichier de 480 lignes qui vérifie en son milieu ne montre rien d'utile.
+D'où un fichier de vérification séparé — et il faut un **onglet vide** (`+`),
+sinon le nouveau texte se colle à la suite de l'ancien.
