@@ -7042,7 +7042,7 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
   // patStyle: 'vignette' | 'fond' | 'both'
   const showFond=patStyle==='fond'||patStyle==='both';
   const showVig=patStyle==='vignette'||patStyle==='both';
-  const sc=DB.settings?.school||{}, logo=window.SCHOOL_LOGO;
+  const sc=window._schoolInfo(), logo=window.SCHOOL_LOGO;
   const snm=sc.name||"NOM DE L'ÉCOLE", slg=sc.slogan||sc.sub||'', clNm=cl?cl.name:'—';
   const dob=s.dob?s.dob.split('-').reverse().join('/'):'—';
   const tchr=teacher?teacher.name:'—';
@@ -7131,7 +7131,7 @@ window.ssBuildCarte=function(s,cl,teacher,year,patC,patStyle){
   // patStyle: 'vignette' | 'fond' | 'both'
   const showFond=patStyle==='fond'||patStyle==='both';
   const showVig=patStyle==='vignette'||patStyle==='both';
-  const sc=DB.settings?.school||{}, logo=window.SCHOOL_LOGO;
+  const sc=window._schoolInfo(), logo=window.SCHOOL_LOGO;
   const snm=sc.name||"NOM DE L'ÉCOLE", slg=sc.slogan||sc.sub||'', clNm=cl?cl.name:'—';
   const addr=sc.address||"Adresse de l'école", phone=sc.phone||'—', email=sc.email||'—', site=sc.website||sc.site||'';
   const dob=s.dob?s.dob.split('-').reverse().join('/'):'—', tchr=teacher?teacher.name:'—', opt=cl?cl.option||'':'';
@@ -9302,6 +9302,44 @@ if(!window._iv_autoreport) window._iv_autoreport = setInterval(() => {
 window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0,inscription:0};
 // FIN-06: dynamic currency symbol — reads DB.settings.school.devise at call-time
 const _cur = () => DB.settings?.school?.devise || '$';
+
+// Ligne d'identité de l'école — source unique pour tous les documents.
+// Chaque champ saisi dans Paramètres apparaît partout où cet en-tête sert :
+// neuf reçus et attestations en avaient chacun leur copie, et tous
+// oubliaient le numéro d'agrément DGEP.
+// Identité normalisée de l'école. Les gabarits de carte lisaient `slogan`,
+// `sub` et `site` tandis que le formulaire enregistre `motto`, `name_en` et
+// `website` : les emplacements correspondants restaient donc vides. Ce
+// normaliseur réconcilie les deux vocabulaires en un seul objet.
+window._schoolInfo = () => {
+  const s = DB.settings?.school || {};
+  return Object.assign({}, s, {
+    name:    s.name    || '',
+    name_en: s.name_en || s.sub    || '',
+    motto:   s.motto   || s.slogan || '',
+    website: s.website  || s.site   || '',
+    slogan:  s.motto   || s.slogan || '',   // alias pour les gabarits existants
+    sub:     s.name_en || s.sub    || '',
+    site:    s.website  || s.site   || '',
+  });
+};
+
+window._schoolLine = (sc) => {
+  const s = sc || DB.settings?.school || {};
+  const p = [esc(s.name || 'SchoolSafe')];
+  if (s.name_en)            p.push(esc(s.name_en));
+  if (s.dgep)               p.push('Agr\u00e9ment DGEP : ' + esc(s.dgep));
+  if (s.address || s.sub)   p.push(esc(s.address || s.sub));
+  if (s.phone)              p.push('T\u00e9l : ' + esc(s.phone));
+  if (s.email)              p.push(esc(s.email));
+  return p.join(' \u00b7 ');
+};
+
+// Devise de l'\u00e9cole, affich\u00e9e sous l'identit\u00e9 quand elle est renseign\u00e9e.
+window._schoolMotto = (sc) => {
+  const m = (sc || DB.settings?.school || {}).motto;
+  return m ? '<div style="font-size:11px;color:#8a8074;font-style:italic;margin-top:2px">' + esc(m) + '</div>' : '';
+};
 window.getStudentBalance = (sid) => {
   const fees=getFees();
   const pays=(DB.payments||[]).filter(p=>p.sid===sid);
@@ -11044,7 +11082,7 @@ window.downloadRecuFrais = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu de Paiement — Frais Scolaires</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu de Paiement — Frais Scolaires</div><div style="font-size:12px;color:#6f6557">${window._schoolLine()}${window._schoolMotto()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: REC-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11082,7 +11120,7 @@ window.downloadRecuRattrapage = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu — Cours de Rattrapage</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu — Cours de Rattrapage</div><div style="font-size:12px;color:#6f6557">${window._schoolLine()}${window._schoolMotto()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: RAT-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11117,7 +11155,7 @@ window.downloadRecuCantine = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Cantine Scolaire</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Cantine Scolaire</div><div style="font-size:12px;color:#6f6557">${window._schoolLine()}${window._schoolMotto()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: CAN-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11158,7 +11196,7 @@ window.downloadRecuActivites = (sid) => {
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #243a6b">`:'';
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;padding:32px;max-width:700px;margin:0 auto">
     <div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #243a6b;padding-bottom:16px;margin-bottom:20px">
-      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Activités Extrascolaires</div><div style="font-size:12px;color:#6f6557">${(()=>{const _sc=DB.settings?.school||{};const _p=[esc(_sc.name||'SchoolSafe')];if(_sc.address||_sc.sub)_p.push(esc(_sc.address||_sc.sub));if(_sc.phone)_p.push('Tél: '+esc(_sc.phone));if(_sc.email)_p.push(esc(_sc.email));return _p.join(' · ');})()}</div></div>
+      ${logo}<div style="flex:1"><div style="font-size:20px;font-weight:900;color:#243a6b">Reçu d'Inscription — Activités Extrascolaires</div><div style="font-size:12px;color:#6f6557">${window._schoolLine()}${window._schoolMotto()}</div></div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>Réf: ACT-${sid.slice(-6).toUpperCase()}</div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
@@ -11204,7 +11242,7 @@ window.downloadAttestationPaiement = (sid) => {
       ${logo}<div style="flex:1">
         <div style="font-size:11px;font-weight:700;color:#1f9d6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Attestation Officielle</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a2e">Paiement Complet — Frais Scolaires</div>
-        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
     </div>
@@ -11251,7 +11289,7 @@ window.downloadCertificatScolarite = (sid) => {
       ${logo}<div style="flex:1">
         <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Scolarité</div>
-        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
     </div>
@@ -11293,7 +11331,7 @@ window.downloadCertificatPassage = (sid) => {
       ${logo}<div style="flex:1">
         <div style="font-size:11px;font-weight:700;color:#8255c4;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Fin d'Année — Passage</div>
-        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
     </div>
@@ -11333,7 +11371,7 @@ window.downloadCertificatBonneConduite = (sid) => {
       ${logo}<div style="flex:1">
         <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a2e">Certificat de Bonne Conduite</div>
-        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
     </div>
@@ -11372,7 +11410,7 @@ window.printFicheInscription = (sid) => {
       ${logo}<div style="flex:1">
         <div style="font-size:11px;font-weight:700;color:#243a6b;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Dossier Scolaire</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a2e">Fiche d'Inscription Élève</div>
-        <div style="font-size:12px;color:#6f6557;margin-top:4px">${(()=>{const _p=[esc(sc.name||'SchoolSafe')];if(sc.address)_p.push(esc(sc.address));if(sc.phone)_p.push('Tél: '+esc(sc.phone));if(sc.email)_p.push(esc(sc.email));return _p.join(' · ');})()}</div>
+        <div style="font-size:12px;color:#6f6557;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
       </div>
       <div style="text-align:right;font-size:11px;color:#6f6557">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
     </div>
@@ -20555,6 +20593,9 @@ R.settings = () => {
       <div class="form-group"><label class="form-label">📧 Email</label>
         <input class="form-input" id="cfg_school_email" value="${esc(sc.email||'')}">
       </div>
+      <div class="form-group"><label class="form-label">🌐 Site web</label>
+        <input class="form-input" id="cfg_school_website" value="${esc(sc.website||sc.site||'')}" placeholder="Ex: www.lesage.cd">
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">💱 Devise</label>
@@ -20789,6 +20830,7 @@ window.saveSettingsSchool = () => {
   DB.settings.school.dgep=($('cfg_school_dgep')?.value||'').trim()||null;
   DB.settings.school.country=($('cfg_school_country')?.value||'').trim()||null;
   DB.settings.school.motto=($('cfg_school_motto')?.value||'').trim()||null;
+  DB.settings.school.website=($('cfg_school_website')?.value||'').trim()||null;
   DB.settings.school.devise=$('cfg_school_devise')?.value||'$';
   pushSync('settings','upsert',DB.settings);
   saveToCrypt(); toast('Identité école enregistrée','success'); render();
