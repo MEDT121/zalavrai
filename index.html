@@ -14705,7 +14705,7 @@ function getArrivalStatus(cycle) {
   return                    {status:'refused', label:'Retard grave 🚫', color:'red', level:3};
 }
 
-function showScanResult(color,icon,title,name,sub,time) {
+function showScanResult(color,icon,title,name,sub,time,logId,sid) {
   const el=$('scanResult'); if(!el) return;
   const shakeClass = color==='red' ? ' shake' : '';
   const waveColor = color==='green'?'#2fbf8f':color==='orange'?'#f59e0b':'#ef5b5b';
@@ -14716,9 +14716,59 @@ function showScanResult(color,icon,title,name,sub,time) {
     <div class="sr-sub" style="font-size:20px;font-weight:700;margin:8px 0">${esc(name)}</div>
     <div class="sr-sub">${esc(sub)}</div>
     ${time?`<div class="sr-time">${esc(time)}</div>`:''}
+    ${logId ? _escorteChoix(logId, sid) : ''}
   </div>`;
-  setTimeout(()=>{if(el) el.innerHTML='';},6000);
+  // Laisser le temps de désigner l'accompagnant sans précipiter le suivant.
+  setTimeout(()=>{if(el) el.innerHTML='';}, logId ? 12000 : 6000);
 }
+
+// ── QUI ACCOMPAGNE L'ENFANT ──────────────────────────────────────────────
+// Le matin, trois cents enfants passent en vingt minutes. Poser une question
+// avant d'ouvrir bloquerait le portail. L'entrée est donc enregistrée
+// immédiatement, et l'accompagnant s'y rattache ensuite d'un geste — ou pas
+// du tout, auquel cas la ligne reste « non précisé » plutôt que fausse.
+window._escorteChoix = (logId, sid) => {
+  const s = (DB.students||[]).find(x => x.id === sid);
+  const parent = s && s.pid ? gu(s.pid) : null;
+  const tutelles = (DB.aps||[]).filter(a => a.sid === sid && a.active !== false).slice(0, 3);
+
+  const puce = (kind, id, lib, emoji) =>
+    `<button onclick="event.stopPropagation();_setEscorte('${logId}','${kind}','${id||''}',${JSON.stringify(lib)})"
+       style="border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:inherit;
+              border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">
+       ${emoji} ${esc(lib)}</button>`;
+
+  return `<div id="escorteBar" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.2)">
+    <div style="font-size:11.5px;opacity:.75;margin-bottom:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase">Accompagné par</div>
+    <div style="display:flex;flex-wrap:wrap;gap:7px;justify-content:center">
+      ${puce('seul','', 'Venu seul','🚶')}
+      ${parent ? puce('parent', parent.id, parent.name.split(' ')[0], '👑') : ''}
+      ${tutelles.map(t => puce('autorisee', t.id, (t.name||'').split(' ')[0], '👤')).join('')}
+      ${puce('autre','', 'Autre','✍️')}
+    </div>
+  </div>`;
+};
+
+window._setEscorte = (logId, kind, id, nom) => {
+  const finir = (k, i, n) => {
+    const log = (DB.scan_log||[]).find(x => x.id === logId);
+    if (log) { log.escort_kind = k; log.escort_id = i || null; log.escort_name = n || null; }
+    pushSync('scan_log','patch',{escort_kind:k, escort_id:i||null, escort_name:n||null},'id=eq.'+logId);
+    const bar = $('escorteBar');
+    if (bar) bar.innerHTML = `<div style="font-size:13px;font-weight:700;padding:4px 0">✓ ${esc(k==='seul' ? 'Venu seul' : n||'')}</div>`;
+    saveToCrypt();
+  };
+  if (kind !== 'autre') return finir(kind, id, kind === 'seul' ? null : nom);
+
+  // Un nom libre couvre le cas non prévu — un oncle de passage, un chauffeur —
+  // sans obliger à créer une fiche de personne autorisée dans l'urgence.
+  openM('Qui accompagne l\'enfant ?', `
+    <div class="form-group"><label class="form-label">Nom de la personne</label>
+      <input class="form-input" id="esc_nom" placeholder="Ex: Oncle Patrick" autocomplete="off"></div>
+    <div style="font-size:12.5px;color:var(--text-secondary)">Cette personne n'est pas enregistrée comme autorisée : le nom est consigné tel quel dans le journal du portail.</div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+     <button class="btn btn-primary" onclick="const v=($('esc_nom')?.value||'').trim(); if(!v){toast('Entrez un nom','error');return;} closeModal(); _setEscorte('${logId}','autre','',v);">Enregistrer</button>`);
+};
 
 async function pushNotif(uid,msg) {
   const n={id:'n'+Date.now(),uid,msg,time:nowTime(),date:today(),read:false};
@@ -14872,7 +14922,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
     if(!hasPaid) showScanResult('orange','!','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
-    else showScanResult(_qrWarn?'orange':'green',_qrWarn?'⚠':'✓',_qrWarn?'À l\'heure — Carte non certifiée':'À l\'heure',student.name,(cls?cls.name:'')+(_qrWarn?' — '+_qrWarn:''),time);
+    else showScanResult(_qrWarn?'orange':'green',_qrWarn?'⚠':'✓',_qrWarn?'À l\'heure — Carte non certifiée':'À l\'heure',student.name,(cls?cls.name:'')+(_qrWarn?' — '+_qrWarn:''),time,log.id,student.id);
     saveToCrypt();
     return;
   }
@@ -14884,7 +14934,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
     DB.scan_log.unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
-    showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré${_qrWarn?' — '+_qrWarn:''}`,time);
+    showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré${_qrWarn?' — '+_qrWarn:''}`,time,log.id,student.id);
     saveToCrypt();
     return;
   }
@@ -14972,7 +15022,16 @@ window.scanExit = () => {
     </div>
     <div style="font-weight:700;font-size:12px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name.split(' ')[0])}</div>
     <div style="font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.relation||'Tutelle')}</div>
-  </div>`).join('');
+  </div>`).join('')
+  // Un élève du secondaire rentre souvent par ses propres moyens. La liste
+  // n'offrait que des personnes à désigner : le gardien devait choisir
+  // quelqu'un à tort, ou renoncer à scanner. Ni l'un ni l'autre n'est
+  // acceptable — le premier fausse le registre, le second le laisse muet.
+  + `<div id="exitThumbSeul" onclick="confirmExitSeul('${s.id}')" style="text-align:center;background:var(--bg-card);border-radius:16px;padding:10px 8px 12px;border:2.5px dashed var(--border);width:130px;cursor:pointer">
+      <div style="width:112px;height:150px;border-radius:12px;margin:0 auto 8px;background:#f6ede0;display:flex;align-items:center;justify-content:center;font-size:44px">🚶</div>
+      <div style="font-weight:700;font-size:12px;margin-bottom:2px">Rentre seul</div>
+      <div style="font-size:10px;color:var(--text-secondary)">Sans accompagnant</div>
+    </div>`;
 
   $('exitResult').innerHTML=`
   <div style="text-align:center;animation:popIn .3s ease">
@@ -15013,6 +15072,29 @@ window.selectExitPerson = idx => {
   </div>`;
 };
 
+// Sortie non accompagnée. Volontairement soumise à confirmation : laisser
+// partir un enfant seul est une décision, pas un défaut de saisie.
+window.confirmExitSeul = async (sid) => {
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
+  const cl = gc(s.cid);
+  showC(`${s.name} rentre seul ?`,
+    `Aucun accompagnant ne sera enregistré${cl?` — ${esc(cl.name)}`:''}. Le parent en sera informé.`, async () => {
+    const recent=(DB.scan_log||[]).find(l=>l.sid===sid&&l.type==='exit'&&l.date===today()&&l.status!=='unauthorized');
+    if(recent){const [rH,rM]=(recent.time||'00:00').split(':').map(Number);const [nH,nM]=nowTime().split(':').map(Number);
+      if((nH*60+nM)-(rH*60+rM)<2){toast('Sortie déjà enregistrée à '+recent.time,'info');return;}}
+    const time=nowTime();
+    const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Sortie seul 🚶',time,date:today(),
+      by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role,
+      escort_kind:'seul', escort_id:null, escort_name:null};
+    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+    if(s.pid) await pushNotif(s.pid,`🚶 ${s.name} a quitté l'école seul(e) à ${time}. Enregistré par ${S.user.name}.`);
+    logAudit('exit_alone', `${s.name}${cl?' — '+cl.name:''}`, sid);
+    showExitDone('green','🚶','Sortie enregistrée',s.name,'Rentre seul — parent informé',time);
+    saveToCrypt();
+  });
+};
+
 window.zoomAuthPhoto = idx => {
   const a=window._exitAps[idx]; if(!a) return;
   openM(`👤 ${esc(a.name)}`,`
@@ -15036,7 +15118,9 @@ window.confirmExitWith = async (sid,personIdx) => {
   const recentExit=(DB.scan_log||[]).find(l=>l.sid===sid&&l.type==='exit'&&l.date===today()&&l.status!=='unauthorized');
   if(recentExit){const [rH,rM]=(recentExit.time||'00:00').split(':').map(Number);const [nH,nM]=nowTime().split(':').map(Number);if((nH*60+nM)-(rH*60+rM)<2){toast('Sortie déjà enregistrée récemment (doublon évité)','warning');return;}}
   const time=nowTime();
-  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
+  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),
+    by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role,
+    escort_kind:(a.relation||'').includes('Parent principal')?'parent':'autorisee', escort_id:a.id||null, escort_name:a.name};
   DB.scan_log.unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`🚪 ${s.name} a quitté l'école à ${time}. Récupéré(e) par ${a.name}${a.relation?' ('+a.relation+')':''}. Confirmé par : ${S.user.name}`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);

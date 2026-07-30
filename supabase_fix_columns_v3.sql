@@ -107,3 +107,29 @@ WHERE schemaname='public' AND tablename='inscriptions' ORDER BY cmd;
 DROP POLICY IF EXISTS "anon_insert" ON settings;
 CREATE POLICY "anon_insert" ON settings
   FOR INSERT TO anon WITH CHECK (true);
+
+-- ══════════════════════════════════════════════════════════════════
+--  PORTAIL — QUI ACCOMPAGNE L'ENFANT
+--
+--  Le journal du portail retenait qui avait scanné, jamais qui accompagnait.
+--  À l'entrée, rien ne distinguait un enfant déposé par son père d'un enfant
+--  arrivé seul. À la sortie, la liste n'offrait que des personnes à désigner :
+--  un élève rentrant par ses propres moyens obligeait le gardien à choisir
+--  quelqu'un à tort, ou à renoncer à scanner. Le premier fausse le registre,
+--  le second le laisse muet.
+--
+--  escort_kind : seul · parent · autorisee · autre
+--  escort_id   : identifiant du parent ou de la personne autorisée, si connue
+--  escort_name : nom retenu, y compris saisi librement pour un cas non prévu
+-- ══════════════════════════════════════════════════════════════════
+ALTER TABLE scan_log
+  ADD COLUMN IF NOT EXISTS escort_kind TEXT,
+  ADD COLUMN IF NOT EXISTS escort_id   TEXT,
+  ADD COLUMN IF NOT EXISTS escort_name TEXT;
+
+-- Retrouver rapidement les sorties non accompagnées d'une journée.
+CREATE INDEX IF NOT EXISTS idx_scan_log_escort ON scan_log(date, escort_kind);
+
+SELECT count(*) FILTER (WHERE column_name LIKE 'escort_%') AS colonnes_accompagnant
+FROM information_schema.columns
+WHERE table_schema='public' AND table_name='scan_log';
