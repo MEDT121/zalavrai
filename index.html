@@ -12749,6 +12749,24 @@ window.gradePct = g => g.note !== undefined && g.note !== null
 // n'emploient que `trimester`.
 window.gTrim = (g) => (g && (g.trimester || g.trimestre)) || null;
 
+// Lecture d'une note saisie à la main.
+//
+// parseFloat s'arrête au premier caractère invalide : « 1O » — un un suivi de
+// la lettre O — devient 1, et « 18abc » devient 18. Plus grave, « 1,5 » devient
+// 1 : la virgule est la convention décimale française, et un enseignant la
+// tapera naturellement. Une note se trouvait ainsi divisée par dix sans que
+// rien ne le signale.
+//
+// On accepte la virgule comme séparateur, et on refuse tout ce qui n'est pas
+// un nombre entier ou décimal complet.
+window.lireNote = (raw, max) => {
+  const t = String(raw ?? '').trim().replace(',', '.');
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
+  const n = parseFloat(t);
+  if (!isFinite(n) || n < 0 || n > max) return null;
+  return n;
+};
+
 window.matAvgPct = (sid, matiere, trimester) => {
   let gs = (DB.grades||[]).filter(x => x.sid === sid && x.matiere === matiere);
   if(trimester) gs = gs.filter(x => gTrim(x) === trimester);
@@ -12945,8 +12963,8 @@ window.saveGradePanel = cid => {
     const sid = inp.dataset.sid;
     const raw = inp.value.trim();
     if(raw === '') return;
-    const note = parseFloat(raw);
-    if(isNaN(note) || note < 0 || note > gradeMax) {
+    const note = lireNote(raw, gradeMax);
+    if(note === null) {
       const el = (DB.students||[]).find(x => x.id === sid);
       refusees.push(`${el ? el.name.split(' ')[0] : '?'} (${raw})`);
       inp.style.borderColor = '#ef5b5b';
@@ -13854,8 +13872,8 @@ window.saveCorrecteurDevoir = dvId => {
   inputs.forEach(inp=>{
     const sid=inp.dataset.sid;
     const raw=inp.value.trim(); if(raw==='') return;
-    const note=parseFloat(raw);
-    if(isNaN(note)||note<0||note>max){
+    const note=lireNote(raw, max);
+    if(note===null){
       const el=(DB.students||[]).find(x=>x.id===sid);
       _gcRefusees.push(`${el?el.name.split(' ')[0]:'?'} (${raw})`);
       inp.style.borderColor='#ef5b5b';
@@ -13899,7 +13917,12 @@ window.saveCorrecteurDevoir = dvId => {
     pushSync('notifs','post',notif);
     // WhatsApp
     if(par.phone){
-      const pct=Math.round(parseFloat(inp.value)/(parseFloat(document.getElementById('gcMax')?.value)||20)*100);
+      // Même lecture que pour l'enregistrement : sans quoi le pourcentage
+      // annoncé au parent différerait de la note réellement portée.
+      const _mx=parseFloat(document.getElementById('gcMax')?.value)||20;
+      const _n=lireNote(inp.value,_mx);
+      if(_n===null) return;
+      const pct=Math.round(_n/_mx*100);
       const msg=encodeURIComponent(`Bonjour ${par.name.split(' ')[0]}, la correction de "${d.title}"${d.matiere?' ('+d.matiere+')':''} de ${s.name.split(' ')[0]} est disponible sur SchoolSafe. Note : ${inp.value}/${document.getElementById('gcMax')?.value||20} (${pct}%). Connectez-vous pour voir la feuille corrigée.`);
       waLinks.push({name:s.name.split(' ')[0],phone:par.phone.replace(/\s+/g,''),msg});
     }
