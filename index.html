@@ -5113,8 +5113,8 @@ function dashboardEnseignant() {
 
   // Élèves sans note — trimestre courant
   const noGradeTrim = DB.settings?.currentTrimestre||'T1';
-  const myClassGradesCount = (DB.grades||[]).filter(g=>students.some(s=>s.id===g.sid)&&g.trimestre===noGradeTrim).length;
-  const studentsNoGrade = (cl && myClassGradesCount > 0) ? students.filter(s=>!(DB.grades||[]).some(g=>g.sid===s.id&&g.trimestre===noGradeTrim)).slice(0,5) : [];
+  const myClassGradesCount = (DB.grades||[]).filter(g=>students.some(s=>s.id===g.sid)&&gTrim(g)===noGradeTrim).length;
+  const studentsNoGrade = (cl && myClassGradesCount > 0) ? students.filter(s=>!(DB.grades||[]).some(g=>g.sid===s.id&&gTrim(g)===noGradeTrim)).slice(0,5) : [];
 
   // Élèves à risque d'absentéisme — classe de l'enseignant
   const moisEnsStr = d.slice(0,7);
@@ -5660,8 +5660,8 @@ function dashboardDirection2() {
   const clNotesStatus = (DB.classes||[]).map(cl=>{
     const clSids = students.filter(s=>s.cid===cl.id).map(s=>s.id);
     if(!clSids.length) return null;
-    const hasGrades = (DB.grades||[]).some(g=>clSids.includes(g.sid)&&g.trimestre===trimD2);
-    const gradeCount = (DB.grades||[]).filter(g=>clSids.includes(g.sid)&&g.trimestre===trimD2).length;
+    const hasGrades = (DB.grades||[]).some(g=>clSids.includes(g.sid)&&gTrim(g)===trimD2);
+    const gradeCount = (DB.grades||[]).filter(g=>clSids.includes(g.sid)&&gTrim(g)===trimD2).length;
     return {cl,hasGrades,gradeCount,studentCount:clSids.length};
   }).filter(Boolean);
   const clNoGrades = clNotesStatus.filter(x=>!x.hasGrades);
@@ -6730,7 +6730,7 @@ function dashboardParent() {
   const bulletinOn = DB.settings?.toggles?.bulletin??false;
   const parentRecentGrades = bulletinOn ? kids.flatMap(k=>{
     if(!k.access_parent) return [];
-    const kGrades=(DB.grades||[]).filter(g=>g.sid===k.id&&g.trimestre===parentGradeTrim).slice(-4).reverse();
+    const kGrades=(DB.grades||[]).filter(g=>g.sid===k.id&&gTrim(g)===parentGradeTrim).slice(-4).reverse();
     return kGrades.map(g=>({...g,kidName:k.name}));
   }) : [];
 
@@ -11009,7 +11009,7 @@ window.analyserResultatsTrimestre = (cid, trim, teacherId, lang) => {
   let signaled = 0;
 
   students.forEach(s => {
-    const grades = (DB.grades||[]).filter(g => g.sid === s.id && g.trimester === trim && matNames.includes(g.matiere));
+    const grades = (DB.grades||[]).filter(g => g.sid === s.id && gTrim(g) === trim && matNames.includes(g.matiere));
     if(!grades.length) return;
 
     const threshold = DB.settings.rattrapage_threshold != null ? DB.settings.rattrapage_threshold : 50;
@@ -11394,7 +11394,7 @@ window.checkRattrapageAuto = (cid) => {
       const avg = matAvgPct(s.id, m.name, trim);
       if(avg === null || avg >= threshold) return;
       // Ne pas déclencher sur une seule épreuve — attendre au moins 2 évaluations
-      const evalCount = (DB.grades||[]).filter(g=>g.sid===s.id&&g.matiere===m.name&&g.trimester===trim).length;
+      const evalCount = (DB.grades||[]).filter(g=>g.sid===s.id&&g.matiere===m.name&&gTrim(g)===trim).length;
       if(evalCount < 2) return;
       const existing = (DB.rattrapages||[]).find(r =>
         r.sid === s.id && r.matiere === m.name && r.trimestre === trim && !r.archived
@@ -11675,7 +11675,7 @@ R.palmares_parent = () => {
     // Trimester evolution (rename loop var to avoid shadowing global t())
     const trimEvo=(()=>{
       const trimData=['T1','T2','T3'].map(tr=>{
-        const gs=(DB.grades||[]).filter(g=>g.sid===k.id&&g.trimester===tr);
+        const gs=(DB.grades||[]).filter(g=>g.sid===k.id&&gTrim(g)===tr);
         if(!gs.length) return {tr,avg:null};
         const avg=Math.round(gs.reduce((a,g)=>a+gradePct(g),0)/gs.length);
         return {tr,avg};
@@ -12739,9 +12739,19 @@ window.gradePct = g => g.note !== undefined && g.note !== null
   : Number(g.pct || 0);
 
 // Weighted average pct for one student + one matière (all trimesters unless specified)
+// Le trimestre d'une note s'est écrit `trimester` puis `trimestre` selon les
+// époques du code. Cinq écrans lisaient le nom français sur des lignes
+// enregistrées en anglais : ils affichaient donc toujours zéro note — dont
+// l'espace parent, où la famille ne voyait jamais les notes de son enfant.
+//
+// Plutôt que de reprendre quatre-vingts lectures au risque d'en oublier une,
+// un seul accesseur réconcilie les deux orthographes. Les écritures, elles,
+// n'emploient que `trimester`.
+window.gTrim = (g) => (g && (g.trimester || g.trimestre)) || null;
+
 window.matAvgPct = (sid, matiere, trimester) => {
   let gs = (DB.grades||[]).filter(x => x.sid === sid && x.matiere === matiere);
-  if(trimester) gs = gs.filter(x => x.trimester === trimester);
+  if(trimester) gs = gs.filter(x => gTrim(x) === trimester);
   if(!gs.length) return null;
   let sumWN = 0, sumW = 0;
   gs.forEach(g => { const w = Number(g.weight || 1); sumWN += gradePct(g) * w; sumW += w; });
@@ -12926,14 +12936,28 @@ window.saveGradePanel = cid => {
 
   const inputs = document.querySelectorAll('.grade-input');
   let saved = 0;
+  // Une note hors bornes était écartée sans un mot, et le message annonçait le
+  // nombre de notes ENREGISTRÉES. L'enseignant croyait avoir tout saisi, et ne
+  // découvrait le manque qu'au bulletin. Les saisies refusées sont désormais
+  // nommées, élève par élève.
+  const refusees = [];
   inputs.forEach(inp => {
     const sid = inp.dataset.sid;
     const raw = inp.value.trim();
     if(raw === '') return;
     const note = parseFloat(raw);
-    if(isNaN(note) || note < 0 || note > gradeMax) return;
+    if(isNaN(note) || note < 0 || note > gradeMax) {
+      const el = (DB.students||[]).find(x => x.id === sid);
+      refusees.push(`${el ? el.name.split(' ')[0] : '?'} (${raw})`);
+      inp.style.borderColor = '#ef5b5b';
+      return;
+    }
+    inp.style.borderColor = '';
     const g = {
-      id: 'gr'+Date.now()+Math.random().toString(36).slice(2,5),
+      id: _uid('gr_'),
+      // La classe manquait : une note ainsi enregistrée survivait à la
+      // suppression de sa classe, puisque le nettoyage s'appuie sur `cid`.
+      cid,
       sid, matiere: mat, trimester: trim, year: DB.settings.year,
       type, note, max: gradeMax, weight: coef,
       label: label || `${typeIcon} ${type.charAt(0).toUpperCase()+type.slice(1)}`,
@@ -12946,7 +12970,16 @@ window.saveGradePanel = cid => {
     saved++;
   });
 
-  if(!saved){toast(t('Aucune note à enregistrer','No grades to save'),'error'); return;}
+  if(!saved){
+    toast(refusees.length
+      ? t(`Aucune note valide — hors barème : ${refusees.join(', ')}`, `No valid grade — out of range: ${refusees.join(', ')}`)
+      : t('Aucune note à enregistrer','No grades to save'), 'error');
+    return;
+  }
+  if(refusees.length){
+    setTimeout(()=>toast(t(`⚠️ ${refusees.length} note(s) hors barème /${gradeMax} ignorée(s) : ${refusees.join(', ')}`,
+                           `⚠️ ${refusees.length} grade(s) out of /${gradeMax} skipped: ${refusees.join(', ')}`), 'warning'), 700);
+  }
   saveToCrypt();
   // Détection automatique des élèves sous le seuil de rattrapage
   setTimeout(() => { if(typeof window.checkRattrapageAuto === 'function') window.checkRattrapageAuto(cid); }, 300);
@@ -13817,11 +13850,18 @@ window.saveCorrecteurDevoir = dvId => {
   const inputs=document.querySelectorAll('.gc-input');
   const corrected_at=new Date().toISOString();
   let saved=0;
+  const _gcRefusees=[];
   inputs.forEach(inp=>{
     const sid=inp.dataset.sid;
     const raw=inp.value.trim(); if(raw==='') return;
     const note=parseFloat(raw);
-    if(isNaN(note)||note<0||note>max) return;
+    if(isNaN(note)||note<0||note>max){
+      const el=(DB.students||[]).find(x=>x.id===sid);
+      _gcRefusees.push(`${el?el.name.split(' ')[0]:'?'} (${raw})`);
+      inp.style.borderColor='#ef5b5b';
+      return;
+    }
+    inp.style.borderColor='';
     const comment=(document.querySelector('.gc-comment[data-sid="'+sid+'"]')?.value||'').trim();
     const existing=(DB.grades||[]).find(g=>g.devoir_id===dvId&&g.sid===sid);
     if(existing){
@@ -13829,7 +13869,7 @@ window.saveCorrecteurDevoir = dvId => {
       existing.comment=comment;existing.corrected_at=corrected_at;
       pushSync('grades','patch',{note,max,weight:coef,trimester:trim,comment,corrected_at},'id=eq.'+existing.id);
     } else {
-      const g={id:'g'+Date.now()+Math.random().toString(36).slice(2,5),sid,cid:d.cid,
+      const g={id:_uid('g_'),sid,cid:d.cid,
         type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
         date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id,
         comment,corrected_at,school_id:window._currentSchoolId||null};
@@ -13837,7 +13877,13 @@ window.saveCorrecteurDevoir = dvId => {
     }
     saved++;
   });
-  if(!saved){toast('Aucune note saisie','error');return;}
+  if(!saved){
+    toast(_gcRefusees.length ? `Aucune note valide — hors barème /${max} : ${_gcRefusees.join(', ')}` : 'Aucune note saisie','error');
+    return;
+  }
+  if(_gcRefusees.length){
+    setTimeout(()=>toast(`⚠️ ${_gcRefusees.length} note(s) hors barème /${max} ignorée(s) : ${_gcRefusees.join(', ')}`,'warning'), 700);
+  }
   // Create in-app notifications for parents + collect WhatsApp links
   const waLinks=[];
   document.querySelectorAll('.gc-input').forEach(inp=>{
@@ -19922,7 +19968,7 @@ window.genererRapportMensuel = (sid, mois) => {
   const matieres=getClassMatieres(cl.id);
   const trim=DB.settings?.currentTrimestre||'T1';
   // Notes du mois (approx = trimestre actif)
-  const grades=(DB.grades||[]).filter(g=>g.sid===sid&&g.trimester===trim);
+  const grades=(DB.grades||[]).filter(g=>g.sid===sid&&gTrim(g)===trim);
   let totalPct=0,sumC=0;
   matieres.forEach(m=>{const a=matAvgPct(sid,m.name,trim);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumC+=c;}});
   const moy=sumC?Math.round(totalPct/sumC):null;
