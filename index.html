@@ -1763,6 +1763,8 @@ window.DEFAULT_MATIERES = {
 // ── OFFLINE SYNC QUEUE ──
 // Quand hors-ligne, les modifications sont stockées ici et synchronisées au retour
 window.SYNC_QUEUE_KEY = 'schoolsafe_sync_queue';
+// Opérations épuisées mises de côté plutôt que jetées — voir syncQueue.park().
+window.PARKED_KEY = 'schoolsafe_sync_parked';
 
 // Priorité de flush : 1=critique (perte de données si perdu), 2=normal, 3=journalisation
 window._SYNC_PRIORITY = {
@@ -1801,6 +1803,30 @@ window.syncQueue = {
   },
   clear() { localStorage.removeItem(SYNC_QUEUE_KEY); },
   count() { return this.load().length; },
+
+  // Une opération épuisée n'est jamais jetée : elle porte une donnée saisie par
+  // un humain. On la met de côté, consultable et réinjectable depuis les
+  // Paramètres, plutôt que de la perdre avec un simple avertissement.
+  park(item, reason) {
+    try {
+      const parked = JSON.parse(localStorage.getItem(PARKED_KEY) || '[]');
+      parked.push({ ...item, parkedAt: Date.now(), reason: reason || 'échecs répétés' });
+      localStorage.setItem(PARKED_KEY, JSON.stringify(parked.slice(-300)));
+    } catch(e) { console.warn('[SYNC] mise de côté impossible:', e.message); }
+    console.warn('[SYNC] mise de côté:', item.table, item.op, reason || '');
+  },
+  parked() { try { return JSON.parse(localStorage.getItem(PARKED_KEY) || '[]'); } catch(e) { return []; } },
+
+  // Renvoie les opérations mises de côté dans la file, compteurs remis à zéro.
+  retryParked() {
+    const parked = this.parked();
+    if (!parked.length) return 0;
+    const queue = this.load();
+    parked.forEach(p => { delete p.retries; delete p.nextRetry; delete p.parkedAt; delete p.reason; queue.push(p); });
+    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+    localStorage.removeItem(PARKED_KEY);
+    return parked.length;
+  },
   async flush() {
     let queue = this.load();
     if (!queue.length || !DB_ONLINE) return 0;
@@ -1849,17 +1875,17 @@ window.syncQueue = {
           if (item.retries <= _BACKOFFS.length) {
             item.nextRetry = now + _BACKOFFS[item.retries - 1];
             remaining.push(item);
-          } else { deadCount++; console.warn('[SYNC] dead-letter après', item.retries, 'tentatives:', item.table, item.op); }
+          } else { deadCount++; this.park(item); }
         }
       } catch(e) {
         item.retries = (item.retries || 0) + 1;
         if (item.retries <= _BACKOFFS.length) {
           item.nextRetry = now + _BACKOFFS[item.retries - 1];
           remaining.push(item);
-        } else { deadCount++; console.warn('[SYNC] dead-letter:', item.table, item.op, e.message); }
+        } else { deadCount++; this.park(item, e.message); }
       }
     }
-    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) abandonnée(s) après ${_BACKOFFS.length+1} tentatives`, 'warning');
+    if (deadCount > 0 && typeof toast === 'function') toast(`⚠️ ${deadCount} opération(s) mise(s) de côté — récupérables dans Paramètres`, 'warning');
     if (remaining.length === 0) this.clear();
     else localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remaining));
     return done;
@@ -2770,8 +2796,16 @@ function _wrapDark(html){ return `<div class="dark role-dark-page" style="animat
     const dismiss=()=>{ el.style.opacity='0'; setTimeout(()=>{ el.remove(); if(queue.length) show(queue.shift()); },300); };
     setTimeout(dismiss, DURATION);
   };
+  // Anti-répétition : un message identique n'est pas réaffiché dans la minute.
+  // Les minuteries de synchronisation réémettaient sinon le même avertissement
+  // à chaque battement, jusqu'à noyer l'écran.
+  const _recent = new Map();
   window.toast=(msg,type='info')=>{
     const tc=$('TC'); if(!tc) return;
+    const now=Date.now(), key=type+'|'+msg;
+    if((now-(_recent.get(key)||0))<60000) return;
+    _recent.set(key,now);
+    if(_recent.size>40) for(const [k,t] of _recent) if(now-t>120000) _recent.delete(k);
     if(tc.children.length<MAX) show({msg,type});
     else queue.push({msg,type});
   };
@@ -2832,9 +2866,34 @@ window.showSyncQueueDetail = () => {
   const extra = queue.length > 25 ? `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">+${queue.length-25} autres…</div>` : '';
   const statColor = window.DB_ONLINE ? '#16a34a' : '#dc2626';
   const statTxt = window.DB_ONLINE ? '🟢 Connecté — sync possible' : '🔴 Hors ligne — en attente de connexion';
+
+  // Récapitulatif par table : c'est ce qui identifie la cause d'un blocage.
+  const byTable = {};
+  queue.forEach(i => { const k = i.table + ' · ' + i.op; byTable[k] = (byTable[k]||0) + 1; });
+  const summary = Object.entries(byTable).sort((a,b) => b[1]-a[1]).slice(0,8)
+    .map(([k,n]) => `<div style="display:flex;gap:8px;font-size:12px;padding:3px 0">
+        <span style="flex:1;font-family:monospace">${esc(k)}</span>
+        <strong>${n}</strong></div>`).join('');
+
+  const parked = syncQueue.parked();
+  const parkedBlock = parked.length ? `
+    <div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:#fef9c3;border:1px solid #f59e0b">
+      <div style="font-weight:800;font-size:12.5px;color:#92400e;margin-bottom:4px">
+        ${parked.length} opération(s) mise(s) de côté</div>
+      <div style="font-size:12px;color:#78350f;margin-bottom:8px">
+        Épuisées après plusieurs tentatives. Elles ne sont pas perdues — réessaie une fois la cause levée.</div>
+      <button class="btn btn-sm btn-outline" onclick="closeModal();const n=syncQueue.retryParked();toast(n+' opération(s) remise(s) en file','info');autoSync();">
+        Remettre en file</button>
+    </div>` : '';
+
   openM(`📋 File d'attente (${queue.length} op.)`,
     `<div style="margin-bottom:10px;font-size:13px;font-weight:600;color:${statColor}">${statTxt}</div>
-     <div style="max-height:320px;overflow-y:auto;margin:0 -4px;padding:0 4px">${rows}${extra}</div>`,
+     <div style="background:var(--bg-card);border-radius:9px;padding:9px 11px;margin-bottom:12px">
+       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:5px">Par table</div>
+       ${summary}
+     </div>
+     <div style="max-height:260px;overflow-y:auto;margin:0 -4px;padding:0 4px">${rows}${extra}</div>
+     ${parkedBlock}`,
     `<button class="btn btn-primary" onclick="closeModal();forceSyncDB()" style="flex:1">🔄 Forcer la sync</button>
      <button class="btn btn-danger btn-sm" onclick="showC('Effacer la file d\'attente ?','${queue.length} opération(s) non synchronisée(s) seront perdues définitivement.',()=>{syncQueue.clear();updateSyncIndicator();closeModal();toast('File d\'attente effacée','warning')})">🗑️</button>
      <button class="btn btn-outline" onclick="closeModal()">Fermer</button>`
