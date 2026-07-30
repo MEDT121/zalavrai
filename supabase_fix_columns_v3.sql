@@ -102,6 +102,13 @@ ALTER TABLE absences
   ADD COLUMN IF NOT EXISTS validated_at TEXT,
   ADD COLUMN IF NOT EXISTS school_id    TEXT;
 
+-- ── ACTIVITÉS ET CANTINE ──────────────────────────────────────────
+ALTER TABLE activites
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
+
+ALTER TABLE cantine_menus
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
+
 -- ── ABSENCES D'ENSEIGNANTS ────────────────────────────────────────
 -- `duree` est saisie librement — « 1 jour », « 2 semaines » — donc du texte.
 ALTER TABLE teacher_absences

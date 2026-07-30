@@ -12597,10 +12597,10 @@ R.cantine = () => {
     <div class="premium-section-title">📅 Menus récents</div>
     ${(DB.cantine_menus||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,7).map(m=>`
     <div class="premium-item">
-      ${m.photo_url?`<img src="${esc(m.photo_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display='none'">`:`<span class="pi-icon">${m.emoji||'🍽️'}</span>`}
+      ${_urlImageSure(m.photo_url)?`<img src="${_urlImageSure(m.photo_url)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0" onerror="this.style.display='none'" alt="">`:`<span class="pi-icon">${esc(m.emoji||'🍽️')}</span>`}
       <div>
-        <div class="pi-title">${new Date(m.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</div>
-        <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+m.dessert:''}${m.prix?' · $'+m.prix:''}</div>
+        <div class="pi-title">${esc(_dateCourte(m.date))}</div>
+        <div class="pi-sub">${esc(m.plat||'—')}${m.dessert?' · '+esc(m.dessert):''}${m.prix?' · '+_cur()+m.prix:''}</div>
       </div>
       <button class="action-btn" onclick="openCantinaMenu('${m.id}')" style="flex-shrink:0">✏️</button>
     </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Aucun menu enregistré</div>`}
@@ -12610,6 +12610,7 @@ R.cantine = () => {
 };
 
 window.openCantinaMenu = (mid) => {
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const m=mid?(DB.cantine_menus||[]).find(x=>x.id===mid):null;
   const tpls=[
     {nom:'Patte à la saucisse',emoji:'🍝'},
@@ -12620,7 +12621,7 @@ window.openCantinaMenu = (mid) => {
     {nom:'Bouillie de maïs',emoji:'🥣'},
   ];
   const tplBtns=tpls.map(t=>'<button type="button" class="btn btn-outline btn-sm" style="font-size:11px;padding:4px 8px" onclick="$(\'cmPlat\').value=\''+t.nom+'\';$(\'cmEmoji\').value=\''+t.emoji+'\'">'+t.emoji+' '+t.nom+'</button>').join('');
-  const prevSrc=esc(m?.photo_url||'');
+  const prevSrc=_urlImageSure(m?.photo_url);
   const prevStyle=m?.photo_url?'block':'none';
   openM(`📋 ${m?'Modifier':'Publier'} le menu`,`
   <div style="margin-bottom:12px"><div class="form-label" style="margin-bottom:6px">🍽️ Modèles rapides</div>
@@ -12656,7 +12657,8 @@ window.saveCantinaMenu = (mid) => {
   const date=($('cmDate')?.value||'').trim();
   const plat=($('cmPlat')?.value||'').trim();
   if(!date||!plat){toast('Date et plat principal obligatoires','error');return;}
-  const photo_url=($('cmPhoto')?.value||'').trim();
+  const photo_url=_urlImageSure(($('cmPhoto')?.value||'').trim());
+  if(($('cmPhoto')?.value||'').trim() && !photo_url){toast('Le lien de la photo doit commencer par https://','error');return;}
   const emoji=($('cmEmoji')?.value||'🍽️').trim();
   const dessert=$('cmDessert')?.value||'';
   const boisson=$('cmBoisson')?.value||'';
@@ -12667,7 +12669,7 @@ window.saveCantinaMenu = (mid) => {
     if(m){Object.assign(m,{date,plat,dessert,boisson,prix,photo_url,emoji});
       pushSync('cantine_menus','patch',{date,plat,dessert,boisson,prix,photo_url,emoji},'id=eq.'+mid);}
   } else {
-    const nm={id:'cm'+Date.now(),date,plat,dessert,boisson,prix,photo_url,emoji};
+    const nm={id:_uid('cm_'),date,plat,dessert,boisson,prix,photo_url,emoji,school_id:window._currentSchoolId||null};
     DB.cantine_menus.push(nm);
     pushSync('cantine_menus','post',nm);
   }
@@ -15503,6 +15505,20 @@ window._estIncident = (l) => !!l && (l.status==='unauthorized' || String(l.statu
 window._ESCORTE_LIB = {seul:'🚶 Venu seul', parent:'👑 Parent', autorisee:'👤 Personne autorisée', autre:'✍️ Autre', inconnu:'🚨 Personne inconnue'};
 
 window._estPhoto = (v) => typeof v==='string' && /^(data:image\/|https:\/\/)/.test(v);
+
+// Adresse d'image saisie à la main. Rendue sûre à l'insertion dans un
+// attribut : seul https est accepté, et le guillemet — qu'`esc` ne touche
+// pas — est neutralisé.
+window._urlImageSure = (v) => {
+  const s = String(v||'').trim();
+  if (!/^https:\/\/[^\s"'<>]+$/i.test(s)) return '';
+  return s.replace(/"/g,'%22').replace(/'/g,'%27');
+};
+
+window._dateCourte = (d) => {
+  const o = new Date(String(d||'')+'T12:00:00');
+  return isNaN(o) ? String(d||'') : o.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+};
 
 // La photo prise au portail lors d'un refus documente une tentative
 // d'enlèvement : elle doit pouvoir être ouverte en grand, pas seulement
@@ -25961,7 +25977,7 @@ window.saveMedicalRecord = (sid) => {
   const vaxDates={};
   VAX.forEach(v=>{const key='vax_date_'+v.replace(/[^a-z0-9]/gi,'_');const el=document.querySelector(`input[name="${key}"]`);if(el&&el.value)vaxDates[v]=el.value;});
   const idx=DB.medical.findIndex(m=>m.sid===sid);
-  const obj={id:idx>=0?DB.medical[idx].id:'med'+Date.now(),sid,blood_type:$('med_blood')?.value||null,allergies:$('med_allergies')?.value||null,vaccines:vaxChecked,vax_dates:vaxDates,doctor_name:$('med_doctor')?.value||null,doctor_phone:$('med_doctor_phone')?.value||null,medical_notes:$('med_notes')?.value||null,updated:today()};
+  const obj={id:idx>=0?DB.medical[idx].id:_uid('med_'),sid,blood_type:$('med_blood')?.value||null,allergies:$('med_allergies')?.value||null,vaccines:vaxChecked,vax_dates:vaxDates,doctor_name:$('med_doctor')?.value||null,doctor_phone:$('med_doctor_phone')?.value||null,medical_notes:$('med_notes')?.value||null,updated:today()};
   if(idx>=0)DB.medical[idx]=obj;else DB.medical.push(obj);
   pushSync('medical','upsert',obj);saveToCrypt();
   toast('🏥 Dossier médical enregistré','success');closeModal();
@@ -26290,16 +26306,13 @@ window.saveActivite = (aid) => {
     if(act) Object.assign(act,data);
     pushSync('activites','patch',data,'id=eq.'+aid);
   } else {
-    const na={id:'act'+Date.now(),...data,color:'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'),date:today()};
+    const na={id:_uid('act_'),...data,color:'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0'),date:today(),
+      school_id:window._currentSchoolId||null};
     DB.activites.push(na);
     pushSync('activites','post',na);
-    if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
-    (DB.students||[]).forEach(s=>{
-      const ni={id:'ai'+Date.now()+Math.random().toString(36).slice(2,5),act_id:na.id,sid:s.id,active:true,date:today()};
-      DB.activites_inscriptions.push(ni);
-      pushSync('activites_inscriptions','post',ni);
-      if(s.pid) pushNotif(s.pid,na.emoji+' '+na.name+' — '+s.name+' est inscrit(e)'+(na.frais?' · Frais : '+na.frais+'$/mois':''));
-    });
+    closeModal(); saveToCrypt(); render();
+    toast('Activité créée — inscrivez maintenant les élèves concernés','success');
+    return;
   }
   closeModal(); saveToCrypt(); render();
   toast('Activité enregistrée','success');
@@ -26310,7 +26323,9 @@ window.deleteActivite = (aid) => {
   showC('Supprimer cette activité ?','Toutes les inscriptions seront perdues.',()=>{
     DB.activites=(DB.activites||[]).filter(x=>x.id!==aid);
     DB.activites_inscriptions=(DB.activites_inscriptions||[]).filter(x=>x.act_id!==aid);
+    pushSync('activites_inscriptions','delete',{},'act_id=eq.'+aid);
     pushSync('activites','delete',{},'id=eq.'+aid);
+    logAudit('activite_del', aid);
     saveToCrypt(); render();
     toast('Activité supprimée','info');
   });
@@ -26338,12 +26353,15 @@ window.saveInscriptionActivite = (aid) => {
   if(!DB.activites_inscriptions) DB.activites_inscriptions=[];
   const chks=document.querySelectorAll('.act-chk:checked');
   if(!chks.length){toast('Sélectionnez au moins un élève','error');return;}
+  const act=(DB.activites||[]).find(a=>a.id===aid);
   chks.forEach(chk=>{
     const sid=chk.value;
+    const s=(DB.students||[]).find(x=>x.id===sid);
     const existing=(DB.activites_inscriptions||[]).find(i=>i.act_id===aid&&i.sid===sid);
     if(existing){existing.active=true;pushSync('activites_inscriptions','patch',{active:true},'id=eq.'+existing.id);}
-    else{const ni={id:'ai'+Date.now()+Math.random().toString(36).slice(2,5),act_id:aid,sid,active:true,date:today()};
+    else{const ni={id:_uid('ai_'),act_id:aid,sid,active:true,date:today()};
       DB.activites_inscriptions.push(ni);pushSync('activites_inscriptions','post',ni);}
+    if(act&&s&&s.pid) pushNotif(s.pid,`${act.emoji||'🎭'} ${act.name} — ${s.name} est inscrit(e)${act.frais?` · Frais : ${_cur()}${act.frais}/mois`:''}`);
   });
   closeModal(); saveToCrypt(); render();
   toast(`✅ ${chks.length} élève(s) inscrit(s)`,'success');
