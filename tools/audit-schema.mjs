@@ -20,6 +20,9 @@ const SQL_FILES = [
   'supabase_fix_columns.sql',
   'supabase_fix_columns_v2.sql',
   'supabase_fix_columns_v3.sql',
+  // Migration consolidée : c'est ce fichier qui est réellement exécuté sur
+  // la base de l'école. Les v2/v3 restent lus pour l'historique.
+  'supabase_migration_finale.sql',
 ];
 
 const args = process.argv.slice(2);
@@ -44,6 +47,14 @@ function loadSchema() {
       for (const c of m[2].matchAll(/ADD COLUMN IF NOT EXISTS\s+"?([A-Za-z_][A-Za-z_0-9]*)"?/gi)) set.add(c[1].toLowerCase());
       cols.set(m[1], set);
     }
+    // Migration consolidée : les colonnes y sont déclarées en tuples
+    // ('table','colonne','type') passés à une boucle, et non en ALTER TABLE.
+    for (const m of sql.matchAll(/^\s*\('([a-z_0-9]+)','([A-Za-z_][A-Za-z_0-9]*)','[^']/gm)) {
+      const set = cols.get(m[1]) || new Set();
+      set.add(m[2].toLowerCase());
+      cols.set(m[1], set);
+    }
+
     // Policies littérales
     for (const m of sql.matchAll(/CREATE POLICY\s+"?([\w ]+)"?\s+ON\s+([a-z_0-9.]+)\s+FOR\s+(\w+)/gi)) {
       const t = m[2].replace(/^public\./, '');

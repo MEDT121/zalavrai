@@ -2575,6 +2575,10 @@ window.loadFromSupabase = async () => {
     // Une lecture ratée n'efface plus rien, mais elle mérite d'être visible :
     // c'est le signe d'un réseau instable ou d'une table inaccessible.
     if (_lectFail) console.warn('[SB]', _lectFail, 'lecture(s) en échec — données locales conservées pour ces tables');
+    // Les réglages de l'école viennent d'être lus : on sait désormais si un
+    // secret existe déjà. Tant que ce drapeau est faux, aucun secret n'est
+    // fabriqué (voir _keep).
+    window._settingsLues = true;
     saveToCrypt();
     return true;
   } catch(e) {
@@ -4330,6 +4334,14 @@ function dashboardDirection() {
     let val = DB.settings[name];
     if (!val) { try { val = localStorage.getItem(store) || ''; } catch(e) {} }
     if (val) { DB.settings[name] = val; return; }   // déjà connu : ne rien réécrire
+    // Rien en mémoire, rien en local : soit l'école n'a jamais eu ce secret,
+    // soit cet appareil n'a pas encore reçu les réglages. Dans le doute on
+    // ne fabrique rien — en fabriquer un écraserait celui de l'école et
+    // invaliderait toutes les cartes imprimées.
+    if (window._supaConfigured && window._supaConfigured() && !window._settingsLues) {
+      console.warn('[secret] ' + name + ' non généré : réglages du serveur pas encore lus');
+      return;
+    }
     const arr = crypto.getRandomValues(new Uint8Array(bytes));
     val = Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
     DB.settings[name] = val;
@@ -7891,24 +7903,27 @@ window.saveClassCardStyle=function(cid,cc,soft,dark,pat){
 };
 
 window.markCardPrinted=function(sid){
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
   s.card_printed=!s.card_printed;
   s.card_print_date=s.card_printed?today():null;
   if(s.card_printed&&!s.card_print_count) s.card_print_count=1;
   saveToCrypt();
-  pushSync('students','patch',{card_printed:s.card_printed,card_print_date:s.card_print_date},'id=eq.'+sid);
+  // `card_print_count` était mis à jour en mémoire sans jamais partir : le
+  // compteur de duplicata repartait de 1 sur tout autre appareil.
+  pushSync('students','patch',{card_printed:s.card_printed,card_print_date:s.card_print_date,card_print_count:s.card_print_count||0},'id=eq.'+sid);
   logAudit('card_print_status','Carte '+s.name+': '+(s.card_printed?'marquée imprimée':'non imprimée'));
   render();
 };
 
 window.printClassCards=function(cid){
   const cl=(DB.classes||[]).find(c=>c.id===cid); if(!cl) return;
-  const students=(DB.students||[]).filter(s=>s.cid===cid&&!s.access_blocked);
+  const students=(DB.students||[]).filter(s=>s.cid===cid&&!_estBloque(s));
   if(!students.length){toast('Aucun élève dans cette classe','warning');return;}
   const fam=window._ssCardFam||'A';
   const patStyle=document.getElementById('ss-pat-style')?.value||'vignette';
   const sc=DB.settings?.school||{};
-  const year=(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
+  const year=(DB.settings?.year)||(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
   const teacher=cl?(DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)):null;
   const teacherName=teacher?teacher.name:'';
   const studio=document.getElementById('ss-card-studio');
@@ -7950,6 +7965,7 @@ ${cardsHtml}
 };
 
 window.generateDuplicata=function(sid){
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
   if(!s.card_printed){toast('Imprimez d\'abord la carte originale','warning');return;}
   s.card_print_count=(s.card_print_count||1)+1;
@@ -7960,7 +7976,7 @@ window.generateDuplicata=function(sid){
   const cl=(DB.classes||[]).find(c=>c.id===s.cid);
   const teacher=cl?(DB.users||[]).find(u=>u.id===(cl.titulaire_id||cl.teacher_id)):null;
   const teacherName=teacher?teacher.name:'';
-  const year=(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
+  const year=(DB.settings?.year)||(DB.settings?.currentYear)||(new Date().getFullYear()+'-'+(new Date().getFullYear()+1));
   const patStyle=document.getElementById('ss-pat-style')?.value||'vignette';
   const {type}=ssClassType(cl);
   const patB=ssGetClassPat(cl,'badge'),patC=ssGetClassPat(cl,'carte');
@@ -10182,6 +10198,13 @@ window.genRecuNo = () => {
 // fait foi : `montant_defaut` est figé au moment de l'amorçage et ne suit pas
 // une modification des frais dans Paramètres.
 window._recettes = () => (DB.daily_records||[]).filter(r=>!r.annulled);
+
+// Masse salariale effectivement versée. Les salaires ne transitent pas par
+// daily_expenses — ils vivent dans DB.salaries et le journal OHADA les
+// reconstruit — mais ils sortent bien de la caisse.
+window._salairesVerses = () => (DB.salaries||[])
+  .filter(s=>s.paid)
+  .reduce((t,s)=>t+(Number(s.net!=null?s.net:s.amount)||0),0);
 
 window._cibleFrais = (feeTypeId, trimestre) => {
   const ft = (DB.fee_types||[]).find(f=>f.id===feeTypeId);
@@ -17295,10 +17318,13 @@ R.etat_financier = () => {
   const totalAttendu=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);
   const totalDette=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.debt||0),0);
   // ── Dépenses ──
-  const totalDepenses=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalCourantes=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalSalaires=_salairesVerses();
+  const totalDepenses=totalCourantes+totalSalaires;
   const depByMotif={};
   exps.forEach(e=>{const m=e.motif||'Divers';depByMotif[m]=(depByMotif[m]||0)+Number(e.amount||0);});
-  const soldeOuverture=(DB.settings.opening_cash||0)+(DB.settings.opening_bank||0);
+  if(totalSalaires>0) depByMotif['Salaires et primes']=(depByMotif['Salaires et primes']||0)+totalSalaires;
+  const soldeOuverture=(DB.settings?.opening_cash||0)+(DB.settings?.opening_bank||0);
   const soldeNet=soldeOuverture+totalRecettes-totalDepenses;
   // ── Classement par classe ──
   const byClass=DB.classes.map(cl=>{
@@ -24801,7 +24827,7 @@ window.archiverAnnee = () => {
         const _vers = DB.versements||[];
         const _exps = DB.daily_expenses||[];
         const _clotureRecettes = _vers.reduce((s,v)=>s+(Number(v.montant)||0),0);
-        const _clotureDepenses = _exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
+        const _clotureDepenses = _exps.reduce((s,e)=>s+(Number(e.amount)||0),0) + window._salairesVerses();
         const _clotureOuv = (DB.settings.opening_cash||0)+(DB.settings.opening_bank||0);
         DB.settings.opening_cash = Math.max(0, _clotureOuv + _clotureRecettes - _clotureDepenses);
         DB.settings.opening_bank = 0;
@@ -27094,13 +27120,21 @@ window.saveAvance = (teacherId, month) => {
   const amount=lireMontant($('adv_amount')?.value)||0;
   if(amount<=0){toast('Entrez un montant valide','error');return;}
   if(!DB.advances) DB.advances=[];
-  const obj={id:'adv'+Date.now(),teacher_id:teacherId,amount,reason:$('adv_reason')?.value||null,month,date:today(),by:S.user.id};
+  // Une avance qui dépasse le net du mois rendrait la paie négative sans
+  // qu'aucun écran ne le signale.
+  const _sal=(DB.salaries||[]).find(s=>s.teacher_id===teacherId&&s.month===month);
+  const _base=_sal?Number(_sal.net!=null?_sal.net:_sal.amount)||0:0;
+  const _dejaAvance=_getAdvancesTotal(teacherId,month);
+  if(_base>0 && (_dejaAvance+amount)>_base){
+    toast(`Avance refusée — le net de ${month} (${_cur()}${_base}) serait dépassé`,'error');return;
+  }
+  const obj={id:_uid('adv_'),teacher_id:teacherId,amount,reason:($('adv_reason')?.value||'').slice(0,200)||null,month,date:today(),by:S.user.id,school_id:window._currentSchoolId||null};
   DB.advances.push(obj);
   pushSync('advances','upsert',obj);
-  const u=DB.users.find(x=>x.id===teacherId);
+  const u=(DB.users||[]).find(x=>x.id===teacherId);
   // Notif privée à l'enseignant
-  const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`💸 Avance sur salaire accordée : ${_cur()}${amount}${obj.reason?' ('+obj.reason+')':''}`,date:today(),time:nowTime(),read:false,type:'info'};
-  DB.notifs.unshift(n);pushSync('notifs','post',n);
+  const n={id:_uid('n_'),uid:teacherId,msg:`💸 Avance sur salaire accordée : ${_cur()}${amount}${obj.reason?' ('+obj.reason+')':''}`,date:today(),time:nowTime(),read:false,type:'info',school_id:window._currentSchoolId||null};
+  (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
   logAudit('avance_salaire',`${u?.name} — ${_cur()}${amount} — ${month}`);
   saveToCrypt();
   toast(`✅ Avance de ${_cur()}${amount} accordée à ${u?.name}`,'success');
@@ -27110,8 +27144,10 @@ window.saveAvance = (teacherId, month) => {
 window.deleteAdvance = (id) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   showC('Supprimer cette avance','Supprimer définitivement cette avance ?',()=>{
+    const _a=(DB.advances||[]).find(x=>x.id===id);
     DB.advances=(DB.advances||[]).filter(x=>x.id!==id);
     pushSync('advances','delete','','id=eq.'+id);
+    if(_a) logAudit('avance_suppr',`${gu(_a.teacher_id)?.name||_a.teacher_id} — ${_cur()}${_a.amount} (${_a.month||''})`,id);
     saveToCrypt();closeModal();render();toast('Avance supprimée','info');
   });
 };
@@ -27170,14 +27206,21 @@ window.saveSalaire = (teacherId, month) => {
   const directPrimesTotal=_getDirectPrimesTotal(teacherId,month);
   const net=amount+bonus+ratPrime-deductions-advTotal+directPrimesTotal;
   const idx=DB.salaries.findIndex(s=>s.teacher_id===teacherId&&s.month===month);
-  const obj={id:idx>=0?DB.salaries[idx].id:_uid('sal_'),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,direct_primes_total:directPrimesTotal,net,paid,paid_date:paid?today():null,notes:$('sal_notes')?.value||null,by:S.user.id,updated:today()};
+  const ancien=idx>=0?DB.salaries[idx]:null;
+  // Une paie déjà versée garde SA date. Ré-enregistrer la fiche d'un mois
+  // ancien la réécrivait à aujourd'hui, ce qui déplaçait la dépense
+  // d'exercice et faussait le rapprochement de caisse.
+  const datePaie = paid ? (ancien&&ancien.paid&&ancien.paid_date ? ancien.paid_date : today()) : null;
+  const obj={id:ancien?ancien.id:_uid('sal_'),teacher_id:teacherId,month,amount,bonus,rat_prime:ratPrime,deductions,adv_total:advTotal,direct_primes_total:directPrimesTotal,net,paid,paid_date:datePaie,notes:($('sal_notes')?.value||'').slice(0,300)||null,by:S.user.id,updated:today(),school_id:window._currentSchoolId||null};
   if(idx>=0)DB.salaries[idx]=obj;else DB.salaries.push(obj);
   pushSync('salaries','upsert',obj);
-  if(paid){
-    const u=DB.users.find(x=>x.id===teacherId);
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET ${_cur()}${net}`,date:today(),time:nowTime(),read:false,type:'info'};
-    DB.notifs.unshift(n);pushSync('notifs','post',n);
-    // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.salaries — pas de double écriture ici
+  // Ne prévenir qu'au passage à « versé » : chaque réenregistrement
+  // renotifiait l'enseignant d'un salaire déjà reçu.
+  if(paid && !(ancien&&ancien.paid)){
+    const u=(DB.users||[]).find(x=>x.id===teacherId);
+    const n={id:_uid('n_'),uid:teacherId,msg:`✅ Salaire de ${month} versé : NET ${_cur()}${net}`,date:today(),time:nowTime(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
+    // Écriture OHADA : reconstruite par _getJournalAll depuis DB.salaries
     logAudit('salaire',`${u?.name||teacherId} — ${_cur()}${net} (${month})`);
   }
   saveToCrypt();toast('Salaire enregistré','success');closeModal();render();
@@ -27187,10 +27230,12 @@ window.deleteSalaire = (teacherId, month) => {
   showC('Supprimer ce salaire','Supprimer la fiche salariale de ce mois ?',()=>{
     const idx=(DB.salaries||[]).findIndex(s=>s.teacher_id===teacherId&&s.month===month);
     if(idx<0)return;
-    const id=DB.salaries[idx].id;
+    const sal=DB.salaries[idx];
+    const u=(DB.users||[]).find(x=>x.id===teacherId);
     DB.salaries.splice(idx,1);
-    pushSync('salaries','delete','','id=eq.'+id);
-    saveToCrypt();render();toast('Salaire supprimé','info');
+    pushSync('salaries','delete','','id=eq.'+sal.id);
+    logAudit('salaire_suppr',`${u?.name||teacherId} — ${month}${sal.paid?` — ÉTAIT VERSÉ ${_cur()}${sal.net}`:''}`,sal.id);
+    saveToCrypt();render();toast(sal.paid?'⚠️ Salaire versé supprimé — consigné au journal':'Salaire supprimé','info');
   });
 };
 
