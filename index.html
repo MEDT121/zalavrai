@@ -8667,7 +8667,17 @@ window.genMat = () => {
     const m = (s.mat||'').match(/[-](\d{4})$/);
     return m ? parseInt(m[1]) : 0;
   });
-  return `TWS-${year}-` + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4,'0');
+  let suite = (nums.length ? Math.max(...nums) : 0) + 1;
+  // Le plus grand numéro connu ne suffit pas : un matricule saisi à la main,
+  // ou une liste partiellement chargée, produirait un doublon. Or le portail
+  // identifie l'élève par ce matricule.
+  const pris = new Set((DB.students||[]).map(s => s.mat));
+  let cand = `TWS-${year}-` + String(suite).padStart(4,'0');
+  while (pris.has(cand) && suite < 9999) {
+    suite++;
+    cand = `TWS-${year}-` + String(suite).padStart(4,'0');
+  }
+  return cand;
 };
 
 R.students = () => {
@@ -8857,6 +8867,20 @@ function _saveStudentInner() {
   const mat=($('stu_mat').value||'').trim()||genMat();
   const sid=$('stu_id').value;
   const photo=$('stu_photo_data').value||null;
+  // Le portail identifie l'élève par son matricule et retient le PREMIER
+  // trouvé. Un doublon ferait donc scanner le mauvais élève : mauvaise
+  // présence, mauvais parent averti, mauvaise autorisation de sortie. Le
+  // contrôle ne valait qu'à la création — modifier un matricule vers un
+  // existant passait sans obstacle.
+  const _jumeauMat = (DB.students||[]).find(x => x.id !== sid && x.mat === mat);
+  if (_jumeauMat) { markFieldError('stu_mat', `Matricule déjà porté par ${_jumeauMat.name}`); return; }
+
+  const _normS = x => (x||'').trim().toLowerCase().replace(/\s+/g,' ')
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const _homonyme = (DB.students||[]).find(x =>
+    x.id !== sid && x.cid === cid && !x.archived && _normS(x.name) === _normS(name));
+  if (_homonyme) { markFieldError('stu_name', `Un élève « ${_homonyme.name} » figure déjà dans cette classe`); return; }
+
   const data={name,mat,cid,pid:$('stu_pid').value||null,dob:$('stu_dob').value||null,adresse:($('stu_adresse').value||'').trim()||null,nom_papa:($('stu_papa').value||'').trim()||null,nom_maman:($('stu_maman').value||'').trim()||null,photo,lieu_naissance:($('stu_lieu_naissance').value||'').trim()||null,num_inscription:($('stu_num_inscription').value||'').trim()||null};
   if(sid){
     const s=DB.students.find(x=>x.id===sid); if(s) Object.assign(s,data);
@@ -8864,11 +8888,6 @@ function _saveStudentInner() {
     logAudit('student_edit',`${name} — ${mat}`,sid);
     toast(`${name} mis à jour`,'success');
   } else {
-    if(DB.students.find(x=>x.mat===mat)){toast('Matricule déjà utilisé — changez-le','error');return;}
-    const _normS=s=>(s||'').trim().toLowerCase().replace(/\s+/g,' ').normalize('NFD').replace(/[̀-ͯ]/g,'');
-    if((DB.students||[]).some(x=>x.cid===cid&&_normS(x.name)===_normS(name)&&!x.archived)){
-      markFieldError('stu_name',`Un élève "${name}" existe déjà dans cette classe`);return;
-    }
     const ns={id:_uid('s_'),...data,created_at:today(),created_by:S.user.id,created_by_name:S.user.name,school_id:window._currentSchoolId||null};
     DB.students.push(ns);
     const newPays=['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:ns.id,t,paid:false,school_id:window._currentSchoolId||null}));
@@ -8886,16 +8905,48 @@ window.editStudent = (sid) => openStudentForm(sid);
 window.deleteStudent = (sid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  showC(`Supprimer ${s.name} ?`,'Irréversible — paiements et présences liés seront aussi supprimés.',()=>{
-    logAudit('student_delete',`${s.name} — ${s.mat}`,sid);
-    DB.students=DB.students.filter(x=>x.id!==sid);
-    DB.payments=(DB.payments||[]).filter(x=>x.sid!==sid);
-    DB.attendance=(DB.attendance||[]).filter(x=>x.sid!==sid);
+  // Vingt-deux tables référencent un élève ; quatre seulement étaient nettoyées.
+  // Restaient notamment son dossier médical, ses visites à l'infirmerie et les
+  // personnes autorisées à venir le chercher — avec leurs photos. Conserver les
+  // données de santé d'un enfant retiré de l'école n'est pas défendable.
+  const PERSONNEL = [
+    ['payments','paiements dus'], ['attendance','présences'], ['grades','notes'],
+    ['aps','personnes autorisées'], ['medical','dossier médical'],
+    ['medical_visits','visites à l\'infirmerie'], ['conduct','notes de conduite'],
+    ['appreciations','appréciations'], ['absences','justificatifs d\'absence'],
+    ['convocations','convocations'], ['sanctions','sanctions'],
+    ['rattrapages','rattrapages'], ['teacher_notes','notes d\'enseignants'],
+    ['approbations','demandes en attente'], ['cantine','inscription cantine'],
+    ['cantine_presence','présences cantine'], ['activites_inscriptions','activités'],
+    ['tenafep','dossier TENAFEP'], ['exetat','dossier Examen d\'État'],
+  ];
+  // Conservés à dessein : ces lignes portent le nom et le matricule de l'élève
+  // en clair, donc elles restent lisibles sans lui. Un encaissement est un fait
+  // comptable, un passage au portail une trace de sécurité — ni l'un ni l'autre
+  // ne s'efface parce qu'un dossier est supprimé.
+  const GARDES = [['versements','encaissements'], ['daily_records','recettes de caisse'], ['scan_log','passages au portail']];
+
+  const aSupprimer = PERSONNEL
+    .map(([t,lib]) => [t, lib, (DB[t]||[]).filter(x => x.sid === sid).length])
+    .filter(([,,k]) => k > 0);
+  const aGarder = GARDES
+    .map(([t,lib]) => [t, lib, (DB[t]||[]).filter(x => x.sid === sid).length])
+    .filter(([,,k]) => k > 0);
+
+  const detail =
+    (aSupprimer.length ? '<div style="margin-top:10px;font-size:13px">Seront supprimés :<ul style="margin:6px 0 0 18px">'
+      + aSupprimer.map(([,lib,k]) => `<li>${k} ${lib}</li>`).join('') + '</ul></div>' : '')
+  + (aGarder.length ? '<div style="margin-top:10px;font-size:13px;color:var(--text-secondary)">Conservés — pièces comptables et de sécurité :<ul style="margin:6px 0 0 18px">'
+      + aGarder.map(([,lib,k]) => `<li>${k} ${lib}</li>`).join('') + '</ul></div>' : '');
+
+  showC(`Supprimer ${esc(s.name)} ?`, 'Cette action est irréversible.' + detail, () => {
+    logAudit('student_delete', `${s.name} — ${s.mat}${aSupprimer.length ? ' + ' + aSupprimer.reduce((a,[,,k])=>a+k,0) + ' ligne(s)' : ''}`, sid);
+    aSupprimer.forEach(([t]) => {
+      DB[t] = (DB[t]||[]).filter(x => x.sid !== sid);
+      pushSync(t, 'delete', {}, 'sid=eq.' + sid);
+    });
+    DB.students = (DB.students||[]).filter(x => x.id !== sid);
     pushSync('students','delete',{},'id=eq.'+sid);
-    pushSync('payments','delete',{},'sid=eq.'+sid);
-    DB.grades = (DB.grades||[]).filter(x=>x.sid!==sid);
-    pushSync('grades','delete',{},'sid=eq.'+sid);
-    pushSync('attendance','delete',{},'sid=eq.'+sid);
     toast(`🗑️ ${s.name} supprimé`,'info');
     saveToCrypt(); render();
   });
