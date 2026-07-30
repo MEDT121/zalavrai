@@ -326,3 +326,176 @@ window.NAV = {
 - Demander des explications : "Explique-moi pourquoi cette approche"
 - Demander des diagrammes ASCII ou présentations HTML pour comprendre l'architecture
 - Utiliser les sous-agents pour l'analyse sans polluer le contexte principal
+
+---
+
+## Infrastructure réelle (30/07/2026)
+
+Ne jamais désigner un projet par son identifiant Supabase dans une conversation :
+personne ne les distingue, et cela a coûté plusieurs allers-retours.
+
+| Nom à employer | Identifiant | Contenu |
+|----------------|-------------|---------|
+| **PRODELI Central** | `xryfvakkuffmckyybkeo` | `schools`, `card_orders`, `school_announcements`, `school_sites` + les Edge Functions |
+| **Le Sage** | `loggezdryupyyuifzxky` | Les 49 tables scolaires |
+| **Stockage PRODELI** | bucket R2 `prodeli-media` | Cloisonné par préfixe `<license_key>/` |
+
+### Edge Functions — le nom affiché n'est pas l'URL
+
+Supabase distingue le **nom** d'une fonction de son **slug**, qui seul figure
+dans l'URL. Dans la liste des Edge Functions, toujours lire la colonne URL.
+
+| Slug (ce qui compte) | Nom affiché | Rôle |
+|----------------------|-------------|------|
+| `dynamic-api` | dynamic-api | Login · commandes de cartes · signature R2 |
+| `clever-responder` | admin-api | API de la console PRODELI |
+
+Actions de `dynamic-api` : *(sans action)* login · `card_order` · `card_orders`
+· `storage_sign` · `version`. L'action `version` répond sans licence et
+rapporte l'état des secrets R2 — première chose à interroger avant de
+supposer qu'un redéploiement a eu lieu.
+
+### Clés API : les legacy sont désactivées
+
+Supabase a coupé les anciennes clés `anon`/`service_role` sur les projets
+récents. Utiliser `sb_publishable_…` côté client et `sb_secret_…` dans les
+secrets des fonctions. Le message `Legacy API keys are disabled` signale ce
+cas ; il n'a rien à voir avec une clé mal copiée.
+
+### Aucune dépendance externe dans une Edge Function
+
+Un import qui ne se résout pas dans le runtime Supabase fait **tomber la
+fonction entière au démarrage** — login compris. `aws4fetch` a ainsi tué
+`dynamic-api` pendant des heures, et le login continuait de répondre grâce à
+une instance restée chaude, ce qui a masqué la cause. La signature SigV4 de R2
+est écrite sur place, vérifiée contre le vecteur de test officiel AWS.
+
+Corollaire de diagnostic : une fonction qui **accepte la connexion sans jamais
+répondre** plante au démarrage. Une fonction qui répond une erreur est vivante.
+
+---
+
+## Synchronisation
+
+### Règle absolue : POUSSER avant de TIRER
+
+`loadFromSupabase()` remplace `DB` par l'instantané du serveur puis l'écrit
+dans le cache chiffré. Tirer alors qu'une écriture attend en file **efface
+cette écriture** — la donnée semble disparaître d'elle-même. C'était la cause
+du « ça se perd automatiquement » : le rechargement périodique tirait toutes
+les trois minutes sans avoir poussé.
+
+`autoSync({pull})` applique cet invariant : il ne tire que si la file est
+vide. Une file non vide signifie que le serveur est en retard sur l'appareil.
+
+### La connexion ne doit jamais attendre la file
+
+Vider la file avant d'ouvrir l'application faisait patienter des dizaines de
+secondes — une requête par élément. Si la file n'est pas vide, on part du
+cache local et elle s'écoule en arrière-plan.
+
+### Aucun message à l'écran
+
+Une synchronisation qui se déclenche seule n'interrompt personne. Tout part
+dans `console`. La pastille d'en-tête est **masquée** tant que rien ne réclame
+une décision humaine — elle n'apparaît que hors ligne, sur échec répété, ou si
+des opérations sont mises de côté.
+
+### Une opération n'est jamais jetée
+
+Après quatre tentatives, `syncQueue.park()` la met de côté dans
+`localStorage._schoolsafe_sync_parked` au lieu de la supprimer : elle porte une
+saisie humaine. `syncQueue.retryParked()` la réinjecte depuis la file
+d'attente.
+
+Repères : lots de 20 par passage · battement 45 s · cycle complet 3 min ·
+enchaînement 2 s tant qu'il reste du travail.
+
+---
+
+## Schéma de base : auditer, ne jamais supposer
+
+`supabase_setup.sql` avait pris du retard sur l'application : **8 tables et
+55 colonnes manquaient**. PostgREST rejette la requête entière dès qu'une
+seule colonne est inconnue — donc une note corrigée, une absence excusée ou
+une fiche de préparation était perdue en silence, et l'opération s'accumulait
+sans jamais aboutir.
+
+Migrations : `supabase_missing_tables.sql` puis `supabase_fix_columns.sql`.
+
+### Auditer le schéma après toute nouvelle écriture
+
+```bash
+# Tables écrites par le code mais absentes du SQL
+python3 -c "
+import re
+src=open('index.html').read(); sql=open('supabase_setup.sql').read()
+used=set(re.findall(r\"pushSync\(\s*'([a-z_0-9]+)'\", src))
+print(sorted(used - set(re.findall(r'CREATE TABLE IF NOT EXISTS\s+([a-z_0-9]+)', sql, re.I))))"
+```
+
+Un audit par objet littéral **ne suffit pas** : `pushSync('settings','upsert',DB.settings)`
+envoie l'objet entier. Pour ces cas, comparer les affectations
+`DB.settings.X = …` aux colonnes déclarées.
+
+### Un garde-fou ne doit pas dépendre de ce qu'il protège
+
+`_seedFeeTypes()` se gardait par `if (DB.fee_types.length) return`, or ce
+tableau se remplit en **lisant** la table — absente. Le garde-fou ne se
+déclenchait donc jamais et neuf écritures vouées à l'échec repartaient à
+chaque cycle. L'amorçage est désormais verrouillé par école dans
+`localStorage`, indépendamment de ce que répond le serveur.
+
+### Deux orthographes coexistent volontairement
+
+`inscriptions.statut` / `.status` et `grades.trimester` / `.trimestre` : le
+site public et l'application n'emploient pas le même mot. Les deux colonnes
+existent. Les unifier demanderait de reprendre une vingtaine de lectures sur
+une application en service — le risque dépasse le bénéfice.
+
+---
+
+## Diagnostic
+
+`diagnostic.html` — 8 tests indépendants, hors du cache du service worker.
+Un tampon de version figure sous le titre : sans lui, « rien ne se passe »
+reste indécidable.
+
+Leçons de conception, apprises en le cassant :
+
+- **Un délai d'expiration sur chaque requête.** Sans lui, un appel suspendu
+  laisse son test sur « en cours… » et bloque tous les suivants.
+- **Jamais `catch {}` sans variable** ni syntaxe postérieure à 2018 : une
+  erreur d'analyse rend le bouton inerte sur les WebView Android anciennes.
+- **Une sonde ne laisse aucune trace.** La première écrivait dans `audit_log`,
+  table volontairement inaltérable — chaque exécution polluait le journal réel
+  de l'école. Elle passe par `notifs` et supprime sa ligne.
+- **`Failed to fetch` ne prouve rien.** R2 renvoie ses erreurs sans en-têtes
+  CORS : une signature refusée et une politique CORS absente produisent le même
+  message. Une sonde `no-cors` suivie d'une relecture publique tranche.
+
+---
+
+## Compression
+
+`COMPRESS` est la seule référence — modifier un profil suffit à changer le
+comportement partout. `_fitImage()` et `_fitDataURL()` remplacent six
+implémentations dispersées, dont deux appliquaient `Math.min` séparément à la
+largeur et à la hauteur, ce qui **déformait les photos**.
+
+`dlPDF()` alimente tous les documents : compression Flate active, JPEG à 0,82,
+et échelle réduite sur les documents longs — à 2×, dix pages produisent un
+canvas de plusieurs dizaines de mégapixels qui échoue sur téléphone.
+
+---
+
+## Identité de l'école : une seule source
+
+Neuf documents dupliquaient leur bloc d'identité et **tous oubliaient le
+numéro d'agrément DGEP**. `_schoolLine()` est désormais l'unique source ;
+`_schoolInfo()` réconcilie les vocabulaires (`motto`/`slogan`,
+`name_en`/`sub`, `website`/`site`) car les gabarits de carte et le formulaire
+de paramètres n'employaient pas les mêmes noms — des emplacements restaient
+vides en permanence.
+
+Avant d'ajouter un champ dans Paramètres, vérifier **où il aboutit**.
