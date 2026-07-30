@@ -1482,7 +1482,43 @@ window.openWATemplates = (sid) => {
   if(s&&parent){setTimeout(()=>{window._selectWATpl('absence');},80);}
 };
 
-// ── CENTRALIZED COMPRESSION ──
+// ── COMPRESSION CENTRALISÉE ──
+// Réduit un canvas déjà dessiné sous un plafond de dimensions, puis encode.
+// Utilisé partout où l'image ne vient pas d'un <input file> mais d'un rendu.
+window._fitDataURL = (srcCanvas, maxW, maxH, quality) => {
+  const w0 = srcCanvas.width, h0 = srcCanvas.height;
+  if (w0 <= maxW && h0 <= maxH) return srcCanvas.toDataURL('image/jpeg', quality);
+  const r = Math.min(maxW / w0, maxH / h0);
+  const c = document.createElement('canvas');
+  c.width = Math.round(w0 * r); c.height = Math.round(h0 * r);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(srcCanvas, 0, 0, c.width, c.height);
+  const out = c.toDataURL('image/jpeg', quality);
+  c.width = c.height = 0;   // libère le buffer
+  return out;
+};
+
+// Réduit une image chargée en respectant ses proportions, puis encode.
+// Remplace plusieurs implémentations inline dont certaines appliquaient
+// Math.min séparément à la largeur et à la hauteur — ce qui déformait les
+// photos dont le rapport ne correspondait pas au plafond.
+window._fitImage = (img, maxW, maxH, quality) => {
+  const r = Math.min(1, maxW / img.width, maxH / img.height);
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(img.width * r));
+  c.height = Math.max(1, Math.round(img.height * r));
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const out = c.toDataURL('image/jpeg', quality);
+  c.width = c.height = 0;
+  return out;
+};
+
+// Poids réel d'une image encodée en base64, en kilooctets.
+window._dataURLKo = (d) => !d ? 0 : Math.round((String(d).length - (String(d).indexOf(',') + 1)) * 3 / 4 / 1024);
+
 window.compressImage = (file, maxW, maxH, quality, cb) => {
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
@@ -1611,6 +1647,11 @@ window.COMPRESS = {
   photo_ap:      { maxW:300, maxH:400, quality:0.65 },
   photo_devoir:  { maxW:800, maxH:1200, quality:0.60 },
   photo_profile: { maxW:300, maxH:300, quality:0.70 },
+  // Le logo sert jusqu'aux cartes imprimées : plus généreux, mais borné.
+  logo:          { maxW:512, maxH:512, quality:0.85 },
+  signature:     { maxW:600, maxH:300, quality:0.80 },
+  // Photo de preuve lors d'un refus de sortie : consultée à l'écran seulement.
+  photo_preuve:  { maxW:640, maxH:640, quality:0.62 },
 };
 window.compressWithProfile = (file, profile, cb) => {
   const p = COMPRESS[profile] || COMPRESS.photo_eleve;
@@ -1623,12 +1664,7 @@ window.compressWithProfile = (file, profile, cb) => {
     if(window.openPhotoCrop) {
       openPhotoCrop(e.target.result, aspect, cropped => {
         const img = new Image();
-        img.onload = () => {
-          const w=Math.min(img.width,p.maxW), h=Math.min(img.height,p.maxH);
-          const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-          cv.getContext('2d').drawImage(img,0,0,w,h);
-          cb(cv.toDataURL('image/jpeg', p.quality));
-        };
+        img.onload = () => cb(window._fitImage(img, p.maxW, p.maxH, p.quality));
         img.src = cropped;
       });
     } else {
@@ -2687,13 +2723,26 @@ function dlPDF(htmlStr, filename){
   if(typeof html2pdf==='undefined'){ toast(t('Génération PDF indisponible (hors-ligne)','PDF generation unavailable (offline)'),'error'); return; }
   const container=document.createElement('div');
   container.style.position='fixed'; container.style.left='-9999px'; container.style.top='0';
+  container.style.width='794px';   // largeur A4 à 96 dpi : évite un rendu hors cadre
   container.innerHTML=htmlStr;
   document.body.appendChild(container);
+
+  // L'échelle décide seule du poids final : à 2×, un document de dix pages
+  // produit un canvas de plusieurs dizaines de mégapixels. On la réduit sur
+  // les documents longs, où la finesse importe moins que le fait d'aboutir.
+  const h = container.scrollHeight || 1000;
+  const scale = h > 6000 ? 1.25 : h > 3000 ? 1.5 : 2;
+
+  toast(t('⏳ Génération du PDF…','⏳ Generating PDF…'),'info');
   html2pdf().from(container).set({
     filename: filename||'document.pdf',
     margin: 8,
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    // JPEG au lieu du PNG par défaut, et compression Flate côté jsPDF :
+    // à eux deux, ils divisent le poids d'un reçu par trois à cinq.
+    image: { type: 'jpeg', quality: 0.82 },
+    html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff', logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+    pagebreak: { mode: ['css', 'avoid-all'] }
   }).save().catch(()=>toast(t('Erreur lors de la génération du PDF','Error generating PDF'),'error')).finally(()=>container.remove());
 }
 function _officialFooter(name, role){
@@ -6826,7 +6875,9 @@ function closeCropModal() {
 function applyCrop() {
   const cc = document.getElementById('cropCanvas');
   if(!cc||!cc.width||!cc.height){ toast('❌ Zone de découpe invalide','error'); closeCropModal(); return; }
-  const data = cc.toDataURL('image/jpeg', 0.92);
+  // Le recadrage produisait une image à la taille du canvas, sans plafond :
+  // un logo issu d'une photo de 12 Mpx partait tel quel dans la base.
+  const data = window._fitDataURL(cc, 512, 512, 0.85);
   const img = new Image();
   img.onload = () => {};
   img.onerror = () => { toast('❌ Erreur de traitement de la photo','error'); };
@@ -8278,27 +8329,17 @@ window.stuPhotoChange = (input) => {
     };
     if(window.openPhotoCrop){
       openPhotoCrop(e.target.result, 400/520, cropped=>{
-        // Compression finale après recadrage
+        // Compression finale après recadrage, selon le profil photo_eleve
+        const pe=COMPRESS.photo_eleve;
         const img=new Image();
-        img.onload=()=>{
-          const MAX=400,MH=520;
-          let w=img.width,h=img.height;
-          if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
-          const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-          cv.getContext('2d').drawImage(img,0,0,w,h);
-          apply(cv.toDataURL('image/jpeg',0.85));
-        };
+        img.onload=()=>apply(window._fitImage(img, pe.maxW, pe.maxH, pe.quality));
         img.src=cropped;
       });
     } else {
+      const pe=COMPRESS.photo_eleve;
       const img=new Image();
       img.onload=()=>{
-        const MAX=400,MH=520;
-        let w=img.width,h=img.height;
-        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
-        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-        cv.getContext('2d').drawImage(img,0,0,w,h);
-        apply(cv.toDataURL('image/jpeg',0.85));
+        apply(window._fitImage(img, pe.maxW, pe.maxH, pe.quality));
       };
       img.src=e.target.result;
     }
@@ -14338,13 +14379,14 @@ window.confirmExitRefused = (sid) => {
 };
 window.previewRefPhoto = (input) => {
   const f=input.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=e=>{
+  // Cette photo partait à sa résolution d'origine : plusieurs mégaoctets en
+  // base64 par refus de sortie, dans une table consultée à chaque scan.
+  const pr = COMPRESS.photo_preuve;
+  compressImage(f, pr.maxW, pr.maxH, pr.quality, data => {
     const p=document.getElementById('refPhotoPreview');
-    if(p) p.innerHTML=`<img src="${e.target.result}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;border:2px solid #dc2626">`;
-    window._refPhotoData=e.target.result;
-  };
-  r.readAsDataURL(f);
+    if(p) p.innerHTML=`<img src="${data}" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px;border:2px solid #dc2626">`;
+    window._refPhotoData=data;
+  });
 };
 window.doExitRefused = async (sid) => {
   if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
@@ -14745,23 +14787,15 @@ window.tutPhotoChange = (input) => {
     const apply=data=>{$('tut_photo_data').value=data;$('tut_photo_preview').innerHTML=`<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;};
     if(window.openPhotoCrop){
       openPhotoCrop(e.target.result, 3/4, cropped=>{
+        const pa=COMPRESS.photo_ap;
         const img=new Image();
-        img.onload=()=>{
-          const cv=document.createElement('canvas');cv.width=Math.min(img.width,300);cv.height=Math.min(img.height,400);
-          cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-          apply(cv.toDataURL('image/jpeg',0.82));
-        };
+        img.onload=()=>apply(window._fitImage(img, pa.maxW, pa.maxH, pa.quality));
         img.src=cropped;
       });
     } else {
       const img=new Image();
       img.onload=()=>{
-        const MAX=300,MH=400;
-        let w=img.width,h=img.height;
-        if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} if(h>MH){w=Math.round(w*MH/h);h=MH;}
-        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-        cv.getContext('2d').drawImage(img,0,0,w,h);
-        apply(cv.toDataURL('image/jpeg',0.82));
+        apply(window._fitImage(img, COMPRESS.photo_ap.maxW, COMPRESS.photo_ap.maxH, COMPRESS.photo_ap.quality));
       };
       img.src=e.target.result;
     }
