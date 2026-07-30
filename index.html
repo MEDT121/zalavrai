@@ -1259,7 +1259,7 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
         <span class="topbar-date" id="TD"></span>
-        <button id="SYNC_IND" onclick="forceSyncDB()" title="Cliquer pour forcer la synchronisation" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .3s;border:none;line-height:1.4"></button>
+        <button id="SYNC_IND" onclick="forceSyncDB()" title="Synchronisation automatique — cliquer pour la déclencher tout de suite" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .3s;border:none;line-height:1.4"></button>
         <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
         <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
       </div>
@@ -1830,29 +1830,82 @@ window.syncQueue = {
   }
 };
 
-// Auto-sync quand la connexion revient
+// ════════════════════════════════════════════════════════════════════════
+//  MOTEUR DE SYNCHRONISATION AUTOMATIQUE
+//
+//  L'utilisateur ne doit jamais avoir à appuyer sur « Synchroniser ».
+//
+//  Règle absolue : POUSSER avant de TIRER. loadFromSupabase() remplace DB
+//  par l'instantané du serveur puis l'écrit dans le cache chiffré. Tirer
+//  alors qu'une écriture attend encore en file efface cette écriture de
+//  l'écran — la donnée semble se perdre toute seule.
+// ════════════════════════════════════════════════════════════════════════
+let _syncBusy = false, _syncSoonT = null;
+
+/**
+ * Un cycle de synchronisation. Pousse toujours ; ne tire que si la file est
+ * repartie entièrement, pour ne jamais écraser une écriture en attente.
+ * @param {{pull?:boolean, announce?:boolean}} o
+ */
+window.autoSync = async (o = {}) => {
+  const { pull = false, announce = false } = o;
+  if (_syncBusy || !S.user || !SUPA_URL) return 0;
+  _syncBusy = true;
+  try {
+    const pending = syncQueue.count();
+    let done = 0;
+    if (pending > 0) {
+      if (announce) toast(`🔄 Synchronisation de ${pending} changement(s)…`, 'info');
+      done = await syncQueue.flush();
+      if (done > 0 && announce) toast(`✅ ${done} changement(s) synchronisé(s)`, 'success');
+    }
+    // Un reste en file signifie un backoff en cours : on garde l'état local,
+    // qui est alors plus à jour que le serveur.
+    if (pull && window.DB_ONLINE && syncQueue.count() === 0) {
+      if (await loadFromSupabase()) render();
+    }
+    updateSyncIndicator();
+    return done;
+  } catch (e) {
+    console.warn('[autoSync]', e.message);
+    return 0;
+  } finally { _syncBusy = false; }
+};
+
+/** Regroupe une rafale d'écritures en un seul envoi, peu après la dernière. */
+window.syncSoon = (delay = 1200) => {
+  clearTimeout(_syncSoonT);
+  _syncSoonT = setTimeout(() => window.autoSync(), delay);
+};
+
+// Retour de connexion : pousser, puis rafraîchir.
 window.addEventListener('online', async () => {
   if (SUPA_URL) window.DB_ONLINE = true;
   updateSyncIndicator();
-  if (syncQueue.count() > 0) {
-    toast(`🔄 Synchronisation de ${syncQueue.count()} changements…`, 'info');
-    const done = await syncQueue.flush();
-    if (done > 0) { toast(`✅ ${done} changements synchronisés`, 'success'); updateSyncIndicator(); }
-  }
-  if (S.user && SUPA_URL) {
-    await loadFromSupabase();
-    render();
-  }
+  await window.autoSync({ pull: true, announce: true });
 });
 window.addEventListener('offline', () => { window.DB_ONLINE = false; updateSyncIndicator(); });
 
-// Pull périodique toutes les 3 min pour garder les données fraîches
-window._iv_periodic_sync = setInterval(async () => {
-  if (window.DB_ONLINE && S.user && SUPA_URL) {
-    await loadFromSupabase();
-    render();
+// Poussée régulière : c'est ce qui fait vivre les backoffs de la file.
+// Sans ce battement, un élément en attente n'était jamais réessayé tant que
+// l'appareil restait connecté — la file ne se vidait plus du tout.
+window._iv_sync_push = setInterval(() => window.autoSync(), 45000);
+
+// Cycle complet moins souvent : pousser puis tirer pour rester à jour.
+window._iv_sync_full = setInterval(() => window.autoSync({ pull: true }), 180000);
+
+// Retour sur l'application (onglet réactivé, téléphone déverrouillé) :
+// le moment le plus probable où des changements attendent de part et d'autre.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') window.autoSync({ pull: true });
+});
+
+// Dernière chance avant fermeture : une tentative brève, sans bloquer la sortie.
+window.addEventListener('pagehide', () => {
+  if (S.user && SUPA_URL && syncQueue.count() > 0) {
+    syncQueue.flush().catch(() => {});   // le Background Sync reprend le relais
   }
-}, 180000);
+});
 
 // ── NAVIGATION STRUCTURE v3.0 ──
 window.NAV = {
@@ -2301,6 +2354,8 @@ window.pushSync = async (table, op, data, query) => {
     updateSyncIndicator();
     return false;
   }
+  // Marque cette écriture comme non encore confirmée : le cycle de
+  // synchronisation ne tirera pas du serveur tant qu'elle n'est pas partie.
   let ok = false;
   if (op === 'post') ok = await _post(table, data);
   else if (op === 'patch') ok = await _patch(table, query, data);
@@ -2312,8 +2367,10 @@ window.pushSync = async (table, op, data, query) => {
     window._syncConflicts = window._syncConflicts||[];
     const _cfl={table, op, ts:new Date().toISOString(), id:typeof data==='object'&&data?data.id:null};
     window._syncConflicts.push(_cfl);
-    if(window._syncConflicts.length===1&&S.user?.role==='direction') toast('⚠️ Synchronisation différée — réessai automatique dès reconnexion','warning');
+    if(window._syncConflicts.length===1&&S.user?.role==='direction') toast('⚠️ Synchronisation différée — réessai automatique','warning');
     try{const _cflStr=JSON.stringify(window._syncConflicts.slice(-50));localStorage.setItem('_syncConflictLog',_cflStr);}catch(_){}
+    // Réessai rapproché : n'attend pas le battement de 45 s.
+    if (window.syncSoon) window.syncSoon(3000);
   }
   updateSyncIndicator();
   return ok;
@@ -2680,9 +2737,9 @@ window.updateSyncIndicator = () => {
   if (window._syncInProgress) {
     el.textContent='🔄 Sync...'; el.style.background='#fdeeda'; el.style.color='#205fae'; el.title='Synchronisation en cours...';
   } else if (!window.DB_ONLINE) {
-    el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c'; el.title='Hors ligne — cliquer pour réessayer';
+    el.textContent='🔴 Hors ligne'; el.style.background='#fee2e2'; el.style.color='#b91c1c'; el.title='Hors ligne — les changements repartiront seuls dès le retour du réseau';
   } else if (q > 0) {
-    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — cliquer pour détail`;
+    el.textContent=`🟡 ${q}`; el.style.background='#fef9c3'; el.style.color='#92400e'; el.title=`${q} changement(s) en attente — envoi automatique en cours, cliquer pour le détail`;
     el.onclick = () => showSyncQueueDetail();
   } else {
     el.onclick = () => forceSyncDB();
@@ -2741,10 +2798,12 @@ window.forceSyncDB = async () => {
   updateSyncIndicator();
   document.querySelectorAll('[onclick="forceSyncDB()"]').forEach(b=>{ b.disabled=true; if(b.tagName==='BUTTON'&&b.textContent.includes('sync')) b.textContent='🔄 Sync...'; b.style.opacity='.7'; });
   try {
+    // Pousser d'abord : un instantané serveur tiré avant l'envoi effacerait
+    // les écritures encore en file.
+    const flushed = await syncQueue.flush();
     const ok = await loadFromSupabase();
     window._lastSyncTime = nowTime();
     if (ok) {
-      const flushed = await syncQueue.flush();
       updateSyncIndicator();
       const extra = flushed > 0 ? ` · ${flushed} changement(s) envoyé(s)` : '';
       toast(`✅ Sync complète — ${DB.students.length} élèves · ${DB.users.length} comptes${extra}`,'success');
