@@ -36,8 +36,17 @@ ALTER TABLE sanctions
 UPDATE sanctions SET reason = COALESCE(reason, description) WHERE reason IS NULL;
 
 -- ── CAISSE ────────────────────────────────────────────────────────
+-- `ref` et `recu_no` rattachent la recette du jour au versement qui l'a
+-- produite. Sans ce lien, annuler un versement laissait sa recette dans la
+-- caisse : le total du jour ne retombait jamais et le tiroir ne pouvait pas
+-- s'équilibrer.
 ALTER TABLE daily_records
-  ADD COLUMN IF NOT EXISTS mvt_type TEXT;
+  ADD COLUMN IF NOT EXISTS mvt_type TEXT,
+  ADD COLUMN IF NOT EXISTS ref      TEXT,
+  ADD COLUMN IF NOT EXISTS recu_no  TEXT,
+  ADD COLUMN IF NOT EXISTS annulled BOOLEAN DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_daily_records_ref ON daily_records(ref);
 
 ALTER TABLE daily_expenses
   ADD COLUMN IF NOT EXISTS beneficiary     TEXT,
@@ -105,6 +114,24 @@ FROM information_schema.columns WHERE table_schema='public';
 
 SELECT policyname, cmd FROM pg_policies
 WHERE schemaname='public' AND tablename='inscriptions' ORDER BY cmd;
+
+-- ══════════════════════════════════════════════════════════════════
+--  VERROU D'ANNÉE — un booléen qui reçoit une année
+--
+--  Le code écrit `DB.settings.year_locked = yr`, soit « 2025-2026 », et
+--  relit `year_locked === settings.year`. La colonne était pourtant
+--  déclarée BOOLEAN : PostgreSQL refuse la valeur, et comme un seul champ
+--  invalide fait rejeter la ligne entière, PLUS AUCUN réglage de l'école ne
+--  pouvait être enregistré dès qu'une année avait été archivée.
+--
+--  La sémantique du code exige du texte : c'est la colonne qui s'aligne.
+-- ══════════════════════════════════════════════════════════════════
+ALTER TABLE settings
+  ALTER COLUMN year_locked DROP DEFAULT,
+  ALTER COLUMN year_locked TYPE TEXT
+    USING (CASE WHEN year_locked IS NULL THEN NULL
+                WHEN year_locked::text IN ('true','false') THEN NULL
+                ELSE year_locked::text END);
 
 -- ── SETTINGS — permission d'insertion ─────────────────────────────
 -- Le code enregistre les réglages par `upsert`, qui est un INSERT avec

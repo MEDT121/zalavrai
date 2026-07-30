@@ -4433,7 +4433,7 @@ function dashboardDirection() {
   const exits      = scansToday.filter(s => s.type==='exit').length;
 
   // Caisse today
-  const recs = (DB.daily_records||[]).filter(r => r.date===d);
+  const recs = _recettes().filter(r => r.date===d);
   const exps = (DB.daily_expenses||[]).filter(e => e.date===d);
   const recT = recs.reduce((s,r)=>s+(+r.amount||0),0);
   const expT = exps.reduce((s,e)=>s+(+e.amount||0),0);
@@ -6003,9 +6003,9 @@ function dashboardDirection2() {
 
 function dashboardDirection3() {
   const d = today();
-  const recs = (DB.daily_records||[]).filter(r=>r.date===d);
+  const recs = _recettes().filter(r=>r.date===d);
   const exps = (DB.daily_expenses||[]).filter(e=>e.date===d);
-  const allRecs = DB.daily_records||[];
+  const allRecs = _recettes();
   const allExps = DB.daily_expenses||[];
   const totalIn = recs.reduce((s,r)=>s+(+r.amount||0),0);
   const totalOut = exps.reduce((s,e)=>s+(+e.amount||0),0);
@@ -6040,7 +6040,7 @@ function dashboardDirection3() {
   const cNow = new Date(); cNow.setHours(0,0,0,0);
   for(let ci=4;ci>=0;ci--){const cd=new Date(cNow);cd.setDate(cd.getDate()-ci);last5Days.push(cd.toISOString().slice(0,10));}
   const dailyTrend = last5Days.map(date=>{
-    const dayRecs=(DB.daily_records||[]).filter(r=>r.date===date);
+    const dayRecs=_recettes().filter(r=>r.date===date);
     const amt=dayRecs.reduce((s,r)=>s+(+r.amount||0),0);
     const dayNames=['D','L','M','M','J','V','S'];
     const dow=new Date(date+'T12:00:00').getDay();
@@ -6075,7 +6075,7 @@ function dashboardDirection3() {
 
   // Bilan mensuel P&L — mois courant
   const plMois = d.slice(0,7);
-  const plRecs = (DB.daily_records||[]).filter(r=>r.date&&r.date.startsWith(plMois));
+  const plRecs = _recettes().filter(r=>r.date&&r.date.startsWith(plMois));
   const plExps = (DB.daily_expenses||[]).filter(e=>e.date&&e.date.startsWith(plMois));
   const plIn = plRecs.reduce((s,r)=>s+(+r.amount||0),0);
   const plOut = plExps.reduce((s,e)=>s+(+e.amount||0),0);
@@ -9994,7 +9994,7 @@ window.sendDailyReportNow = () => {
   const lsKey = 'd3_report_'+S.user.id+'_'+dateKey;
   const already = DB.daily_reports.some(r=>r.date===dateKey&&r.by===S.user.id&&r.status==='pending')||localStorage.getItem(lsKey);
   if(already){toast('Rapport déjà envoyé — en attente de validation Direction 1','info');return;}
-  const recs = DB.daily_records.filter(r=>r.date===dateKey&&!r.validated);
+  const recs = _recettes().filter(r=>r.date===dateKey&&!r.validated);
   const exps = DB.daily_expenses.filter(e=>e.date===dateKey&&!e.validated);
   if(!recs.length&&!exps.length){toast('Aucun enregistrement à envoyer','info');return;}
   const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
@@ -10051,7 +10051,7 @@ if(!window._iv_autoreport) window._iv_autoreport = setInterval(() => {
 
 // ── PAYMENTS (Direction) ──
 // ── Fees config helper ──
-window.getFees = () => DB.settings.fees || {T1:0,T2:0,T3:0,inscription:0};
+window.getFees = () => (DB.settings && DB.settings.fees) || {T1:0,T2:0,T3:0,inscription:0};
 // FIN-06: dynamic currency symbol — reads DB.settings.school.devise at call-time
 const _cur = () => DB.settings?.school?.devise || '$';
 
@@ -10154,6 +10154,19 @@ window.genRecuNo = () => {
   return `R-${yr}-${String(next).padStart(4,'0')}`;
 };
 
+// Montant attendu pour un type de frais. Pour les trimestres, `settings.fees`
+// fait foi : `montant_defaut` est figé au moment de l'amorçage et ne suit pas
+// une modification des frais dans Paramètres.
+window._recettes = () => (DB.daily_records||[]).filter(r=>!r.annulled);
+
+window._cibleFrais = (feeTypeId, trimestre) => {
+  const ft = (DB.fee_types||[]).find(f=>f.id===feeTypeId);
+  const trim = trimestre || (ft && ft.trimestre) || null;
+  const fees = getFees();
+  if (trim && fees[trim] !== undefined) return Number(fees[trim])||0;
+  return ft ? Number(ft.montant_defaut||0) : 0;
+};
+
 // Versements d'un élève groupés par fee_type
 window.getStudentVersements = (sid) => {
   const vers = (DB.versements||[]).filter(v=>v.sid===sid);
@@ -10162,7 +10175,7 @@ window.getStudentVersements = (sid) => {
   return feeTypes.map(f=>{
     const typePaid = vers.filter(v=>v.fee_type_id===f.id).reduce((s,v)=>s+(Number(v.montant)||0),0);
     // For core trimesters, always read from settings.fees (single source of truth)
-    const target = f.trimestre && fees[f.trimestre] !== undefined ? (Number(fees[f.trimestre])||0) : (Number(f.montant_defaut)||0);
+    const target = _cibleFrais(f.id, f.trimestre);
     return {
       fee_type_id: f.id, label: f.label, category: f.category,
       trimestre: f.trimestre||null, active: f.active!==false,
@@ -10218,7 +10231,7 @@ R.payments = () => {
   const fees=getFees();
   const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
   const pd=(DB.payments||[]).filter(p=>p.paid).length, tt=DB.payments.length, pct=tt?Math.round(pd/tt*100):0;
-  const totalEncaisse=DB.daily_records.filter(r=>r.validated).reduce((s,r)=>s+Number(r.amount||0),0);
+  const totalEncaisse=_recettes().filter(r=>r.validated).reduce((s,r)=>s+Number(r.amount||0),0);
   // PERF: compute all balances once to avoid O(N²) re-scan per student
   const _balMap={}; DB.students.forEach(st=>{_balMap[st.id]=getStudentBalance(st.id);});
   const totalDette=DB.students.reduce((s,st)=>s+(_balMap[st.id]?.debt||0),0);
@@ -10492,10 +10505,10 @@ window.openFeesConfig = () => {
 window.saveFeesConfig = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.settings.fees) DB.settings.fees={};
-  DB.settings.fees.T1=parseFloat($('fee_t1').value)||0;
-  DB.settings.fees.T2=parseFloat($('fee_t2').value)||0;
-  DB.settings.fees.T3=parseFloat($('fee_t3').value)||0;
-  DB.settings.fees.inscription=parseFloat($('fee_ins')?.value)||0;
+  DB.settings.fees.T1=lireMontant($('fee_t1')?.value)||0;
+  DB.settings.fees.T2=lireMontant($('fee_t2')?.value)||0;
+  DB.settings.fees.T3=lireMontant($('fee_t3')?.value)||0;
+  DB.settings.fees.inscription=lireMontant($('fee_ins')?.value)||0;
   // Sync fee_types.montant_defaut so both sources stay consistent
   const trimMap={T1:'ft_T1',T2:'ft_T2',T3:'ft_T3',inscription:'ft_insc'};
   Object.entries(trimMap).forEach(([t,fid])=>{
@@ -10510,7 +10523,7 @@ window.saveFeesConfig = () => {
 window.openAssignCaissePayment = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
   const pays=(DB.payments||[]).filter(p=>p.sid===sid&&!p.paid);
-  const unassigned=DB.daily_records.filter(r=>r.sid===sid&&r.validated&&!r.assigned);
+  const unassigned=_recettes().filter(r=>r.sid===sid&&r.validated&&!r.assigned);
   if(!pays.length){toast('Tous les trimestres sont déjà payés','info');return;}
   openM(`Affecter paiement — ${s.name}`,`
 <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Sélectionnez le trimestre à marquer comme payé grâce aux paiements enregistrés par la caisse.</p>
@@ -10524,7 +10537,7 @@ window.assignTrimestre = (sid) => {
   const p=(DB.payments||[]).find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
   pushSync('payments','patch',{paid:true},'sid=eq.'+sid+'&t=eq.'+t);
-  const rec=DB.daily_records.find(r=>r.sid===sid&&r.trimestre===t&&r.validated&&!r.assigned);
+  const rec=_recettes().find(r=>r.sid===sid&&r.trimestre===t&&r.validated&&!r.assigned);
   if(rec){rec.assigned=true;pushSync('daily_records','patch',{assigned:true},'id=eq.'+rec.id);}
   const s=DB.students.find(x=>x.id===sid);
   toast(`✅ ${s?s.name:''} — T${t} marqué payé`,'success');
@@ -11302,7 +11315,7 @@ window.validerRattrapage = (rid, noPayment) => {
 window.confirmerRattrapage = (rid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
-  const amount=parseFloat($('rat_amount').value)||0;
+  const amount=lireMontant($('rat_amount')?.value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
   r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
   pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
@@ -12598,7 +12611,7 @@ window.saveCantinaMenu = (mid) => {
   const emoji=($('cmEmoji')?.value||'🍽️').trim();
   const dessert=$('cmDessert')?.value||'';
   const boisson=$('cmBoisson')?.value||'';
-  const prix=parseFloat($('cmPrix')?.value)||0;
+  const prix=lireMontant($('cmPrix')?.value)||0;
   if(!DB.cantine_menus) DB.cantine_menus=[];
   if(mid){
     const m=DB.cantine_menus.find(x=>x.id===mid);
@@ -12641,7 +12654,7 @@ window.saveInscrireEleve = () => {
   if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sid=$('caSid')?.value;
   const type=$('caType')?.value;
-  const amount=parseFloat($('caAmount')?.value)||0;
+  const amount=lireMontant($('caAmount')?.value)||0;
   if(!sid||!amount){toast('Remplissez tous les champs','error');return;}
   if(!DB.cantine) DB.cantine=[];
   const ins={id:'ca'+Date.now(),sid,type,amount,active:true,date_inscription:today(),by:S.user.id};
@@ -12827,6 +12840,24 @@ window.gTrim = (g) => (g && (g.trimester || g.trimestre)) || null;
 //
 // On accepte la virgule comme séparateur, et on refuse tout ce qui n'est pas
 // un nombre entier ou décimal complet.
+window.lireMontant = (raw, max) => {
+  let t = String(raw ?? '').trim().replace(/[\s\u00a0\u202f]/g, '');
+  if (!t) return 0;
+  // « 1.200,50 » et « 1,200.50 » : le dernier séparateur est le décimal.
+  const dp = t.lastIndexOf('.'), vp = t.lastIndexOf(',');
+  if (dp >= 0 && vp >= 0) {
+    t = vp > dp ? t.replace(/\./g, '').replace(',', '.')
+                : t.replace(/,/g, '');
+  } else if (vp >= 0) {
+    t = t.replace(',', '.');
+  }
+  if (!/^\d{1,12}(\.\d{1,2})?$/.test(t)) return null;
+  const v = parseFloat(t);
+  if (!isFinite(v) || v < 0) return null;
+  if (max !== undefined && v > max) return null;
+  return v;
+};
+
 window.lireNote = (raw, max) => {
   const t = String(raw ?? '').trim().replace(',', '.');
   if (!/^\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
@@ -13169,9 +13200,9 @@ window._doEditGrade = (gid, sid, cid, max) => {
   const g=(DB.grades||[]).find(x=>x.id===gid); if(!g) return;
   const s=DB.students.find(x=>x.id===g.sid);
   if(!S.user||S.user.role!=='enseignant'||!s||getMyClass().cl?.id!==s.cid) return;
-  const newNote=parseFloat($('editGradeVal')?.value);
+  const newNote=lireNote($('editGradeVal')?.value, 100);
   const reason=($('editGradeReason')?.value||'').trim();
-  if(isNaN(newNote)||newNote<0||newNote>max){toast(t('Note invalide','Invalid grade'),'error');return;}
+  if(newNote===null||newNote>max){toast(t('Note invalide','Invalid grade'),'error');return;}
   if(!reason){toast(t('Motif requis','Reason required'),'error');return;}
   const oldNote=g.note;
   g.note=newNote; g.pct=Math.round((newNote/max)*100);
@@ -16064,7 +16095,7 @@ const PAYMENT_TYPES = [
 
 // ── RECETTES ──
 R.recettes = () => {
-  const allRec=DB.daily_records||[];
+  const allRec=_recettes();
   const todayRec=allRec.filter(r=>r.date===today());
   const totalToday=todayRec.reduce((s,r)=>s+(Number(r.amount)||0),0);
   const totalAll=allRec.reduce((s,r)=>s+(Number(r.amount)||0),0);
@@ -16545,7 +16576,8 @@ window._enregistrerMouvement = async (opts) => {
     mvt_type='recette',
     uid_perso=null,
   } = opts;
-  if(!montant||montant<=0) throw new Error('Montant invalide');
+  if(!S.user||!['direction','direction3'].includes(S.user.role)) throw new Error('Accès non autorisé');
+  if(typeof montant!=='number'||!isFinite(montant)||montant<=0) throw new Error('Montant invalide');
   // Verrou annuel — bloquer si l'année est archivée
   if(DB.settings?.year_locked && DB.settings.year_locked===DB.settings.year && S.user?.role!=='direction')
     throw new Error(`Année ${DB.settings.year} verrouillée. Contactez la Direction.`);
@@ -16564,7 +16596,7 @@ window._enregistrerMouvement = async (opts) => {
 
   // 1 — VERSEMENT
   const versement = {
-    id:'v'+Date.now()+Math.random().toString(36).slice(2,5),
+    id:_uid('v_'),
     sid, student_name:s?.name||null, mat:s?.mat||null,
     fee_type_id, fee_label:label, compte_cat, trimestre,
     montant, motif, note:note||null,
@@ -16579,10 +16611,14 @@ window._enregistrerMouvement = async (opts) => {
   pushSync('versements','post',versement);
 
   // 2 — DAILY RECORD (caisse du jour)
-  const rec={id:'dr'+Date.now(),sid,student_name:s?.name||null,mat:s?.mat||null,
+  const rec={id:_uid('dr_'),sid,student_name:s?.name||null,mat:s?.mat||null,
     type:fee_type_id||compte_cat,type_label:label,trimestre,amount:montant,
     note:motif+(note?' — '+note:''),mvt_type,
-    date:today(),time:nowTime(),by:S.user.id,validated:false,
+    // Sans ce lien, l'annulation d'un versement laissait sa recette dans la
+    // caisse du jour : le total ne retombait jamais et le tiroir ne
+    // s'équilibrait pas.
+    ref:versement.id, recu_no,
+    date:today(),time:nowTime(),by:S.user.id,validated:false,annulled:false,
     school_id:window._currentSchoolId||null};
   DB.daily_records=DB.daily_records||[];
   DB.daily_records.push(rec);
@@ -16591,8 +16627,7 @@ window._enregistrerMouvement = async (opts) => {
   // 3 — AUTO-SOLDE trimestre (rétrocompat DB.payments)
   // (Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.versements — pas de double écriture ici)
   if(sid && fee_type_id && trimestre){
-    const ft=(DB.fee_types||[]).find(f=>f.id===fee_type_id);
-    const target=ft?Number(ft.montant_defaut||0):0;
+    const target=_cibleFrais(fee_type_id, trimestre);
     if(target>0){
       const totalPaid=(DB.versements).filter(v=>v.sid===sid&&(v.fee_type_id===fee_type_id||(v.trimestre===trimestre&&!v.fee_type_id))).reduce((a,v)=>a+(Number(v.montant)||0),0);
       if(totalPaid>=target){
@@ -16610,11 +16645,11 @@ window._enregistrerMouvement = async (opts) => {
       receipt:{num:recu_no,student:s.name,mat:s.mat,classe:cl?cl.name:'',
         fee_label:label,motif,note:note||null,montant,
         by:S.user.name,date:today(),time:nowTime(),school_id:window._currentSchoolId||null}};
-    DB.notifs.unshift(n);pushSync('notifs','post',n);
+    (DB.notifs=DB.notifs||[]).unshift(n);pushSync('notifs','post',n);
   }
 
   // 5 — AUDIT + SAVE
-  logAudit(mvt_type, `${s?s.name:(uid_perso||'—')} — ${label} — $${montant} (${payment_method})`);
+  logAudit(mvt_type, `${s?s.name:(uid_perso||'—')} — ${label} — ${_cur()}${montant} (${payment_method})`);
   saveToCrypt();
   return {versement, ok:true};
 };
@@ -16623,7 +16658,7 @@ window.saveTrimLedger = async () => {
   if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const tl=window._tl; if(!tl){toast('Contexte perdu, relancez','error');return;}
   const s=(DB.students||[]).find(x=>x.id===tl.sid); if(!s){toast('Élève introuvable','error');return;}
-  const montant=parseFloat($('tl_amount')?.value||'0');
+  const montant=lireMontant($('tl_amount')?.value);
   if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
   const _doSaveTL = async (force=false) => {
     const {versement}=await window._enregistrerMouvement({
@@ -16664,7 +16699,7 @@ window.caisseSavePaiement = async () => {
   const s=window._caisseStudent; if(!s){toast('Sélectionnez un élève','error');return;}
   const motif=($('caisse_motif')?.value||'').trim();
   if(!motif){toast('Le motif est obligatoire','error');return;}
-  const montant=parseFloat($('caisse_amount')?.value||'0');
+  const montant=lireMontant($('caisse_amount')?.value);
   if(!montant||montant<=0){toast('Entrez un montant valide','error');return;}
   const feeTypeId=($('caisse_type')?.value||'').trim();
   const ft=(DB.fee_types||[]).find(f=>f.id===feeTypeId);
@@ -16808,6 +16843,9 @@ window.annulerVersement = (vid) => {
    <button class="btn btn-danger" onclick="window._doAnnulerVersement('${vid}')">✕ Confirmer l'annulation</button>`);
 };
 window._doAnnulerVersement = (vid) => {
+  // `annulerVersement` contrôle le rôle, mais c'est cette fonction-ci qui
+  // défait l'argent, et elle est exposée sur window.
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const v=(DB.versements||[]).find(x=>x.id===vid);
   if(!v||v.annulled){closeModal();return;}
   const reason=($('annul_reason')?.value||'').trim();
@@ -16826,10 +16864,13 @@ window._doAnnulerVersement = (vid) => {
         by:S.user.name,school_id:window._currentSchoolId||null};
       DB.journal_entries.push(reversal);
       pushSync('journal_entries','post',reversal);
+      // Défaire la recette du jour associée. Les versements d'avant cette
+      // correction n'ont pas de `ref` : on retombe sur le numéro de reçu.
+      (DB.daily_records||[]).filter(r=>!r.annulled&&(r.ref===vid||(v.recu_no&&r.recu_no===v.recu_no)))
+        .forEach(r=>{ r.annulled=true; pushSync('daily_records','patch',{annulled:true},'id=eq.'+r.id); });
       // Remettre DB.payments à non-payé si le total tombe sous la cible
       if(v.sid&&v.trimestre&&v.fee_type_id){
-        const ft=(DB.fee_types||[]).find(f=>f.id===v.fee_type_id);
-        const target=ft?Number(ft.montant_defaut||0):0;
+        const target=_cibleFrais(v.fee_type_id, v.trimestre);
         if(target>0){
           const remaining=(DB.versements||[]).filter(x=>x.sid===v.sid&&(x.fee_type_id===v.fee_type_id||(x.trimestre===v.trimestre&&!x.fee_type_id))&&!x.annulled).reduce((a,x)=>a+(Number(x.montant)||0),0);
           if(remaining<target){
@@ -16955,7 +16996,10 @@ window.depCatChanged = () => {
 };
 window.saveDepense = () => {
   if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const amount=parseFloat($('dep_amount')?.value||'0');
+  if(DB.settings?.year_locked && DB.settings.year_locked===DB.settings.year && S.user.role!=='direction'){
+    toast(`Année ${DB.settings.year} verrouillée`,'error');return;
+  }
+  const amount=lireMontant($('dep_amount')?.value);
   if(!amount||amount<=0){toast('Entrez un montant valide','error');return;}
   const motif=($('dep_motif')?.value||'').trim();
   if(!motif){toast('Entrez le motif','error');return;}
@@ -16965,7 +17009,7 @@ window.saveDepense = () => {
   const beneficiary=($('dep_bene')?.value||'').trim()||null;
   const invoice_ref=($('dep_ref')?.value||'').trim()||null;
   const exp={
-    id:'de'+Date.now()+Math.random().toString(36).slice(2,4),
+    id:_uid('de_'),
     amount, motif,
     category_code, category_label: cat.label,
     payment_method, beneficiary, invoice_ref,
@@ -16978,7 +17022,7 @@ window.saveDepense = () => {
   DB.daily_expenses.push(exp);
   pushSync('daily_expenses','post',exp);
   // Écriture OHADA : reconstruite automatiquement par _getJournalAll depuis DB.daily_expenses — pas de double écriture ici
-  logAudit('depense',`${motif} — $${amount} (${cat.label}) par ${S.user.name}`);
+  logAudit('depense',`${motif} — ${_cur()}${amount} (${cat.label}) par ${S.user.name}`);
   toast(`💸 Dépense ${_cur()}${amount} — ${cat.label} enregistrée`,'success');
   saveToCrypt(); render();
 };
@@ -17112,7 +17156,7 @@ R.etat_financier = () => {
   const fees=getFees();
   const feeTypes=(DB.fee_types||[]).filter(f=>f.active!==false);
   const vers=DB.versements||[];
-  const recs=DB.daily_records||[];
+  const recs=_recettes();
   const exps=DB.daily_expenses||[];
 
   // ── Recettes par catégorie de fee_type ──
@@ -18093,7 +18137,7 @@ window.saveManualEntry = () => {
     const lib=($('je_lib')?.value||'').trim();
     const debit=($('je_debit')?.value||'').trim();
     const credit=($('je_credit')?.value||'').trim();
-    const montant=parseFloat($('je_montant')?.value||0);
+    const montant=lireMontant($('je_montant')?.value);
     if(!lib||!debit||!credit||!montant||montant<=0){toast('Remplissez tous les champs','error');return;}
     if(debit===credit){toast('Débit et crédit doivent être différents','error');return;}
     if(!DB.journal_entries) DB.journal_entries=[];
@@ -18117,9 +18161,10 @@ window.openBudgetDepensesForm = () => {
      <button class="btn btn-primary" onclick="saveBudgetDepenses()">Enregistrer</button>`);
 };
 window.saveBudgetDepenses = () => {
-  const amt = parseFloat($('budg_dep_amt')?.value||0);
+  const amt = lireMontant($('budg_dep_amt')?.value);
+  if(amt===null){toast('Montant invalide','error');return;}
   if(!DB.settings) DB.settings={};
-  DB.settings.budget_depenses = amt||0;
+  DB.settings.budget_depenses = amt;
   pushSync('settings','upsert',{id:DB.settings.id||'main',budget_depenses:amt||0});
   saveToCrypt(); closeModal(); toast('Budget dépenses enregistré','success'); render();
 };
@@ -18588,7 +18633,7 @@ window.exportBilanPDF = () => {
 };
 
 R.caisse_rapport = () => {
-  const recs=DB.daily_records.filter(r=>r.date===today()&&!r.validated);
+  const recs=_recettes().filter(r=>r.date===today()&&!r.validated);
   const exps=DB.daily_expenses.filter(e=>e.date===today()&&!e.validated);
   const totalIn=recs.reduce((s,r)=>s+Number(r.amount||0),0);
   const totalOut=exps.reduce((s,e)=>s+Number(e.amount||0),0);
@@ -19426,7 +19471,7 @@ window.openPrimeForm = () => {
 window.savePrime = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const tid=($('pr_tid')?.value||'').trim();
-  const amount=parseFloat($('pr_amount')?.value)||0;
+  const amount=lireMontant($('pr_amount')?.value)||0;
   const motif=($('pr_motif')?.value||'').trim();
   if(!tid){toast('Choisissez un enseignant','error');return;}
   if(amount<=0){toast('Montant invalide','error');return;}
@@ -21950,10 +21995,10 @@ window.saveSettingsFees = async () => {
   // Un montant négatif passait sans broncher, et se serait propagé aux soldes,
   // aux reçus et aux relances. Un frais nul reste licite — un frais négatif non.
   const lus = {
-    T1: parseFloat($('cfg_fee_t1')?.value),
-    T2: parseFloat($('cfg_fee_t2')?.value),
-    T3: parseFloat($('cfg_fee_t3')?.value),
-    inscription: parseFloat($('cfg_fee_ins')?.value),
+    T1: lireMontant($('cfg_fee_t1')?.value),
+    T2: lireMontant($('cfg_fee_t2')?.value),
+    T3: lireMontant($('cfg_fee_t3')?.value),
+    inscription: lireMontant($('cfg_fee_ins')?.value),
   };
   for (const [k,v] of Object.entries(lus)) {
     if (v < 0) { toast(`Montant négatif refusé (${k})`,'error'); return; }
@@ -24020,13 +24065,13 @@ window.saveGardienProfile = () => {
 // ── PROFIL CAISSE (direction3) ──
 R.profil_caisse = () => {
   const u=S.user;
-  const allRec=DB.daily_records||[];
+  const allRec=_recettes();
   const allExp=DB.daily_expenses||[];
   const rec=allRec.filter(r=>r.date===today());
   const exp=allExp.filter(e=>e.date===today());
-  const totalRec=rec.reduce((s,r)=>s+(r.amount||0),0);
-  const totalExp=exp.reduce((s,e)=>s+(e.amount||0),0);
-  const totalAllRec=allRec.reduce((s,r)=>s+(r.amount||0),0);
+  const totalRec=rec.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  const totalExp=exp.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const totalAllRec=allRec.reduce((s,r)=>s+(Number(r.amount)||0),0);
   const fmt=n=>n.toLocaleString('fr-FR')+' FC';
   const last7Days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);});
   const last7Data=last7Days.map(d=>({date:d,amt:allRec.filter(r=>r.date===d).reduce((s,r)=>s+(r.amount||0),0)}));
@@ -26126,7 +26171,7 @@ window.saveActivite = (aid) => {
   if(!DB.activites) DB.activites=[];
   const data={name,emoji:$('aEmoji')?.value||'🎭',description:$('aDesc')?.value||'',
     jour:$('aJour')?.value||'',heure:$('aHeure')?.value||'',lieu:$('aLieu')?.value||'',
-    frais:parseFloat($('aFrais')?.value)||0};
+    frais:lireMontant($('aFrais')?.value)||0};
   if(aid){
     const act=DB.activites.find(x=>x.id===aid);
     if(act) Object.assign(act,data);
@@ -26822,7 +26867,7 @@ window.openRatRateConfig = () => {
 };
 window.saveRatRate = () => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  DB.settings.rattrapage_rate=parseFloat($('rat_rate')?.value)||0;
+  DB.settings.rattrapage_rate=lireMontant($('rat_rate')?.value)||0;
   pushSync('settings','upsert',DB.settings);saveToCrypt();
   toast(`✅ Taux rattrapage : ${_cur()}${DB.settings.rattrapage_rate} / cours`,'success');
   closeModal();render();
@@ -26851,7 +26896,7 @@ window.openAvanceForm = (teacherId, month) => {
 };
 window.saveAvance = (teacherId, month) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const amount=parseFloat($('adv_amount')?.value)||0;
+  const amount=lireMontant($('adv_amount')?.value)||0;
   if(amount<=0){toast('Entrez un montant valide','error');return;}
   if(!DB.advances) DB.advances=[];
   const obj={id:'adv'+Date.now(),teacher_id:teacherId,amount,reason:$('adv_reason')?.value||null,month,date:today(),by:S.user.id};
@@ -26921,9 +26966,9 @@ window.openSalaireForm = (teacherId, month) => {
 window.saveSalaire = (teacherId, month) => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   if(!DB.salaries) DB.salaries=[];
-  const amount=parseFloat($('sal_amount')?.value)||0;
-  const bonus=parseFloat($('sal_bonus')?.value)||0;
-  const deductions=parseFloat($('sal_deductions')?.value)||0;
+  const amount=lireMontant($('sal_amount')?.value)||0;
+  const bonus=lireMontant($('sal_bonus')?.value)||0;
+  const deductions=lireMontant($('sal_deductions')?.value)||0;
   const paid=!!parseInt($('sal_paid')?.value||'0');
   const {prime:ratPrime}=_getRatPrime(teacherId,month);
   const advTotal=_getAdvancesTotal(teacherId,month);
@@ -27015,7 +27060,7 @@ window.openPersonnelSalaireForm = (salId) => {
   setTimeout(psalCalcNet, 50);
 };
 window.psalCalcNet = () => {
-  const b=parseFloat($('psal_base')?.value||0), bo=parseFloat($('psal_bonus')?.value||0), d=parseFloat($('psal_deduct')?.value||0);
+  const b=lireMontant($('psal_base')?.value)||0, bo=lireMontant($('psal_bonus')?.value)||0, d=lireMontant($('psal_deduct')?.value)||0;
   const net=b+bo-d;
   const box=$('psal_net_box');
   if(box){
@@ -27031,9 +27076,9 @@ window.savePersonnelSalaire = (salId) => {
   const person_role=($('psal_role')?.value||'').trim();
   if(!person_role){toast('Sélectionnez le poste','error');return;}
   const month=$('psal_month')?.value||today().slice(0,7);
-  const amount=parseFloat($('psal_base')?.value||0);
-  const bonus=parseFloat($('psal_bonus')?.value||0);
-  const deductions=parseFloat($('psal_deduct')?.value||0);
+  const amount=lireMontant($('psal_base')?.value)||0;
+  const bonus=lireMontant($('psal_bonus')?.value)||0;
+  const deductions=lireMontant($('psal_deduct')?.value)||0;
   const net=amount+bonus-deductions;
   const paid=($('psal_paid')?.value||'1')==='1';
   const payment_method=$('psal_pay')?.value||'Espèces';
