@@ -2593,6 +2593,25 @@ window.pushSync = async (table, op, data, query) => {
     try{const _cflStr=JSON.stringify(window._syncConflicts.slice(-50));localStorage.setItem('_syncConflictLog',_cflStr);}catch(_){}
     // Réessai rapproché : n'attend pas le battement de 45 s.
     if (window.syncSoon) window.syncSoon(3000);
+
+    // Le message « enregistré » reste juste dans une application qui travaille
+    // hors ligne : la donnée est retenue et partira. Mais si RIEN ne part —
+    // colonne absente, droit manquant — l'utilisateur continue de saisir dans
+    // le vide, et c'est exactement ce qui s'est produit pendant des semaines
+    // avec les réglages de l'école.
+    //
+    // Une seule alerte, à la première écriture qui échoue alors que le réseau
+    // répond. Ce n'est pas un incident de réseau : c'est un refus du serveur,
+    // donc quelque chose qui ne se réglera pas tout seul.
+    if (!window._writeFailAlerted && window.DB_ONLINE) {
+      window._writeFailAlerted = true;
+      toast('⚠️ Le serveur refuse les enregistrements — vos saisies sont retenues sur l\'appareil', 'warning');
+      console.warn('[SYNC] premier refus serveur :', table, op);
+    }
+  } else if (window._writeFailAlerted) {
+    // Le serveur accepte de nouveau : l'alerte pourra reparaître si cela
+    // recommence, plutôt que de rester muette pour le reste de la session.
+    window._writeFailAlerted = false;
   }
   updateSyncIndicator();
   return ok;
@@ -9408,13 +9427,22 @@ window.saveClass = () => {
     ?{card_color:pickedColor,card_color_soft:window._hexLighten(pickedColor,.68),card_color_dark:window._hexDarken(pickedColor,.32)}
     :{card_color:null,card_color_soft:null,card_color_dark:null};
   const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||null,option,...colorData};
+
+  // Le doublon n'était contrôlé qu'à la création, et par simple minuscule :
+  // renommer une classe en un nom déjà pris passait sans obstacle, et
+  // « 6ème A » cohabitait avec « 6eme A ». Deux classes homonymes rendent les
+  // affectations d'élèves et les bulletins indéchiffrables.
+  const _normC = x => (x||'').trim().toLowerCase().replace(/\s+/g,' ')
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const _jumelle = (DB.classes||[]).find(x => x.id !== cid && _normC(x.name) === _normC(name));
+  if (_jumelle) { markFieldError('cls_name', `La classe « ${_jumelle.name} » porte déjà ce nom`); return; }
+
   if(cid){
     const c=DB.classes.find(x=>x.id===cid); if(c) Object.assign(c,data);
     pushSync('classes','upsert',{id:cid,...data});
     logAudit('class_edit', name, cid);
     toast(`${name} mis à jour`,'success');
   } else {
-    if(DB.classes.find(x=>x.name.toLowerCase()===name.toLowerCase())){toast('Cette classe existe déjà','error');return;}
     const nc={id:_uid('c_'),...data};
     DB.classes.push(nc);
     pushSync('classes','upsert',nc);
@@ -9428,11 +9456,39 @@ window.saveClass = () => {
 window.deleteClass = (cid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const c=DB.classes.find(x=>x.id===cid); if(!c) return;
-  const cnt=DB.students.filter(s=>s.cid===cid).length;
+  const cnt=(DB.students||[]).filter(s=>s.cid===cid).length;
   if(cnt>0){toast(`⚠️ ${cnt} élève(s) dans cette classe — déplacez-les d'abord`,'error');return;}
-  showC(`Supprimer la classe ${c.name} ?`,'Cette action est irréversible.',()=>{
-    logAudit('class_delete', c.name, cid);
-    DB.classes=DB.classes.filter(x=>x.id!==cid);
+
+  // Dix tables portent une référence de classe. Seuls les élèves étaient
+  // vérifiés : tout le reste — notes, présences, matières, emploi du temps —
+  // survivait en pointant vers une classe disparue. Ces lignes deviennent
+  // invisibles dans l'application mais restent en base, et fausseraient un
+  // export ou une reprise d'année.
+  const LIEES = [
+    ['matieres','matières'], ['grades','notes'], ['attendance','présences'],
+    ['devoirs','devoirs'], ['cahier_texte','entrées de cahier de texte'],
+    ['cahier_prep','préparations'], ['prevision_matiere','prévisions'],
+    ['timetables','créneaux d\'emploi du temps'], ['appreciations','appréciations'],
+  ];
+  const restes = LIEES
+    .map(([t,lib]) => [t, lib, (DB[t]||[]).filter(x => x.cid === cid).length])
+    .filter(([,,k]) => k > 0);
+
+  const detail = restes.length
+    ? '<div style="margin-top:10px;font-size:13px">Seront également supprimés :<ul style="margin:6px 0 0 18px">'
+      + restes.map(([,lib,k]) => `<li>${k} ${lib}</li>`).join('') + '</ul></div>'
+    : '';
+
+  showC(`Supprimer la classe ${c.name} ?`, 'Cette action est irréversible.' + detail, () => {
+    logAudit('class_delete', `${c.name}${restes.length ? ' + ' + restes.reduce((a,[,,k])=>a+k,0) + ' ligne(s) liée(s)' : ''}`, cid);
+    // Nettoyer les dépendances avant la classe elle-même : si l'opération est
+    // interrompue, mieux vaut une classe orpheline de données qu'une donnée
+    // orpheline de classe — la première se voit, la seconde non.
+    restes.forEach(([t]) => {
+      DB[t] = (DB[t]||[]).filter(x => x.cid !== cid);
+      pushSync(t, 'delete', {}, 'cid=eq.' + cid);
+    });
+    DB.classes = (DB.classes||[]).filter(x => x.id !== cid);
     pushSync('classes','delete',{},'id=eq.'+cid);
     toast(`🗑️ ${c.name} supprimée`,'info');
     saveToCrypt(); render();
