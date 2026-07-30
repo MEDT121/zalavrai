@@ -7546,15 +7546,27 @@ ${css}</style></head><body>
   toast('📋 Duplicata n°'+count+' généré','info');
 };
 
+// Les commandes de cartes passent par l'Edge Function centrale : elles
+// contiennent des données personnelles d'élèves et de parents, que la clé
+// publishable ne doit pas pouvoir lire d'une école à l'autre. Le serveur
+// vérifie la licence puis ne renvoie que les commandes de cette école.
+window._callCentral = async (action, extra = {}) => {
+  if (!SCHOOL_KEY || !LOGIN_FN_URL) throw new Error('Contexte école absent');
+  const r = await fetch(LOGIN_FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'apikey':CENTRAL_KEY, 'Authorization':'Bearer '+CENTRAL_KEY },
+    body: JSON.stringify({ action, license_key: SCHOOL_KEY, ...extra }),
+  });
+  const d = await r.json().catch(() => null);
+  if (!r.ok || d?.error) throw new Error(d?.error || 'HTTP ' + r.status);
+  return d;
+};
+
 window.loadMyCardOrders = async () => {
-  const sName = (DB.settings?.school?.name||'').trim();
-  if(!sName||!CENTRAL_URL||!CENTRAL_KEY) return;
+  if(!SCHOOL_KEY||!LOGIN_FN_URL) return;
   try {
-    const r = await fetch(CENTRAL_URL+'/rest/v1/card_orders?school_name=eq.'+encodeURIComponent(sName)+'&order=ordered_at.desc&limit=10', {
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY}
-    });
-    if(!r.ok) return;
-    window._myCardOrders = await r.json();
+    const d = await window._callCentral('card_orders');
+    window._myCardOrders = d.orders || [];
     const el = document.getElementById('card-orders-history');
     if(!el) return;
     if(!(window._myCardOrders||[]).length) { el.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">Aucune commande précédente</div>'; return; }
@@ -7649,11 +7661,10 @@ window.submitCardOrder = async (sid) => {
   } catch(imgErr) { console.warn('[APKart] capture PNG échouée:',imgErr.message); }
 
   // ── Étape 2 : envoyer la commande avec la carte ──
-  if(!CENTRAL_URL||!CENTRAL_KEY){ toast('Configuration centrale manquante','error'); return; }
+  if(!SCHOOL_KEY||!LOGIN_FN_URL){ toast('Configuration centrale manquante','error'); return; }
   try {
     toast('⏳ Envoi vers APKart...','info');
     const payload = {
-      school_name: schoolName, license_key: licenseKey,
       student_name: s.name||'', student_mat: s.mat||'', student_dob: s.dob||'',
       student_lieu_naissance: s.lieu_naissance||'', student_num_inscription: s.num_inscription||'',
       student_adresse: s.adresse||DB.settings?.school?.address||'',
@@ -7663,15 +7674,11 @@ window.submitCardOrder = async (sid) => {
       parent_phone: parent?(parent.phone||null):null,
       school_phone: DB.settings?.school?.phone||null, school_address: DB.settings?.school?.address||null,
       school_dgep: DB.settings?.school?.dgep||null, school_year: DB.settings?.year||null,
-      director_name: dirUser?dirUser.name:'', status: 'pending',
+      director_name: dirUser?dirUser.name:'',
       card_image_url: card_image_url||null,
     };
-    const resp = await fetch(CENTRAL_URL+'/rest/v1/card_orders', {
-      method:'POST',
-      headers:{'apikey':CENTRAL_KEY,'Authorization':'Bearer '+CENTRAL_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify(payload)
-    });
-    if(!resp.ok){ const txt=await resp.text(); throw new Error(txt||'HTTP '+resp.status); }
+    // Le statut, l'école et la date sont fixés par le serveur, pas par le client.
+    await window._callCentral('card_order', { order: payload });
     window._myCardOrders = null;
     const _hist=document.getElementById('card-orders-history');
     if(_hist) _hist.innerHTML='<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:12px 0">✅ Commande envoyée — actualisation de l\'historique...</div>';
