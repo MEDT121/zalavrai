@@ -1485,16 +1485,16 @@ window.openWATemplates = (sid) => {
 // ── COMPRESSION CENTRALISÉE ──
 // Réduit un canvas déjà dessiné sous un plafond de dimensions, puis encode.
 // Utilisé partout où l'image ne vient pas d'un <input file> mais d'un rendu.
-window._fitDataURL = (srcCanvas, maxW, maxH, quality) => {
+window._fitDataURL = (srcCanvas, maxW, maxH, quality, maxKo) => {
   const w0 = srcCanvas.width, h0 = srcCanvas.height;
-  if (w0 <= maxW && h0 <= maxH) return srcCanvas.toDataURL('image/jpeg', quality);
+  if (w0 <= maxW && h0 <= maxH) return window._encodeBudget(srcCanvas, quality, maxKo);
   const r = Math.min(maxW / w0, maxH / h0);
   const c = document.createElement('canvas');
   c.width = Math.round(w0 * r); c.height = Math.round(h0 * r);
   const ctx = c.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(srcCanvas, 0, 0, c.width, c.height);
-  const out = c.toDataURL('image/jpeg', quality);
+  const out = window._encodeBudget(c, quality, maxKo);
   c.width = c.height = 0;   // libère le buffer
   return out;
 };
@@ -1503,7 +1503,7 @@ window._fitDataURL = (srcCanvas, maxW, maxH, quality) => {
 // Remplace plusieurs implémentations inline dont certaines appliquaient
 // Math.min séparément à la largeur et à la hauteur — ce qui déformait les
 // photos dont le rapport ne correspondait pas au plafond.
-window._fitImage = (img, maxW, maxH, quality) => {
+window._fitImage = (img, maxW, maxH, quality, maxKo) => {
   const r = Math.min(1, maxW / img.width, maxH / img.height);
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(img.width * r));
@@ -1511,23 +1511,27 @@ window._fitImage = (img, maxW, maxH, quality) => {
   const ctx = c.getContext('2d');
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, c.width, c.height);
-  const out = c.toDataURL('image/jpeg', quality);
+  const out = window._encodeBudget(c, quality, maxKo);
   c.width = c.height = 0;
   return out;
+};
+
+// Applique un profil complet à une image déjà chargée.
+window._fitProfile = (img, profile) => {
+  const p = COMPRESS[profile] || COMPRESS.photo_eleve;
+  return window._fitImage(img, p.maxW, p.maxH, p.quality, p.maxKo);
 };
 
 // Poids réel d'une image encodée en base64, en kilooctets.
 window._dataURLKo = (d) => !d ? 0 : Math.round((String(d).length - (String(d).indexOf(',') + 1)) * 3 / 4 / 1024);
 
-window.compressImage = (file, maxW, maxH, quality, cb) => {
+window.compressImage = (file, maxW, maxH, quality, cb, maxKo) => {
   const img = new Image(), url = URL.createObjectURL(file);
   img.onload = () => {
-    let w = img.width, h = img.height;
-    if (w > maxW || h > maxH) { const r = Math.min(maxW/w, maxH/h); w = Math.round(w*r); h = Math.round(h*r); }
-    const c = document.createElement('canvas'); c.width = w; c.height = h;
-    c.getContext('2d').drawImage(img, 0, 0, w, h);
-    cb(c.toDataURL('image/jpeg', quality)); URL.revokeObjectURL(url);
+    cb(window._fitImage(img, maxW, maxH, quality, maxKo));
+    URL.revokeObjectURL(url);
   };
+  img.onerror = () => { URL.revokeObjectURL(url); cb(null); };
   img.src = url;
 };
 // ── Central control (configure once per school fork) ──
@@ -1641,22 +1645,85 @@ window.runSmokeTests = () => {
 };
 
 // Compression profiles
+// Profils de compression. `maxKo` est un PLAFOND GARANTI : l'encodeur baisse
+// la qualité puis, si nécessaire, les dimensions jusqu'à le respecter. Sans
+// plafond, une photo chargée en détails peut peser cinq fois plus qu'une photo
+// unie à qualité identique — le poids réel restait donc imprévisible.
 window.COMPRESS = {
-  photo_eleve:   { maxW:400, maxH:520, quality:0.65 },
-  photo_user:    { maxW:300, maxH:300, quality:0.70 },
-  photo_ap:      { maxW:300, maxH:400, quality:0.65 },
-  photo_devoir:  { maxW:800, maxH:1200, quality:0.60 },
-  photo_profile: { maxW:300, maxH:300, quality:0.70 },
-  // Le logo sert jusqu'aux cartes imprimées : plus généreux, mais borné.
-  logo:          { maxW:512, maxH:512, quality:0.85 },
-  signature:     { maxW:600, maxH:300, quality:0.80 },
-  // Photo de preuve lors d'un refus de sortie : consultée à l'écran seulement.
-  photo_preuve:  { maxW:640, maxH:640, quality:0.62 },
+  // Visages consultés en vignette ou sur une carte : la finesse compte peu,
+  // la reconnaissance suffit.
+  photo_eleve:   { maxW:400, maxH:520, quality:0.62, maxKo:45 },
+  photo_user:    { maxW:280, maxH:280, quality:0.62, maxKo:25 },
+  // Personne autorisée à récupérer un enfant : regardée quelques secondes au
+  // portail, souvent sur un téléphone en plein soleil.
+  photo_ap:      { maxW:300, maxH:400, quality:0.60, maxKo:30 },
+  photo_profile: { maxW:280, maxH:280, quality:0.62, maxKo:25 },
+  // Documents photographiés — devoir, préparation de cours, reçu papier :
+  // le texte doit rester lisible, donc plus de pixels mais moins de qualité.
+  // Un texte supporte bien la compression, un dégradé non.
+  photo_devoir:  { maxW:1000, maxH:1400, quality:0.55, maxKo:110 },
+  photo_prep:    { maxW:1000, maxH:1400, quality:0.55, maxKo:110 },
+  photo_recu:    { maxW:1000, maxH:1400, quality:0.55, maxKo:110 },
+  // Le logo voyage sur chaque carte et chaque document : plus soigné.
+  // Plafond volontairement large : ce logo est imprimé sur des cartes. Mieux
+  // vaut 90 Ko une fois qu'un logo pixelisé sur cinq cents cartes.
+  logo:          { maxW:512, maxH:512, quality:0.82, maxKo:90 },
+  signature:     { maxW:600, maxH:300, quality:0.78, maxKo:30 },
+  // Preuve d'un refus de sortie : consultée à l'écran, jamais imprimée.
+  photo_preuve:  { maxW:640, maxH:640, quality:0.58, maxKo:50 },
+};
+
+// ── ENCODEUR ─────────────────────────────────────────────────────────────
+// WebP quand le navigateur sait l'écrire : à qualité perçue égale, il pèse
+// environ 30 % de moins que le JPEG. Détecté une seule fois.
+window._webpOk = (() => {
+  let known = null;
+  return () => {
+    if (known !== null) return known;
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = 1;
+      known = c.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    } catch(e) { known = false; }
+    return known;
+  };
+})();
+
+// Encode sous un plafond de poids. Baisse d'abord la qualité, puis les
+// dimensions — un visage un peu plus petit reste reconnaissable, un visage
+// noyé dans les artefacts ne l'est plus.
+window._encodeBudget = (canvas, quality, maxKo) => {
+  const type = window._webpOk() ? 'image/webp' : 'image/jpeg';
+  const ko = d => Math.round((d.length - d.indexOf(',') - 1) * 3 / 4 / 1024);
+  let q = quality, out = canvas.toDataURL(type, q);
+  if (!maxKo) return out;
+
+  // Six paliers de qualité, jamais sous 0,30 : en dessous, le visage part.
+  for (let i = 0; i < 6 && ko(out) > maxKo && q > 0.30; i++) {
+    q = Math.max(0.30, q - 0.08);
+    out = canvas.toDataURL(type, q);
+  }
+  // Toujours trop lourd : réduire les dimensions par pas de 15 %.
+  let w = canvas.width, h = canvas.height, work = canvas;
+  for (let i = 0; i < 4 && ko(out) > maxKo; i++) {
+    w = Math.round(w * 0.85); h = Math.round(h * 0.85);
+    if (w < 80 || h < 80) break;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(work, 0, 0, w, h);
+    if (work !== canvas) { work.width = work.height = 0; }
+    work = c;
+    out = c.toDataURL(type, q);
+  }
+  if (work !== canvas) work.width = work.height = 0;
+  return out;
 };
 window.compressWithProfile = (file, profile, cb) => {
   const p = COMPRESS[profile] || COMPRESS.photo_eleve;
   // Documents et devoirs : compression directe sans recadrage
-  if(profile === 'photo_devoir') { compressImage(file, p.maxW, p.maxH, p.quality, cb); return; }
+  if(profile === 'photo_devoir' || profile === 'photo_prep' || profile === 'photo_recu') {
+    compressImage(file, p.maxW, p.maxH, p.quality, cb, p.maxKo); return;
+  }
   // Photos de personnes : passer par le crop modal
   const aspect = profile === 'photo_ap' ? 3/4 : 1; // AP portrait 3:4, profil carré
   const reader = new FileReader();
@@ -1664,11 +1731,11 @@ window.compressWithProfile = (file, profile, cb) => {
     if(window.openPhotoCrop) {
       openPhotoCrop(e.target.result, aspect, cropped => {
         const img = new Image();
-        img.onload = () => cb(window._fitImage(img, p.maxW, p.maxH, p.quality));
+        img.onload = () => cb(window._fitImage(img, p.maxW, p.maxH, p.quality, p.maxKo));
         img.src = cropped;
       });
     } else {
-      compressImage(file, p.maxW, p.maxH, p.quality, cb);
+      compressImage(file, p.maxW, p.maxH, p.quality, cb, p.maxKo);
     }
   };
   reader.readAsDataURL(file);
@@ -7021,7 +7088,8 @@ function applyCrop() {
   if(!cc||!cc.width||!cc.height){ toast('❌ Zone de découpe invalide','error'); closeCropModal(); return; }
   // Le recadrage produisait une image à la taille du canvas, sans plafond :
   // un logo issu d'une photo de 12 Mpx partait tel quel dans la base.
-  const data = window._fitDataURL(cc, 512, 512, 0.85);
+  const _lg = COMPRESS.logo;
+  const data = window._fitDataURL(cc, _lg.maxW, _lg.maxH, _lg.quality, _lg.maxKo);
   const img = new Image();
   img.onload = () => {};
   img.onerror = () => { toast('❌ Erreur de traitement de la photo','error'); };
@@ -7967,7 +8035,9 @@ window.submitCardOrder = async (sid) => {
       card_image_url = await window._uploadFile(blob, 'cards', orderRef+'.png');
       // Dernier recours : la carte voyage en base64 dans la commande. L'opérateur
       // la reçoit dans tous les cas, au prix d'une base plus lourde.
-      if(!card_image_url) card_image_url = finalCV.toDataURL('image/jpeg',0.82);
+      // Repli : la carte voyage dans la commande. Plafond large — elle doit
+      // rester imprimable — mais borné, car elle transite en base64 dans la base.
+      if(!card_image_url) card_image_url = window._encodeBudget(finalCV, 0.82, 220);
       finalCV.width = finalCV.height = 0; // libérer dernier buffer canvas
       // N'afficher l'aperçu que si c'est une URL distante (pas de data: URI dans le DOM)
       cardPreviewHtml = (card_image_url&&!card_image_url.startsWith('data:')) ? `<img src="${esc(card_image_url)}" style="max-width:180px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);margin:12px auto;display:block">` : '';
@@ -8513,14 +8583,14 @@ window.stuPhotoChange = (input) => {
         // Compression finale après recadrage, selon le profil photo_eleve
         const pe=COMPRESS.photo_eleve;
         const img=new Image();
-        img.onload=()=>apply(window._fitImage(img, pe.maxW, pe.maxH, pe.quality));
+        img.onload=()=>apply(window._fitProfile(img, 'photo_eleve'));
         img.src=cropped;
       });
     } else {
       const pe=COMPRESS.photo_eleve;
       const img=new Image();
       img.onload=()=>{
-        apply(window._fitImage(img, pe.maxW, pe.maxH, pe.quality));
+        apply(window._fitProfile(img, 'photo_eleve'));
       };
       img.src=e.target.result;
     }
@@ -14978,13 +15048,13 @@ window.tutPhotoChange = (input) => {
       openPhotoCrop(e.target.result, 3/4, cropped=>{
         const pa=COMPRESS.photo_ap;
         const img=new Image();
-        img.onload=()=>apply(window._fitImage(img, pa.maxW, pa.maxH, pa.quality));
+        img.onload=()=>apply(window._fitProfile(img, 'photo_ap'));
         img.src=cropped;
       });
     } else {
       const img=new Image();
       img.onload=()=>{
-        apply(window._fitImage(img, COMPRESS.photo_ap.maxW, COMPRESS.photo_ap.maxH, COMPRESS.photo_ap.quality));
+        apply(window._fitProfile(img, 'photo_ap'));
       };
       img.src=e.target.result;
     }
