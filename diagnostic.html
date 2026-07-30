@@ -52,7 +52,7 @@
 <h1>Diagnostic connexion SchoolSafe</h1>
 <p class="sub">Teste chaque couche indépendamment pour localiser où la connexion échoue.
 Les valeurs sont utilisées uniquement dans ce navigateur — rien n'est envoyé ailleurs.</p>
-<p class="sub" style="margin-top:6px">Page <strong>v8</strong> · 8 tests
+<p class="sub" style="margin-top:6px">Page <strong>v9</strong> · 8 tests
 <span id="jsok" style="color:var(--bad)">— script non démarré</span></p>
 <div id="fatal" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
      background:rgba(248,113,113,.12);border:1px solid var(--bad);color:var(--bad);
@@ -100,6 +100,28 @@ window.addEventListener('unhandledrejection', function (e) {
 });
 
 const out = document.getElementById('out');
+
+// Toute requête a un délai maximal. Sans lui, un appel resté suspendu laisse
+// son test sur « en cours… » pour toujours et bloque tous les suivants, qui
+// s'exécutent en séquence.
+function fetchT(url, opts, ms) {
+  var ctrl = new AbortController();
+  var to = setTimeout(function(){ ctrl.abort(); }, ms || 15000);
+  opts = opts || {};
+  opts.signal = ctrl.signal;
+  return fetch(url, opts).then(
+    function (r) { clearTimeout(to); return r; },
+    function (e) {
+      clearTimeout(to);
+      if (e && e.name === 'AbortError') {
+        var err = new Error('Délai dépassé (' + Math.round((ms||15000)/1000) + ' s) — aucune réponse');
+        err.timeout = true;
+        throw err;
+      }
+      throw e;
+    }
+  );
+}
 const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const val = id => document.getElementById(id).value.trim().replace(/\/+$/,'');
 const cut = (s, n = 1200) => s.length > n ? s.slice(0, n) + '\n… (tronqué)' : s;
@@ -144,7 +166,7 @@ document.getElementById('run').onclick = async () => {
   const t0 = card('0. Version déployée de la Passerelle École');
   let fnVer = null;
   try {
-    const r = await fetch(FN_URL, {
+    const r = await fetchT(FN_URL, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'version' }),
@@ -169,8 +191,10 @@ document.getElementById('run').onclick = async () => {
       t0('warn', 'réponse inattendue', txt);
     }
   } catch (e) {
-    t0('bad', 'injoignable', String(e),
-      'La fonction ne répond pas du tout à cette adresse : soit le slug est faux, soit elle plante au démarrage. Regarde ses <em>Logs</em> dans le dashboard.');
+    t0('bad', e.timeout ? 'délai dépassé' : 'injoignable', String(e.message || e),
+      e.timeout
+        ? 'La fonction accepte la connexion mais ne répond jamais — signe qu\'elle plante au démarrage (import impossible, erreur de module). Ouvre ses <em>Logs</em> dans le dashboard : l\'erreur de démarrage y figure.'
+        : 'Aucune réponse à cette adresse : soit le slug est faux, soit la fonction n\'existe pas.');
   }
 
   // ── 1. Le central répond et la clé publishable est acceptée ─────────────
@@ -181,7 +205,7 @@ document.getElementById('run').onclick = async () => {
   } else {
     try {
       // school_sites est lisible publiquement : test parfait de validité de clé
-      const r = await fetch(`${CENTRAL}/rest/v1/school_sites?select=license_key&limit=1`, { headers: H });
+      const r = await fetchT(`${CENTRAL}/rest/v1/school_sites?select=license_key&limit=1`, { headers: H });
       const txt = await r.text();
       if (isLegacyDisabled(txt))      t1('bad', 'clé legacy', txt, LEGACY_HINT);
       else if (r.status === 401)      t1('bad', '401', txt, 'Clé refusée — vérifie que tu as copié la clé <strong>publishable</strong> du BON projet.');
@@ -199,7 +223,7 @@ document.getElementById('run').onclick = async () => {
     t2('warn', 'ignoré', null, 'Nécessite le test 1.');
   } else {
     try {
-      const r = await fetch(`${CENTRAL}/rest/v1/schools?select=license_key,supabase_anon_key&limit=5`, { headers: H });
+      const r = await fetchT(`${CENTRAL}/rest/v1/schools?select=license_key,supabase_anon_key&limit=5`, { headers: H });
       const txt = await r.text();
       let rows = null; try { rows = JSON.parse(txt); } catch(_){}
       if (Array.isArray(rows) && rows.length > 0) {
@@ -215,7 +239,7 @@ document.getElementById('run').onclick = async () => {
   const t3 = card('3. Edge Function — ' + FN);
   let fn = null;
   try {
-    const r = await fetch(FN_URL, {
+    const r = await fetchT(FN_URL, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ license_key: license, name, pin }),
@@ -247,7 +271,7 @@ document.getElementById('run').onclick = async () => {
     // typiquement Verify JWT actif). Échec total = rien ne répond.
     let reachable = false;
     try {
-      const probe = await fetch(FN_URL, { method: 'POST', mode: 'no-cors' });
+      const probe = await fetchT(FN_URL, { method: 'POST', mode: 'no-cors' });
       reachable = probe.type === 'opaque';
     } catch (_) {}
     if (reachable) {
@@ -266,7 +290,7 @@ document.getElementById('run').onclick = async () => {
   } else {
     try {
       const sk = fn.supabase_key || fn.supabase_anon_key;
-      const r = await fetch(`${fn.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
+      const r = await fetchT(`${fn.supabase_url}/rest/v1/users?select=id,name,role&limit=5`,
         { headers: { apikey: sk, Authorization: 'Bearer ' + sk } });
       const txt = await r.text();
       if (isLegacyDisabled(txt)) {
@@ -286,7 +310,7 @@ document.getElementById('run').onclick = async () => {
   // ── 5. Version de index.html réellement servie ──────────────────────────
   const t5 = card('5. Version de index.html servie');
   try {
-    const r = await fetch('./index.html?_=' + Date.now(), { cache: 'no-store' });
+    const r = await fetchT('./index.html?_=' + Date.now(), { cache: 'no-store' });
     const src = await r.text();
     const ck = (src.match(/CENTRAL_KEY\s*=\s*'([^']*)'/) || [])[1] || '';
     const fu = (src.match(/LOGIN_FN_URL\s*=\s*'([^']*)'/) || [])[1] || '(introuvable)';
@@ -311,7 +335,7 @@ document.getElementById('run').onclick = async () => {
       time: new Date().toTimeString().slice(0,5),
     };
     try {
-      const r = await fetch(`${fn.supabase_url}/rest/v1/audit_log`, {
+      const r = await fetchT(`${fn.supabase_url}/rest/v1/audit_log`, {
         method: 'POST',
         headers: { apikey: sk, Authorization: 'Bearer ' + sk,
                    'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -336,7 +360,7 @@ document.getElementById('run').onclick = async () => {
   // ── 6. Stockage R2 de bout en bout ──────────────────────────────────────
   const t6 = card('6. Stockage R2 (signature → envoi → lecture)');
   try {
-    const r = await fetch(FN_URL, {
+    const r = await fetchT(FN_URL, {
       method: 'POST',
       headers: { ...H, 'Content-Type': 'application/json' },
       body: JSON.stringify({ action:'storage_sign', license_key: license,
@@ -357,7 +381,7 @@ document.getElementById('run').onclick = async () => {
       // 1×1 PNG transparent — charge utile minimale pour un aller-retour réel
       const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
       const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-      const up = await fetch(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin });
+      const up = await fetchT(d.upload_url, { method:'PUT', headers:{'Content-Type':'image/png'}, body:bin }, 25000);
       if (!up.ok) {
         t6('bad', 'envoi refusé — HTTP ' + up.status, (await up.text()).slice(0, 600),
           'L\'URL est signée mais R2 refuse l\'écriture : vérifie que le jeton a la permission <strong>Object Read &amp; Write</strong> et que <code>R2_BUCKET</code> correspond au bucket réel.');
@@ -365,7 +389,7 @@ document.getElementById('run').onclick = async () => {
         t6('warn', 'envoyé, non lisible', 'Clé : ' + d.key,
           'Le fichier est bien stocké mais aucun domaine public n\'est configuré. Renseigne <code>R2_PUBLIC_BASE</code> avec l\'URL <code>pub-….r2.dev</code> du bucket.');
       } else {
-        const back = await fetch(d.public_url + '?_=' + Math.floor(performance.now()), { cache:'no-store' });
+        const back = await fetchT(d.public_url + '?_=' + Math.floor(performance.now()), { cache:'no-store' });
         t6(back.ok ? 'ok' : 'warn',
            back.ok ? 'bout en bout OK' : 'lecture HTTP ' + back.status,
            'Clé : ' + d.key + '\nURL publique : ' + d.public_url,
@@ -373,7 +397,8 @@ document.getElementById('run').onclick = async () => {
       }
     }
   } catch (e) {
-    t6('bad', 'réseau', String(e), 'Appel impossible — voir le test 3.');
+    t6('bad', e.timeout ? 'délai dépassé' : 'réseau', String(e.message || e),
+      e.timeout ? 'Aucune réponse dans le délai imparti — voir le test 0.' : 'Appel impossible — voir le test 0.');
   }
 
   // ── 7. Edge Function admin-api (si un token est fourni) ─────────────────
@@ -383,7 +408,7 @@ document.getElementById('run').onclick = async () => {
     const t7 = card('7. Edge Function admin — ' + AFN);
     const AURL = `${CENTRAL}/functions/v1/${AFN}`;
     try {
-      const r = await fetch(AURL, {
+      const r = await fetchT(AURL, {
         method: 'POST',
         headers: { ...H, 'Content-Type': 'application/json', 'x-admin-token': ATOK },
         body: JSON.stringify({ action: 'stats' }),
@@ -398,7 +423,7 @@ document.getElementById('run').onclick = async () => {
       else                                        t7('ok', d.total + ' école(s)', JSON.stringify(d, null, 2));
     } catch (e) {
       let reachable = false;
-      try { reachable = (await fetch(AURL, { method:'POST', mode:'no-cors' })).type === 'opaque'; } catch(_) {}
+      try { reachable = (await fetchT(AURL, { method:'POST', mode:'no-cors' }, 8000)).type === 'opaque'; } catch(_) {}
       t7('bad', reachable ? 'CORS bloqué' : 'injoignable', String(e),
         reachable ? `Soit le slug <code>${esc(AFN)}</code> est faux, soit <strong>Verify JWT</strong> est actif sur cette fonction.`
                   : 'Fonction non déployée, mal nommée, ou elle plante au démarrage (voir ses <em>Logs</em>).');
