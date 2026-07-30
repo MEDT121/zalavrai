@@ -279,7 +279,7 @@ document.getElementById('run').onclick = async () => {
   const t6 = card('6. Stockage — photos déposées et relues');
   if (!baseOk) t6('warn', 'ignoré', 'La base n\'a pas répondu au test 1.');
   else {
-    const nom = 'diagnostic/sonde_' + Date.now() + '.txt';
+    const nom = 'diagnostic/sonde.txt';
     try {
       const w = await fetchT(`${SUPA}/storage/v1/object/photos/${nom}`, {
         method: 'POST',
@@ -290,8 +290,8 @@ document.getElementById('run').onclick = async () => {
         const txt = await w.text();
         t6('bad', 'dépôt refusé — HTTP ' + w.status, txt,
            /not found|bucket/i.test(txt)
-             ? 'Le bucket <code>photos</code> n\'existe pas. Crée-le dans <em>Storage</em>, coché <strong>Public</strong>.'
-             : 'Le bucket existe mais refuse l\'écriture : vérifie ses policies.');
+             ? 'Le bucket <code>photos</code> n\'existe pas. Lance <code>supabase_stockage_photos.sql</code> dans l\'éditeur SQL.'
+             : 'Le bucket existe mais refuse l\'écriture. Lance <code>supabase_stockage_photos.sql</code> : il pose les trois droits attendus.');
       } else {
         const pub = await fetchT(`${SUPA}/storage/v1/object/public/photos/${nom}`, {}, 8000);
         const corps = pub.ok ? await pub.text() : '';
@@ -300,10 +300,11 @@ document.getElementById('run').onclick = async () => {
         } else {
           t6('warn', 'déposé, relecture publique impossible', 'HTTP ' + pub.status,
              'Le bucket <code>photos</code> n\'est pas public : les photos se déposeraient ' +
-             'sans jamais s\'afficher. Passe-le en <strong>Public</strong> dans <em>Storage</em>.');
+             'sans jamais s\'afficher. Lance <code>supabase_stockage_photos.sql</code>.');
         }
-        await fetchT(`${SUPA}/storage/v1/object/photos/${nom}`, { method: 'DELETE', headers: H })
-          .catch(function(){});
+        // Pas de suppression : l'application ne supprime jamais de photo,
+        // donc le rôle `anon` n'a pas ce droit. Le nom étant fixe, la sonde
+        // remplace la sienne au lieu d'en accumuler.
       }
     } catch (e) {
       t6('bad', e.timeout ? 'délai dépassé' : 'erreur', String(e.message),
