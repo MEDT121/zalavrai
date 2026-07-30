@@ -4346,7 +4346,7 @@ function dashboardDirection() {
     const cls=(DB.classes||[]).filter(c=>c.teacher_id===a.uid||c.teacher_id_en===a.uid);
     return {teacher:tu,classes:cls,motif:a.motif||''};
   }).filter(x=>x.classes.length>0);
-  const blockedStudents   = students.filter(s=>s.blocked);
+  const blockedStudents   = students.filter(_estBloque);
   const pendingJustifs    = (DB.absences||[]).filter(a=>a.status==='pending');
   const classesNoTeacher  = (DB.classes||[]).filter(c=>!c.teacher_id&&!c.teacher_id_en);
   const activeSanctDir1   = (DB.sanctions||[]).filter(s=>!s.lifted&&(s.type==='renvoi'||s.type==='exclusion'));
@@ -4384,7 +4384,7 @@ function dashboardDirection() {
   const clsEnroll = (DB.classes||[]).map(clx=>{
     const sc=students.filter(s=>s.cid===clx.id&&!s.archived);
     const paidCt=sc.filter(s=>paidSids.has(s.id)).length;
-    const blockedCt=sc.filter(s=>s.blocked||s.access_blocked).length;
+    const blockedCt=sc.filter(_estBloque).length;
     return {cl:clx,total:sc.length,paid:paidCt,blocked:blockedCt,unpaid:sc.length-paidCt};
   }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
 
@@ -6349,7 +6349,7 @@ function dashboardGardien() {
   const lateG = entries.filter(l=>l.status==='late').length;
   const refusedG = entries.filter(l=>l.status==='refused').length;
   const fc = DB.settings?.feesControl||{};
-  const blockedStudentsG = (DB.students||[]).filter(s=>s.blocked&&!s.archived);
+  const blockedStudentsG = (DB.students||[]).filter(s=>_estBloque(s)&&!s.archived);
 
   // Agenda scolaire — gardien
   const gEvTi = {event:{icon:'📌',color:'#2f7bd6'},holiday:{icon:'🎉',color:'#dc2626'},vacation:{icon:'🌴',color:'#1f9d6b'},exam_period:{icon:'📝',color:'#9b6fd4'},reunion:{icon:'🤝',color:'#d98a2b'}};
@@ -6371,7 +6371,7 @@ function dashboardGardien() {
   const freqLateG = Object.entries(lateCountBySid).map(([sid,cnt])=>({sid,cnt,s:(DB.students||[]).find(x=>x.id===sid)})).filter(x=>x.s&&x.cnt>=2).sort((a,b)=>b.cnt-a.cnt).slice(0,5);
 
   // Élèves sans personne autorisée à la sortie
-  const studentsNoAP = (DB.students||[]).filter(s=>!s.archived&&!s.blocked&&!(DB.aps||[]).some(a=>a.sid===s.id&&a.active!==false)).slice(0,6);
+  const studentsNoAP = (DB.students||[]).filter(s=>!s.archived&&!_estBloque(s)&&!(DB.aps||[]).some(a=>a.sid===s.id&&a.active!==false)).slice(0,6);
 
   // Retardataires du jour — liste détaillée (aujourd'hui)
   const todayLateList = todayScans.filter(l=>l.type==='entry'&&l.status==='late').sort((a,b)=>(a.time||'').localeCompare(b.time||'')).slice(0,6);
@@ -12257,7 +12257,7 @@ window.printFicheInscription = (sid) => {
         ${row('Groupe sanguin',s.blood_group?esc(s.blood_group):'—')}
         ${row('Allergies / Conditions',s.medical_notes?esc(s.medical_notes):'—')}
         ${row('Adresse',s.address?esc(s.address):'—')}
-        ${row('Statut',s.blocked?'Suspendu':'Actif')}
+        ${row('Statut',_estBloque(s)?'Suspendu':'Actif')}
       </table>
     </div>
     ${_officialFooter('Direction Générale','Administration')}
@@ -14870,7 +14870,7 @@ window._escorteChoix = (logId, sid) => {
   const tutelles = (DB.aps||[]).filter(a => a.sid === sid && a.active !== false).slice(0, 3);
 
   const puce = (kind, id, lib, emoji) =>
-    `<button onclick="event.stopPropagation();_setEscorte('${logId}','${kind}','${id||''}',${JSON.stringify(lib)})"
+    `<button onclick="event.stopPropagation();_setEscorte('${logId}','${kind}','${id||''}')"
        style="border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:inherit;
               border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer">
        ${emoji} ${esc(lib)}</button>`;
@@ -14887,15 +14887,22 @@ window._escorteChoix = (logId, sid) => {
 };
 
 window._setEscorte = (logId, kind, id, nom) => {
+  if(!S.user||S.user.role==='parent'){toast('Accès non autorisé','error');return;}
   const finir = (k, i, n) => {
     const log = (DB.scan_log||[]).find(x => x.id === logId);
-    if (log) { log.escort_kind = k; log.escort_id = i || null; log.escort_name = n || null; }
+    if (!log) { toast('Passage introuvable','error'); return; }
+    log.escort_kind = k; log.escort_id = i || null; log.escort_name = n || null;
     pushSync('scan_log','patch',{escort_kind:k, escort_id:i||null, escort_name:n||null},'id=eq.'+logId);
     const bar = $('escorteBar');
     if (bar) bar.innerHTML = `<div style="font-size:13px;font-weight:700;padding:4px 0">✓ ${esc(k==='seul' ? 'Venu seul' : n||'')}</div>`;
     saveToCrypt();
   };
-  if (kind !== 'autre') return finir(kind, id, kind === 'seul' ? null : nom);
+  if (kind === 'seul') return finir('seul', null, null);
+  // Le nom se retrouve par l'identifiant plutôt que de traverser le HTML —
+  // un nom porteur d'apostrophe ou de guillemet cassait l'attribut onclick.
+  if (kind === 'parent')    { const u=gu(id);  return finir('parent', id, u?u.name:null); }
+  if (kind === 'autorisee') { const a=(DB.aps||[]).find(x=>x.id===id); return finir('autorisee', id, a?a.name:null); }
+  if (kind !== 'autre') return finir(kind, id, nom||null);
 
   // Un nom libre couvre le cas non prévu — un oncle de passage, un chauffeur —
   // sans obliger à créer une fiche de personne autorisée dans l'urgence.
@@ -14908,10 +14915,24 @@ window._setEscorte = (logId, kind, id, nom) => {
 };
 
 async function pushNotif(uid,msg) {
-  const n={id:'n'+Date.now(),uid,msg,time:nowTime(),date:today(),read:false};
-  DB.notifs.unshift(n);
+  if(!uid) return;
+  const n={id:_uid('n_'),uid,msg,time:nowTime(),date:today(),read:false,school_id:window._currentSchoolId||null};
+  (DB.notifs=DB.notifs||[]).unshift(n);
   await pushSync('notifs','post',n);
 }
+
+// La Direction n'est pas 'u1'. Cet identifiant, hérité du jeu de données de
+// départ, n'existe dans aucune école réelle : les rapports du portail et les
+// alertes de retard grave partaient donc dans le vide.
+window._notifDirection = async (msg) => {
+  const dirs=(DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2');
+  for(const u of dirs) await pushNotif(u.id,msg);
+  return dirs.length;
+};
+
+// `blocked` n'est écrit nulle part — seul `access_blocked` l'est. Cinq
+// lectures interrogeaient donc un champ toujours vide.
+window._estBloque = (s) => !!(s && (s.access_blocked || s.blocked));
 
 // ── SCANNER ENTRÉE ──
 R.scanner = () => `
@@ -14955,12 +14976,15 @@ window.manualScanEntry = () => {
 };
 
 window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
+  // Tout le personnel scanne — gardien, enseignant, direction, caisse. Seul
+  // un parent ne peut pas enregistrer une entrée.
+  if(!S.user||S.user.role==='parent'){toast('Accès non autorisé','error');return;}
   if(window._scanBusy) return; // anti-doublon
   window._scanBusy = true;
   try {
   // PORT-03: block all entries during lockdown
   if(S.lockdown){ showScanResult('red','🔴','LOCKDOWN','École verrouillée','Aucune entrée autorisée',''); return; }
-  const student=DB.students.find(s=>s.mat===code);
+  const student=(DB.students||[]).find(s=>s.mat===code);
   if(!student){
     window._badScans=window._badScans||{};
     window._badScans[code]=(window._badScans[code]||0)+1;
@@ -14986,7 +15010,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
       const expectedSig = await _hmacSign(_qrSecret, code+':'+qrTs);
       if(qrSig !== expectedSig) {
         const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_fake_qr',label:'QR falsifié',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-        DB.scan_log.unshift(log);pushSync('scan_log','post',log);
+        (DB.scan_log=DB.scan_log||[]).unshift(log);pushSync('scan_log','post',log);
         (DB.users||[]).filter(u=>u.role==='direction'||u.role==='gardien').forEach(u=>pushNotif(u.id,`⚠️ QR FALSIFIÉ détecté pour ${student.name} — carte non authentique`));
         showScanResult('red','⚠','QR FALSIFIÉ',student.name,'Carte non authentique — Alertez la Direction',time);
         saveToCrypt(); return;
@@ -15015,7 +15039,7 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
     const hasPaidFc=(DB.payments||[]).some(p=>p.sid===student.id&&p.t===fc.trimestre&&p.paid);
     if(!hasPaidFc){
       const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_fees',label:`Frais ${fc.trimestre} non réglés 💰`,type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-      DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+      (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
       // Notifier Direction
       DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
         const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
@@ -15031,9 +15055,9 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   }
 
   // Check per-student access block set by Direction
-  if(student.access_blocked){
+  if(_estBloque(student)){
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused_access',label:'Accès bloqué',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+    (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
     DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
       const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
         msg:`Accès bloqué — ${student.name} (${cls?cls.name:''}) refusé(e) à l'entrée`,
@@ -15053,12 +15077,12 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // ── NIVEAU 1 : À L'HEURE ──
   if(res.level===1){
     // Enter + notify parent
-    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'ontime',school_id:window._currentSchoolId||null};
+    const att={id:_uid('a_'),sid:student.id,date:today(),arr_time:time,status:'ontime',school_id:window._currentSchoolId||null};
     (DB.attendance=DB.attendance||[]).push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'ontime',label:'À l\'heure',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+    (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`✅ ${student.name} est arrivé(e) à l'heure à ${time}`);
-    if(!hasPaid) showScanResult('orange','!','Entré — Frais non réglés',student.name,'Accès bloqué par la Direction — Signaler',time);
+    if(!hasPaid) showScanResult('orange','!','Entré — Frais en retard',student.name,(cls?cls.name+' — ':'')+'Entrée autorisée · frais non réglés',time,log.id,student.id);
     else showScanResult(_qrWarn?'orange':'green',_qrWarn?'⚠':'✓',_qrWarn?'À l\'heure — Carte non certifiée':'À l\'heure',student.name,(cls?cls.name:'')+(_qrWarn?' — '+_qrWarn:''),time,log.id,student.id);
     saveToCrypt();
     return;
@@ -15066,10 +15090,10 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
 
   // ── NIVEAU 2 : RETARD LÉGER ──
   if(res.level===2){
-    const att={id:'a'+Date.now(),sid:student.id,date:today(),arr_time:time,status:'late',school_id:window._currentSchoolId||null};
+    const att={id:_uid('a_'),sid:student.id,date:today(),arr_time:time,status:'late',school_id:window._currentSchoolId||null};
     (DB.attendance=DB.attendance||[]).push(att); pushSync('attendance','post',att);
     const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'late',label:'Retard léger ⚠️',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+    (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
     if(student.pid) await pushNotif(student.pid,`⚠️ ${student.name} est arrivé(e) en retard à ${time}`);
     showScanResult('orange','!','Retard léger',student.name,`${cls?cls.name+' — ':''}L'enfant entre, retard enregistré${_qrWarn?' — '+_qrWarn:''}`,time,log.id,student.id);
     saveToCrypt();
@@ -15079,11 +15103,17 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
   // ── NIVEAU 3 : RETARD GRAVE — REFUSÉ ──
   // L'enfant NE RENTRE PAS — alerte Direction
   const log={id:_uid('sl_'),sid:student.id,date:today(),time,name:student.name,status:'refused',label:'Retard grave 🚫',type:'entry',by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role};
-  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
-  await pushNotif('u1',`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
+  (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
+  await window._notifDirection(`🚫 RETARD GRAVE — ${student.name} (${cls?cls.name:''}) est au portail à ${time}. En attente de votre décision.`);
   showScanResult('red','✕','RETARD GRAVE — REFUSÉ',student.name,'En attente de décision de la Direction',time);
 
-  // Show decision panel for Direction alerts
+  // L'approbation était créée À L'INTÉRIEUR du `if(pd)` : sans cet élément
+  // dans le DOM, l'enfant restait au portail et la Direction n'avait rien à
+  // trancher. Elle s'enregistre désormais quoi qu'il arrive.
+  const _aprObj={id:_uid('apr_'), type:'retard_grave', status:'pending', content:`${student.name} — Retard grave à ${time}`, sid:student.id, date:today(), time, by:S.user.id};
+  (DB.approbations=DB.approbations||[]).push(_aprObj);
+  pushSync('approbations','post',_aprObj);
+
   const pd=$('pendingDecision');
   if(pd){
     pd.innerHTML=`
@@ -15094,10 +15124,6 @@ window.processScanEntry = async (code, qrSig=null, qrTs=null) => {
         Le gardien ne peut pas décider.<br>Seule la Direction peut autoriser ou refuser l'entrée.
       </div>
     </div>`;
-    // Store pending for Direction to see
-    const _aprObj={id:'apr'+Date.now(), type:'retard_grave', status:'pending', content:`${student.name} — Retard grave à ${time}`, sid:student.id, date:today(), time, by:S.user.id};
-    DB.approbations.push(_aprObj);
-    pushSync('approbations','post',_aprObj);
   }
   saveToCrypt();
   } finally { setTimeout(()=>{window._scanBusy=false;},1500); }
@@ -15133,10 +15159,12 @@ R.scanner_exit = () => `
 </div>`;
 
 window.scanExit = () => {
+  if(!S.user||S.user.role==='parent'){toast('Accès non autorisé','error');return;}
   const code=($('exitCode')?.value||'').trim().toUpperCase();
-  const s=DB.students.find(x=>x.mat===code);
-  if(!s){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">✕</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${esc(code)}</div></div>`;return;}
-  if(S.lockdown){$('exitResult').innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">●</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${esc(s.name)}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">Exception urgence médicale</button></div>`;return;}
+  const s=(DB.students||[]).find(x=>x.mat===code);
+  const _out=$('exitResult'); if(!_out) return;
+  if(!s){_out.innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">✕</div><div class="sr-title">Élève non trouvé</div><div class="sr-sub">${esc(code)}</div></div>`;return;}
+  if(S.lockdown){_out.innerHTML=`<div class="scan-result red" style="margin-top:8px"><div class="sr-icon">●</div><div class="sr-title">LOCKDOWN ACTIF</div><div class="sr-sub">Aucune sortie autorisée · ${esc(s.name)}</div></div><div style="text-align:center;margin-top:10px"><button class="btn btn-danger" style="padding:10px 20px;font-size:13px" onclick="lockdownEmergencyExit('${s.id}')">Exception urgence médicale</button></div>`;return;}
 
   // PORT-05: check if already exited today
   const todayExitLog=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='exit'&&l.status!=='unauthorized');
@@ -15145,7 +15173,7 @@ window.scanExit = () => {
   const parent=gu(s.pid);
   // Parent principal + tutelles secondaires liées à l'élève
   const aps=[];
-  if(parent) aps.push({name:parent.name,relation:'👑 Parent principal',photo:parent.photo_url||null,active:true,phone:parent.phone||null});
+  if(parent) aps.push({id:parent.id,name:parent.name,relation:'👑 Parent principal',photo:parent.photo_url||null,active:true,phone:parent.phone||null});
   (DB.aps||[]).filter(a=>a.sid===s.id&&a.active!==false).forEach(a=>aps.push(a));
 
   window._exitStudent=s;
@@ -15170,7 +15198,7 @@ window.scanExit = () => {
       <div style="font-size:10px;color:var(--text-secondary)">Sans accompagnant</div>
     </div>`;
 
-  $('exitResult').innerHTML=`
+  _out.innerHTML=`
   <div style="text-align:center;animation:popIn .3s ease">
     ${todayExitLog?`<div class="scan-result orange" style="padding:10px 14px;margin-bottom:10px;font-size:13px">⚠️ Déjà sorti aujourd'hui à ${esc(todayExitLog.time||'?')} — ${esc(todayExitLog.label||'Sortie enregistrée')}</div>`:''}
     <div class="scan-result green" style="padding:14px;margin-bottom:12px">
@@ -15224,7 +15252,7 @@ window.confirmExitSeul = async (sid) => {
     const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Sortie seul 🚶',time,date:today(),
       by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role,
       escort_kind:'seul', escort_id:null, escort_name:null};
-    DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+    (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
     if(s.pid) await pushNotif(s.pid,`🚶 ${s.name} a quitté l'école seul(e) à ${time}. Enregistré par ${S.user.name}.`);
     logAudit('exit_alone', `${s.name}${cl?' — '+cl.name:''}`, sid);
     showExitDone('green','🚶','Sortie enregistrée',s.name,'Rentre seul — parent informé',time);
@@ -15258,30 +15286,22 @@ window.confirmExitWith = async (sid,personIdx) => {
   const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:`Sortie avec ${a.name} ✅`,time,date:today(),
     by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role,
     escort_kind:(a.relation||'').includes('Parent principal')?'parent':'autorisee', escort_id:a.id||null, escort_name:a.name};
-  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+  (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`🚪 ${s.name} a quitté l'école à ${time}. Récupéré(e) par ${a.name}${a.relation?' ('+a.relation+')':''}. Confirmé par : ${S.user.name}`);
   showExitDone('green','✅','Sortie autorisée',s.name,`Récupéré par ${a.name} (${a.relation||''})`,time);
   toast(`${s.name} — Sortie avec ${a.name} ✅`,'success');
   saveToCrypt();
 };
 
-window.confirmExitAlone = async sid => {
-  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  // PORT-06: block duplicate exit within 2-minute window
-  const recentExit=(DB.scan_log||[]).find(l=>l.sid===sid&&l.type==='exit'&&l.date===today()&&l.status!=='unauthorized');
-  if(recentExit){const [rH,rM]=(recentExit.time||'00:00').split(':').map(Number);const [nH,nM]=nowTime().split(':').map(Number);if((nH*60+nM)-(rH*60+rM)<2){toast('Sortie déjà enregistrée récemment (doublon évité)','warning');return;}}
-  const time=nowTime();
-  const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'authorized',label:'Part seul 🚶',time,date:today(),by_uid:S.user.id,by_name:S.user.name};
-  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
-  if(s.pid) await pushNotif(s.pid,`ℹ️ ${s.name} a quitté l'école seul(e) à ${time}`);
-  showExitDone('orange','🚶','Part seul',s.name,'L\'enfant quitte seul',time);
-  toast(`${s.name} — Part seul`,'info');
-  saveToCrypt();
-};
+// La vignette « Rentre seul » et le bouton « Part seul » faisaient la même
+// chose par deux chemins distincts — et seul le premier consignait
+// l'accompagnant. Un enfant sorti par le bouton n'apparaissait donc dans
+// aucun relevé des sorties non accompagnées. Un seul chemin désormais.
+window.confirmExitAlone = sid => window.confirmExitSeul(sid);
 
 window.confirmExitRefused = (sid) => {
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  if(!S.user||!['gardien','enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
   openM(`🚨 Personne inconnue — ${s.name}`,`
   <div style="background:#fee2e2;border-radius:10px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:14px">
     Documentez l'incident avant d'alerter la Direction.
@@ -15317,12 +15337,13 @@ window.doExitRefused = async (sid) => {
   closeModal();
   const time=nowTime();
   const log={id:_uid('sl_'),sid,name:s.name,type:'exit',status:'unauthorized',
-    label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo?photo.slice(0,500):null,time,date:today(),by_uid:S.user.id,by_name:S.user.name};
-  DB.scan_log.unshift(log);
+    label:'REFUSÉ — Personne inconnue 🔴',description:desc,photo_thumb:photo||null,time,date:today(),by_uid:S.user.id,by_name:S.user.name,by_role:S.user.role,
+    escort_kind:'inconnu',escort_id:null,escort_name:desc.slice(0,80)};
+  (DB.scan_log=DB.scan_log||[]).unshift(log);
   const alertMsg=`🚨 ALERTE SÉCURITÉ — Personne inconnue tente de récupérer ${s.name} à ${time}. Description: ${desc}`;
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,msg:alertMsg,time,date:today(),read:false,type:'urgent'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const nt={id:_uid('n_'),uid:u.id,msg:alertMsg,time,date:today(),read:false,type:'urgent',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(nt); pushSync('notifs','post',nt);
   });
   if(s.pid) await pushNotif(s.pid,`🚨 ALERTE : Tentative de récupération non autorisée pour ${s.name} à ${time}. Personne inconnue au portail. La Direction a été alertée.`);
   pushSync('scan_log','post',log);
@@ -15360,6 +15381,27 @@ function showExitDone(color,icon,title,name,sub,time) {
 }
 
 // ── HISTORIQUE SCANS ──
+// Tout statut commençant par « refused » est un incident, quel qu'en soit
+// le motif : refused, refused_fees, refused_access, refused_fake_qr.
+window._estIncident = (l) => !!l && (l.status==='unauthorized' || String(l.status||'').indexOf('refused')===0);
+
+window._ESCORTE_LIB = {seul:'🚶 Venu seul', parent:'👑 Parent', autorisee:'👤 Personne autorisée', autre:'✍️ Autre', inconnu:'🚨 Personne inconnue'};
+
+window._estPhoto = (v) => typeof v==='string' && /^(data:image\/|https:\/\/)/.test(v);
+
+// La photo prise au portail lors d'un refus documente une tentative
+// d'enlèvement : elle doit pouvoir être ouverte en grand, pas seulement
+// stockée.
+window.zoomPreuve = (logId) => {
+  const l=(DB.scan_log||[]).find(x=>x.id===logId);
+  if(!l||!_estPhoto(l.photo_thumb)){toast('Aucune photo pour cet incident','info');return;}
+  openM(`🚨 Preuve — ${esc(l.name||'')}`,
+    `<img src="${esc(l.photo_thumb)}" style="width:100%;border-radius:14px;border:2px solid #dc2626" alt="Personne refusée au portail">
+     ${l.description?`<div style="margin-top:12px;font-size:13px;color:var(--text-secondary)">${esc(l.description)}</div>`:''}
+     <div style="margin-top:8px;font-size:12px;color:var(--text-muted)">${esc(l.date||'')} à ${esc(l.time||'')} · consigné par ${esc(l.by_name||'—')}</div>`,
+    `<button class="btn btn-outline" onclick="closeModal()">Fermer</button>`);
+};
+
 R.scan_log = () => {
   const isDir=S.user.role==='direction'||S.user.role==='direction2';
   const selDate=isDir?(window._scanLogDate||today()):today();
@@ -15371,17 +15413,18 @@ R.scan_log = () => {
     if(q&&!(l.name||'').toLowerCase().includes(q)&&!(l.by_name||'').toLowerCase().includes(q)) return false;
     if(tf==='entry'&&l.type!=='entry') return false;
     if(tf==='exit'&&l.type!=='exit') return false;
-    if(tf==='incidents'&&l.status!=='unauthorized'&&l.status!=='refused') return false;
+    if(tf==='incidents'&&!_estIncident(l)) return false;
     return true;
   });
   const entries=rawLogs.filter(l=>l.type==='entry');
   const exits=rawLogs.filter(l=>l.type==='exit');
   const ontime=entries.filter(l=>l.status==='ontime').length;
   const late=entries.filter(l=>l.status==='late').length;
-  const refused=rawLogs.filter(l=>l.status==='unauthorized'||l.status==='refused').length;
-  const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',authorized:'pill-green',unauthorized:'pill-red'};
+  const refused=rawLogs.filter(_estIncident).length;
+  const colorMap={ontime:'pill-green',late:'pill-orange',refused:'pill-red',refused_fees:'pill-red',refused_access:'pill-red',refused_fake_qr:'pill-red',authorized:'pill-green',unauthorized:'pill-red',excused:'pill-blue'};
+  const statusLib={ontime:'OK',late:'Retard',refused:'Refusé',refused_fees:'Impayé',refused_access:'Bloqué',refused_fake_qr:'QR faux',authorized:'Sorti',unauthorized:'Refusé'};
   const typeIcon={entry:'📥',exit:'🚪'};
-  const incidents=rawLogs.filter(l=>l.status==='unauthorized'||l.status==='refused');
+  const incidents=rawLogs.filter(_estIncident);
   return _wrapDark(`
   ${isDir?`<div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <input type="date" class="form-input" value="${selDate}" onchange="window._scanLogDate=this.value;window._scanLogQ='';render()" style="width:auto;min-width:140px;flex:0">
@@ -15402,7 +15445,7 @@ R.scan_log = () => {
   </div>
   ${S.user.role==='gardien'?`<button class="btn btn-primary" style="width:100%;margin-bottom:14px;padding:14px" onclick="sendAttendanceList()">📤 Envoyer liste à la Direction</button>`:''}
   ${(S.user.role==='direction'||S.user.role==='direction2')&&incidents.length&&tf!=='incidents'?`<div class="premium-section" style="border-left:4px solid #dc2626"><div class="premium-section-title">🚨 Incidents de sécurité (${incidents.length})</div>
-    ${incidents.map(l=>`<div class="premium-item"><div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div><div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${esc(l.label||l.status)} · ${l.type==='exit'?'Sortie':'Entrée'}</div></div><span style="font-size:13px;font-weight:700;color:#f87171">${esc(l.time)}</span></div>`).join('')}
+    ${incidents.map(l=>`<div class="premium-item">${_estPhoto(l.photo_thumb)?`<img src="${l.photo_thumb}" onclick="zoomPreuve('${l.id}')" style="width:38px;height:48px;border-radius:9px;object-fit:cover;flex-shrink:0;cursor:zoom-in;border:1.5px solid #dc2626" alt="Preuve">`:`<div class="pi-icon" style="background:rgba(220,38,38,.22)">🚨</div>`}<div style="flex:1"><div class="pi-title">${esc(l.name)}</div><div class="pi-sub">${esc(l.label||l.status)} · ${l.type==='exit'?'Sortie':'Entrée'}</div>${l.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(String(l.description).slice(0,110))}</div>`:''}</div><span style="font-size:13px;font-weight:700;color:#f87171">${esc(l.time)}</span></div>`).join('')}
   </div>`:''}
   ${logs.length?`
   <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">${logs.length} résultat${logs.length>1?'s':''} (${rawLogs.length} total)</div>
@@ -15415,13 +15458,14 @@ R.scan_log = () => {
         <div class="ww-item-content">
           <div class="ww-item-title">${esc(l.name)}</div>
           <div class="ww-item-sub">${l.type==='entry'?'Entrée':'Sortie'}${l.label?' — '+esc(l.label):''}</div>
+          ${l.escort_kind?`<div style="font-size:11px;color:#fbbf24;margin-top:2px">${esc(_ESCORTE_LIB[l.escort_kind]||l.escort_kind)}${l.escort_name?' · '+esc(l.escort_name):''}</div>`:''}
           ${byLabel?`<div style="font-size:11px;color:${l.by_role==='enseignant'?'#34d399':l.by_role==='direction'||l.by_role==='direction2'?'#93c5fd':'#d0c2f2'};margin-top:2px;display:flex;align-items:center;gap:4px">
             <span style="width:18px;height:18px;border-radius:50%;background:${l.by_role==='enseignant'?'rgba(5,150,105,.22)':l.by_role==='direction'||l.by_role==='direction2'?'rgba(37,99,235,.22)':'rgba(139,92,246,.22)'};display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0">${ini(byLabel)}</span>
             <span>${l.type==='exit'?'Autorisé par':'Scanné par'} ${esc(byLabel)} <span style="opacity:.6;font-size:10px">(${l.by_role==='enseignant'?'Prof':l.by_role==='gardien'?'Gardien':'Direction'})</span></span>
           </div>`:''}
         </div>
         <span style="font-size:13px;font-weight:700;color:var(--text-secondary)">${l.time}</span>
-        <span class="pill ${colorMap[l.status]||'pill-gray'}">${l.status==='ontime'?'OK':l.status==='late'?'Retard':l.status==='refused'?'Refusé':l.status==='authorized'?'Sorti':l.status==='unauthorized'?'Refusé':'—'}</span>
+        <span class="pill ${colorMap[l.status]||'pill-gray'}">${esc(statusLib[l.status]||l.status||'—')}</span>
       </div>`;}).join('')}
   </div>`:
   `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📜</div>${q||tf!=='all'?'Aucun résultat pour ce filtre':'Aucun scan aujourd\'hui'}</div>`}`);
@@ -15431,16 +15475,17 @@ R.scan_log = () => {
 window.exportScanLogCSV = (date) => {
   const rows=(DB.scan_log||[]).filter(l=>l.date===date);
   if(!rows.length){toast('Aucun scan pour cette date','info');return;}
-  const header='Date,Heure,Nom,Type,Statut,Libellé,Scanné par';
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""').replace(/[\r\n]+/g,' ')+'"';
+  const header=['Date','Heure','Nom','Type','Statut','Libellé','Accompagnant','Nom accompagnant','Scanné par','Rôle'].map(q).join(',');
   const lines=rows.map(l=>[
-    l.date,l.time||'',
-    (l.name||'').replace(/,/g,' '),
+    l.date,l.time||'',l.name||'',
     l.type==='entry'?'Entrée':'Sortie',
-    l.status||'',
-    (l.label||'').replace(/,/g,' '),
-    (l.by_name||'').replace(/,/g,' ')
-  ].join(','));
-  const csv=[header,...lines].join('\n');
+    l.status||'',l.label||'',
+    (window._ESCORTE_LIB||{})[l.escort_kind]||l.escort_kind||'',
+    l.escort_name||'',
+    l.by_name||'',l.by_role||''
+  ].map(q).join(','));
+  const csv='\uFEFF'+[header,...lines].join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -15455,8 +15500,12 @@ window.sendAttendanceList = async () => {
   const ontime=logs.filter(l=>l.status==='ontime').length;
   const late=logs.filter(l=>l.status==='late').length;
   const refused=logs.filter(l=>l.status==='refused').length;
-  const absent=DB.students.length-ontime-late;
-  await pushNotif('u1',`📋 Rapport du portail — ${nowTime()}: ${ontime+late}/${DB.students.length} entrés (${ontime} à l'heure, ${late} retards, ${refused} refusés, ${absent} absents)`);
+  // Les élèves archivés ou bloqués gonflaient l'effectif de référence : le
+  // rapport annonçait des absents qui ne sont plus inscrits.
+  const actifs=(DB.students||[]).filter(s=>!s.archived&&!_estBloque(s)).length;
+  const absent=Math.max(0, actifs-ontime-late);
+  const envoyes=await window._notifDirection(`📋 Rapport du portail — ${nowTime()}: ${ontime+late}/${actifs} entrés (${ontime} à l'heure, ${late} retards, ${refused} refusés, ${absent} absents)`);
+  if(!envoyes){toast('Aucun compte Direction trouvé — rapport non envoyé','error');return;}
   toast('Liste envoyée à la Direction ✅','success');
   saveToCrypt();
 };
@@ -15668,9 +15717,10 @@ window._apQG = '';
 window._apQ = '';
 
 window.openTutelleForm = (sid, tid) => {
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
   // Contrôle accès : direction peut tout modifier, parent uniquement ses propres enfants
-  const isParent = S.user.role==='parent';
+  const isParent = S.user&&S.user.role==='parent';
+  if(!S.user||(!isParent && !['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
   if(isParent && s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
   const t=tid?(DB.aps||[]).find(x=>x.id===tid):null;
   const existing=(DB.aps||[]).filter(a=>a.sid===sid);
@@ -15723,10 +15773,11 @@ window.tutPhotoChange = (input) => {
 };
 
 window.saveTutelle = async () => {
+  const _idField = $('tut_id');
+  if (_idField && !_idField.value) _idField.value = _uid('ap_');
   const _pf = $('tut_photo_data');
   if (_pf && _pf.value && _pf.value.indexOf('data:') === 0) {
-    const _tidNow = $('tut_id')?.value || ('ap_' + Date.now());
-    _pf.value = await window._photoToStorage(_pf.value, 'autorisees', _tidNow);
+    _pf.value = await window._photoToStorage(_pf.value, 'autorisees', _idField ? _idField.value : _uid('ap_'));
   }
   return _saveTutelleInner();
 };
@@ -15734,21 +15785,25 @@ window.saveTutelle = async () => {
 function _saveTutelleInner() {
   const sid=$('tut_sid').value;
   const tid=$('tut_id').value;
-  const s=DB.students.find(x=>x.id===sid);
+  const s=(DB.students||[]).find(x=>x.id===sid);
   if(!s||(S.user.role==='parent'?s.pid!==S.user.id:!['direction','direction2'].includes(S.user.role))){toast('Accès non autorisé','error');return;}
-  const name=($('tut_name').value||'').trim();
+  const name=($('tut_name').value||'').trim().slice(0,80);
   if(!name){toast('Entrez le nom','error');return;}
   const relation=$('tut_relation').value;
-  const phone=($('tut_phone').value||'').trim()||null;
+  const phone=($('tut_phone').value||'').trim().slice(0,30)||null;
   const photo=$('tut_photo_data').value||null;
   if(!photo) toast('⚠️ Sans photo, l\'identification au portail sera difficile','info');
-  const data={sid,name,relation,phone,photo,active:true};
-  if(tid){
-    const t=(DB.aps||[]).find(x=>x.id===tid); if(t) Object.assign(t,data);
+  const dejaLa=(DB.aps||[]).find(a=>a.id===tid);
+  // Le plafond était vérifié à l'ouverture du formulaire. Entre-temps, une
+  // autre tutelle a pu être créée depuis un autre appareil.
+  if(!dejaLa && (DB.aps||[]).filter(a=>a.sid===sid).length>=3){toast('Maximum 3 tutelles par élève','error');return;}
+  const data={sid,name,relation,phone,photo,active:dejaLa?(dejaLa.active!==false):true};
+  if(dejaLa){
+    Object.assign(dejaLa,data);
     pushSync('aps','upsert',{id:tid,...data});
     toast(`${name} mis à jour`,'success');
   } else {
-    const nt={id:_uid('ap_'),...data};
+    const nt={id:tid||_uid('ap_'),...data};
     (DB.aps=DB.aps||[]).push(nt);
     pushSync('aps','upsert',nt);
     toast(`✅ ${name} enregistré comme tutelle`,'success');
@@ -15758,10 +15813,14 @@ function _saveTutelleInner() {
 
 window.deleteTutelle = (tid) => {
   const t=(DB.aps||[]).find(x=>x.id===tid); if(!t) return;
-  // Contrôle accès : direction ou parent de l'enfant
+  // Contrôle accès : direction ou parent de l'enfant. Le test ne retenait
+  // que le cas du parent — gardiens et enseignants passaient au travers.
+  if(!S.user){toast('Accès non autorisé','error');return;}
   if(S.user.role==='parent'){
-    const s=DB.students.find(x=>x.id===t.sid);
+    const s=(DB.students||[]).find(x=>x.id===t.sid);
     if(!s||s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  } else if(!['direction','direction2'].includes(S.user.role)){
+    toast('Accès non autorisé','error');return;
   }
   showC(`Supprimer ${t.name} ?`,'Cette personne ne pourra plus récupérer l\'enfant.',()=>{
     DB.aps=(DB.aps||[]).filter(x=>x.id!==tid);
@@ -15773,15 +15832,15 @@ window.deleteTutelle = (tid) => {
 
 window.toggleTutelle = (tid, newActive) => {
   const t = (DB.aps||[]).find(x=>x.id===tid); if(!t) return;
-  const s = DB.students.find(x=>x.id===t.sid);
-  if(!s || s.pid !== S.user.id){ toast('Accès non autorisé','error'); return; }
-  t.active = newActive;
-  pushSync('aps','patch',{active:newActive},'id=eq.'+tid);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+  const s = (DB.students||[]).find(x=>x.id===t.sid);
+  if(!S.user || !s || s.pid !== S.user.id){ toast('Accès non autorisé','error'); return; }
+  t.active = !!newActive;
+  pushSync('aps','patch',{active:!!newActive},'id=eq.'+tid);
+  (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:_uid('n_'),uid:u.id,
       msg:`🔑 ${S.user.name} a ${newActive?'activé':'désactivé'} l'autorisation de ${t.name} pour ${s.name}`,
-      time:nowTime(),date:today(),read:false,type:'info'};
-    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+      time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(notif); pushSync('notifs','post',notif);
   });
   toast(`${newActive?'Autorisé':'Désactivé'} — ${t.name}`,'success');
   saveToCrypt(); render();
@@ -17897,7 +17956,7 @@ R.comptabilite = () => {
 
   // FIN-11: Budget prévisionnel vs réalisé
   else if(tab==='budget') {
-    const nbEl = (DB.students||[]).filter(s2=>!s2.blocked&&!s2.archived).length;
+    const nbEl = (DB.students||[]).filter(s2=>!_estBloque(s2)&&!s2.archived).length;
     const fees2 = DB.settings?.fees||{T1:0,T2:0,T3:0};
     const totalFees2 = (Number(fees2.T1)||0)+(Number(fees2.T2)||0)+(Number(fees2.T3)||0);
     const budgPrev = nbEl * totalFees2;
@@ -25004,7 +25063,7 @@ window.doEmergencyExit = async (sid) => {
   const time=nowTime();
   const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'emergency_exit',
     label:`⚡ Exception LOCKDOWN — ${motif}`,note,type:'exit'};
-  DB.scan_log.unshift(log); pushSync('scan_log','post',log);
+  (DB.scan_log=DB.scan_log||[]).unshift(log); pushSync('scan_log','post',log);
   DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
     const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
       msg:`⚡ EXCEPTION LOCKDOWN — ${s.name} sorti(e) à ${time} · ${motif} · ${note}`,
@@ -25148,7 +25207,7 @@ window.doManualPresent = async (sid) => {
   const att={id:_uid('a_'),sid,date:today(),arr_time:time,status:'ontime',manual:true,marked_by:S.user.id,note:note||undefined,school_id:window._currentSchoolId||null};
   const log={id:_uid('sl_'),sid,name:s.name,date:today(),time,status:'ontime',label:'Présence manuelle ✏️',type:'entry',manual:true};
   (DB.attendance=DB.attendance||[]).push(att);
-  DB.scan_log.unshift(log);
+  (DB.scan_log=DB.scan_log||[]).unshift(log);
   await pushSync('attendance','post',att);
   await pushSync('scan_log','post',log);
   if(s.pid) await pushNotif(s.pid,`✏️ ${s.name} a été marqué(e) présent(e) manuellement à ${time} par ${S.user.name}.`);
