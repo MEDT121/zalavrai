@@ -37,6 +37,15 @@ ALTER TABLE cahier_prep
   ADD COLUMN IF NOT EXISTS ct_id     TEXT,
   ADD COLUMN IF NOT EXISTS school_id TEXT;
 
+-- ── RATTRAPAGES ───────────────────────────────────────────────────
+-- `paid_date` était renseigné en mémoire mais absent de la requête de mise
+-- à jour comme de la table : la date d'encaissement d'un rattrapage
+-- n'existait nulle part, alors que c'est elle qui rattache la prime de
+-- l'enseignant au bon mois de paie.
+ALTER TABLE rattrapages
+  ADD COLUMN IF NOT EXISTS paid_date TEXT,
+  ADD COLUMN IF NOT EXISTS school_id TEXT;
+
 -- ── SANCTIONS ─────────────────────────────────────────────────────
 -- La table déclare `description`, le code écrit `reason`. Les deux coexistent
 -- plutôt que d'imposer une reprise des lectures sur une application en service.

@@ -11204,7 +11204,8 @@ window.cloturerTrimestre = (cid) => {
 };
 
 window.signalerRattrapage = (sid) => {
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
   const mc=getMyClass();
   const matieres=getClassMatieres(mc.cl?mc.cl.id:'').filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true);
   openM(`⚠️ Signaler rattrapage — ${s.name}`,`
@@ -11258,7 +11259,7 @@ window.saveAppreciation = (sid, cid, existingId) => {
     if(ap){ap.text=text;ap.updated=today();}
     pushSync('appreciations','patch',{text,updated:today()},'id=eq.'+existingId);
   } else {
-    const na={id:'app'+Date.now(),sid,cid,trim:selTrim,text,by:S.user.id,date:today()};
+    const na={id:_uid('app_'),sid,cid,trim:selTrim,text:text.slice(0,600),by:S.user.id,date:today()};
     DB.appreciations.push(na);
     pushSync('appreciations','post',na);
   }
@@ -11278,19 +11279,23 @@ window.deleteAppreciation = (appId) => {
 
 window.submitRattrapage = (sid) => {
   if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
-  const s=DB.students.find(x=>x.id===sid); if(!s) return;
-  const mat=($('rat_mat').value||'').trim();
-  const motif=($('rat_motif').value||'').trim();
+  const s=(DB.students||[]).find(x=>x.id===sid); if(!s) return;
+  const mat=($('rat_mat')?.value||'').trim();
+  const motif=($('rat_motif')?.value||'').trim().slice(0,400);
   if(!motif){toast('Décrivez le motif','error');return;}
+  // Un même élève ne se signale pas deux fois pour la même matière tant que
+  // la première demande n'est pas soldée.
+  const _deja=(DB.rattrapages||[]).find(x=>x.sid===sid&&x.matiere===mat&&!x.paid&&!x.archived);
+  if(_deja){toast(`Un rattrapage de ${mat} est déjà en cours pour ${s.name}`,'info');closeModal();return;}
   const rat={id:_uid('rat_'),sid,teacher_id:S.user.id,matiere:mat,motif,date:today(),
-    status:'pending',amount:0,paid:false};
+    status:'pending',amount:0,paid:false,school_id:window._currentSchoolId||null};
   (DB.rattrapages=DB.rattrapages||[]).push(rat);
   pushSync('rattrapages','post',rat);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const notif={id:'n'+Date.now()+Math.random().toString(36).slice(2,4),uid:u.id,
+  (DB.users||[]).filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
+    const notif={id:_uid('n_'),uid:u.id,
       msg:`📚 Rattrapage signalé par ${S.user.name} — ${s.name} · ${mat} · "${motif}"`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(notif); pushSync('notifs','post',notif);
   });
   logAudit('rattrapage_signal', `${s.name} · ${mat} · "${motif.slice(0,40)}"`, rat.id);
   toast('Signalement envoyé à la Direction','success');
@@ -11299,19 +11304,19 @@ window.submitRattrapage = (sid) => {
 
 // Direction: valider rattrapage + fixer montant + notifier parent
 window.validerRattrapage = (rid, noPayment) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
-  const s=DB.students.find(x=>x.id===r.sid);
+  const s=(DB.students||[]).find(x=>x.id===r.sid);
   // Direction 2: approve academically without setting a fee
   if(noPayment || S.user.role==='direction2') {
     r.d2_validated=true; r.validated_date=today();
     r.validated_by_d2=S.user.id; r.validated_by_d2_name=S.user.name;
     pushSync('rattrapages','patch',{d2_validated:true,validated_date:r.validated_date,validated_by_d2:S.user.id,validated_by_d2_name:S.user.name},'id=eq.'+rid);
     if(s&&s.pid){
-      const notif={id:'n'+Date.now(),uid:s.pid,
+      const notif={id:_uid('n_'),uid:s.pid,
         msg:`📚 Cours de rattrapage approuvé — ${s.name} · ${r.matiere}. Raison : ${r.motif}`,
-        time:nowTime(),date:today(),read:false,type:'alert'};
-      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+        time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(notif); pushSync('notifs','post',notif);
     }
     toast(`✅ Rattrapage approuvé — Direction 1 fixera le montant`,'success');
     saveToCrypt(); render(); return;
@@ -11329,52 +11334,80 @@ window.validerRattrapage = (rid, noPayment) => {
 };
 
 window.confirmerRattrapage = (rid) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)) return;
+  // La Direction 2 approuve pédagogiquement ; seule la Direction 1 fixe un
+  // montant — c'est ce que dit l'écran, ce n'est pas ce que vérifiait le code.
+  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
+  if(r.paid){toast('Rattrapage déjà réglé','info');return;}
   const amount=lireMontant($('rat_amount')?.value)||0;
   if(!amount){toast('Entrez un montant','error');return;}
   r.amount=amount; r.status='pending'; r.validated_by=S.user.id; r.validated_date=today();
   pushSync('rattrapages','patch',{amount,status:'pending',validated_by:r.validated_by,validated_date:r.validated_date},'id=eq.'+rid);
-  const s=DB.students.find(x=>x.id===r.sid);
-  const teacher=gu(r.teacher_id);
+  const s=(DB.students||[]).find(x=>x.id===r.sid);
   // Notifier le parent
   if(s&&s.pid){
-    const notif={id:'n'+Date.now(),uid:s.pid,
+    const notif={id:_uid('n_'),uid:s.pid,
       msg:`📚 Cours de rattrapage — ${s.name} · ${r.matiere} · ${_cur()}${amount} à régler à la Direction. Raison : ${r.motif}`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(notif); pushSync('notifs','post',notif);
   }
-  logAudit('rattrapage_validate', `${s?s.name:''} · ${r.matiere} · $${amount}`, rid);
+  logAudit('rattrapage_validate', `${s?s.name:''} · ${r.matiere} · ${_cur()}${amount}`, rid);
   toast(`✅ Parent notifié — ${_cur()}${amount} de rattrapage pour ${s?s.name:''}`, 'success');
   closeModal(); saveToCrypt(); render();
 };
 
 // Direction: marquer rattrapage comme payé + ajouter prime enseignant
-window.marquerRattrapage = (rid, paid) => {
-  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+window.marquerRattrapage = async (rid, paid) => {
+  if(!S.user||!['direction','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
-  r.status=paid?'paid':'pending'; r.paid=paid;
+  if(paid && r.paid){toast('Rattrapage déjà réglé','info');return;}
+  const s=(DB.students||[]).find(x=>x.id===r.sid);
   if(paid){
+    const montant=Number(r.amount)||0;
+    if(montant<=0){toast('Fixez d\'abord le montant du rattrapage','error');return;}
+    // L'encaissement suit le chemin ordinaire : reçu numéroté, recette du
+    // jour, écriture OHADA. Sans cela l'argent n'existait nulle part.
+    try{
+      await window._enregistrerMouvement({
+        sid:r.sid, montant,
+        motif:`Rattrapage ${r.matiere||''}`.trim(),
+        fee_label:`Cours de rattrapage — ${r.matiere||''}`.trim(),
+        compte_cat:'706', mvt_type:'recette',
+        note:(r.motif||'').slice(0,120),
+      });
+    }catch(e){
+      toast(e.isDuplicate?'Un encaissement identique vient d\'être saisi':'Encaissement refusé : '+e.message,'error');
+      return;
+    }
     r.paid_date=today();
-    // Notifier enseignant de la prime
+  }
+  r.status=paid?'paid':'pending'; r.paid=!!paid;
+  pushSync('rattrapages','patch',{status:r.status,paid:r.paid,paid_date:r.paid_date||null},'id=eq.'+rid);
+  if(paid){
     const teacher=gu(r.teacher_id);
     if(teacher){
-      const notif={id:'n'+Date.now(),uid:teacher.id,
-        msg:`💰 Prime de rattrapage — ${_cur()}${r.amount} ajoutée à votre prime pour ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere})`,
-        time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(notif); pushSync('notifs','post',notif);
+      const notif={id:_uid('n_'),uid:teacher.id,
+        msg:`💰 Prime de rattrapage — ${s?s.name:''} (${r.matiere}) réglée. Elle sera portée à votre paie du mois.`,
+        time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(notif); pushSync('notifs','post',notif);
     }
-    logAudit('rattrapage_pay', `Prime versée — ${DB.students.find(x=>x.id===r.sid)?.name||''} (${r.matiere}) $${r.amount}`, rid);
-    toast('Rattrapage marqué payé — prime enseignant notifiée','success');
+    if(s&&s.pid){
+      const np={id:_uid('n_'),uid:s.pid,
+        msg:`✅ Rattrapage ${r.matiere} — paiement de ${_cur()}${r.amount} confirmé. Reçu disponible.`,
+        time:nowTime(),date:today(),read:false,type:'receipt',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(np); pushSync('notifs','post',np);
+    }
+    logAudit('rattrapage_pay', `${s?s.name:''} (${r.matiere}) ${_cur()}${r.amount} encaissé`, rid);
+    toast('Rattrapage encaissé — reçu émis, enseignant notifié','success');
   }
-  pushSync('rattrapages','patch',{status:r.status,paid:r.paid},'id=eq.'+rid);
   saveToCrypt(); render();
 };
 
 // Direction: planifier la séance après paiement
 window.planifierRattrapage = (rid) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
-  const s=DB.students.find(x=>x.id===r.sid);
+  const s=(DB.students||[]).find(x=>x.id===r.sid);
   openM(`📅 Planifier la séance — ${s?esc(s.name):''} · ${esc(r.matiere)}`,`
   <div class="form-group"><label class="form-label">Date de la séance *</label>
     <input class="form-input" id="sessDate" type="date" value="${r.session_date||''}">
@@ -15898,17 +15931,20 @@ window.toggleTutelle = (tid, newActive) => {
   saveToCrypt(); render();
 };
 window.signalerPaiementRattrapage = (rid) => {
+  if(!S.user||S.user.role!=='parent'){toast('Accès non autorisé','error');return;}
   const r=(DB.rattrapages||[]).find(x=>x.id===rid); if(!r) return;
-  const s=DB.students.find(x=>x.id===r.sid); if(!s) return;
+  const s=(DB.students||[]).find(x=>x.id===r.sid); if(!s) return;
   if(s.pid!==S.user.id){toast('Accès non autorisé','error');return;}
+  if(r.paid){toast('Ce rattrapage est déjà réglé','info');return;}
+  if(r.payment_signaled){toast('Paiement déjà signalé — en attente de confirmation','info');return;}
   r.payment_signaled=true;
   pushSync('rattrapages','patch',{payment_signaled:true},'id=eq.'+rid);
-  // Notifier la Direction
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:'n'+Date.now()+Math.random().toString(36).slice(2,5),uid:u.id,
+  // Notifier la Direction et la caisse
+  (DB.users||[]).filter(u=>['direction','direction2','direction3'].includes(u.role)).forEach(u=>{
+    const n={id:_uid('n_'),uid:u.id,
       msg:`💰 Paiement signalé — ${s.name} · Rattrapage ${r.matiere} · ${_cur()}${r.amount} · À confirmer`,
-      time:nowTime(),date:today(),read:false,type:'alert'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+      time:nowTime(),date:today(),read:false,type:'alert',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
 
   toast('Paiement signalé à la Direction — en attente de confirmation','success');
@@ -19449,8 +19485,8 @@ R.primes = () => {
             ${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
-            <div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div>
-            <div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div>
+            <div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Réglé</div></div>
+            <div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À régler</div></div>
             <div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div>
           </div>
           ${rats.slice(0,3).map(r=>{
@@ -19461,7 +19497,7 @@ R.primes = () => {
               <div style="font-size:12px;flex:1"><span style="font-weight:600">${s?esc(s.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r.matiere)}</span></div>
               <span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r.amount}</span>
               <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>
-              ${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}
+              ${r.validated_by&&!r.paid?`<button onclick="marquerRattrapage('${r.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Encaisser</button>`:''}
             </div>`;
           }).join('')}
           ${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}
@@ -26460,10 +26496,21 @@ window.updateEvalForm = (evalId) => {
 // ═══════════════════════════════════════════
 // ── helpers salaires ──
 window._getRatPrime = (teacherId, month) => {
-  const rate = DB.settings.rattrapage_rate||0;
+  const rate = Number(DB.settings?.rattrapage_rate)||0;
   if(!rate) return {count:0, prime:0};
-  const count = (DB.rattrapages||[]).filter(r=>r.teacher_id===teacherId&&r.validated_by&&(r.date||'').startsWith(month)).length;
+  const count = (DB.rattrapages||[]).filter(r=>
+    r.teacher_id===teacherId && r.paid && ((r.paid_date||r.date||'').startsWith(month))
+  ).length;
   return {count, prime: count*rate};
+};
+
+// Primes de rattrapage acquises par l'enseignement mais pas encore réglées
+// par les familles. Se compte au tarif de l'enseignant — l'écran additionnait
+// les montants facturés aux parents, une tout autre grandeur.
+window._primesRatDues = () => {
+  const rate = Number(DB.settings?.rattrapage_rate)||0;
+  if(!rate) return 0;
+  return (DB.rattrapages||[]).filter(r=>r.validated_by && !r.paid && !r.archived).length * rate;
 };
 window._getAdvancesTotal = (teacherId, month) => {
   return (DB.advances||[]).filter(a=>a.teacher_id===teacherId&&a.month===month).reduce((s,a)=>s+a.amount,0);
@@ -26792,7 +26839,7 @@ R.paie = () => {
         const earned=rats.filter(r2=>r2.paid).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
         const due=rats.filter(r2=>!r2.paid&&r2.validated_by).reduce((s2,r2)=>s2+Number(r2.amount||0),0);
         const cl=DB.classes.find(c2=>c2.teacher_id===u2.id||c2.teacher_id_en===u2.id);
-        return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#2fbf8f':'#2f7bd6'}"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fdeccd':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u2.initials||ini(u2.name)}</div><div style="flex:1"><div style="font-weight:700;font-size:15px">${esc(u2.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div></div>${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"><div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Versé</div></div><div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À verser</div></div><div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div></div>${rats.slice(0,3).map(r2=>{const stu=DB.students.find(x=>x.id===r2.sid);const stColor=r2.paid?'#d8f3e6':r2.validated_by?'#fdeccd':'#f6ede0';const stText=r2.paid?'Versé':r2.validated_by?'⏳ À verser':'En attente';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;flex:1"><span style="font-weight:600">${stu?esc(stu.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r2.matiere)}</span></div><span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r2.amount}</span><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>${r2.validated_by&&!r2.paid?`<button onclick="marquerRattrapage('${r2.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Verser</button>`:''}</div>`}).join('')}${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}</div></div>`;
+        return `<div class="ww-card" style="animation-delay:${i*.04}s"><div class="ww-card-stripe" style="background:${due>0?'#f59e0b':earned>0?'#2fbf8f':'#2f7bd6'}"></div><div class="ww-card-body"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="width:44px;height:44px;border-radius:12px;background:${due>0?'#fdeccd':'#d8f3e6'};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:${due>0?'#92400e':'#065f46'}">${u2.initials||ini(u2.name)}</div><div style="flex:1"><div style="font-weight:700;font-size:15px">${esc(u2.name)}</div><div style="font-size:12px;color:var(--text-secondary)">${cl?esc(cl.name):'—'}</div></div>${due>0?`<span class="pill" style="background:#fdeccd;color:#92400e;font-weight:700">⏳ ${_cur()}${due}</span>`:''}</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px"><div style="background:#d8f3e6;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#065f46">${_cur()}${earned}</div><div style="font-size:10px;color:#065f46">Réglé</div></div><div style="background:${due>0?'#fdeccd':'#f6ede0'};border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:${due>0?'#92400e':'var(--text-muted)'}">${_cur()}${due}</div><div style="font-size:10px;color:${due>0?'#92400e':'var(--text-muted)'}">À régler</div></div><div style="background:#dbeafe;border-radius:8px;padding:8px;text-align:center"><div style="font-weight:800;color:#205fae">${rats.length}</div><div style="font-size:10px;color:#205fae">Signalé${rats.length>1?'s':''}</div></div></div>${rats.slice(0,3).map(r2=>{const stu=DB.students.find(x=>x.id===r2.sid);const stColor=r2.paid?'#d8f3e6':r2.validated_by?'#fdeccd':'#f6ede0';const stText=r2.paid?'Réglé':r2.validated_by?'⏳ À régler':'En attente';return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="font-size:12px;flex:1"><span style="font-weight:600">${stu?esc(stu.name):'?'}</span><span style="color:var(--text-muted)"> · ${esc(r2.matiere)}</span></div><span style="font-size:11px;font-weight:700;color:#1f9d6b">${_cur()}${r2.amount}</span><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${stColor};font-weight:600">${stText}</span>${r2.validated_by&&!r2.paid?`<button onclick="marquerRattrapage('${r2.id}',true)" style="font-size:10px;padding:2px 8px;background:#1f9d6b;color:#fff;border:none;border-radius:6px;cursor:pointer">Encaisser</button>`:''}</div>`}).join('')}${rats.length>3?`<div style="font-size:11px;color:var(--text-muted);text-align:center;padding-top:6px">+${rats.length-3} autre${rats.length-3>1?'s':''}</div>`:''}</div></div>`;
       }).join('')}
     </div>
     </div>`;
@@ -26829,7 +26876,7 @@ R.paie = () => {
   const paidEns=sals.filter(s2=>s2.teacher_id&&s2.month===selMonth&&s2.paid).length;
   const nonTeachRecap=sals.filter(s2=>!s2.teacher_id&&s2.person_name&&s2.month===selMonth);
   const totalNTRecap=nonTeachRecap.reduce((s2,r2)=>s2+(r2.net!=null?r2.net:(r2.amount||0)),0);
-  const totalPrimesRat=(DB.rattrapages||[]).filter(r2=>r2.amount>0&&!r2.paid&&r2.validated_by).reduce((s2,r2)=>s2+Number(r2.amount),0);
+  const totalPrimesRat=_primesRatDues();
   const totalDirPrimes=(DB.direct_primes||[]).reduce((s2,p2)=>s2+Number(p2.amount||0),0);
   const avances=(DB.advances||[]).filter(a2=>a2.month===selMonth).reduce((s2,a2)=>s2+(a2.amount||0),0);
   return `<div style="padding:12px">${tabBar}${monthPicker}
