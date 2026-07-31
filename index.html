@@ -1357,7 +1357,11 @@ window._uid = (p='') => p+(typeof crypto!=='undefined'&&crypto.randomUUID?crypto
 // Hash du code maître (ne pas stocker le code en clair)
 const _MC='ef4868de35b6a0917791c25b37c3ec440ab46e2295187f5f7edebf88db711b85';
 window.ini = n => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-window.gpin = () => { let p; do { p = String(Math.floor(100000 + Math.random() * 900000)); } while (DB.users.some(u => u.pin === p)); return p; };
+// gpin() a été retiré : jamais appelé, il engendrait un code avec
+// Math.random — qui n'est pas fait pour produire un secret — et vérifiait
+// son unicité en comparant du texte clair à des empreintes, comparaison qui
+// ne pouvait jamais aboutir. Du code mort à l'odeur de sécurité invite à
+// s'en servir. Voir resetParentPin pour la bonne façon de faire.
 
 // ── CLASS COLORS ──
 window.CLASS_COLORS = {
@@ -4041,13 +4045,29 @@ async function _tryLoginInner() {
     normName(ini(u.name))===name
   );
 
-  // Charger credentials ciblés en mode local — évite l'exposition en masse dans le bulk SELECT
-  if (window.DB_ONLINE && u && !u.pin) {
-    try {
-      const cr = await _get('users','select=pin,pin_hashed,pin_hashed_v2&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
-      const c = (Array.isArray(cr)?cr:[])[0];
-      if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; u.pin_hashed_v2 = c.pin_hashed_v2; }
-    } catch(_) {}
+  // Les codes sont purgés de la mémoire après chaque connexion : il faut les
+  // relire avant de pouvoir vérifier celui qu'on vient de saisir.
+  if (u && !u.pin) {
+    // En ligne : lecture ciblée d'un seul compte, plutôt que de rapatrier
+    // tous les codes de l'école dans le chargement général.
+    if (window.DB_ONLINE) {
+      try {
+        const cr = await _get('users','select=pin,pin_hashed,pin_hashed_v2&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
+        const c = (Array.isArray(cr)?cr:[])[0];
+        if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; u.pin_hashed_v2 = c.pin_hashed_v2; }
+      } catch(e) { console.warn('[login]', e.message); }
+    }
+    // Hors ligne : le cache chiffré les porte, saveToCrypt ayant lieu avant
+    // la purge. Sans ce repli, rouvrir une session verrouillée sans réseau
+    // serait impossible — et c'est précisément le cas qu'un verrouillage,
+    // par opposition à une déconnexion, doit permettre.
+    if (!u.pin && _aesKey) {
+      try {
+        await loadFromCrypt();
+        const v = (DB.users||[]).find(x => x.id === u.id);
+        if (v && v.pin) { u.pin = v.pin; u.pin_hashed = v.pin_hashed; u.pin_hashed_v2 = v.pin_hashed_v2; }
+      } catch(e) { console.warn('[login] cache illisible:', e.message); }
+    }
   }
   const hashV2 = u ? await _hashPinSalted(pin, u.id) : null;
   const hash = await _hashPin(pin);
@@ -4154,6 +4174,27 @@ window.loginAs = async user => {
     });
   }
 };
+// Verrouiller : refermer l'écran sans rien effacer. Les données restent en
+// mémoire et dans le cache chiffré — l'utilisateur les retrouvera en
+// entrant son code, y compris sans réseau. C'est ce qu'il faut après une
+// simple inactivité.
+window.verrouillerSession = () => {
+  try { stopScan(); } catch(e) {}
+  if(typeof window._stopIdleTimer==='function') window._stopIdleTimer();
+  window._stopAppBgRotation&&window._stopAppBgRotation();
+  // Le cache doit porter l'état courant avant de rendre la main.
+  try { if((DB.users||[]).length) saveToCrypt(); } catch(e) {}
+  S.user=null; S.page='dashboard'; S._history=[];
+  document.body.removeAttribute('data-role');
+  const _lp=$('LP'); if(_lp) _lp.value='';
+  $('APP').classList.remove('active');
+  closeSB();
+  window._splashGone = false;
+  showLogin();
+};
+
+// Se déconnecter : effacer. Les données de l'école ne restent pas sur
+// l'appareil après le départ de son utilisateur.
 window.logout = () => {
   window._stopAppBgRotation&&window._stopAppBgRotation();
   try { stopScan(); } catch(e) {}
@@ -4261,10 +4302,9 @@ window.goToMyProfile = () => {
   function _doLockout(){
     if(!S.user) return;
     window._stopIdleTimer();
-    logout();
-    showLogin();
-    setTimeout(()=>{ const pm=$('PM'); if(pm) pm.textContent='Session expirée — veuillez vous reconnecter'; },400);
-    toast('Session expirée pour inactivité','warning');
+    window.verrouillerSession();
+    setTimeout(()=>{ const pm=$('PM'); if(pm) pm.textContent='Session verrouillée — entrez votre code'; },400);
+    toast('Session verrouillée pour inactivité','warning');
   }
 
   window._dismissIdleWarning=()=>{
