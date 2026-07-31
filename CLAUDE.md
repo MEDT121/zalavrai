@@ -666,6 +666,91 @@ présences et deux qui manipulaient de l'argent.
 
 ---
 
+## Clôture d'année : purger par identifiants, borner par exercice
+
+Dernier domaine audité. Deux principes en sont sortis, valables au-delà.
+
+### On ne purge jamais sur un champ, toujours sur des identifiants
+
+La clôture supprimait les notes du serveur par `year=eq.<année>`. La colonne
+existait, mais **seul le panneau de notes la renseignait** : une cote saisie
+en corrigeant un devoir avait `year` à NULL. La requête réussissait donc en
+ne supprimant rien, et toutes les cotes de devoirs et d'interros revenaient au
+premier `loadFromSupabase`, mêlées à celles de la nouvelle année. Mesuré sur
+une réplique : **60 notes sur 100 survivaient**. `payments` et `versements`
+n'étaient même pas purgées.
+
+L'application détient la liste de ce qu'elle vient d'archiver. Supprimer par
+`id=in.(…)`, en lots de 80, supprime exactement cela — ni une ligne de plus,
+ni une de moins, et sans dépendre de l'historique d'une colonne.
+
+Conséquence sur `_reappliquerFile` : il ne savait relire que `id=eq.x`. Une
+purge en lot n'était pas rejouée, donc un `pull` en pleine clôture ressuscitait
+localement ce qui venait d'être supprimé. Il lit désormais les deux formes, et
+accepte un `post` dont le corps est un tableau.
+
+### Ce qui ne se supprime pas se borne
+
+`versements`, `daily_reports` et `salaries` survivent volontairement à la
+clôture — un reçu remis à une famille, un rapport de caisse validé, une fiche
+de paie doivent rester consultables des années après. La table interdit
+d'ailleurs la suppression des deux premières.
+
+Ce qui empêche alors l'argent de l'an dernier de reparaître dans la caisse de
+septembre n'est pas une purge, c'est **la borne d'exercice** :
+
+```js
+_moisExercice(annee)        // « 2025-2026 » → {debut:'2025-09', fin:'2026-08'}
+_versementsExercice(annee)  // versements de l'exercice, annulations exclues
+_salairesVerses(annee)      // masse salariale de l'exercice
+_soldeCaisse(annee)         // {ouverture, recettes, courantes, salaires, depenses, solde}
+```
+
+L'année scolaire congolaise court de septembre à août.
+
+### Une seule formule de solde
+
+L'écran de la caisse totalisait les versements **par type de frais actif** ;
+la clôture les totalisait tous. Désactiver un type de frais faisait donc
+disparaître de l'état financier des recettes bel et bien encaissées, et le
+solde reporté ne correspondait à aucun montant jamais affiché. Le classement
+par catégorie est désormais une *présentation* du total — jamais son calcul —
+avec un panier « Autres » pour ce qui ne se rattache à rien.
+
+Les versements annulés y étaient comptés comme de l'argent ; `_recettes()`
+les excluait pourtant déjà pour `daily_records`.
+
+### Archiver n'ouvre pas d'exercice
+
+Deux chemins de clôture coexistaient, chacun à moitié :
+
+| | archive | verrou | purge | report du solde | année suivante |
+|---|---|---|---|---|---|
+| `archiverAnnee` | oui | oui | non | oui *(à tort)* | non |
+| `confirmNewYear` | oui | non | oui | **non** | oui |
+
+`archiverAnnee` reportait le solde sans changer l'année : l'à-nouveau
+s'ajoutait à des recettes toujours présentes, et le solde **doublait à chaque
+archivage**. `confirmNewYear` ne le reportait pas du tout : toute la trésorerie
+accumulée disparaissait des livres au 1er septembre.
+
+Le report appartient à la seule opération qui remet les compteurs à zéro.
+`archiverAnnee` archive et verrouille, sans aucun mouvement comptable.
+
+### Diplômé = archivé
+
+`students.diplome` était écrit et **lu nulle part** : l'élève sorti restait
+dans sa classe, dans les listes, dans le palmarès et dans les rôles de
+paiement de l'année suivante. `archived` est le drapeau que toute
+l'application filtre déjà, et l'écran des archives permet de consulter ou de
+rétablir. `diplome` en reste le motif, `archived` l'état.
+
+Même famille que les « champs morts » plus haut : **avant de lire un champ,
+vérifier qu'une écriture le renseigne ; avant d'en écrire un, vérifier qu'une
+lecture s'en sert.**
+
+---
+
 ## État Supabase (30/07/2026)
 
 `supabase_migration_finale.sql` — **exécutée et vérifiée** sur la base de

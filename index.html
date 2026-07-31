@@ -2026,11 +2026,17 @@ window._reappliquerFile = () => {
   if (!q.length) return 0;
   let remis = 0;
 
-  // « id=eq.x_123 » → « x_123 ». Les autres formes de filtre ne sont pas
-  // rejouées : mieux vaut ne rien faire que défaire au hasard.
-  const idDeQuery = (query) => {
-    const m = /(?:^|&)id=eq\.([^&]+)/.exec(String(query || ''));
-    return m ? decodeURIComponent(m[1]) : null;
+  // « id=eq.x_123 » → ['x_123'] · « id=in.(a,b,c) » → ['a','b','c'].
+  // La forme `in` est celle de la clôture d'année, qui purge par lots. Les
+  // autres formes de filtre ne sont pas rejouées : mieux vaut ne rien faire
+  // que défaire au hasard.
+  const idsDeQuery = (query) => {
+    const s = String(query || '');
+    const eq = /(?:^|&)id=eq\.([^&]+)/.exec(s);
+    if (eq) return [decodeURIComponent(eq[1])];
+    const inl = /(?:^|&)id=in\.\(([^)]*)\)/.exec(s);
+    if (inl) return inl[1].split(',').filter(Boolean).map(decodeURIComponent);
+    return [];
   };
 
   for (const item of q) {
@@ -2038,23 +2044,29 @@ window._reappliquerFile = () => {
     if (!t || !Array.isArray(DB[t])) continue;
     try {
       if (item.op === 'post' || item.op === 'upsert') {
-        const row = item.data;
-        if (!row || !row.id) continue;
-        const i = DB[t].findIndex(x => x && x.id === row.id);
-        if (i >= 0) DB[t][i] = Object.assign({}, DB[t][i], row);
-        else { DB[t].unshift(row); }
-        remis++;
+        // Un POST en lot porte un tableau de lignes — même traitement, ligne à ligne.
+        const rows = Array.isArray(item.data) ? item.data : [item.data];
+        for (const row of rows) {
+          if (!row || !row.id) continue;
+          const i = DB[t].findIndex(x => x && x.id === row.id);
+          if (i >= 0) DB[t][i] = Object.assign({}, DB[t][i], row);
+          else { DB[t].unshift(row); }
+          remis++;
+        }
       } else if (item.op === 'patch') {
-        const id = idDeQuery(item.data && item.data.query);
+        const ids = idsDeQuery(item.data && item.data.query);
         const corps = item.data && item.data.body;
-        if (!id || !corps) continue;
-        const ligne = DB[t].find(x => x && x.id === id);
-        if (ligne) { Object.assign(ligne, corps); remis++; }
+        if (!ids.length || !corps) continue;
+        for (const id of ids) {
+          const ligne = DB[t].find(x => x && x.id === id);
+          if (ligne) { Object.assign(ligne, corps); remis++; }
+        }
       } else if (item.op === 'delete') {
-        const id = idDeQuery(item.data && item.data.query);
-        if (!id) continue;
+        const ids = idsDeQuery(item.data && item.data.query);
+        if (!ids.length) continue;
+        const aSupprimer = new Set(ids);
         const avant = DB[t].length;
-        DB[t] = DB[t].filter(x => !x || x.id !== id);
+        DB[t] = DB[t].filter(x => !x || !aSupprimer.has(x.id));
         if (DB[t].length !== avant) remis++;
       }
     } catch (e) { console.warn('[SYNC] réapplication impossible:', t, item.op, e.message); }
@@ -10386,12 +10398,65 @@ window.genRecuNo = () => {
 // une modification des frais dans Paramètres.
 window._recettes = () => (DB.daily_records||[]).filter(r=>!r.annulled);
 
+// Bornes d'un exercice scolaire, en mois « AAAA-MM ». L'année congolaise court
+// de septembre à août : « 2025-2026 » va de 2025-09 à 2026-08. Renvoie null si
+// l'année n'a pas cette forme — l'appelant retombe alors sur « tout ».
+window._moisExercice = (annee) => {
+  const m = /^(\d{4})-(\d{4})$/.exec(String(annee || DB.settings?.year || ''));
+  if (!m) return null;
+  return { debut: m[1] + '-09', fin: m[2] + '-08' };
+};
+
 // Masse salariale effectivement versée. Les salaires ne transitent pas par
 // daily_expenses — ils vivent dans DB.salaries et le journal OHADA les
 // reconstruit — mais ils sortent bien de la caisse.
-window._salairesVerses = () => (DB.salaries||[])
-  .filter(s=>s.paid)
-  .reduce((t,s)=>t+(Number(s.net!=null?s.net:s.amount)||0),0);
+//
+// Bornée à l'exercice : `DB.salaries` est la seule table financière que la
+// clôture ne vide pas — une fiche de paie doit rester consultable des années
+// après. Sans cette borne, la paie de l'an dernier était retranchée une
+// seconde fois de la caisse au premier jour de la nouvelle année, et le solde
+// affiché s'effondrait sans qu'aucune dépense n'ait eu lieu.
+window._salairesVerses = (annee) => {
+  const b = _moisExercice(annee);
+  return (DB.salaries||[])
+    .filter(s => s.paid && (!b || !s.month || (s.month >= b.debut && s.month <= b.fin)))
+    .reduce((t,s) => t + (Number(s.net!=null?s.net:s.amount)||0), 0);
+};
+
+// Versements de l'exercice, annulations exclues. Un reçu annulé n'est pas de
+// l'argent : `_recettes()` l'excluait déjà pour daily_records, l'état
+// financier ne le faisait pas pour les versements.
+//
+// Les versements ne sont JAMAIS supprimés — la table l'interdit, et à raison :
+// une recette encaissée s'annule par écriture inverse, elle ne s'efface pas.
+// C'est donc la borne d'exercice, et non une purge, qui empêche l'argent de
+// l'an dernier de reparaître dans la caisse de septembre.
+window._versementsExercice = (annee) => {
+  const b = _moisExercice(annee);
+  const d0 = b ? b.debut + '-01' : null, d1 = b ? b.fin + '-31' : null;
+  return (DB.versements||[]).filter(v =>
+    !v.annulled && (!d0 || !v.date || (v.date >= d0 && v.date <= d1)));
+};
+
+// Solde de caisse — une seule formule pour l'écran de la caisse et pour la
+// clôture. Elles divergeaient : l'écran totalisait les versements par type de
+// frais ACTIF, la clôture les totalisait tous. Désactiver un type de frais
+// faisait donc disparaître des recettes déjà encaissées de l'état financier,
+// et le solde reporté à l'exercice suivant ne correspondait à aucun montant
+// jamais affiché.
+window._soldeCaisse = (annee) => {
+  const b = _moisExercice(annee);
+  const d0 = b ? b.debut + '-01' : null, d1 = b ? b.fin + '-31' : null;
+  const dansExercice = d => !d0 || !d || (d >= d0 && d <= d1);
+  const ouverture = (Number(DB.settings?.opening_cash)||0) + (Number(DB.settings?.opening_bank)||0);
+  const recettes  = _versementsExercice(annee).reduce((t,v)=>t+(Number(v.montant)||0),0);
+  const courantes = (DB.daily_expenses||[]).filter(e=>dansExercice(e.date))
+                      .reduce((t,e)=>t+(Number(e.amount)||0),0);
+  const salaires  = _salairesVerses(annee);
+  return { ouverture, recettes, courantes, salaires,
+           depenses: courantes + salaires,
+           solde: ouverture + recettes - courantes - salaires };
+};
 
 window._cibleFrais = (feeTypeId, trimestre) => {
   const ft = (DB.fee_types||[]).find(f=>f.id===feeTypeId);
@@ -14631,8 +14696,12 @@ window.saveCorrecteurDevoir = dvId => {
       existing.comment=comment;existing.corrected_at=corrected_at;
       pushSync('grades','patch',{note,max,weight:coef,trimester:trim,comment,corrected_at},'id=eq.'+existing.id);
     } else {
+      // `year` : sans elle, la cote d'un devoir n'appartenait à aucune année.
+      // La clôture ne pouvait donc pas la purger, et toutes les cotes de
+      // devoirs et d'interros survivaient au changement d'année.
       const g={id:_uid('g_'),sid,cid:d.cid,
         type:d.category,matiere:d.matiere||'',note,max,weight:coef,trimester:trim,
+        year:DB.settings.year,
         date:d.deadline||today(),label:d.title,devoir_id:dvId,by:S.user.id,
         comment,corrected_at,school_id:window._currentSchoolId||null};
       (DB.grades=DB.grades||[]).push(g); pushSync('grades','post',g);
@@ -17849,35 +17918,52 @@ R.etat_financier = () => {
   if(!['direction','direction3'].includes(S.user.role)) return `<div style="text-align:center;padding:60px"><h2>Accès réservé à la Direction / Caisse</h2></div>`;
   const fees=getFees();
   const feeTypes=(DB.fee_types||[]).filter(f=>f.active!==false);
-  const vers=DB.versements||[];
+  const vers=_versementsExercice();
   const recs=_recettes();
   const exps=DB.daily_expenses||[];
 
   // ── Recettes par catégorie de fee_type ──
+  // Le classement par catégorie est une PRÉSENTATION du total encaissé, jamais
+  // son calcul. Un versement rattaché à un type de frais désactivé — ou à aucun
+  // type — tombe dans « Autres » : l'argent a été reçu, il figure au total.
   const byCat={};
-  feeTypes.forEach(ft=>{
-    const cat=ft.category||'autre';
-    if(!byCat[cat]) byCat[cat]={label:{scolaire:'Frais Scolaires',cantine:'Cantine',sortie:'Sorties & Activités',autre:'Autres'}[cat]||cat,icon:{scolaire:'📚',cantine:'🍽️',sortie:'🚌',autre:'📋'}[cat]||'📋',total:0,count:0,types:[]};
-    const catTotal=vers.filter(v=>v.fee_type_id===ft.id).reduce((s,v)=>s+(Number(v.montant)||0),0);
-    const catCount=vers.filter(v=>v.fee_type_id===ft.id).length;
-    byCat[cat].total+=catTotal; byCat[cat].count+=catCount;
-    if(catTotal>0) byCat[cat].types.push({label:ft.label,total:catTotal,count:catCount});
+  const _CAT_L={scolaire:'Frais Scolaires',cantine:'Cantine',sortie:'Sorties & Activités',autre:'Autres'};
+  const _CAT_I={scolaire:'📚',cantine:'🍽️',sortie:'🚌',autre:'📋'};
+  const _bucket=cat=>{
+    if(!byCat[cat]) byCat[cat]={label:_CAT_L[cat]||cat,icon:_CAT_I[cat]||'📋',total:0,count:0,types:[]};
+    return byCat[cat];
+  };
+  const _ftById={}; feeTypes.forEach(ft=>{_ftById[ft.id]=ft;});
+  const _parType={};
+  vers.forEach(v=>{
+    const ft=_ftById[v.fee_type_id];
+    const cat=ft?(ft.category||'autre'):'autre';
+    const cle=ft?ft.id:'_hors_type_';
+    const b=_bucket(cat);
+    const mt=Number(v.montant)||0;
+    b.total+=mt; b.count++;
+    if(!_parType[cle]) _parType[cle]={cat,label:ft?ft.label:'Encaissements hors type de frais',total:0,count:0};
+    _parType[cle].total+=mt; _parType[cle].count++;
   });
-  const totalRecettes=Object.values(byCat).reduce((s,c)=>s+c.total,0);
+  Object.values(_parType).forEach(l=>{ if(l.total>0) _bucket(l.cat).types.push({label:l.label,total:l.total,count:l.count}); });
+  // Une catégorie sans encaissement reste visible si un type actif l'annonce.
+  feeTypes.forEach(ft=>_bucket(ft.category||'autre'));
+  const _fin=_soldeCaisse();
+  const totalRecettes=_fin.recettes;
   // PERF: pre-compute all balances once for O(N) total vs O(N²)
-  const _tbm={}; DB.students.forEach(st=>{_tbm[st.id]=getStudentBalance(st.id);});
+  const _tbm={}; (DB.students||[]).forEach(st=>{_tbm[st.id]=getStudentBalance(st.id);});
   // Frais scolaires attendus
-  const totalAttendu=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);
-  const totalDette=DB.students.reduce((s,st)=>s+(_tbm[st.id]?.debt||0),0);
+  const totalAttendu=(DB.students||[]).reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);
+  const totalDette=(DB.students||[]).reduce((s,st)=>s+(_tbm[st.id]?.debt||0),0);
   // ── Dépenses ──
-  const totalCourantes=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
-  const totalSalaires=_salairesVerses();
-  const totalDepenses=totalCourantes+totalSalaires;
+  const totalCourantes=_fin.courantes;
+  const totalSalaires=_fin.salaires;
+  const totalDepenses=_fin.depenses;
   const depByMotif={};
   exps.forEach(e=>{const m=e.motif||'Divers';depByMotif[m]=(depByMotif[m]||0)+Number(e.amount||0);});
   if(totalSalaires>0) depByMotif['Salaires et primes']=(depByMotif['Salaires et primes']||0)+totalSalaires;
-  const soldeOuverture=(DB.settings?.opening_cash||0)+(DB.settings?.opening_bank||0);
-  const soldeNet=soldeOuverture+totalRecettes-totalDepenses;
+  const soldeOuverture=_fin.ouverture;
+  const soldeNet=_fin.solde;
   // ── Classement par classe ──
   const byClass=DB.classes.map(cl=>{
     const studs=DB.students.filter(s=>s.cid===cl.id);
@@ -20687,7 +20773,7 @@ R.year_mgmt = () => {
       <div style="font-size:28px;font-weight:800;color:var(--primary)">${yr}</div>
       <button class="btn btn-outline btn-sm" onclick="openYearConfig()">Modifier</button>
     </div>
-    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">${DB.students.length} élève(s) · ${DB.classes.length} classe(s)</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-top:6px">${(DB.students||[]).filter(s=>!s.archived).length} élève(s) · ${(DB.classes||[]).length} classe(s)</div>
   </div>
   <div class="premium-section" style="border-left:4px solid #1f9d6b">
     <div class="premium-section-title">📅 Trimestre en cours</div>
@@ -20803,8 +20889,9 @@ window.openPassageClasse = () => {
     return sw?Math.round(tw/sw):null;
   };
   let totalFail=0, totalPass=0, unknownClasses=[];
-  const rows=DB.classes.map(cl=>{
-    const studs=DB.students.filter(s=>s.cid===cl.id);
+  const rows=(DB.classes||[]).map(cl=>{
+    // Un élève déjà archivé — diplômé, parti — ne repasse pas de classe.
+    const studs=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived);
     if(!studs.length) return '';
     // Sécurité : bloquer les classes dont la progression n'est pas définie
     if(!(cl.name in CLASS_PROG)){
@@ -20857,15 +20944,27 @@ window.executePassage = () => {
   // le passage de classe déplace TOUS les élèves ; l'écran l'exige déjà
   if(!S.user||!['direction'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   let moved=0, diplomed=0;
-  document.querySelectorAll('[data-sid]').forEach(cb=>{
+  // Borné au modal : `[data-sid]` désigne aussi les lignes d'élèves et les
+  // champs de notes de la page restée dessous.
+  const _boite=document.getElementById('MB')||document;
+  _boite.querySelectorAll('input[type="checkbox"][data-sid]').forEach(cb=>{
     if(!cb.checked) return;
-    const s=DB.students.find(x=>x.id===cb.dataset.sid); if(!s) return;
+    const s=(DB.students||[]).find(x=>x.id===cb.dataset.sid); if(!s) return;
     const next=cb.dataset.next;
     if(next==='_notfound_') {
       toast(`Classe de destination introuvable pour ${s.name} — vérifiez les noms de classes`,'error');
       return;
     }
-    if(next==='diplome'){s.diplome=true;diplomed++;pushSync('students','patch',{diplome:true},'id=eq.'+s.id);}
+    if(next==='diplome'){
+      // Diplômé = archivé. `diplome` seul n'était lu nulle part : l'élève
+      // restait dans sa classe, dans les listes, dans le palmarès et dans les
+      // rôles de paiement de l'année suivante. `archived` est le drapeau que
+      // toute l'application filtre déjà, et l'écran des archives permet de le
+      // consulter ou de le rétablir. `diplome` en reste le motif.
+      s.diplome=true; s.archived=true; s.archived_at=today();
+      diplomed++;
+      pushSync('students','patch',{diplome:true,archived:true,archived_at:today()},'id=eq.'+s.id);
+    }
     else{s.cid=next;moved++;pushSync('students','patch',{cid:s.cid},'id=eq.'+s.id);}
   });
   logAudit('passage_classe', `${moved} promu(s) · ${diplomed} diplômé(s)`);
@@ -20886,42 +20985,89 @@ window.confirmNewYear = () => {
       toast('❌ Échec de la sauvegarde de secours — réinitialisation annulée pour éviter une perte de données','error');
       return;
     }
-    DB.settings.archived_years.unshift({year:yr,students:DB.students.length,date:today(),grades:DB.grades.length,snapshot_key:'schoolsafe_archive_'+yr});
-    // Propager la suppression des données de l'année écoulée côté serveur, pour qu'elles ne reviennent pas au prochain sync
-    const _cut=today();
-    pushSync('grades','delete',{},'year=eq.'+yr);
-    pushSync('attendance','delete',{},'date=lte.'+_cut);
-    pushSync('absences','delete',{},'date=lte.'+_cut);
-    pushSync('devoirs','delete',{},'date=lte.'+_cut);
-    pushSync('cahier_texte','delete',{},'date=lte.'+_cut);
-    pushSync('cahier_prep','delete',{},'date_prevue=lte.'+_cut);
-    pushSync('daily_records','delete',{},'date=lte.'+_cut);
-    pushSync('daily_expenses','delete',{},'date=lte.'+_cut);
+    DB.settings.archived_years.unshift({year:yr,students:(DB.students||[]).length,date:today(),grades:(DB.grades||[]).length,snapshot_key:'schoolsafe_archive_'+yr});
+    // Le solde de clôture devient l'à-nouveau de l'exercice suivant. Sans ce
+    // report, la caisse repartait à l'ouverture de l'année PRÉCÉDENTE : toute
+    // la trésorerie accumulée disparaissait des livres au 1er septembre.
+    // Calculé avant la purge, sur les données encore présentes.
+    const _reporte = Math.max(0, _soldeCaisse(yr).solde);
+
+    // Propager la suppression côté serveur, pour que l'année écoulée ne
+    // revienne pas au prochain `loadFromSupabase`.
+    //
+    // Par identifiants, jamais par filtre de date ou d'année. `grades` était
+    // purgée sur `year=eq.<année>` : la colonne existe mais aucune note issue
+    // de la correction d'un devoir ne la renseignait. La requête réussissait
+    // en ne supprimant rien, et TOUTES les cotes de devoirs et d'interros de
+    // l'année précédente revenaient au premier sync, mêlées à celles de la
+    // nouvelle. `payments` et `versements` n'étaient même pas purgées.
+    // Supprimer les lignes que l'application détient, c'est supprimer
+    // exactement ce qui vient d'être archivé — ni plus, ni moins.
+    const _purger = (table, lignes) => {
+      const ids = (lignes||[]).map(x=>x&&x.id).filter(id=>typeof id==='string'&&id&&!/[(),]/.test(id));
+      for (let i=0; i<ids.length; i+=80) {
+        pushSync(table,'delete','','id=in.('+ids.slice(i,i+80).map(encodeURIComponent).join(',')+')');
+      }
+    };
+    _purger('grades',            DB.grades);
+    _purger('attendance',        DB.attendance);
+    _purger('absences',          DB.absences);
+    _purger('devoirs',           DB.devoirs);
+    _purger('cahier_texte',      DB.cahier_texte);
+    _purger('cahier_prep',       DB.cahier_prep);
+    _purger('prevision_matiere', DB.prevision_matiere);
+    _purger('daily_records',     DB.daily_records);
+    _purger('daily_expenses',    DB.daily_expenses);
+    _purger('payments',          DB.payments);
+    // La conduite pèse 15 % du classement : conservée d'une année sur l'autre,
+    // elle jugeait un élève de septembre sur son comportement de l'an passé.
+    _purger('conduct',           DB.conduct);
     // `daily_reports` est délibérément épargné. Le détail des recettes et des
     // dépenses peut être purgé — il est dans l'instantané d'archive — mais le
     // rapport de caisse consolidé et validé est la pièce justificative de
     // l'année. La table en interdit d'ailleurs la suppression : le code la
     // demandait quand même, et l'opération échouait en silence à chaque
     // clôture. Environ deux cents lignes par an, sans poids notable.
+    // `salaries` est épargnée aussi : une fiche de paie doit rester
+    // consultable. `versements` de même — la table interdit la suppression,
+    // et un reçu remis à une famille doit pouvoir être retrouvé des années
+    // après. Pour ces deux tables, c'est la borne d'exercice de
+    // `_soldeCaisse` qui empêche l'argent de l'an dernier de reparaître dans
+    // la caisse de septembre, non une purge.
     // Incrémenter année
     const parts=yr.split('-');
     const newYr=parts.length===2?`${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`:yr;
     DB.settings.year=newYr;
     DB.settings.trimLocks={T1:false,T2:false,T3:false};
+    DB.settings.currentTrimestre='T1';
+    // Le verrou comptable portait sur l'année close ; la nouvelle s'ouvre.
+    DB.settings.year_locked=null;
+    DB.settings.year_locked_date=null;
+    DB.settings.year_locked_by=null;
+    DB.settings.opening_cash=_reporte;
+    DB.settings.opening_bank=0;
     pushSync('settings','upsert',DB.settings);
     // Reset données annuelles
     DB.grades=[];
     DB.attendance=[];
-    DB.payments=DB.students.flatMap(s=>['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:s.id,t,paid:false})));
+    // Les lignes de paiement de la nouvelle année n'étaient créées qu'en
+    // mémoire : la première synchronisation les remplaçait par l'instantané du
+    // serveur, où elles n'existaient pas. En lots de 200 — PostgREST insère un
+    // tableau en une requête, et 300 élèves font 1 200 lignes.
+    DB.payments=(DB.students||[]).filter(s=>!s.archived).flatMap(s=>['T1','T2','T3','inscription'].map(t=>({id:_uid('p_'),sid:s.id,t,paid:false,school_id:window._currentSchoolId||null})));
+    for(let i=0;i<DB.payments.length;i+=200) pushSync('payments','post',DB.payments.slice(i,i+200));
     DB.devoirs=[];
     DB.cahier_texte=[];
     DB.cahier_prep=[];
     DB.prevision_matiere=[];
     DB.absences=[];
+    DB.conduct=[];
     DB.daily_records=[];
     DB.daily_expenses=[];
-    DB.daily_reports=[];
-    DB.versements=[];
+    // `DB.versements` reste en place : rien ne les supprime côté serveur, les
+    // vider ici serait un effacement qui ne tiendrait que jusqu'au prochain
+    // sync — trois minutes de comptes faux, puis le retour de tout.
+    if(typeof _rebuildIdx==='function'){try{_rebuildIdx();}catch(e3){}}
     toast(`🎉 Nouvelle année ${newYr} démarrée !`,'success');
     launchConfetti(60);
     saveToCrypt(); render();
@@ -24940,39 +25086,45 @@ window.archiverAnnee = () => {
     () => {
       // Step 1: Export full archive PDF
       exportArchivePDF();
-      // Step 2: Save snapshot to localStorage
+      // Step 2 : instantané de secours. S'il échoue — quota de localStorage
+      // dépassé par les photos d'élèves, par exemple — on ne verrouille ni
+      // n'archive : un exercice déclaré clos sans sauvegarde derrière lui est
+      // pire que pas de clôture du tout. Et surtout, on ne lance pas le
+      // nettoyage qui suit.
       try {
         const snapshot = {
           year: yr,
           date: today(),
-          students: DB.students.length,
-          classes: DB.classes.length,
-          grades: DB.grades,
-          payments: DB.payments,
-          versements: DB.versements,
-          journal_entries: DB.journal_entries,
-          attendance: DB.attendance,
-          students_data: DB.students,
+          students: (DB.students||[]).length,
+          classes: (DB.classes||[]).length,
+          grades: DB.grades||[],
+          payments: DB.payments||[],
+          versements: DB.versements||[],
+          journal_entries: DB.journal_entries||[],
+          attendance: DB.attendance||[],
+          students_data: DB.students||[],
         };
         localStorage.setItem('schoolsafe_archive_'+yr, JSON.stringify(snapshot));
-        if(!DB.settings.archived_years) DB.settings.archived_years=[];
-        DB.settings.archived_years.unshift({year:yr,date:today(),students:DB.students.length,snapshot_key:'schoolsafe_archive_'+yr});
-        // Verrouillage comptable — empêche toute modification rétroactive
-        DB.settings.year_locked = yr;
-        DB.settings.year_locked_date = today();
-        DB.settings.year_locked_by = S.user.name;
-        // Reporter le solde de clôture comme à-nouveau de l'exercice suivant
-        const _vers = DB.versements||[];
-        const _exps = DB.daily_expenses||[];
-        const _clotureRecettes = _vers.reduce((s,v)=>s+(Number(v.montant)||0),0);
-        const _clotureDepenses = _exps.reduce((s,e)=>s+(Number(e.amount)||0),0) + window._salairesVerses();
-        const _clotureOuv = (DB.settings.opening_cash||0)+(DB.settings.opening_bank||0);
-        DB.settings.opening_cash = Math.max(0, _clotureOuv + _clotureRecettes - _clotureDepenses);
-        DB.settings.opening_bank = 0;
-        pushSync('settings','upsert',DB.settings);
-        saveToCrypt();
-        toast(`📦 Année ${yr} archivée et verrouillée — aucune modification possible`,'success');
-      } catch(e) { console.warn('[ARCHIVE]', e.message); }
+      } catch (e) {
+        console.warn('[ARCHIVE]', e.message);
+        toast('❌ Sauvegarde de secours impossible — archivage annulé, aucune donnée touchée','error');
+        return;
+      }
+      if(!DB.settings.archived_years) DB.settings.archived_years=[];
+      DB.settings.archived_years.unshift({year:yr,date:today(),students:(DB.students||[]).length,snapshot_key:'schoolsafe_archive_'+yr});
+      // Verrouillage comptable — empêche toute modification rétroactive
+      DB.settings.year_locked = yr;
+      DB.settings.year_locked_date = today();
+      DB.settings.year_locked_by = S.user.name;
+      // Aucun mouvement comptable ici. Archiver n'ouvre pas d'exercice : le
+      // report du solde appartient à « nouvelle année », seule opération qui
+      // remet les compteurs à zéro. Cette fonction le faisait aussi, et
+      // comme elle ne change pas l'année en cours, l'à-nouveau s'ajoutait à
+      // des recettes toujours présentes — le solde affiché doublait à chaque
+      // archivage.
+      pushSync('settings','upsert',DB.settings);
+      saveToCrypt();
+      toast(`📦 Année ${yr} archivée et verrouillée — aucune modification possible`,'success');
       // Step 3: After export, cleanup
       setTimeout(()=>runAutoCleanup(true), 1500);
     }
@@ -24992,13 +25144,13 @@ window.exportArchivePDF = () => {
   const totalFees = (fees.T1||0)+(fees.T2||0)+(fees.T3||0);
 
   // Stats
-  const totalStudents = DB.students.length;
-  const totalTeachers = DB.users.filter(u=>u.role==='enseignant').length;
-  const totalClasses = DB.classes.length;
+  const totalStudents = (DB.students||[]).filter(s=>!s.archived).length;
+  const totalTeachers = (DB.users||[]).filter(u=>u.role==='enseignant').length;
+  const totalClasses = (DB.classes||[]).length;
   const totalPaid = (DB.payments||[]).filter(p=>p.paid).length;
-  const totalPayments = DB.payments.length;
+  const totalPayments = (DB.payments||[]).length;
   const payPct = totalPayments?Math.round(totalPaid/totalPayments*100):0;
-  const totalRats = DB.rattrapages.length;
+  const totalRats = (DB.rattrapages||[]).length;
   const ratsOk = (DB.rattrapages||[]).filter(r=>r.status==='paid'||r.done).length;
 
   const CSS = `
@@ -27429,7 +27581,7 @@ window.savePersonnelSalaire = (salId) => {
   const payment_method=$('psal_pay')?.value||'Espèces';
   const notes=($('psal_notes')?.value||'').trim()||null;
   if(!DB.salaries) DB.salaries=[];
-  const id=salId||(DB.salaries.find(s=>!s.teacher_id&&s.person_name===person_name&&s.month===month)||{}).id||('psal'+Date.now());
+  const id=salId||(DB.salaries.find(s=>!s.teacher_id&&s.person_name===person_name&&s.month===month)||{}).id||_uid('psal_');
   const idx=salId?DB.salaries.findIndex(s=>s.id===salId):-1;
   const obj={id, teacher_id:null, person_name, person_role, month,
     amount, bonus, deductions, net, paid, paid_date:paid?today():null,

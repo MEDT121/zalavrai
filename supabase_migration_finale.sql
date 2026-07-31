@@ -294,6 +294,27 @@ CREATE INDEX IF NOT EXISTS idx_scan_log_escort   ON scan_log(date, escort_kind);
 UPDATE inscriptions SET statut = COALESCE(statut, status, 'pending') WHERE statut IS NULL;
 UPDATE sanctions    SET reason = COALESCE(reason, description)       WHERE reason IS NULL;
 
+-- ── grades.year : rattacher chaque note à son année scolaire ───────────────
+--
+--  La colonne existait, mais une note issue de la correction d'un devoir ne
+--  la renseignait pas. La clôture d'année purgeait pourtant les notes sur
+--  `year=eq.<année>` : la requête réussissait sans rien supprimer, et TOUTES
+--  les cotes de devoirs et d'interros de l'année écoulée revenaient au
+--  premier sync, mêlées à celles de la nouvelle. L'application les rattache
+--  désormais à l'écriture ; celles déjà en base sont rattachées ici, d'après
+--  leur date.
+--
+--  L'année scolaire congolaise court de septembre à août : une note du
+--  15/11/2025 appartient à 2025-2026, une note du 12/03/2026 aussi.
+UPDATE grades
+   SET year = CASE
+     WHEN substring(date from 6 for 2) >= '09'
+       THEN substring(date from 1 for 4) || '-' || (substring(date from 1 for 4)::int + 1)::text
+       ELSE (substring(date from 1 for 4)::int - 1)::text || '-' || substring(date from 1 for 4)
+   END
+ WHERE year IS NULL
+   AND date ~ '^\d{4}-\d{2}';
+
 -- ══════════════════════════════════════════════════════════════════════════
 --  6 — VÉRIFICATION
 --
