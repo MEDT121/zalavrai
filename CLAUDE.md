@@ -757,10 +757,50 @@ lecture s'en sert.**
 
 Cinq pages statiques — `site.html`, `ecole.html`, `programmes.html`,
 `galerie.html`, `contact.html` — plus `palmares.html`, déployées sur GitHub
-Pages par `.github/workflows/pages.yml`. Charte dans `assets/site.css` :
-émeraude `#211d17`, crème `#f5efe2`, laiton `#c0962e`, Playfair Display +
-Mulish. **Aucune couleur nouvelle** dans une page ajoutée : tout vient des
-variables.
+Pages par `.github/workflows/pages.yml`.
+
+### La palette de l'école : gris · blanc · émeraude
+
+Tout est dans `assets/site.css`. **Aucune couleur nouvelle** dans une page
+ajoutée : une valeur écrite en dur échappe au prochain réaccord.
+
+```
+--emerald #0b5c42  --emerald-deep #063c2b  --emerald-soft #14785a   fonds sombres
+--white   #ffffff  --surface      #f4f6f5  --surface-2    #e8ecea   surfaces claires
+--accent  #0e7a56  --accent-deep  #095c41  --accent-light #83debc   accents
+--ink     #14201c  --muted        #5c6a66  --line rgba(20,32,28,.13)
+```
+
+Le site était en **laiton doré sur crème**, et sa variable `--emerald` valait
+`#211d17` — un brun sombre, pas un émeraude. Les noms mentaient : `--brass`,
+`--cream`, `--paper` sont devenus `--accent`, `--surface`, `--white`, et les
+classes `.btn-brass`/`.brass-rule` sont `.btn-accent`/`.accent-rule`.
+
+**Changer les variables ne suffisait pas** : 57 couleurs chaudes étaient
+écrites en dur dans le CSS et les pages — elles seraient restées dorées.
+La section maternelle avait sa propre palette corail/orange/violet ; elle
+tourne désormais autour de l'émeraude, car une section pour enfants a besoin
+de variété, pas de discordance.
+
+Contrastes vérifiés : blanc sur émeraude **8,0:1**, accent foncé sur blanc
+**8,0:1**, boutons **5,3:1**, texte secondaire **5,7:1**. `--accent-light`
+sur `--emerald` était à 4,42:1 — sous le seuil AA — d'où `#83debc` et non
+`#6fd3ac`.
+
+Le gris n'est pas neutre pur : une pointe de vert le rattache à l'émeraude,
+sans quoi il paraîtrait sale à son contact.
+
+### Une seule adresse
+
+Trois variantes coexistaient — « Kabambare A4, Ndolo », « Kabambare A4,
+Quartier Ndolo » — dont aucune n'était la bonne. L'école est au
+**Kabambare 4367, Quartier Bon Marché, Commune de Barumbu**. Corrigé en
+13 endroits.
+
+Les effectifs de la page d'accueil (« 450+ élèves ») sont désormais un
+**repli** : ils sont remplacés par les chiffres réels dès qu'un palmarès est
+publié. Deux pages du même site annonçant des nombres différents, une famille
+ne sait plus lequel croire.
 
 ### La page ne parle pas à la base
 
