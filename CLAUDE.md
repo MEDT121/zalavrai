@@ -953,6 +953,51 @@ du temps — seule chose que l'autre savait de plus.
 
 ---
 
+## Les documents portent l'école, l'application porte le logiciel
+
+Même distinction que pour le nom : SchoolSafe est le logiciel, Le Sage est
+l'école. **Les documents imprimés représentent l'école** — ils en portent
+donc les couleurs, gris · blanc · émeraude, et non le bleu de l'interface.
+
+```
+#243a6b → #0b5c42    #205fae → #095c41    #2f7bd6 → #0e7a56
+#0d2b7a → #063c2b    #dbeafe → #dff2ea    #eaf3fc → #eaf5f0
+```
+
+210 valeurs reprises sur 42 fonctions, **sans toucher un seul écran**.
+
+### Comment la frontière a été tracée
+
+Ni les blocs `<style>` ni les bornes de fonction ne donnent une frontière
+fiable : le comptage d'accolades ment sur les gabarits multilignes — 587
+lignes annoncées pour une fonction qui en fait 130. Deux signaux sûrs, dont
+on prend l'union :
+
+1. un littéral contenant `<!DOCTYPE html`, `@media print` ou `@page` **est**
+   un document ;
+2. entre la déclaration d'une fonction et **son propre** appel à `dlPDF` /
+   `document.write`, tout appartient à cette fonction.
+
+Vérifié avant d'écrire : 10 % du fichier couvert, 42 fonctions, **aucun
+renderer d'écran** (`R.*`, `dashboard*`) pris dans une zone.
+
+Contrastes : blanc sur en-tête **8,0:1**, titre sur papier **8,0:1**, texte
+sur aplat clair **6,9:1**, blanc sur carte élève **12,4:1**.
+
+### Ce qui ne change PAS
+
+- **L'interface de l'application** garde son bleu. C'est le logiciel.
+- **L'or des cartes** (`--ss-gold`) : c'est le jaune du drapeau congolais
+  sous la mention « République Démocratique du Congo », pas un choix de
+  charte.
+- **Les couleurs par classe** (`card_color`, `CARDPAL`) : distinguer les
+  classes est une fonction, pas un défaut d'harmonie. Seul le **défaut**
+  passe à l'émeraude, et « Émeraude (école) » ouvre désormais la palette.
+- **Les couleurs sémantiques** — vert de paiement, rouge de dette, orange
+  d'alerte. Elles disent un état, pas une identité.
+
+---
+
 ## L'emblème sur les documents officiels
 
 `node tools/audit-logo.mjs`
