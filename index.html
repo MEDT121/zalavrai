@@ -11862,7 +11862,7 @@ R.palmares = () => {
 
   let anyContent=false;
   classes.forEach(cl=>{
-    const students=DB.students.filter(s=>s.cid===cl.id);
+    const students=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived);
     if(!students.length) return;
     anyContent=true;
     const allMatieres=getClassMatieres(cl.id);
@@ -11884,7 +11884,7 @@ R.palmares = () => {
       });
       const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
+      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:3;
       const condPct=Math.round(condAvg*25);
       const total=Math.round(moyPct*0.85+condPct*0.15);
       return {...s,moyPct,condAvg,condPct,total,retards,gradeCount:sumCoeff};
@@ -11995,7 +11995,7 @@ R.palmares_parent = () => {
     if(!hasPaid) return `<div class="premium-section" style="border-left:4px solid #ef5b5b"><div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:14px;height:14px;border-radius:4px;background:#ef5b5b"></div></div><div><div style="font-weight:700">${esc(k.name)}</div><div style="font-size:13px;color:#dc2626">Frais à régler pour accéder au palmarès</div></div></div></div>`;
 
     const cl=gc(k.cid); if(!cl) return '';
-    const students=DB.students.filter(s=>s.cid===cl.id);
+    const students=(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived);
     const matieres=getClassMatieres(cl.id);
     const [cc,cbg]=clsColor(cl.name);
     const getCouverture=matName=>{
@@ -12010,7 +12010,7 @@ R.palmares_parent = () => {
       const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
       const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
+      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:3;
       const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
       return {...s,moyPct,total};
     }).sort((a,b)=>b.total-a.total);
@@ -13198,7 +13198,7 @@ window.studentAvgPct = (sid, matieres, trimester) => {
 window.getRankInClass = (sid) => {
   const s=DB.students.find(x=>x.id===sid); if(!s) return null;
   const cl=gc(s.cid); if(!cl) return null;
-  const students=DB.students.filter(x=>x.cid===cl.id);
+  const students=(DB.students||[]).filter(x=>x.cid===cl.id&&!x.archived);
   const matieres=getClassMatieres(cl.id);
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const score=x=>{
@@ -20928,7 +20928,7 @@ window.genererPalmaresAnnuel = () => {
       const moyPct=sumC?Math.round(totalPct/sumC):0;
       const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:0;
+      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:3;
       const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
       return {...s,moyPct,total};
     }).sort((a,b)=>b.total-a.total);
@@ -21360,12 +21360,12 @@ window.printReport = (type) => {
     const isBilingual=cl&&cl.teacher_id&&cl.teacher_id_en;
     const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
     const profEN=isBilingual?gu(cl.teacher_id_en):null;
-    const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+    const students=cl?(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived):[];
     const ranked=students.map(s=>{
       const moy=studentAvgPct(s.id,matieres);
       const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
       const cm={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-      const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:0;
+      const cAvg=conduct.length?conduct.reduce((a,c)=>a+(cm[c.score]||0),0)/conduct.length:3;
       return{id:s.id,moy,cond:Math.round(cAvg*25)};
     }).sort((a,b)=>(b.moy*0.85+b.cond*0.15)-(a.moy*0.85+a.cond*0.15));
     const pos=ranked.findIndex(r=>r.id===k.id)+1;
@@ -21559,7 +21559,7 @@ window.downloadBulletin = (sid, _forceTrim) => {
   const profFR=isBilingual?gu(cl.teacher_id):cl?gu(cl.teacher_id):null;
   const profEN=isBilingual?gu(cl.teacher_id_en):null;
   const titulaire=cl?(gu(cl.titulaire_id)||profFR):null;
-  const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+  const students=cl?(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived):[];
   // Rank with coefficients
   const ranked=students.map(s=>{
     let tw=0,sw=0;
@@ -22908,7 +22908,7 @@ R.profil_enseignant = () => {
   const cl=DB.classes.find(c=>c.teacher_id===u.id||c.teacher_id_en===u.id);
   const langLabel=cl?(cl.teacher_id===u.id?'Français':'Anglais'):'—';
   const isTitulaire=cl&&cl.titulaire_id===u.id;
-  const students=cl?DB.students.filter(s=>s.cid===cl.id):[];
+  const students=cl?(DB.students||[]).filter(s=>s.cid===cl.id&&!s.archived):[];
   const myDevoirs=(DB.devoirs||[]).filter(d=>d.cid===(cl?.id)).length;
   const myRats=(DB.rattrapages||[]).filter(r=>r.teacher_id===u.id).length;
   const myCahier=(DB.cahier_texte||[]).filter(e=>e.by===u.id).length;
