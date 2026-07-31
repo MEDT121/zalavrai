@@ -15155,7 +15155,9 @@ R.cahier_texte = () => {
     const cl=gc(k.cid); if(!cl) return;
     const entries=(DB.cahier_texte||[]).filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
-    const upcoming=(DB.cahier_prep||[]).filter(e=>e.cid===k.cid&&e.status!=='fait'&&e.validated).sort((a,b)=>(a.date_prevue||'').localeCompare(b.date_prevue||''));
+    const upcoming=(DB.cahier_prep||[]).map(_prepLire).filter(Boolean)
+      .filter(e=>e.cid===k.cid&&!e._fait&&e._valide)
+      .sort((a,b)=>String(a._date||'').localeCompare(String(b._date||'')));
     const [cc]=clsColor(cl.name);
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${cc}18;border-radius:14px;border-left:4px solid ${cc};margin-bottom:10px">
@@ -15575,6 +15577,7 @@ window.validerPrep = (id) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const p=(DB.cahier_prep||[]).find(x=>x.id===id); if(!p){toast('Fiche introuvable','error');return;}
   if(p.validated){toast('Fiche déjà visée','info');return;}
+  const _lu=_prepLire(p);
   p.validated=true; p.visa_by=S.user.name; p.visa_date=today();
   pushSync('cahier_prep','patch',{validated:true,visa_by:p.visa_by,visa_date:p.visa_date},'id=eq.'+id);
   // La demande d'approbation correspondante se referme, sinon elle resterait
@@ -15583,42 +15586,60 @@ window.validerPrep = (id) => {
     .forEach(a=>{ a.status='approved'; pushSync('approbations','patch',{status:'approved'},'id=eq.'+a.id); });
   const ens=gu(p.teacher_id||p.by);
   if(ens){
-    const n={id:_uid('n_'),uid:ens.id,msg:`✅ Préparation visée — ${p.matiere||''} « ${(p.titre||'').slice(0,50)} »`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    const n={id:_uid('n_'),uid:ens.id,msg:`✅ Préparation visée — ${p.matiere||''} « ${_lu._titre.slice(0,50)} »`,time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
     (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   }
-  logAudit('cahier_prep_visa', `${p.matiere||''} · ${(p.titre||'').slice(0,40)}`, id);
+  logAudit('cahier_prep_visa', `${p.matiere||''} · ${_lu._titre.slice(0,40)}`, id);
   toast('Fiche visée','success'); saveToCrypt(); render();
 };
 
 window.markCahierPrepDone = (id) => {
-  const prep=(DB.cahier_prep||[]).find(e=>e.id===id);
-  if(!prep||prep.by!==S.user.id) return;
-  const mc=getMyClass(); if(!mc.cl||mc.cl.id!==prep.cid) return;
-  prep.status='fait';
+  const brut=(DB.cahier_prep||[]).find(e=>e.id===id);
+  // `prep.by !== S.user.id` seul : une fiche remplie depuis le profil porte
+  // l'auteur dans `teacher_id`, et le bouton ne faisait alors RIEN — sans
+  // même un message. On refuse en le disant.
+  if(!brut){toast('Fiche introuvable','error');return;}
+  const prep=_prepLire(brut);
+  if(prep._auteur!==S.user.id){toast('Cette fiche n\'est pas la vôtre','error');return;}
+  const mc=getMyClass(); if(!mc.cl||mc.cl.id!==prep.cid){toast('Fiche d\'une autre classe','error');return;}
+  if(prep._fait){toast('Leçon déjà publiée','info');return;}
+
+  // Ce qui part au cahier de texte : le corps réconcilié. `prep.content` est
+  // indéfini sur une fiche EPST — `.slice()` levait une erreur et le bouton
+  // restait sans effet visible. La synthèse est ce que la classe retient ;
+  // à défaut, le sujet de la leçon.
+  const publie = (brut.synthese || brut.developpement || prep._corps || prep._titre || '').trim()
+                 || prep._titre || 'Leçon';
+  brut.status='fait'; brut.statut='fait';
   const ctEntry={
-    id:_uid('ct_'), cid:prep.cid, matiere:prep.matiere, content:prep.content, lang:prep.lang,
+    id:_uid('ct_'), cid:prep.cid, matiere:prep.matiere||'', content:publie, lang:prep.lang||mc.lang,
     date:today(), by:S.user.id, status:'published', school_id:window._currentSchoolId||null
   };
   (DB.cahier_texte=DB.cahier_texte||[]).unshift(ctEntry);
-  prep.ct_id=ctEntry.id;
-  pushSync('cahier_prep','patch',{status:'fait',ct_id:ctEntry.id,updated_at:today()},'id=eq.'+prep.id);
+  brut.ct_id=ctEntry.id;
+  pushSync('cahier_prep','patch',{status:'fait',statut:'fait',ct_id:ctEntry.id,updated_at:today()},'id=eq.'+id);
   pushSync('cahier_texte','post',ctEntry);
   const kids=(DB.students||[]).filter(s=>s.cid===prep.cid&&s.pid);
   const pids=[...new Set(kids.map(k=>k.pid))];
   pids.forEach(pid=>{
     const n={id:_uid('n_'),uid:pid,
-      msg:`📖 Cahier de texte — ${mc.cl.name} · ${prep.matiere} : ${prep.content.slice(0,60)}${prep.content.length>60?'...':''}`,
+      msg:`📖 Cahier de texte — ${mc.cl.name} · ${prep.matiere||''} : ${publie.slice(0,60)}${publie.length>60?'...':''}`,
       time:nowTime(),date:today(),read:false,type:'academic',school_id:window._currentSchoolId||null};
     (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
-  logAudit('cahier_prep_done', `${mc.cl.name} · ${prep.matiere}`, prep.id);
+  logAudit('cahier_prep_done', `${mc.cl.name} · ${prep.matiere||''}`, id);
   toast('Leçon publiée dans le cahier de texte','success');
   saveToCrypt(); render();
 };
 
 window.deleteCahierPrep = (id) => {
-  const prep=(DB.cahier_prep||[]).find(e=>e.id===id);
-  if(!prep||prep.by!==S.user.id) return;
+  const brut=(DB.cahier_prep||[]).find(e=>e.id===id);
+  if(!brut){toast('Fiche introuvable','error');return;}
+  const prep=_prepLire(brut);
+  // Sa propre fiche, ou n'importe laquelle pour la Direction.
+  if(prep._auteur!==S.user.id && !['direction','direction2'].includes(S.user?.role)){
+    toast('Accès non autorisé','error');return;
+  }
   showC('Supprimer cette préparation ?','', () => {
     DB.cahier_prep=DB.cahier_prep.filter(e=>e.id!==id);
     pushSync('cahier_prep','delete',{},'id=eq.'+id);
@@ -23658,13 +23679,18 @@ R.profil_enseignant = () => {
     <!-- ══ CAHIER DE PRÉPARATION ══ -->
     <div data-ptab="prep" data-ptab-mode="dark" style="${tab==='prep'?'':'display:none'}">
       ${(()=>{
-        const myPreps=(DB.cahier_prep||[]).filter(p=>p.teacher_id===u.id).sort((a,b)=>(b.date_lesson||b.semaine||'').localeCompare(a.date_lesson||a.semaine||''));
+        // `p.teacher_id===u.id` seul rendait invisibles ici les fiches créées
+        // depuis l'écran de navigation, où l'auteur s'écrit `by`. L'inverse du
+        // défaut corrigé sur l'autre écran : même table, deux vocabulaires.
+        const myPreps=(DB.cahier_prep||[]).map(_prepLire).filter(Boolean)
+          .filter(p=>p._auteur===u.id)
+          .sort((a,b)=>String(b._date||'').localeCompare(String(a._date||'')));
         const selMonth=window._prepMonth||today().slice(0,7);
         const selMode=window._prepMode||'all';
         const EDAY_L=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
         const EPER=['07h30–08h30','08h30–09h30','09h30–10h30','10h30–11h30','11h30–12h30','14h00–15h00','15h00–16h00'];
         const filtered=myPreps.filter(p=>{
-          const inMonth=!selMonth||(p.date_lesson||p.semaine||'').startsWith(selMonth);
+          const inMonth=!selMonth||String(p._date||p.semaine||'').startsWith(selMonth);
           const modeOk=selMode==='all'||(selMode==='linked'?!!p.linked_day:!p.linked_day);
           return inMonth&&modeOk;
         });
@@ -23731,7 +23757,7 @@ R.profil_enseignant = () => {
 
         <!-- Stats rapides -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;animation:fadeInUp .25s .08s ease both">
-          ${[[myPreps.length,t('Total','Total'),'#5b9be8'],[myPreps.filter(p=>p.statut==='finalise').length,t('Finalisées','Final'),'#34d399'],[myPreps.filter(p=>!p.statut||p.statut==='brouillon').length,t('Brouillons','Drafts'),'#fbbf24']].map(([n,lbl,c])=>`
+          ${[[myPreps.length,t('Total','Total'),'#5b9be8'],[myPreps.filter(p=>p._valide).length,t('Visées','Approved'),'#34d399'],[myPreps.filter(p=>!p._valide).length,t('En attente de visa','Awaiting visa'),'#fbbf24']].map(([n,lbl,c])=>`
           <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:12px;text-align:center;border:1px solid rgba(255,255,255,.08)">
             <div style="font-size:22px;font-weight:900;color:${c}">${n}</div>
             <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${lbl}</div>
@@ -23742,13 +23768,13 @@ R.profil_enseignant = () => {
         ${filtered.length?filtered.map((p,pi)=>{
           const dayLbl=p.linked_day?EDAY_L[['lun','mar','mer','jeu','ven','sam'].indexOf(p.linked_day)]||'':'';
           const perLbl=p.linked_period!=null?EPER[p.linked_period]||'':'';
-          const statut=p.statut||'brouillon';
+          const statut=p._statut||'brouillon';
           return `<div class="pt-glass" style="border-radius:16px;padding:14px;margin-bottom:12px;animation:fadeInUp .3s ${pi*.06}s ease both;border-left:3px solid ${statClr[statut]||'rgba(255,255,255,.2)'}">
             <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
               <div style="width:38px;height:38px;border-radius:11px;background:${p.linked_day?'rgba(32,95,174,.35)':'rgba(155,111,212,.3)'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${p.linked_day?'🔗':'✏️'}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.titre||t('Sans titre','Untitled'))}</div>
-                <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px">${esc(p.matiere||'—')} · ${p.date_lesson||p.semaine||'—'}${dayLbl?' · '+dayLbl+(perLbl?' '+perLbl:''):''}</div>
+                <div style="font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p._titre||t('Sans titre','Untitled'))}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:2px">${esc(p.matiere||'—')} · ${esc(p._date||p.semaine||'—')}${dayLbl?' · '+dayLbl+(perLbl?' '+perLbl:''):''}</div>
               </div>
               <span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:${statClr[statut]||'rgba(255,255,255,.12)'};color:#1a2333;white-space:nowrap;flex-shrink:0">${statLbl[statut]||statut}</span>
             </div>

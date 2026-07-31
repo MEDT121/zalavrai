@@ -147,6 +147,31 @@ verdict(!top10.some(t => (DB.students.find(x=>x.id===t.id)||{}).archived),
 verdict(top10.every(t => t.cid),
   '`cid` présent dans la réponse — le podium de classe des tableaux de bord en dépend');
 
+// ── 4. Les deux générations de fiches de préparation se lisent-elles ? ─────
+//
+//  `cahier_prep` porte deux vocabulaires nés à des époques différentes. Les
+//  colonnes des deux existent, donc rien n'est rejeté — mais chaque écran ne
+//  lisait que la moitié de sa table, et une fiche remplie dans le profil
+//  paraissait au suivi de la Direction sans titre, sans contenu, datée
+//  « Invalid Date ». `_prepLire` réconcilie à la lecture.
+console.log('\n── 4. Les deux générations de fiches de préparation se lisent-elles ?\n');
+const fiches = [
+  { id:'p1', cid:'c1', matiere:'Mathématiques', content:'Introduction aux fractions',
+    date_prevue:'2026-02-10', by:'t1', status:'planifie', validated:true },          // écran de navigation
+  { id:'p2', cid:'c1', matiere:'Français', titre:'L\'accord du participe passé',
+    date_lesson:'2026-02-12', teacher_id:'t1', statut:'brouillon',
+    revision:'Rappel du participe', developpement:'Les trois cas', synthese:'Règle au tableau' },
+];
+for (const f of fiches) {
+  const l = _prepLire(f);
+  const dateOk  = !!l._date && !isNaN(new Date(l._date + 'T12:00'));
+  const titreOk = !!l._titre && l._titre !== 'Sans titre';
+  const auteurOk = l._auteur === 't1';
+  const corpsOk = !!l._corps;
+  verdict(dateOk && titreOk && auteurOk && corpsOk,
+    `${f.id} (${f.content ? 'ancien' : 'EPST'}) → « ${l._titre.slice(0,34)} » · ${l._date} · auteur ${l._auteur||'?'}`);
+}
+
 console.log(ko ? `\n✗ ${ko} incohérence(s) — un parent verrait deux chiffres différents pour le même enfant`
                : '\n✓ Les cotes, le bulletin et les deux classements donnent les mêmes nombres');
 process.exit(ko ? 1 : 0);
