@@ -789,6 +789,7 @@ tools/audit-schema.mjs      code ↔ SQL — après TOUTE nouvelle écriture
 tools/audit-invariant.mjs   les trois conditions ci-dessus
 tools/audit-gardes.mjs      mutations `window` sans contrôle de rôle
 tools/audit-mort.mjs        fonctions exposées sans appelant
+tools/verif-coherence.mjs   la chaîne de calcul, EXÉCUTÉE (voir plus bas)
 ```
 
 `audit-gardes` signale quatre fonctions : `_seedFeeTypes`, `genRecuNo`,
@@ -800,6 +801,46 @@ attente : ne pas les « corriger » à la prochaine passe.
 **Une seule implémentation du découpage en lots** : `_bulkLot(table, op,
 payload, ids)` → `id=in.(…)` par tranches de 60, identifiants dangereux
 écartés. `_patchLot` en est l'enveloppe. La clôture d'année s'en sert aussi.
+
+---
+
+## La chaîne de calcul : l'exécuter, pas la relire
+
+`node tools/verif-coherence.mjs`
+
+> « Imagine un parent voie les cotes de devoirs de son enfant et les cotes des
+> interros, et à la fin son enfant ne réussit pas. »
+
+Tout le reste peut être juste : si les cotes affichées ne font pas la moyenne
+affichée, ou si deux écrans classent le même enfant différemment, la famille
+cesse d'y croire. L'outil charge les vraies fonctions de `index.html` dans
+Node avec un navigateur en carton, leur donne un jeu d'essai dont on connaît
+la réponse à la main, et confronte `matAvgPct`, `_totalSection`, `_classer`
+et `getSchoolTop10`.
+
+### Ce qu'il a trouvé
+
+`getSchoolTop10` **réimplémentait** la formule de `_classer` au lieu de
+l'appeler. Les deux copies avaient divergé sur trois points :
+
+| | `_classer` | copie de `getSchoolTop10` |
+|---|---|---|
+| conduite | filtrée par trimestre | **toutes époques confondues** |
+| élèves archivés | écartés par l'appelant | **inclus** |
+| `cid` dans la réponse | oui | **absent** |
+
+Mesuré : un élève excellent au T1 et mauvais au T2 valait **79 au palmarès du
+T1 et 73 au Top 10** — premier sur un écran, deuxième sur l'autre. Et le major
+diplômé l'an dernier trônait encore en tête de l'école. L'absence de `cid`
+vidait le podium de classe de deux tableaux de bord.
+
+**Une seule formule de classement** : `_classer(eleves, matieresDe, trim)` →
+`moyenne pondérée × 0,85 + conduite × 0,15`, conduite absente = « Bien »,
+ex aequo au même rang. `getSchoolTop10` n'en est plus qu'une présentation.
+
+Même famille que « une seule formule de solde » plus haut. Quand deux écrans
+répondent à la même question, ils doivent appeler le même code — pas le
+recopier.
 
 ---
 

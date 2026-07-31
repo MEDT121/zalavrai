@@ -13418,21 +13418,25 @@ window._rangDe = (classement, sid) => {
   return l ? { rang:l.rang, sur:classement.length, moyPct:l.moyPct, total:l.total } : null;
 };
 
+// Top 10 de l'école. Une seule formule de classement dans l'application :
+// celle de `_classer`. Cette fonction en réimplémentait une copie, qui avait
+// divergé sur deux points, mesurés sur un jeu d'essai :
+//
+//   · la conduite n'y était pas filtrée par trimestre. Un élève excellent au
+//     T1 et mauvais au T2 était noté sur la moyenne des deux — 79 au palmarès
+//     du T1, 73 au Top 10. Premier sur un écran, deuxième sur l'autre.
+//   · les élèves archivés — les diplômés de l'an dernier — n'étaient pas
+//     écartés : le major sorti l'année précédente trônait encore en tête.
+//
+// `cid` manquait aussi à la réponse, alors que deux tableaux de bord filtrent
+// dessus pour montrer le podium d'une classe : ils étaient toujours vides.
 window.getSchoolTop10 = () => {
   const trim = DB.settings.currentTrimestre || 'T1';
-  const condMap = {Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-  return (DB.students||[]).map(s => {
-    const cl = gc(s.cid); if(!cl) return null;
-    const matieres = getClassMatieres(s.cid); if(!matieres.length) return null;
-    let totalW=0, sumC=0;
-    matieres.forEach(m => { const a=matAvgPct(s.id,m.name,trim); if(a!==null){const c=m.coeff||1;totalW+=a*c;sumC+=c;} });
-    if(!sumC) return null;
-    const moyPct = Math.round(totalW/sumC);
-    const condArr = (DB.conduct||[]).filter(c=>c.sid===s.id);
-    const condAvg = condArr.length ? condArr.reduce((sum,c)=>sum+(condMap[c.score]||0),0)/condArr.length : 3; // défaut "Bien" si aucune conduite — ne pas pénaliser
-    const score = Math.round(moyPct*0.85 + Math.round(condAvg*25)*0.15);
-    return {id:s.id, name:s.name, cl, moyPct, score};
-  }).filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,10);
+  const eleves = (DB.students||[]).filter(s => !s.archived && gc(s.cid) && getClassMatieres(s.cid).length);
+  return _classer(eleves, s => getClassMatieres(s.cid), trim)
+    .slice(0, 10)
+    .map(l => ({ id:l.id, name:l.nom, cid:l.cid, cl:gc(l.cid),
+                 moyPct:l.moyPct, condPct:l.condPct, score:l.total, rang:l.rang }));
 };
 
 window._gradeTrim = 'T1';
