@@ -7113,7 +7113,13 @@ function dashboardParent() {
       </div>
       <div class="dp-section-action" onclick="go('palmares_parent')" role="button" tabindex="0">Bulletin</div>
     </div>
-    ${parentRecentGrades.map(g=>{const noteNum=+g.note;const noteColor=noteNum>=14?'var(--green)':noteNum>=10?'var(--gold)':'var(--pink)';return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:${noteColor}18;color:${noteColor};font-size:11px;font-weight:800">${g.note}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(g.matiere||'—')}</div><div class="dp-list-sub">${esc(g.kidName)} · ${g.type?esc(g.type):''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:${noteColor}18;color:${noteColor}">${g.note}/20</span></div>`;}).join('')}
+    ${parentRecentGrades.map(g=>{
+      // La couleur suit le POURCENTAGE, jamais la note brute : un barème
+      // n'est pas toujours sur 20, et une note sans le sien ne dit rien.
+      const pc=gradePct(g);
+      const noteColor=pc>=70?'var(--green)':pc>=50?'var(--gold)':'var(--pink)';
+      const poids=Number(g.weight)||1;
+      return `<div class="dp-list-item"><div class="dp-list-avatar" style="background:${noteColor}18;color:${noteColor};font-size:11px;font-weight:800">${pc}%</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(g.matiere||'—')} <span style="font-size:11px;font-weight:700;color:var(--text-secondary)">${g.note}/${g.max||20}</span></div><div class="dp-list-sub">${esc(g.kidName)} · ${g.type?esc(g.type):''}${poids>1?` · compte ×${poids}`:''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:${noteColor}18;color:${noteColor}">${esc(gTrim(g)||'')}</span></div>`;}).join('')}
   </div>` : ''}
 
   ${kidActiveSanctions.length ? `
@@ -13321,6 +13327,26 @@ window.getRankInClass = (sid) => {
 // matières sur lesquelles le noter — ce qui permet de classer une classe sur
 // un sous-ensemble de matières, ou tout un cycle où chaque classe a les
 // siennes.
+// Total d'un ensemble de matières pour un élève, sur un trimestre donné ou
+// sur l'année. Rend le total pondéré, le maximum atteignable et le
+// pourcentage — les trois chiffres qu'un bulletin doit montrer ensemble.
+window._totalSection = (sid, mats, trim) => {
+  let tot = 0, max = 0, comptees = 0;
+  (mats||[]).forEach(m => {
+    const a = matAvgPct(sid, m.name, trim);
+    if (a === null) return;                 // pas de note : la matière ne compte pas
+    const c = m.coeff || 1;
+    tot += a * c; max += 100 * c; comptees++;
+  });
+  return { tot: Math.round(tot), max, pct: max ? Math.round(tot/max*100) : null,
+           matieres: (mats||[]).length, notees: comptees };
+};
+
+// Les trois trimestres d'une section, côte à côte : c'est là que se lit une
+// progression, et c'est précisément ce que le total annuel masquait.
+window._sectionParTrimestre = (sid, mats) =>
+  ['T1','T2','T3'].map(tr => Object.assign({ trim: tr }, window._totalSection(sid, mats, tr)));
+
 window._classer = (eleves, matieresDe, trim) => {
   const condMap = {Excellent:4, Bien:3, Moyen:2, Mauvais:1};
   const lignes = (eleves||[]).map(s => {
@@ -21709,8 +21735,14 @@ window.downloadBulletin = (sid, _forceTrim) => {
   const frMats=isBilingual?matieres.filter(m=>m.lang==='fr'):matieres.filter(m=>m.lang!=='en');
   const enMats=matieres.filter(m=>m.lang==='en');
   const coMats=matieres.filter(m=>m.lang==='commun');
-  const calcSection=mats=>{let tot=0,max=0;mats.forEach(m=>{const a=matAvgPct(k.id,m.name);if(a!==null){const c=m.coeff||1;tot+=a*c;max+=100*c;}});return{tot,max};};
+  // Même calcul que le palmarès : deux implémentations finiraient par
+  // annoncer deux totaux différents pour le même enfant.
+  const calcSection=mats=>window._totalSection(k.id, mats, null);
   const frC=calcSection(frMats), enC=calcSection(enMats), coC=calcSection(coMats);
+  // Les trois trimestres par section : c'est là que se lit une progression.
+  const frT=window._sectionParTrimestre(k.id, frMats);
+  const enT=window._sectionParTrimestre(k.id, enMats);
+  const coT=window._sectionParTrimestre(k.id, coMats);
   const grandTot=frC.tot+enC.tot+coC.tot, grandMax=frC.max+enC.max+coC.max;
   const grandPct=grandMax?Math.round(grandTot/grandMax*100):0;
   // Mention EPSP
@@ -21778,7 +21810,7 @@ window.downloadBulletin = (sid, _forceTrim) => {
   </div>
   <table>
     <tr><th style="text-align:left">${isMaternelle?"Domaine d'éveil":'Matière'}</th><th>Coeff</th><th>T1</th><th>T2</th><th>T3</th><th>Moyenne</th><th>${isMaternelle?'Niveau':'Points'}</th></tr>
-    ${isBilingual?`${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`:''} ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''} ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:
+    ${isBilingual?`${frMats.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(frMats,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr><tr><td colspan="2" style="text-align:right;font-size:10.5px;color:#6f6557">🇫🇷 par trimestre →</td>${frT.map(x=>`<td style="font-size:11px;color:#065f46;font-weight:700">${x.pct!==null?x.pct+'%':'—'}</td>`).join('')}<td colspan="2" style="font-size:10.5px;color:#6f6557">progression</td></tr>`:''} ${enMats.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(enMats,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr><tr><td colspan="2" style="text-align:right;font-size:10.5px;color:#6f6557">🇬🇧 par trimestre →</td>${enT.map(x=>`<td style="font-size:11px;color:#205fae;font-weight:700">${x.pct!==null?x.pct+'%':'—'}</td>`).join('')}<td colspan="2" style="font-size:10.5px;color:#6f6557">progression</td></tr>`:''} ${coMats.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(coMats,'📚')}`:''}`:
       `<tr class="section-hdr"><td colspan="7">📚 ${isMaternelle?"Domaines d'éveil":'Toutes les matières'}</td></tr>${sectionRows(matieres,'📚')}`}
     ${isMaternelle?
       `<tr class="total-row"><td colspan="5" style="text-align:right;font-size:13px">SYNTHÈSE GÉNÉRALE →</td><td colspan="2" style="color:${qualBand(grandPct).c};font-size:13px">${qualBand(grandPct).l}</td></tr>`:
@@ -21859,8 +21891,10 @@ window.exportAllBulletinsPDF = (cid, forceTrim) => {
   const pages=students.map(k=>{
     const pos=ranked.findIndex(r=>r.id===k.id)+1;
     const me=ranked.find(r=>r.id===k.id);
-    const calcSec=mats=>{let tot=0,max=0;mats.forEach(m=>{const a=matAvgPct(k.id,m.name);if(a!==null){const c=m.coeff||1;tot+=a*c;max+=100*c;}});return{tot,max};};
+    const calcSec=mats=>window._totalSection(k.id, mats, null);
     const frC=calcSec(frMatsAll),enC=calcSec(enMatsAll),coC=calcSec(coMatsAll);
+    const frT=window._sectionParTrimestre(k.id, frMatsAll);
+    const enT=window._sectionParTrimestre(k.id, enMatsAll);
     const grandTot=frC.tot+enC.tot+coC.tot,grandMax=frC.max+enC.max+coC.max;
     const grandPct=grandMax?Math.round(grandTot/grandMax*100):0;
     const mention=grandPct>=80?'Grande Distinction':grandPct>=70?'Distinction':grandPct>=60?'Satisfaction':grandPct>=50?'Avertissement':'Échec';
@@ -21873,8 +21907,8 @@ window.exportAllBulletinsPDF = (cid, forceTrim) => {
     const latestCond=conducts.length?conducts[conducts.length-1]:null;
     const appEntry=(DB.appreciations||[]).find(a=>a.sid===k.id&&a.cid===cid&&a.trim===trim);
     const tableBody=isBilingual
-      ?`${frMatsAll.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(k.id,frMatsAll,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr>`:''}`
-        +`${enMatsAll.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(k.id,enMatsAll,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr>`:''}`
+      ?`${frMatsAll.length?`<tr class="section-hdr"><td colspan="7">🇫🇷 Section Française</td></tr>${sectionRows(k.id,frMatsAll,'🇫🇷')}<tr class="total-row"><td colspan="5" style="text-align:right">Sous-total FR →</td><td colspan="2" style="color:#065f46">${frC.max?Math.round(frC.tot/frC.max*100)+'%':''} · ${frC.tot}/${frC.max} pts</td></tr><tr><td colspan="2" style="text-align:right;font-size:10.5px;color:#6f6557">🇫🇷 par trimestre →</td>${frT.map(x=>`<td style="font-size:11px;color:#065f46;font-weight:700">${x.pct!==null?x.pct+'%':'—'}</td>`).join('')}<td colspan="2" style="font-size:10.5px;color:#6f6557">progression</td></tr>`:''}`
+        +`${enMatsAll.length?`<tr class="section-hdr"><td colspan="7">🇬🇧 English Section</td></tr>${sectionRows(k.id,enMatsAll,'🇬🇧')}<tr class="total-row"><td colspan="5" style="text-align:right">English Sub-total →</td><td colspan="2" style="color:#205fae">${enC.max?Math.round(enC.tot/enC.max*100)+'%':''} · ${enC.tot}/${enC.max} pts</td></tr><tr><td colspan="2" style="text-align:right;font-size:10.5px;color:#6f6557">🇬🇧 par trimestre →</td>${enT.map(x=>`<td style="font-size:11px;color:#205fae;font-weight:700">${x.pct!==null?x.pct+'%':'—'}</td>`).join('')}<td colspan="2" style="font-size:10.5px;color:#6f6557">progression</td></tr>`:''}`
         +`${coMatsAll.length?`<tr class="section-hdr"><td colspan="7">📚 Matières communes</td></tr>${sectionRows(k.id,coMatsAll,'📚')}`:''}`:
       `<tr class="section-hdr"><td colspan="7">📚 ${isMaternelle?"Domaines d'éveil":'Toutes les matières'}</td></tr>${sectionRows(k.id,matieres,'📚')}`;
     const totRow=isMaternelle
