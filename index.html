@@ -4006,6 +4006,30 @@ async function _tryLoginInner() {
     try { const _sk=await _pbkdf2DeriveKey(pin); _aesKey=_sk; await loadFromCrypt(); } catch(_) {}
   }
 
+  // Aucun compte en mémoire : on sort d'une déconnexion, qui a tout vidé.
+  // Sans ce rechargement, la recherche porte sur un tableau vide et tout
+  // code, même juste, est déclaré incorrect.
+  if ((DB.users||[]).length===0) {
+    if (window._supaConfigured()) {
+      $('PM').textContent = 'Chargement des comptes…';
+      await loadFromSupabase();
+      $('PM').textContent = '';
+    }
+    // Une école vide n'est pas une erreur : c'est l'état du premier jour, et
+    // le code administrateur doit précisément permettre d'y entrer pour
+    // créer les premiers comptes. On ne barre donc la route que si ce code
+    // n'est pas celui qui vient d'être saisi.
+    if ((DB.users||[]).length===0 && (await _hashPin(pin)) !== _MC) {
+      // Distinguer « je n'ai pas pu lire » de « votre code est faux » : le
+      // premier se règle en rétablissant le réseau, le second non.
+      $('PM').textContent = window.DB_ONLINE
+        ? 'Aucun compte enregistré — entrez « admin » et le code administrateur'
+        : 'Comptes indisponibles hors ligne — reconnectez-vous au réseau';
+      setTimeout(()=>{ const e=$('PM'); if(e) e.textContent=''; }, 4000);
+      return;
+    }
+  }
+
   // La vérification du code se fait ici, et nulle part ailleurs. Elle passait
   // autrefois par une Edge Function qui calculait l'empreinte de son côté :
   // les deux implémentations ont divergé, et tous les comptes se sont fermés.
