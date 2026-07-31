@@ -13098,7 +13098,13 @@ window.lireNote = (raw, max) => {
 };
 
 window.matAvgPct = (sid, matiere, trimester) => {
-  let gs = (DB.grades||[]).filter(x => x.sid === sid && x.matiere === matiere);
+  // L'index est reconstruit après chaque mutation ; le scan complet ne sert
+  // que de repli s'il n'a pas encore été bâti. On teste l'existence de
+  // l'index, pas celle de l'entrée : un élève sans note a une entrée vide,
+  // et retomber sur le scan complet pour lui coûterait le plus cher.
+  const _tbl = DB._idx && DB._idx.gradesBySid;
+  let gs = _tbl ? (_tbl[sid] || []).filter(x => x.matiere === matiere)
+                : (DB.grades||[]).filter(x => x.sid === sid && x.matiere === matiere);
   if(trimester) gs = gs.filter(x => gTrim(x) === trimester);
   if(!gs.length) return null;
   let sumWN = 0, sumW = 0;
