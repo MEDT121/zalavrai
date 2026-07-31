@@ -1974,7 +1974,7 @@ window.syncQueue = {
           if (item.retries <= _BACKOFFS.length) {
             item.nextRetry = now + _BACKOFFS[item.retries - 1];
             remaining.push(item);
-          } else { deadCount++; this.park(item); }
+          } else { deadCount++; this.park(item, window._dernierRefus || 'refus répété du serveur'); }
         }
       } catch(e) {
         item.retries = (item.retries || 0) + 1;
@@ -3221,6 +3221,8 @@ window.showSyncQueueDetail = () => {
         ${parked.length} opération(s) mise(s) de côté</div>
       <div style="font-size:12px;color:#78350f;margin-bottom:8px">
         Épuisées après plusieurs tentatives. Elles ne sont pas perdues — réessaie une fois la cause levée.</div>
+      ${[...new Set(parked.map(x=>x&&x.reason).filter(Boolean))].slice(0,2).map(r=>
+        `<div style="font-family:monospace;font-size:10.5px;color:#78350f;background:rgba(255,255,255,.5);border-radius:6px;padding:5px 7px;margin-bottom:6px;word-break:break-word">${esc(String(r).slice(0,180))}</div>`).join('')}
       <button class="btn btn-sm btn-outline" onclick="closeModal();const n=syncQueue.retryParked();toast(n+' opération(s) remise(s) en file','info');autoSync();">
         Remettre en file</button>
     </div>` : '';
