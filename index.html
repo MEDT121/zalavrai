@@ -12046,20 +12046,72 @@ R.palmares_parent = () => {
       return p?p.pourcentage:null;
     };
 
-    const ranked=students.map(s=>{
-      let totalPct=0,sumCoeff=0;
-      matieres.forEach(m=>{const a=matAvgPct(s.id,m.name,trimFilter);if(a!==null){const c=m.coeff||1;totalPct+=a*c;sumCoeff+=c;}});
-      const moyPct=sumCoeff?Math.round(totalPct/sumCoeff):0;
-      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
-      const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
-      const condAvg=conduct.length?conduct.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduct.length:3;
-      const total=Math.round(moyPct*0.85+Math.round(condAvg*25)*0.15);
-      return {...s,moyPct,total};
-    }).sort((a,b)=>b.total-a.total);
+    // Quatre lectures du même trimestre, chacune sur son périmètre.
+    const _mFR = matieres.filter(m=>m.lang==='fr'||m.lang==='commun');
+    const _mEN = matieres.filter(m=>m.lang==='en'||m.lang==='commun');
+    const rgClasse = window._classer(students, ()=>matieres, trimFilter);
+    const rgFR     = _mFR.length ? window._classer(students, ()=>_mFR, trimFilter) : [];
+    const rgEN     = _mEN.length ? window._classer(students, ()=>_mEN, trimFilter) : [];
 
-    const pos=ranked.findIndex(s=>s.id===k.id)+1;
-    const me=ranked.find(s=>s.id===k.id);
+    // Cycle : chaque classe a ses propres matières, d'où la fonction par élève.
+    const _cycleEleves = (DB.students||[]).filter(x=>!x.archived && gc(x.cid) && gc(x.cid).cycle===cl.cycle);
+    const rgCycle = window._classer(_cycleEleves, x=>getClassMatieres(x.cid), trimFilter);
+
+    const rClasse = window._rangDe(rgClasse, k.id);
+    const rFR     = window._rangDe(rgFR, k.id);
+    const rEN     = window._rangDe(rgEN, k.id);
+    const rCycle  = window._rangDe(rgCycle, k.id);
+
+    const ranked = rgClasse;
+    const pos = rClasse ? rClasse.rang : 0;
+    const me  = rClasse ? {moyPct:rClasse.moyPct, total:rClasse.total} : null;
     const mention=me?getMention(me.total):{l:'—',c:'#a89c8b'};
+
+    // Les quatre rangs côte à côte : le parent voit d'un coup où se situe son
+    // enfant, dans sa classe et dans son cycle, en général et par section.
+    // Tout ce qui concerne l'élève, pas seulement ses notes.
+    const _cond = (DB.conduct||[]).filter(c=>c.sid===k.id && (!trimFilter||!c.trimestre||c.trimestre===trimFilter))
+                    .sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const _abs = typeof getStudentAbsences==='function' ? getStudentAbsences(k.id) : null;
+    const _condLib = {Excellent:['Excellent','#1f9d6b'],Bien:['Bien','#2f7bd6'],Moyen:['Moyen','#d97706'],Mauvais:['Mauvais','#dc2626']};
+    const _pastille = (lib, val, coul) => `<div style="flex:1;min-width:78px;text-align:center;padding:8px 6px;background:var(--bg);border-radius:10px">
+        <div style="font-size:17px;font-weight:800;color:${coul}">${val}</div>
+        <div style="font-size:10.5px;color:var(--text-secondary)">${lib}</div>
+      </div>`;
+    const blocDetails = `
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${_pastille('à l\'heure', _abs?Math.max(0,_abs.total-_abs.absent-_abs.excused-_abs.late):'—', '#1f9d6b')}
+        ${_pastille('retards', _abs?_abs.late:'—', '#d97706')}
+        ${_pastille('absences', _abs?_abs.absent:'—', '#dc2626')}
+        ${_pastille('excusées', _abs?_abs.excused:'—', '#2f7bd6')}
+      </div>
+      <div style="font-size:10.5px;color:var(--text-muted);margin:-4px 0 10px">Présences comptées sur l'année, non sur le trimestre.</div>
+      ${_cond.length?`<div style="background:var(--bg);border-radius:12px;padding:10px 12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">Conduite${trimFilter?' — '+trimFilter:''}</div>
+        ${_cond.slice(0,4).map(c=>{const [lib,coul]=_condLib[c.score]||[c.score,'#6f6557'];
+          return `<div style="display:flex;gap:8px;align-items:baseline;font-size:12px;padding:3px 0">
+            <span style="font-weight:700;color:${coul}">${esc(lib)}</span>
+            <span style="color:var(--text-secondary);flex:1;min-width:0">${esc(c.remark||'')}</span>
+            <span style="font-size:10.5px;color:var(--text-muted);white-space:nowrap">${esc(c.date||'')}</span>
+          </div>`;}).join('')}
+        ${_cond.length>4?`<div style="font-size:10.5px;color:var(--text-muted);padding-top:4px">+ ${_cond.length-4} autre(s)</div>`:''}
+      </div>`:`<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:12px">Aucune note de conduite${trimFilter?' pour '+trimFilter:''} — comptée « Bien » dans le classement.</div>`}`;
+
+    const _carte = (lib, r, coul) => `<div style="flex:1;min-width:104px;background:${coul}14;border:1.5px solid ${coul}44;border-radius:12px;padding:10px 8px;text-align:center">
+        <div style="font-size:10.5px;font-weight:700;color:${coul};text-transform:uppercase;letter-spacing:.04em">${lib}</div>
+        ${r ? `<div style="font-size:21px;font-weight:900;color:${coul};line-height:1.15;margin:2px 0">${r.rang}<span style="font-size:12px;font-weight:700"> / ${r.sur}</span></div>
+               <div style="font-size:11px;color:var(--text-secondary)">${r.moyPct}%</div>`
+            : `<div style="font-size:13px;color:var(--text-muted);margin:6px 0">Aucune note</div>`}
+      </div>`;
+    const blocRangs = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      ${_carte('Classe', rClasse, '#2f7bd6')}
+      ${_carte('Cycle', rCycle, '#9b6fd4')}
+      ${_mFR.length?_carte('🇫🇷 Français', rFR, '#1f9d6b'):''}
+      ${_mEN.length?_carte('🇬🇧 Anglais', rEN, '#d97706'):''}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin:-6px 0 12px">
+      Classe et cycle : toutes matières confondues. Français et anglais : chaque section prise à part.
+    </div>`;
 
     const isBilingual=cl.teacher_id&&cl.teacher_id_en;
     const profFR=isBilingual?DB.users.find(u=>u.id===cl.teacher_id):null;
@@ -12151,6 +12203,8 @@ R.palmares_parent = () => {
           </div>
         </div>
       </div>
+      ${blocRangs}
+      ${blocDetails}
       ${isBilingual?`
         ${renderSection(frMats,'Bulletin Français','🇫🇷',profFR?profFR.name:null,'#f0fdf4')}
         ${renderSection(enMats,'Bulletin Anglais','🇬🇧',profEN?profEN.name:null,'#eaf3fc')}
@@ -13263,6 +13317,40 @@ window.getRankInClass = (sid) => {
 };
 
 // School-wide top 10 for current trimester — used on parent profile
+// Classe un ensemble d'élèves. `matieresDe` reçoit un élève et rend les
+// matières sur lesquelles le noter — ce qui permet de classer une classe sur
+// un sous-ensemble de matières, ou tout un cycle où chaque classe a les
+// siennes.
+window._classer = (eleves, matieresDe, trim) => {
+  const condMap = {Excellent:4, Bien:3, Moyen:2, Mauvais:1};
+  const lignes = (eleves||[]).map(s => {
+    const mats = matieresDe(s) || [];
+    let tot = 0, sumC = 0;
+    mats.forEach(m => {
+      const a = matAvgPct(s.id, m.name, trim);
+      if (a !== null) { const c = m.coeff||1; tot += a*c; sumC += c; }
+    });
+    if (!sumC) return null;                       // aucune note : hors classement
+    const moyPct = Math.round(tot/sumC);
+    const cond = (DB.conduct||[]).filter(c => c.sid===s.id && (!trim || !c.trimestre || c.trimestre===trim));
+    const condAvg = cond.length ? cond.reduce((a,c)=>a+(condMap[c.score]||0),0)/cond.length : 3;
+    return { id:s.id, nom:s.name, cid:s.cid, moyPct, condPct:Math.round(condAvg*25),
+             total: Math.round(moyPct*0.85 + Math.round(condAvg*25)*0.15) };
+  }).filter(Boolean).sort((a,b) => b.total - a.total);
+
+  // Ex aequo au même rang : deux élèves à égalité sont 1ers, le suivant 3e.
+  let rang = 0, prec = null;
+  lignes.forEach((l,i) => { if (prec===null || l.total < prec) rang = i+1; prec = l.total; l.rang = rang; });
+  return lignes;
+};
+
+// Position d'un élève dans un classement, ou null s'il n'y figure pas —
+// faute de note, et non par erreur : le distinguer évite d'afficher « 0e ».
+window._rangDe = (classement, sid) => {
+  const l = (classement||[]).find(x => x.id === sid);
+  return l ? { rang:l.rang, sur:classement.length, moyPct:l.moyPct, total:l.total } : null;
+};
+
 window.getSchoolTop10 = () => {
   const trim = DB.settings.currentTrimestre || 'T1';
   const condMap = {Excellent:4,Bien:3,Moyen:2,Mauvais:1};
