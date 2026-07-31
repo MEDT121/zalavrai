@@ -11931,6 +11931,166 @@ window.markAttendance = (sid,status) => {
 };
 
 // ── PALMARÈS AUTOMATIQUE ──
+// ══════════════════════════════════════════════════════════════════════════
+//  MENTION — une seule échelle
+//
+//  Le même barème était recopié à quatre endroits : deux rendant un objet
+//  {l,c}, deux rendant une chaîne. Quatre copies d'un seuil, c'est quatre
+//  occasions de diverger — et un parent qui lit « Très Bien » sur le bulletin
+//  et « Bien » au palmarès cesse d'y croire.
+window._MENTIONS = [
+  { min:90, label:'Excellent',   couleur:'#1f9d6b' },
+  { min:75, label:'Très Bien',   couleur:'#2f8fa6' },
+  { min:60, label:'Bien',        couleur:'#2f7bd6' },
+  { min:50, label:'Assez Bien',  couleur:'#d98a2b' },
+  { min:0,  label:'Insuffisant', couleur:'#dc2626' },
+];
+window._mention = (pct) => {
+  const p = Number(pct);
+  if (!isFinite(p)) return { label:'—', couleur:'#a89c8b', l:'—', c:'#a89c8b' };
+  const m = _MENTIONS.find(x => p >= x.min) || _MENTIONS[_MENTIONS.length-1];
+  // `l` et `c` : noms courts hérités des quatre copies, gardés pour ne pas
+  // reprendre leurs gabarits d'affichage.
+  return { label:m.label, couleur:m.couleur, l:m.label, c:m.couleur };
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+//  PALMARÈS PUBLIC — ce qui part sur le site de l'école
+//
+//  Un tableau d'honneur, pas un classement complet. La différence n'est pas
+//  technique : un classement affiché au mur se repeint, une page publiée est
+//  indexée par les moteurs et suit l'enfant des années. Publier « complet »
+//  reviendrait à publier qui est dernier — un mauvais trimestre à neuf ans
+//  resterait lisible sur Internet plus longtemps que l'élève ne reste à
+//  l'école. Les trois premiers par classe célèbrent sans exposer, et c'est
+//  aussi ce qui attire une famille : personne ne choisit une école en lisant
+//  la vingt-septième place.
+//
+//  Le fichier produit ne contient QUE ce qu'on veut public. Rien d'autre ne
+//  peut fuir, puisque rien d'autre n'y est — et la page du site n'a besoin
+//  d'aucune clé pour le lire.
+window.PALMARES_HONNEUR = 3;
+// Une classe trop petite ne peut pas avoir de tableau d'honneur : à trois
+// élèves, « les trois premiers » EST le classement complet, et le dernier se
+// retrouve publié comme les autres. Il faut qu'assez d'élèves restent hors du
+// tableau pour qu'aucun ne soit identifiable par élimination — d'où trois de
+// marge. En deçà, la classe paraît avec ses chiffres, sans aucun nom.
+window.PALMARES_MARGE = 3;
+
+window._construirePalmaresPublic = (trim) => {
+  const sc = _schoolInfo();
+  const t = trim || DB.settings?.currentTrimestre || 'T1';
+  const eleves = (DB.students||[]).filter(s => !s.archived);
+  const enseignants = (DB.users||[]).filter(u => u.role === 'enseignant').length;
+
+  const classes = (DB.classes||[]).map(cl => {
+    const inscrits = eleves.filter(s => s.cid === cl.id);
+    if (!inscrits.length) return null;
+    const rang = _classer(inscrits, s => getClassMatieres(s.cid), t);
+    if (!rang.length) return null;   // aucune note : la classe ne paraît pas
+    const moyenne = Math.round(rang.reduce((a,l) => a + l.moyPct, 0) / rang.length);
+    const assezGrande = rang.length >= PALMARES_HONNEUR + PALMARES_MARGE;
+    return {
+      nom: cl.name,
+      cycle: cl.cycle || '',
+      option: cl.option || null,
+      effectif: inscrits.length,
+      notes: rang.length,                       // combien d'élèves ont des cotes
+      moyenne,
+      reussite: Math.round(rang.filter(l => l.moyPct >= 50).length / rang.length * 100),
+      honneur: assezGrande ? rang.slice(0, PALMARES_HONNEUR).map(l => ({
+        rang: l.rang, nom: l.nom, moyenne: l.moyPct, mention: _mention(l.moyPct).label,
+      })) : [],
+      // Dit à la page pourquoi il n'y a pas de noms, plutôt que de la laisser
+      // afficher une carte vide sans explication.
+      sans_noms: assezGrande ? null : 'effectif trop réduit',
+    };
+  }).filter(Boolean);
+
+  const notes = classes.reduce((a,c) => a + c.notes, 0);
+  const moyEcole = notes
+    ? Math.round(classes.reduce((a,c) => a + c.moyenne * c.notes, 0) / notes) : null;
+
+  // Examens d'État : le chiffre que toute famille congolaise compare.
+  // « Réussi » ne correspondait pas à /reussi/i : l'accent aigu rompt la
+  // comparaison, et le taux tombait à zéro alors que la classe avait réussi.
+  // On dépouille les accents avant de comparer.
+  const _sansAccent = (s) => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const examen = (table, annee) => {
+    const lignes = (DB[table]||[]).filter(x => x.registered && (!annee || x.year === annee));
+    if (!lignes.length) return null;
+    const reussis = lignes.filter(x => /reussi|admis|succes|passe/.test(_sansAccent(x.result))).length;
+    return { presentes: lignes.length, reussis, taux: Math.round(reussis/lignes.length*100) };
+  };
+
+  return {
+    version: 1,
+    honneur_par_classe: PALMARES_HONNEUR,
+    ecole: sc.name, ecole_en: sc.name_en || null,
+    adresse: sc.address || null, telephone: sc.phone || null, email: sc.email || null,
+    devise: sc.motto || null,
+    annee: DB.settings?.year || '',
+    trimestre: t,
+    publie_le: today(),
+    publie_par: S.user?.name || 'Direction',
+    stats: {
+      eleves: eleves.length,
+      classes: (DB.classes||[]).length,
+      enseignants,
+      moyenne_ecole: moyEcole,
+      reussite: notes ? Math.round(classes.reduce((a,c)=>a+c.reussite*c.notes,0)/notes) : null,
+    },
+    examens: { enafep: examen('tenafep', DB.settings?.year), exetat: examen('exetat', DB.settings?.year) },
+    classes,
+  };
+};
+
+window.publierPalmares = async (trim) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const t = trim || DB.settings?.currentTrimestre || 'T1';
+  const donnees = _construirePalmaresPublic(t);
+  if(!donnees.classes.length){
+    toast('Aucune classe n\'a de cotes pour ' + t + ' — rien à publier','error');return;
+  }
+  const nb = donnees.classes.reduce((a,c)=>a+c.honneur.length,0);
+  showC('Publier le palmarès sur le site ?',
+    `${donnees.classes.length} classe(s) · ${nb} élève(s) au tableau d'honneur (${PALMARES_HONNEUR} premiers par classe).\n\n`
+    + `Les noms des lauréats et les moyennes de classe seront visibles publiquement sur le site de l'école. `
+    + `Aucun autre élève n'y figure, aucune note individuelle hors du tableau d'honneur.\n\n`
+    + `Ne publiez qu'une fois la délibération close : ce qui part sur le site y reste jusqu'à la publication suivante.`,
+    async () => {
+      const blob = new Blob([JSON.stringify(donnees, null, 1)], {type:'application/json'});
+      const url = await _uploadFile(blob, 'site', 'palmares.json');
+      if(!url){
+        toast('Publication impossible — stockage injoignable. Réessayez une fois en ligne.','error');
+        return;
+      }
+      DB.settings.palmares_publie_le = today();
+      DB.settings.palmares_publie_trim = t;
+      DB.settings.palmares_url = url;
+      await window._saveSettings(`Palmarès ${t} publié sur le site`);
+      logAudit('palmares_publie', `${t} · ${donnees.classes.length} classes · ${nb} lauréats`);
+      render();
+    });
+};
+
+// Retirer le palmarès du site. Le fichier ne peut pas être supprimé — le
+// bucket l'interdit, et à raison — mais on le remplace par un fichier vide
+// que la page sait interpréter comme « rien à afficher ».
+window.retirerPalmares = () => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  showC('Retirer le palmarès du site ?','La page publique n\'affichera plus aucun classement.',async()=>{
+    const blob = new Blob([JSON.stringify({version:1, retire:true, publie_le:today()})], {type:'application/json'});
+    const url = await _uploadFile(blob, 'site', 'palmares.json');
+    if(!url){toast('Retrait impossible — stockage injoignable','error');return;}
+    DB.settings.palmares_publie_le = null;
+    DB.settings.palmares_publie_trim = null;
+    await window._saveSettings('Palmarès retiré du site');
+    logAudit('palmares_retire', 'palmarès retiré du site public');
+    render();
+  });
+};
+
 R.palmares = () => {
   const role=S.user.role;
   let classes=DB.classes;
@@ -11942,7 +12102,7 @@ R.palmares = () => {
   if(!window._palmTrim) window._palmTrim=DB.settings?.currentTrimestre||'T1';
   const selTrim=window._palmTrim;
   const trimFilter=selTrim==='Tous'?undefined:selTrim;
-  const getMention=pct=>pct>=90?{l:'Excellent',c:'#1f9d6b'}:pct>=75?{l:'Très Bien',c:'#2f8fa6'}:pct>=60?{l:'Bien',c:'#2f7bd6'}:pct>=50?{l:'Assez Bien',c:'#d98a2b'}:{l:'Insuffisant',c:'#dc2626'};
+  const getMention=_mention;                 // barème unique — voir _MENTIONS
   const medals=['🥇','🥈','🥉'];
 
   let html=`<div class="ww-toolbar">
@@ -11955,6 +12115,37 @@ R.palmares = () => {
       ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmTrim='${tr}';render()">${tr}</button>`).join('')}
     </div>
   </div>`;
+
+  // ── Publication sur le site de l'école (Direction seule) ──────────────
+  if(role==='direction'||role==='direction2'){
+    const pub = DB.settings?.palmares_publie_le;
+    const pubT = DB.settings?.palmares_publie_trim;
+    const aJour = pub && pubT===selTrim;
+    html += `<div class="premium-section" style="border-left:4px solid #c0962e;margin-bottom:14px">
+      <div class="premium-section-title">🌐 Tableau d'honneur sur le site de l'école</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">
+        Les <strong>${PALMARES_HONNEUR} premiers de chaque classe</strong> et les moyennes de classe,
+        visibles publiquement. Aucun autre élève n'y figure — un classement complet publié sur le web
+        est indexé par les moteurs et suit l'enfant des années.
+      </div>
+      <div class="premium-item" style="margin-bottom:10px">
+        <div class="pi-icon" style="background:${pub?'#d8f3e6':'#f6ede0'}">${pub?'✅':'🕓'}</div>
+        <div style="flex:1">
+          <div class="pi-title">${pub?`Publié — ${esc(pubT||'')} le ${esc(pub)}`:'Jamais publié'}</div>
+          <div class="pi-sub">${aJour?'À jour pour le trimestre affiché':pub?`Le site montre ${esc(pubT||'—')}, vous consultez ${esc(selTrim)}`:'Le site n\'affiche aucun classement'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="flex:1;min-width:180px" onclick="publierPalmares('${selTrim}')">
+          🌐 Publier le palmarès ${esc(selTrim)}
+        </button>
+        ${pub?`<button class="btn btn-outline" onclick="retirerPalmares()">Retirer du site</button>`:''}
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
+        À faire une fois la délibération close. Ce qui part sur le site y reste jusqu'à la publication suivante.
+      </div>
+    </div>`;
+  }
 
   // Dire sur quoi porte le classement affiché. Sans cette phrase,
   // l'enseignant croit lire le classement officiel et annonce à un élève un
@@ -12084,7 +12275,7 @@ R.palmares_parent = () => {
   if(!window._palmPTrim) window._palmPTrim=DB.settings?.currentTrimestre||'T1';
   const selTrim=window._palmPTrim;
   const trimFilter=selTrim==='Tous'?undefined:selTrim;
-  const getMention=pct=>pct>=90?{l:'Excellent',c:'#1f9d6b'}:pct>=75?{l:'Très Bien',c:'#2f8fa6'}:pct>=60?{l:'Bien',c:'#2f7bd6'}:pct>=50?{l:'Assez Bien',c:'#d98a2b'}:{l:'Insuffisant',c:'#dc2626'};
+  const getMention=_mention;                 // barème unique — voir _MENTIONS
   const accessKids=kids.filter(k=>k.access_parent);
 
   let html=`<div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
@@ -14966,6 +15157,9 @@ window.printDevoir = (dvId, kidName, kidMat, kidClass, kidId) => {
   if(myGrade){
     const pct=Math.round(myGrade.note/myGrade.max*100);
     const col=pct>=70?'#1f9d6b':pct>=50?'#d98a2b':'#dc2626';
+    // Mêmes seuils que `_MENTIONS`, mais un registre volontairement plus doux :
+    // il s'agit d'UN devoir vu par l'enfant et son parent, pas d'un bulletin.
+    // Ne pas « uniformiser » : « Insuffisant » sur un exercice décourage.
     const mention=pct>=90?'Excellent !':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Passable':'À améliorer';
     const corrDate=myGrade.corrected_at?new Date(myGrade.corrected_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}):myGrade.date||'';
     pagesHTML+=`<div class="a4 pb">
@@ -21415,7 +21609,7 @@ window.genererRapportMensuel = (sid, mois) => {
   const condAvg=conduites.length?conduites.reduce((a,c)=>a+(condMap[c.score]||0),0)/conduites.length:0;
   const condLabel=['—','Mauvais','Moyen','Bien','Excellent'][Math.round(condAvg)]||'—';
   // Devoirs rendus
-  const getMention=pct=>pct>=90?'Excellent':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Assez Bien':'Insuffisant';
+  const getMention=pct=>_mention(pct).label; // barème unique — voir _MENTIONS
 
   const htmlStr=`<!DOCTYPE html><html><head><meta charset="utf-8">
   <style>
@@ -21478,7 +21672,7 @@ window.genererPalmaresAnnuel = () => {
   const classes=DB.classes||[];
   const students=DB.students||[];
   const yr=DB.settings?.year||'2025-2026';
-  const getMention=pct=>pct>=90?'Excellent':pct>=75?'Très Bien':pct>=60?'Bien':pct>=50?'Assez Bien':'Insuffisant';
+  const getMention=pct=>_mention(pct).label; // barème unique — voir _MENTIONS
 
   let classesHtml='';
   classes.forEach(cl=>{
@@ -22640,6 +22834,25 @@ R.settings = () => {
   </div>
 
   <!-- ══ Cartes élèves ══ -->
+  <!-- ══ SITE PUBLIC ══ -->
+  <div class="premium-section" style="border-left:4px solid #c0962e">
+    <div class="premium-section-title">🌐 Site de l'école</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+      Les pages publiques de l'école. Le tableau d'honneur s'y publie depuis l'écran Palmarès.
+    </div>
+    <div class="premium-item" onclick="window.open('site.html','_blank')" style="cursor:pointer">
+      <div class="pi-icon" style="background:#f6ede0">🏫</div>
+      <div style="flex:1"><div class="pi-title">Ouvrir le site</div><div class="pi-sub">Accueil · L'École · Programmes · Palmarès · Galerie · Contact</div></div>
+      <span class="premium-badge" style="background:#f6ede0;color:#977322">Voir →</span>
+    </div>
+    <div class="premium-item" onclick="go('palmares')" style="cursor:pointer">
+      <div class="pi-icon" style="background:${DB.settings?.palmares_publie_le?'#d8f3e6':'#f6ede0'}">🏆</div>
+      <div style="flex:1"><div class="pi-title">Tableau d'honneur public</div>
+        <div class="pi-sub">${DB.settings?.palmares_publie_le?`Publié — ${esc(DB.settings.palmares_publie_trim||'')} le ${esc(DB.settings.palmares_publie_le)}`:'Jamais publié'}</div></div>
+      <span class="premium-badge" style="background:#dbeafe;color:#205fae">Gérer →</span>
+    </div>
+  </div>
+
   <div class="premium-section">
     <div class="premium-section-title">🪪 Cartes élèves</div>
     <div class="premium-item" onclick="go('cards')" style="cursor:pointer">

@@ -753,6 +753,63 @@ lecture s'en sert.**
 
 ---
 
+## Le site public et le tableau d'honneur
+
+Cinq pages statiques — `site.html`, `ecole.html`, `programmes.html`,
+`galerie.html`, `contact.html` — plus `palmares.html`, déployées sur GitHub
+Pages par `.github/workflows/pages.yml`. Charte dans `assets/site.css` :
+émeraude `#211d17`, crème `#f5efe2`, laiton `#c0962e`, Playfair Display +
+Mulish. **Aucune couleur nouvelle** dans une page ajoutée : tout vient des
+variables.
+
+### La page ne parle pas à la base
+
+`palmares.html` lit **un seul fichier** déposé dans le stockage public quand
+la Direction appuie sur « Publier ». Elle n'embarque donc aucune clé et ne
+peut rien révéler d'autre que ce que ce fichier contient.
+
+C'est aussi pourquoi la publication est un **acte** et non un flux : les cotes
+bougent pendant un trimestre, et un classement en direct montrerait un enfant
+premier lundi et quatrième vendredi. On publie après délibération.
+
+```js
+_construirePalmaresPublic(trim)  // → l'objet publié, et rien de plus
+publierPalmares(trim)            // dépose site/palmares.json
+retirerPalmares()                // remplace par {retire:true}
+PALMARES_HONNEUR = 3             // lauréats par classe
+PALMARES_MARGE   = 3             // élèves qui doivent rester hors du tableau
+```
+
+### Un tableau d'honneur n'est pas un classement
+
+Un classement affiché au mur se repeint ; une page publiée est indexée et
+suit l'enfant des années. Publier « complet » reviendrait à publier qui est
+dernier. Les trois premiers célèbrent sans exposer.
+
+**`PALMARES_MARGE` est la garde qui rend cela vrai.** À trois élèves, « les
+trois premiers » EST le classement complet — mesuré sur un jeu d'essai : une
+classe de 3 publiait ses 3 élèves, dernier compris. En deçà de
+`HONNEUR + MARGE` inscrits, la classe paraît avec ses chiffres et **aucun
+nom**. Sur 54 élèves d'essai, 48 ne sont pas nommés.
+
+### Deux pièges éprouvés en l'exécutant
+
+- `/reussi/i` ne reconnaît pas « **Ré**ussi » : le taux ENAFEP tombait à 0 %
+  alors que 23 sur 24 avaient réussi. Dépouiller les accents avant de comparer.
+- `site.js` observe `.stat .num` et `.reveal` **au chargement**. Les éléments
+  nés d'un `fetch` sont ignorés : cette page seule aurait affiché des chiffres
+  figés au milieu d'un site animé. Elle rejoue les observateurs sur ce qu'elle
+  vient d'insérer, et respecte `prefers-reduced-motion`.
+
+### Le barème de mention, source unique
+
+`_MENTIONS` et `_mention(pct)`. Le même barème était recopié **quatre fois**,
+deux rendant `{l,c}` et deux une chaîne. Une cinquième copie subsiste
+volontairement, ligne ~15070 : registre plus doux pour UN devoir vu par
+l'enfant — « Passable » plutôt qu'« Insuffisant ». Ne pas l'uniformiser.
+
+---
+
 ## L'invariant : `DB.<table>` est toujours un tableau
 
 `node tools/audit-invariant.mjs`
