@@ -264,7 +264,9 @@ window.NAV = {
 ## Conventions importantes
 
 - **Jamais** `phone || u.phone` dans les save → utiliser `phone || null` (pour permettre suppression)
-- **Toujours** `DB.xxx || []` avant `.filter()` / `.length` (null guard)
+- **`DB.xxx || []`** : garde de confort, pas une nécessité. `DB.<table>` est un
+  tableau par construction — voir « L'invariant » plus bas. Ce qui compte,
+  c'est que toute table lue soit **déclarée** dans `window.DB`.
 - **Syntaxe** : vérifier avant commit → `node -e "new Function(scriptBody)"`
 - **Push** : toujours `git push -u origin claude/integrate-external-map-system-kCSm6 && git push origin HEAD:main`
 - **Onglets profil** : ne pas appeler `render()` pour changer d'onglet — utiliser `_setProfileTab(id)`
@@ -748,6 +750,56 @@ rétablir. `diplome` en reste le motif, `archived` l'état.
 Même famille que les « champs morts » plus haut : **avant de lire un champ,
 vérifier qu'une écriture le renseigne ; avant d'en écrire un, vérifier qu'une
 lecture s'en sert.**
+
+---
+
+## L'invariant : `DB.<table>` est toujours un tableau
+
+`node tools/audit-invariant.mjs`
+
+Un audit signalait 498 accès « non gardés » à `DB.<table>`. Aucun n'était un
+défaut, et poser 498 `|| []` n'aurait rien protégé. La bonne question n'est pas
+« chaque accès porte-t-il sa garde ? » mais **« la valeur peut-elle seulement
+être autre chose qu'un tableau ? »** Elle ne le peut pas, à trois conditions :
+
+1. Toute table lue est **déclarée** dans `window.DB = { … }`, donc initialisée
+   à `[]` au chargement du script.
+2. `loadFromCrypt` **fusionne** les clés du cache dans `DB` au lieu de le
+   remplacer — une table ajoutée depuis l'écriture du cache garde son `[]`.
+3. `safe()` de `loadFromSupabase` renvoie toujours un tableau : la réponse si
+   elle en est un, sinon la valeur précédente, sinon `[]`.
+
+L'outil vérifie les trois et sort en erreur si l'une tombe. Il a été éprouvé
+dans les deux sens.
+
+Ce qui casse vraiment, c'est une table **lue sans être déclarée**. Ainsi
+`DB.exit_scans`, sur la fiche élève : table inexistante en local comme au
+serveur, donc `ex` toujours indéfini — la fiche d'un enfant **déjà sorti
+affichait encore son heure d'arrivée**. La sortie vit dans `scan_log` avec
+`type:'exit'` ; et c'est le *dernier* passage du jour qui dit où est l'enfant,
+sorti à midi puis rentré à 14 h.
+
+`tools/audit-nullgard.mjs` a été supprimé : il posait la mauvaise question et
+noyait ses rares vrais signaux dans 498 faux.
+
+### Les autres outils
+
+```
+tools/audit-schema.mjs      code ↔ SQL — après TOUTE nouvelle écriture
+tools/audit-invariant.mjs   les trois conditions ci-dessus
+tools/audit-gardes.mjs      mutations `window` sans contrôle de rôle
+tools/audit-mort.mjs        fonctions exposées sans appelant
+```
+
+`audit-gardes` signale quatre fonctions : `_seedFeeTypes`, `genRecuNo`,
+`_bulkLot`, `_materialiserMatieres`. Chacune porte en commentaire la raison
+pour laquelle elle n'a pas de garde — amorçage avant connexion, ou découpage
+d'une écriture déjà autorisée par son appelant. Ce ne sont pas des défauts en
+attente : ne pas les « corriger » à la prochaine passe.
+
+**Une seule implémentation du découpage en lots** : `_bulkLot(table, op,
+payload, ids)` → `id=in.(…)` par tranches de 60, identifiants dangereux
+écartés. `_patchLot` en est l'enveloppe. La clôture d'année s'en sert aussi.
 
 ---
 

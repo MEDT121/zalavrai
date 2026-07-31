@@ -5267,7 +5267,19 @@ window.showStudentInfo = (sid) => {
   const cl = DB.classes.find(x => x.id === s.cid);
   const parent = s.pid ? DB.users.find(x => x.id === s.pid) : null;
   const ta = (DB.attendance||[]).find(a => a.sid === sid && a.date === today());
-  const ex = (DB.exit_scans||[]).find(e => e.sid === sid && e.date === today());
+  // La sortie vit dans `scan_log` avec `type:'exit'`. Cette ligne lisait
+  // `DB.exit_scans`, table qui n'existe ni en local ni au serveur : `ex` était
+  // donc toujours indéfini et la fiche d'un élève déjà sorti affichait encore
+  // son heure d'arrivée.
+  //
+  // C'est le DERNIER passage du jour qui dit où se trouve l'enfant : sorti à
+  // midi puis rentré à 14 h, il est à l'école. Et une sortie refusée n'est pas
+  // une sortie — l'enfant est resté.
+  const _passagesJour = (DB.scan_log||[])
+    .filter(e => e.sid === sid && e.date === today())
+    .sort((a,b) => String(b.time||'').localeCompare(String(a.time||'')));
+  const _dernier = _passagesJour[0];
+  const ex = (_dernier && _dernier.type === 'exit' && !_estIncident(_dernier)) ? _dernier : null;
   const pays = (DB.payments||[]).filter(p => p.sid === sid);
   const allPaid = pays.length > 0 && pays.every(p => p.paid);
   const partPaid = pays.some(p => p.paid) && !allPaid;
@@ -10652,6 +10664,10 @@ window._patchLot = (table, patch, ids, taille) => window._bulkLot(table, 'patch'
 // et déblocage massifs — portent tous leur contrôle.
 window._bulkLot = (table, op, payload, ids, taille) => {
   const T = taille || 60;
+  // Un identifiant portant une virgule ou une parenthèse couperait le filtre
+  // en deux et viserait des lignes au hasard. Aucun `_uid()` n'en contient ;
+  // c'est le cas d'une donnée héritée ou saisie qu'on écarte ici.
+  ids = (ids||[]).filter(id => typeof id === 'string' && id && !/[(),]/.test(id)).map(encodeURIComponent);
   for (let i = 0; i < ids.length; i += T) {
     pushSync(table, op, payload, 'id=in.(' + ids.slice(i, i + T).join(',') + ')');
   }
@@ -21003,12 +21019,7 @@ window.confirmNewYear = () => {
     // nouvelle. `payments` et `versements` n'étaient même pas purgées.
     // Supprimer les lignes que l'application détient, c'est supprimer
     // exactement ce qui vient d'être archivé — ni plus, ni moins.
-    const _purger = (table, lignes) => {
-      const ids = (lignes||[]).map(x=>x&&x.id).filter(id=>typeof id==='string'&&id&&!/[(),]/.test(id));
-      for (let i=0; i<ids.length; i+=80) {
-        pushSync(table,'delete','','id=in.('+ids.slice(i,i+80).map(encodeURIComponent).join(',')+')');
-      }
-    };
+    const _purger = (table, lignes) => _bulkLot(table, 'delete', '', (lignes||[]).map(x=>x&&x.id));
     _purger('grades',            DB.grades);
     _purger('attendance',        DB.attendance);
     _purger('absences',          DB.absences);
