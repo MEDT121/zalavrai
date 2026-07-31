@@ -8469,7 +8469,22 @@ window.submitCardOrder = async (sid) => {
       const blob = await new Promise(res => finalCV.toBlob(res,'image/png',0.92));
       cardBlob = blob;
       cardDataUrl = finalCV.toDataURL('image/png');
-      card_image_url = await window._uploadFile(blob, 'cards', safeMat+'.png');
+      // Le PNG sert l'impression : sans perte, c'est lui qu'on garde sur
+      // l'appareil. Mais il ne compresse pas les photographies, et le bucket
+      // plafonne à 5 Mo — au-delà, le dépôt serait refusé sans que rien ne le
+      // dise, et le duplicata depuis un autre poste deviendrait impossible.
+      // On ne recomprime que si c'est nécessaire.
+      const PLAFOND_DEPOT = 4 * 1024 * 1024;
+      let aDeposer = blob, ext = 'png';
+      if (blob && blob.size > PLAFOND_DEPOT) {
+        const jpg = await new Promise(res => finalCV.toBlob(res, 'image/jpeg', 0.92));
+        if (jpg && jpg.size < blob.size) {
+          aDeposer = jpg; ext = 'jpg';
+          console.log(`[carte] copie serveur en JPEG — ${Math.round(blob.size/1024)} Ko → ${Math.round(jpg.size/1024)} Ko`);
+        }
+      }
+      card_image_url = await window._uploadFile(aDeposer, 'cards', safeMat+'.'+ext);
+      if (!card_image_url) console.warn('[carte] copie serveur refusée — la carte reste imprimable, le duplicata devra être régénéré');
       finalCV.width = finalCV.height = 0; // libérer dernier buffer canvas
       cardPreviewHtml = `<img src="${cardDataUrl}" style="max-width:200px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);margin:12px auto;display:block" alt="Carte de ${esc(s.name)}">`;
     }
