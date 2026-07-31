@@ -19470,7 +19470,7 @@ R.messages = () => {
     ${tabs.map(t=>`<button onclick="window._msgTab='${t.id}';render()" style="flex:1;min-width:70px;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;background:${tab===t.id?'var(--primary)':'var(--bg)'};color:${tab===t.id?'#fff':'var(--text-secondary)'}">${t.l}</button>`).join('')}
   </div>
   <div style="display:flex;gap:8px;margin-bottom:14px">
-    <button class="btn btn-primary" style="flex:1" onclick="openComposeMsg()">✉️ ${role==='parent'?(DB.settings?.toggles?.direct_teacher_msg?'Envoyer un message':'Écrire à la Direction'):role==='enseignant'?'Message aux parents de ma classe':'Nouveau message'}</button>
+    <button class="btn btn-primary" style="flex:1" onclick="openComposeMsg()">✉️ ${role==='parent'?'Écrire à la Direction':role==='enseignant'?'Écrire à la Direction':'Nouveau message'}</button>
     ${received.filter(m=>!m.read).length?`<button class="btn btn-outline" onclick="markAllMsgRead()">✓ Tout lu</button>`:''}
   </div>
   ${tab==='parents'&&isDir?`<div>${fromParents.length?fromParents.map(m=>card(m,true)).join(''):'<div style="text-align:center;padding:40px;color:var(--text-muted)"><div style="font-size:50px;margin-bottom:12px">📨</div>Aucun message de parent</div>'}</div>`:''}
@@ -19509,7 +19509,9 @@ window.openComposeMsg = () => {
   const role=S.user.role;
 
   if(role==='parent'){
-    const directTeacher=!!(DB.settings?.toggles?.direct_teacher_msg);
+    // Le canal parent→enseignant est fermé par principe, non par réglage :
+    // un interrupteur invite à être basculé, et la règle n'est pas négociable.
+    const directTeacher=false;
     // Collect unique teachers from the parent's children's classes
     const myKids=(DB.students||[]).filter(s=>s.pid===S.user.id);
     const teacherOpts=[];
@@ -19579,7 +19581,7 @@ window.openComposeMsg = () => {
     </div>
     <div id="msg_extra_fields"></div>`,
     `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-     <button class="btn btn-primary" onclick="sendMsg('teacher_broadcast')">📤 Soumettre à la Direction</button>`);
+     <button class="btn btn-primary" onclick="sendMsg('dir_send')">📤 Envoyer à la Direction</button>`);
     return;
   }
 
@@ -19668,11 +19670,11 @@ window.sendMsg = async (mode) => {
       targets=(DB.users||[]).filter(u=>u.role==='direction');
     }
   } else if(mode==='teacher_broadcast'){
-    const mc=getMyClass();
-    if(!mc.cl){toast('Aucune classe assignée','error');return;}
-    toClassCid=mc.cl.id; needsApproval=true;
-    const pids=[...new Set((DB.students||[]).filter(s=>s.cid===toClassCid).map(s=>s.pid).filter(Boolean))];
-    targets=(DB.users||[]).filter(u=>pids.includes(u.id));
+    // Un enseignant n'adresse pas de message aux familles : tout passe par
+    // la Direction, qui répond de ce qui est dit au nom de l'école. Le mode
+    // est conservé — un ancien bouton peut encore l'appeler — mais fermé.
+    toast('Les messages aux familles passent par la Direction','info');
+    return;
   } else if(mode==='dir_send'){
     const toVal=($('msg_to')?.value||'').trim();
     if(!toVal){toast('Sélectionnez un destinataire','error');return;}
@@ -22159,7 +22161,9 @@ R.settings = () => {
         ['presences','📋','Présences','Marquage des présences par les enseignants'],
         ['palmares','🏆','Palmarès (classement de classe)','Parents voient le classement complet de la classe de leur enfant'],
         ['bulletin','📊','Bulletins de notes','Parents téléchargent le bulletin PDF de leur enfant (frais soldés requis)'],
-        ['direct_teacher_msg','✉️','Messagerie directe parent→enseignant','Les parents peuvent écrire directement au professeur de leur enfant, sans validation de la Direction'],
+        // Le réglage « messagerie directe parent→enseignant » a été retiré :
+        // la règle de l'école ne se négocie pas par interrupteur.
+
       ].map(([k,ic,lbl,sub])=>`
       <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
         <div style="width:38px;height:38px;border-radius:10px;background:${tog[k]?'#dbeafe':'#f6ede0'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ic}</div>
@@ -25397,29 +25401,8 @@ window.confirmConvocationParent = (cid) => {
 // messageTeacher retirée : doublon de sendMessageToTeacher, seul chemin branché
 
 
-window.sendMessageToTeacher = async (uid, kidId) => {
-  if(!S.user||S.user.role!=='parent'){toast('Accès non autorisé','error');return;}
-  const kidCheck=kidId?DB.students.find(x=>x.id===kidId):null;
-  if(kidId&&(!kidCheck||kidCheck.pid!==S.user.id)){toast('Accès non autorisé','error');return;}
-  const body=(document.getElementById('msgToTeacher')?.value||'').trim();
-  if(!body){toast('Écrivez un message','error');return;}
-  const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
-  // status:'pending' → passes through Direction approval before reaching teacher
-  const msg={id:_uid('m_'),from:S.user.id,from_name:S.user.name,to:uid,to_name:teacher?teacher.name:'',
-    body,date:today(),time:nowTime(),read:false,status:'pending',type:'parent_to_teacher',
-    about_sid:kidId||null,about_name:kid?kid.name:null};
-  if(!DB.messages) DB.messages=[];
-  DB.messages.unshift(msg);
-  pushSync('messages','post',msg);
-  // Notify Direction (not the teacher directly)
-  const dirUsers=(DB.users||[]).filter(u=>['direction','direction2'].includes(u.role));
-  for(const du of dirUsers){
-    await pushNotif(du.id,`📨 Message de ${S.user.name}${kid?' à propos de '+kid.name:''} pour ${teacher.name} — en attente de validation.`);
-  }
-  closeModal();
-  toast('📨 Message envoyé à la Direction pour validation', 'success');
-  saveToCrypt();
-};
+// sendMessageToTeacher retirée : un parent n'écrit pas à un enseignant — tout passe par la Direction
+
 
 // ── LOCKDOWN EXCEPTION URGENCE ──
 window.lockdownEmergencyExit = (sid) => {
@@ -25516,23 +25499,8 @@ window.saveTeacherAbsence = async () => {
   saveToCrypt(); render();
 };
 
-window.notifyAbsenceTeacherParents = async (uid) => {
-  const cl=DB.classes.find(c=>c.teacher_id===uid||c.teacher_id_en===uid);
-  if(!cl){toast('Classe introuvable','error');return;}
-  const teacher=gu(uid);
-  const students=DB.students.filter(s=>s.cid===cl.id&&s.pid);
-  if(!students.length){toast('Aucun parent lié dans cette classe','info');return;}
-  const abs=DB.teacher_absences.find(a=>a.uid===uid&&a.date===today());
-  showC(`Notifier ${students.length} parent(s) de ${cl.name}?`,
-    `Prof ${teacher?teacher.name:uid} absent(e) — ${abs?abs.motif:'—'}`,
-    async()=>{
-      for(const s of students){
-        await pushNotif(s.pid,`ℹ️ Classe ${cl.name} : ${teacher?teacher.name:'Le professeur'} est absent(e) aujourd'hui (${abs?abs.motif:'absence'}). Vérifiez le planning de remplacement.`);
-      }
-      toast(`📣 ${students.length} parent(s) notifié(s)`,'success');
-    }
-  );
-};
+// notifyAbsenceTeacherParents retirée : l'absence d'un enseignant regarde l'école, pas les familles
+
 
 // ── NOTIFICATION ABSENCES → PARENTS ──
 window.notifyAbsentParents = async (cid) => {

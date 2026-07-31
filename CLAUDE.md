@@ -359,6 +359,28 @@ quand le stockage répond, pour rééditer depuis un autre poste.
 
 ---
 
+## Enseignants et parents ne se parlent pas directement
+
+Règle de l'école : un enseignant n'écrit pas aux familles, une famille
+n'écrit pas à un enseignant. Tout échange humain passe par la Direction,
+qui répond de ce qui est dit au nom de l'établissement.
+
+Ce que la règle **ne vise pas** : devoirs, cahier de texte, notes,
+appréciation du bulletin. Ce n'est pas un enseignant qui écrit à un parent,
+c'est l'école qui publie son travail — et c'est le cœur de l'application.
+Ces notifications restent, au nombre de dix.
+
+Trois canaux ont été fermés : le réglage `direct_teacher_msg`
+(parent→enseignant), le mode `teacher_broadcast` (enseignant→parents de sa
+classe, même avec accord de la Direction), et `sendMessageToTeacher`. Les
+absences d'enseignants ne sont pas notifiées aux familles non plus — elles
+regardent l'école.
+
+Le canal fermé ne l'est pas par interrupteur : un réglage invite à être
+basculé, et cette règle n'est pas négociable.
+
+---
+
 ## CSS classes utiles
 
 ```css
