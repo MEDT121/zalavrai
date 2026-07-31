@@ -9649,6 +9649,15 @@ R.classes = () => {
             ?`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">Prof. : ${te?te.name:'— Enseignant non assigné'}</div>`
             :`<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">🇫🇷 ${tf?tf.name:'— Prof FR non assigné'}${c.titulaire_id===c.teacher_id?` <span style="background:#fdeccd;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>
             <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">🇬🇧 ${te?te.name:'— Prof EN non assigné'}${c.titulaire_id===c.teacher_id_en?` <span style="background:#fdeccd;color:#92400e;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:700">⭐ Titulaire</span>`:''}</div>`}
+          ${(() => {
+            // Un titulaire manquant ne se voit qu'à l'impression d'un bulletin,
+            // où son nom fait défaut. Autant le dire ici.
+            if (c.titulaire_id && gu(c.titulaire_id)) return '';
+            const sansProf = !c.teacher_id && !c.teacher_id_en;
+            return `<div style="font-size:11.5px;color:#92400e;background:#fef9c3;border-radius:8px;padding:6px 9px;margin-bottom:8px">
+              ⚠️ ${sansProf ? 'Aucun enseignant affecté' : 'Aucun titulaire désigné'} — son nom manquera sur les bulletins et les cartes.
+            </div>`;
+          })()}
           <div style="display:flex;gap:6px">
             <button class="btn btn-outline btn-sm" style="flex:1" onclick="openClassForm('${c.id}')">Modifier</button>
             <button class="btn btn-outline btn-sm" onclick="go('students');window._studentCF='${c.id}';render()">Élèves</button>
@@ -9759,7 +9768,13 @@ window.saveClass = () => {
   const colorData=pickedColor
     ?{card_color:pickedColor,card_color_soft:window._hexLighten(pickedColor,.68),card_color_dark:window._hexDarken(pickedColor,.32)}
     :{card_color:null,card_color_soft:null,card_color_dark:null};
-  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||null,option,...colorData};
+  // Deux enseignants affectés et aucun titulaire désigné : c'est une
+  // question sans réponse, pas une valeur par défaut.
+  if(!isMat && tid_fr && tid_en && !titId){
+    markFieldError('cls_titulaire','Désignez le titulaire — deux enseignants sont affectés à cette classe');
+    return;
+  }
+  const data={name,cycle,teacher_id:tid_fr,teacher_id_en:tid_en,titulaire_id:titId||tid_fr||tid_en||null,option,...colorData};
 
   // Le doublon n'était contrôlé qu'à la création, et par simple minuscule :
   // renommer une classe en un nom déjà pris passait sans obstacle, et
