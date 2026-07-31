@@ -2184,6 +2184,7 @@ window.NAV = {
       {s:'Personnes'},
       {id:'students',i:'🎓',l:'Élèves'},
       {id:'classes',i:'🏫',l:'Classes'},
+      {id:'matieres',i:'🔬',l:'Matières'},
       {id:'teachers',i:'👨‍🏫',l:'Enseignants'},
       {id:'guardians',i:'🛡️',l:'Gardiens'},
       {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
@@ -2347,6 +2348,7 @@ window.NAV = {
       {s:'Personnes'},
       {id:'students',i:'🎓',l:'Élèves'},
       {id:'classes',i:'🏫',l:'Classes'},
+      {id:'matieres',i:'🔬',l:'Matières'},
       {id:'teachers',i:'👨‍🏫',l:'Enseignants'},
       {id:'guardians',i:'🛡️',l:'Gardiens'},
       {id:'parents',i:'👨‍👩‍👧',l:'Parents'},
@@ -13522,7 +13524,66 @@ window._doEditGrade = (gid, sid, cid, max) => {
 };
 
 // ── MATIÈRES ──
+// Vue Direction : le programme de chaque classe, et le moyen d'y agir.
+// Sans elle, personne ne peut définir les matières d'une classe sans
+// titulaire, ni corriger après le départ d'un enseignant.
+function _matieresDirection() {
+  const sel = window._matDirCid || ((DB.classes||[])[0] || {}).id || '';
+  const cl  = gc(sel);
+  const cls = (DB.classes||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if (!cls.length) return `<div style="text-align:center;padding:60px;color:var(--text-muted)">
+    <div style="font-size:60px;margin-bottom:16px">🏫</div>Créez d'abord une classe</div>`;
+
+  const mats = cl ? getClassMatieres(cl.id) : [];
+  const parLang = { fr:'🇫🇷 Français', en:'🇬🇧 English', commun:'📚 Commun' };
+  const sids = cl ? new Set((DB.students||[]).filter(s=>s.cid===cl.id).map(s=>s.id)) : new Set();
+
+  // Un programme entièrement par défaut n'a aucune ligne en base : le dire,
+  // pour qu'on ne cherche pas pourquoi rien n'apparaît dans `matieres`.
+  const explicite = (DB.matieres||[]).some(m => m.cid === sel && m.active !== false);
+
+  return `
+  <div class="ww-toolbar" style="margin-bottom:12px">
+    <select class="form-select" style="flex:1" onchange="window._matDirCid=this.value;render()">
+      ${cls.map(c=>`<option value="${esc(c.id)}"${c.id===sel?' selected':''}>${esc(c.name)}</option>`).join('')}
+    </select>
+  </div>
+
+  <div class="premium-section">
+    <div class="premium-section-title">📐 Programme de ${esc(cl?cl.name:'—')} · ${mats.length} matière(s)</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+      ${explicite ? 'Programme défini pour cette classe.'
+                  : 'Programme par défaut du cycle — aucune matière n\'a encore été personnalisée.'}
+    </div>
+    ${mats.map((m,i)=>{
+      const notes = (DB.grades||[]).filter(g=>g.matiere===m.name && sids.has(g.sid)).length;
+      return `<div class="premium-item" style="animation-delay:${i*.03}s">
+        <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d8f3e6':'#fdeccd'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
+        <div style="flex:1;min-width:0">
+          <div class="pi-title">${esc(m.name)}</div>
+          <div class="pi-sub">${esc(parLang[m.lang]||m.lang)}${notes?` · ${notes} note(s)`:' · aucune note'}</div>
+        </div>
+        <span class="pill" style="background:#f6ede0;color:#5c5346;font-weight:700">×${m.coeff||1}</span>
+        <button class="btn btn-outline btn-sm" style="padding:3px 9px;color:#dc2626;border-color:#f0c9c9;margin-left:8px;flex-shrink:0"
+          onclick="supprimerMatiereDir('${esc(cl.id)}','${esc(m.name).replace(/'/g,'&#39;')}')" title="Retirer">✕</button>
+      </div>`;}).join('')}
+  </div>
+
+  <div class="premium-section" style="border-left:4px solid #f59e0b">
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px">💡 Programmes</div>
+    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">
+      Les enseignants gèrent librement les matières de leur classe dans leur langue, et vous
+      en êtes notifiée. Cet écran vous permet d'intervenir pour toutes les classes — notamment
+      celles sans titulaire, que personne d'autre ne peut renseigner.
+    </div>
+    <button class="btn btn-primary" onclick="openAddMatiereDir('${esc(sel)}')">➕ Ajouter une matière</button>
+  </div>`;
+}
+
 R.matieres = () => {
+  // ── Direction : toutes les classes, avec le même pouvoir d'agir ──────
+  if (['direction','direction2'].includes(S.user.role)) return _matieresDirection();
+
   const mc=getMyClass();
   if(!mc.cl) return `<div style="text-align:center;padding:60px;color:var(--text-muted)"><div style="font-size:60px;margin-bottom:16px">📐</div>Vous n'êtes titulaire d'aucune classe</div>`;
   const cl=mc.cl;
@@ -13644,6 +13705,93 @@ window.ajouterMatiere = cid => {
   saveToCrypt(); closeModal(); render();
 };
 
+window.openAddMatiereDir = cid => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const cl = gc(cid); if(!cl){toast('Classe introuvable','error');return;}
+  openM(`➕ Ajouter une matière — ${esc(cl.name)}`,`
+  <div class="form-group"><label class="form-label">Nom de la matière</label>
+    <input class="form-input" id="matDName" placeholder="Ex: Informatique" autocomplete="off"></div>
+  <div class="form-row">
+    <div class="form-group" style="flex:2"><label class="form-label">Langue</label>
+      <select class="form-select" id="matDLang">
+        <option value="fr">Français</option>
+        <option value="en">English</option>
+        <option value="commun">Commun (FR+EN)</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Coefficient</label>
+      <select class="form-select" id="matDCoeff"><option>1</option><option>2</option><option>3</option></select>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--text-muted);background:var(--bg);border-radius:8px;padding:8px 10px">
+    Coeff 3 = matière principale · 2 = secondaire · 1 = option
+  </div>`,
+  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+   <button class="btn btn-primary" onclick="ajouterMatiereDir('${esc(cid)}')">Ajouter</button>`);
+};
+
+window.ajouterMatiereDir = cid => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const cl = gc(cid); if(!cl) return;
+  const name  = ($('matDName')?.value||'').trim().slice(0,60);
+  const lang  = $('matDLang')?.value || 'fr';
+  const coeff = Math.min(5, Math.max(1, Number($('matDCoeff')?.value||1)));
+  if(!name){markFieldError('matDName','Nom obligatoire');return;}
+  const _norm = x => (x||'').trim().toLowerCase().replace(/\s+/g,' ')
+                       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(getClassMatieres(cid).some(m => _norm(m.name) === _norm(name))){
+    markFieldError('matDName', `« ${name} » existe déjà dans cette classe`);return;
+  }
+  const _mat = window._materialiserMatieres(cid, lang);
+  const nm = {id:_uid('mat_'), cid, name, lang, coeff, active:true};
+  (DB.matieres = DB.matieres||[]).push(nm);
+  pushSync('matieres','post',nm);
+  logAudit('matiere_add', `${name} (${lang}, coeff ${coeff}) — ${cl.name} · par la Direction`, nm.id);
+  toast(`✅ ${name} ajoutée à ${cl.name}`+(_mat?` — programme fixé (${_mat} matières)`:''),'success');
+  saveToCrypt(); closeModal(); render();
+};
+
+window.supprimerMatiereDir = (cid, nom) => {
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
+  const cl = gc(cid); if(!cl) return;
+  const mat = getClassMatieres(cid).find(m => m.name === nom);
+  if(!mat){toast('Matière introuvable','error');return;}
+
+  const sids = new Set((DB.students||[]).filter(s=>s.cid===cid).map(s=>s.id));
+  const notes    = (DB.grades||[]).filter(g => g.matiere === nom && sids.has(g.sid)).length;
+  const creneaux = (DB.timetables||[]).filter(x => x.cid === cid && x.matiere === nom).length;
+  const lignes = [];
+  if (notes)    lignes.push(`<strong>${notes} note(s)</strong> déjà saisies : conservées, mais elles cesseront d'entrer dans la moyenne — les bulletins changeront.`);
+  if (creneaux) lignes.push(`<strong>${creneaux} créneau(x)</strong> d'emploi du temps seront retirés.`);
+  const avert = lignes.length
+    ? `<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;font-size:13px;color:#991b1b;margin-top:10px">
+         <ul style="margin:0;padding-left:18px">${lignes.map(x=>`<li style="margin:3px 0">${x}</li>`).join('')}</ul></div>`
+    : '';
+
+  showC(`Retirer « ${nom} » de ${cl.name} ?`, avert, () => {
+    window._materialiserMatieres(cid, mat.lang);
+    const ligne = (DB.matieres||[]).find(m => m.cid===cid && m.name===nom && m.active!==false);
+    if(!ligne){toast('Matière introuvable après mise à jour','error');return;}
+    DB.matieres = (DB.matieres||[]).filter(m => m.id !== ligne.id);
+    pushSync('matieres','delete',{},'id=eq.'+ligne.id);
+    if (creneaux) {
+      const morts = (DB.timetables||[]).filter(x => x.cid === cid && x.matiere === nom).map(x => x.id);
+      DB.timetables = (DB.timetables||[]).filter(x => !(x.cid === cid && x.matiere === nom));
+      window._bulkLot('timetables','delete',{},morts);
+    }
+    // Prévenir l'enseignant : c'est son programme qui change.
+    [cl.teacher_id, cl.teacher_id_en].filter(Boolean).forEach(tid=>{
+      const n={id:_uid('n_'),uid:tid,
+        msg:`📐 La Direction a retiré la matière « ${nom} » de ${cl.name}${notes?` — ${notes} note(s) concernée(s)`:''}`,
+        time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
+    });
+    logAudit('matiere_del', `${nom} — ${cl.name} · par la Direction${notes?` (${notes} note(s))`:''}`, ligne.id);
+    toast(`${nom} retirée de ${cl.name}`,'info');
+    saveToCrypt(); render();
+  });
+};
+
 // Retirer une matière est lourd de conséquences : les notes déjà saisies
 // cessent d'entrer dans la moyenne sans être effacées. On le dit avec le
 // compte exact plutôt que de laisser découvrir la surprise au bulletin.
@@ -13659,12 +13807,18 @@ window.supprimerMatiere = (cid, nom) => {
   }
 
   const sids = new Set((DB.students||[]).filter(s=>s.cid===cid).map(s=>s.id));
-  const notes = (DB.grades||[]).filter(g => g.matiere === nom && sids.has(g.sid)).length;
-  const avert = notes
+  const notes    = (DB.grades||[]).filter(g => g.matiere === nom && sids.has(g.sid)).length;
+  const creneaux = (DB.timetables||[]).filter(x => x.cid === cid && x.matiere === nom).length;
+  const devoirs  = (DB.devoirs||[]).filter(d => d.cid === cid && d.matiere === nom).length;
+
+  const lignes = [];
+  if (notes)    lignes.push(`<strong>${notes} note(s)</strong> déjà saisies : elles ne seront pas effacées, mais cesseront d'entrer dans la moyenne — les bulletins changeront.`);
+  if (creneaux) lignes.push(`<strong>${creneaux} créneau(x)</strong> d'emploi du temps nomment cette matière : ils seront retirés.`);
+  if (devoirs)  lignes.push(`<strong>${devoirs} devoir(s)</strong> y font référence : ils resteront visibles sous ce nom.`);
+
+  const avert = lignes.length
     ? `<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;font-size:13px;color:#991b1b;margin-top:10px">
-         <strong>${notes} note(s)</strong> ont déjà été saisies dans cette matière.
-         Elles ne seront pas effacées, mais cesseront d'entrer dans la moyenne
-         des élèves — les bulletins changeront.
+         <ul style="margin:0;padding-left:18px">${lignes.map(x=>`<li style="margin:3px 0">${x}</li>`).join('')}</ul>
        </div>`
     : '';
 
@@ -13677,6 +13831,12 @@ window.supprimerMatiere = (cid, nom) => {
     if(!ligne){toast('Matière introuvable après mise à jour','error');return;}
     DB.matieres = (DB.matieres||[]).filter(m => m.id !== ligne.id);
     pushSync('matieres','delete',{},'id=eq.'+ligne.id);
+    // L'emploi du temps ne doit pas annoncer un cours qui n'aura pas lieu.
+    if (creneaux) {
+      const morts = (DB.timetables||[]).filter(x => x.cid === cid && x.matiere === nom).map(x => x.id);
+      DB.timetables = (DB.timetables||[]).filter(x => !(x.cid === cid && x.matiere === nom));
+      window._bulkLot('timetables', 'delete', {}, morts);
+    }
     logAudit('matiere_del', `${nom} — ${mc.cl.name}${notes?` (${notes} note(s) détachée(s))`:''}`, ligne.id);
     (DB.users||[]).filter(u=>['direction','direction2'].includes(u.role)).forEach(u=>{
       const n={id:_uid('n_'),uid:u.id,
