@@ -5,7 +5,7 @@
 --  Remplace supabase_fix_columns_v2.sql ET supabase_fix_columns_v3.sql.
 --  Inutile de les lancer séparément : ce fichier contient les deux.
 --
---  79 colonnes sur 24 tables · 1 changement de type · 2 droits
+--  81 colonnes sur 25 tables · 1 changement de type · 2 droits
 --  d'accès · 2 index · 2 reprises de données.
 --
 --  Sans dommage à relancer autant de fois qu'on veut : chaque opération
@@ -162,6 +162,13 @@ BEGIN
       --   faute de colonne. Toute matière personnalisée valait donc 1,
       --   quel que soit le choix fait à l'écran.
       ('matieres','coeff','NUMERIC DEFAULT 1'),
+
+      -- conduct : la conduite pèse 15 % du classement, mais ne portait
+      --   aucun trimestre. Choisir « T1 » filtrait les notes et laissait
+      --   passer une conduite de juin — le classement du premier trimestre
+      --   changeait des mois après sa clôture.
+      ('conduct','trimestre','TEXT'),
+      ('conduct','school_id','TEXT'),
 
       ('cantine_menus','school_id','TEXT'),
 
@@ -368,6 +375,8 @@ WITH attendu(tbl, col) AS (
     ('activites','school_id'),
     ('advances','school_id'),
     ('matieres','coeff'),
+    ('conduct','trimestre'),
+    ('conduct','school_id'),
     ('cantine_menus','school_id'),
     ('teacher_absences','motif'),
     ('teacher_absences','duree'),
@@ -462,6 +471,8 @@ WITH attendu(tbl, col) AS (
     ('activites','school_id'),
     ('advances','school_id'),
     ('matieres','coeff'),
+    ('conduct','trimestre'),
+    ('conduct','school_id'),
     ('cantine_menus','school_id'),
     ('teacher_absences','motif'),
     ('teacher_absences','duree'),

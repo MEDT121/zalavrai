@@ -11913,7 +11913,11 @@ R.palmares = () => {
     const avgCouv=couvertures.length?Math.round(couvertures.reduce((s,p)=>s+(p.pourcentage||0),0)/couvertures.length):null;
 
     const ranked=students.map(s=>{
-      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id);
+      const conduct=(DB.conduct||[]).filter(c=>c.sid===s.id
+        && (!trimFilter || !c.trimestre || c.trimestre===trimFilter));
+      // Les présences ne portent pas de trimestre et l'école n'enregistre
+      // pas les bornes de ses périodes : ce compte est celui de l'année, et
+      // l'écran le dit plutôt que de laisser croire à un décompte trimestriel.
       const retards=(DB.attendance||[]).filter(a=>a.sid===s.id&&a.status==='late').length;
       let totalPct=0,sumCoeff=0;
       matieres.forEach(m=>{
@@ -11968,7 +11972,7 @@ R.palmares = () => {
             <div style="width:38px;height:38px;border-radius:10px;background:${cbg};overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:${cc}">${(s.photo||s.photo_url)?`<img src="${s.photo||s.photo_url}" style="width:100%;height:100%;object-fit:cover">`:ini(s.name)}</div>
             <div class="ww-item-content">
               <div class="ww-item-title">${esc(s.name)}${s.moyPct<50&&s.gradeCount>0?' <span style="font-size:10px;color:#dc2626;font-weight:700;background:#fee2e2;border-radius:4px;padding:1px 5px">⚠ ÉCHEC</span>':''}</div>
-              <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#1f9d6b':s.moyPct>=50?'#d98a2b':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · <span style="font-size:11px;font-weight:700;color:${men.c}">${men.l}</span> · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''}</div>
+              <div class="ww-item-sub">${t('Moy:','Avg:')} <strong style="color:${s.moyPct>=70?'#1f9d6b':s.moyPct>=50?'#d98a2b':'#dc2626'}">${s.moyPct}%</strong> · ${condEmoji} · <span style="font-size:11px;font-weight:700;color:${men.c}">${men.l}</span> · ${s.retards} ${t('retard','late')}${s.retards>1?'s':''} ${t('(année)','(year)')}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">
               <div style="font-size:18px;font-weight:800;color:${s.total>=70?'#1f9d6b':s.total>=50?'#d98a2b':'#dc2626'}">${s.total}</div>
@@ -20204,7 +20208,11 @@ window.saveConductEntry = () => {
   if(!S.user||!['enseignant','direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const sid=$('cdSid')?.value; const score=$('cdScore')?.value; const remark=($('cdRemark')?.value||'').trim(); const date=$('cdDate')?.value;
   if(!sid||!score||!date){toast('Remplir tous les champs','error');return;}
-  const entry={id:_uid('cd_'),sid,score,remark,date,by:S.user.id};
+  // Le trimestre courant est figé au moment de la saisie : le déduire plus
+  // tard demanderait des bornes de dates que l'école n'enregistre pas.
+  const entry={id:_uid('cd_'),sid,score,remark,date,by:S.user.id,
+    trimestre:DB.settings?.currentTrimestre||null,
+    school_id:window._currentSchoolId||null};
   (DB.conduct=DB.conduct||[]).push(entry);
   pushSync('conduct','post',entry);
   logAudit('conduct_add', `${DB.students.find(x=>x.id===sid)?.name||''} · ${score}${remark?' — '+remark:''}`, entry.id);
