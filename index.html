@@ -4343,9 +4343,30 @@ window.openProfile = () => {
   <button class="btn btn-primary" onclick="saveProfile()">💾 ${t('Enregistrer','Save')}</button>`);
 };
 window.saveProfile = async () => {
-  const u=S.user, op=$('oldPin').value, np=$('newPin').value, cp=$('confirmPin').value;
+  const u=S.user, op=$('oldPin')?.value||'', np=$('newPin')?.value||'', cp=$('confirmPin')?.value||'';
   if (!op&&!np&&!cp) { closeModal(); return; }
   if (!op) { toast('Entrez votre code actuel','error'); return; }
+
+  // Le compte maître n'existe pas en base : il n'y a rien à modifier, et le
+  // laisser croire le contraire serait pire que de le dire.
+  if (u.id === 'master_admin') {
+    toast('Le code maître ne se change pas depuis l\'application','info'); return;
+  }
+
+  // Les codes sont effacés de la mémoire après la connexion. Il faut les
+  // relire avant de pouvoir vérifier le code actuel — sans quoi la
+  // comparaison porte sur `undefined` et échoue toujours.
+  if (!u.pin && window.DB_ONLINE) {
+    try {
+      const cr = await _get('users','select=pin,pin_hashed,pin_hashed_v2&id=eq.'+encodeURIComponent(u.id)+'&limit=1');
+      const c = (Array.isArray(cr)?cr:[])[0];
+      if (c) { u.pin = c.pin; u.pin_hashed = c.pin_hashed; u.pin_hashed_v2 = c.pin_hashed_v2; }
+    } catch(e) { console.warn('[profil]', e.message); }
+  }
+  if (!u.pin) {
+    toast('Impossible de vérifier votre code actuel — connexion requise','error'); return;
+  }
+
   const opHash = await _hashPin(op);
   const opHashV2 = await _hashPinSalted(op, u.id);
   const currentMatch = u.pin_hashed_v2 ? u.pin===opHashV2 : (u.pin_hashed ? u.pin===opHash : u.pin===op);
@@ -4356,12 +4377,17 @@ window.saveProfile = async () => {
     if (!np||np.length!==6||!/^\d{6}$/.test(np)) { toast('Code PIN : exactement 6 chiffres','error'); return; }
   }
   if (np!==cp) { toast('Les codes ne correspondent pas','error'); return; }
+  if (op === np) { toast('Le nouveau code doit être différent de l\'ancien','error'); return; }
   const npHash = await _hashPinSalted(np, u.id);
   u.pin = npHash; u.pin_hashed = true; u.pin_hashed_v2 = true;
   pushSync('users','patch',{pin:npHash,pin_hashed:true,pin_hashed_v2:true},'id=eq.'+u.id);
   await _initAESKeyFromPIN(np); // re-dériver la clé PBKDF2 avec le nouveau PIN
-  saveToCrypt();
-  toast('PIN mis à jour ✅','success'); closeModal();
+  saveToCrypt();                 // le cache doit porter le NOUVEAU code, sinon
+                                 // la connexion hors ligne resterait sur l'ancien
+  // Puis reprendre la purge : le code n'a pas à séjourner en mémoire.
+  delete u.pin; delete u.pin_hashed; delete u.pin_hashed_v2;
+  toast(_isDirRole(u.role) ? 'Mot de passe mis à jour ✅' : 'Code PIN mis à jour ✅','success');
+  closeModal();
 };
 
 // ── ROLE GUARD ──
@@ -24847,18 +24873,31 @@ window.autoActivatePaid = () => {
   else toast('Tous les élèves à jour sont déjà activés','info');
 };
 
-window.resetParentPin = (uid) => {
+// Le code généré n'est lisible qu'ici, au moment où la Direction le note.
+// Seule son empreinte part en base : un code en clair dans une table est
+// lisible par quiconque atteint la base.
+window.resetParentPin = async (uid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const u=DB.users.find(x=>x.id===uid); if(!u||u.role!=='parent') return;
-  const newPin=Math.floor(100000+Math.random()*900000).toString();
-  u.pin=newPin; u.pin_hashed=false;
-  pushSync('users','patch',{pin:newPin,pin_hashed:false},'id=eq.'+uid);
-  saveToCrypt(); render();
-  openM('🔑 Nouveau PIN parent',`<div style="text-align:center;padding:20px 0">
+  const u=(DB.users||[]).find(x=>x.id===uid); if(!u||u.role!=='parent') return;
+
+  // Math.random n'est pas fait pour engendrer un secret.
+  const _b=new Uint32Array(1); crypto.getRandomValues(_b);
+  const newPin=String(100000+(_b[0]%900000));
+
+  const h=await _hashPinSalted(newPin, uid);
+  u.pin=h; u.pin_hashed=true; u.pin_hashed_v2=true;
+  pushSync('users','patch',{pin:h,pin_hashed:true,pin_hashed_v2:true},'id=eq.'+uid);
+  logAudit('user_pin_reset', `${u.name} — code parent réinitialisé`, uid);
+  saveToCrypt();
+  // Le code ne séjourne pas en mémoire une fois écrit.
+  delete u.pin; delete u.pin_hashed; delete u.pin_hashed_v2;
+  render();
+
+  openM('🔑 Nouveau code parent', `<div style="text-align:center;padding:20px 0">
     <div style="font-size:14px;margin-bottom:8px;color:var(--text-secondary)">Nouveau code pour <strong>${esc(u.name)}</strong></div>
     <div style="font-size:42px;font-weight:900;letter-spacing:12px;color:#205fae;font-family:monospace;padding:18px;background:#dbeafe;border-radius:16px;margin:10px auto">${newPin}</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-top:10px">Communiquez ce code au parent. Il sera masqué dès la première connexion.</div>
-  </div>`,`<button class="btn btn-primary" onclick="closeModal()">OK</button>`);
+    <div style="font-size:12px;color:var(--text-muted);margin-top:10px">Notez-le maintenant et communiquez-le au parent : il n'est plus lisible ensuite, seule son empreinte est conservée.</div>
+  </div>`, `<button class="btn btn-primary" onclick="closeModal()">OK</button>`);
 };
 
 // ── RECHERCHE GLOBALE ──
