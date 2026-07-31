@@ -10004,7 +10004,7 @@ window.approveApr = (id, status) => {
   }
   if(a.type==='matiere' && status==='approved' && a.data) {
     const exists = (DB.matieres||[]).find(m=>m.cid===a.data.cid&&m.name===a.data.name);
-    if(!exists){ const nm={id:_uid('mat_'),cid:a.data.cid,name:a.data.name,lang:a.data.lang,active:true}; (DB.matieres=DB.matieres||[]).push(nm); pushSync('matieres','post',nm); }
+    if(!exists){ const nm={id:_uid('mat_'),cid:a.data.cid,name:a.data.name,lang:a.data.lang,coeff:Number(a.data.coeff)||1,active:true}; (DB.matieres=DB.matieres||[]).push(nm); pushSync('matieres','post',nm); }
     const teacher = gu(a.by);
     if(teacher){ const n={id:_uid('n_'),uid:teacher.id,msg:`✅ Matière "${a.data.name}" ajoutée à ${gc(a.data.cid)?.name||'votre classe'}`,time:nowTime(),date:today(),read:false,type:'info'}; DB.notifs.unshift(n); pushSync('notifs','post',n); }
   }
@@ -11122,6 +11122,24 @@ window.getLang = () => {
 window.t = (fr, en) => getLang()==='en' ? en : fr;
 
 // ── Helper: get matières for a class ──
+// Copie les matières par défaut d'une langue en lignes réelles, une seule
+// fois. Sans cela, la première matière ajoutée à la main ferait disparaître
+// tout le programme par défaut de sa langue.
+window._materialiserMatieres = (cid, lang) => {
+  const cl = gc(cid); if (!cl) return 0;
+  const deja = (DB.matieres||[]).some(m => m.cid === cid && m.lang === lang && m.active !== false);
+  if (deja) return 0;                       // déjà explicite : rien à faire
+  const socle = getClassMatieres(cid).filter(m => m.lang === lang);
+  if (!socle.length) return 0;
+  DB.matieres = DB.matieres || [];
+  socle.forEach(m => {
+    const ligne = { id:_uid('mat_'), cid, name:m.name, lang:m.lang, coeff:m.coeff||1, active:true };
+    DB.matieres.push(ligne);
+    pushSync('matieres','post',ligne);
+  });
+  return socle.length;
+};
+
 window.getClassMatieres = (cid) => {
   const cl=gc(cid); if(!cl) return [];
   // Matières personnalisées approuvées pour cette classe
@@ -13533,6 +13551,9 @@ R.matieres = () => {
       <div class="pi-icon" style="background:${m.lang==='fr'?'#dbeafe':m.lang==='en'?'#d8f3e6':'#fdeccd'}">${m.lang==='fr'?'🇫🇷':m.lang==='en'?'🇬🇧':'📚'}</div>
       <div style="flex:1"><div class="pi-title">${esc(m.name)}</div><div class="pi-sub">${m.lang==='commun'?t('Matière commune','Common subject'):m.lang==='fr'?'Section française':'English section'}</div></div>
       <span class="pill" style="background:${(m.coeff||1)>=3?'#dbeafe':(m.coeff||1)>=2?'#fdeccd':'#f6ede0'};color:${(m.coeff||1)>=3?'#205fae':(m.coeff||1)>=2?'#92400e':'#5c5346'};font-weight:700">×${m.coeff||1}</span>
+      <button class="btn btn-outline btn-sm" style="padding:3px 9px;color:#dc2626;border-color:#f0c9c9;margin-left:8px;flex-shrink:0"
+        onclick="supprimerMatiere('${cl.id}','${esc(m.name).replace(/'/g,'&#39;')}')"
+        title="${t('Retirer cette matière','Remove this subject')}">✕</button>
     </div>`).join('')}
   </div>
   ${otherMat.length?`
@@ -13547,14 +13568,14 @@ R.matieres = () => {
   </div>`:''}
   <div class="premium-section" style="border-left:4px solid #f59e0b">
     <div style="font-weight:700;font-size:14px;margin-bottom:8px">💡 ${t('Personnalisation','Customization')}</div>
-    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">${t('Vous pouvez proposer d\'ajouter, renommer ou désactiver une matière. Toute modification sera soumise à l\'approbation de la Direction.','You can suggest adding, renaming or disabling a subject. Any change will be submitted for Management approval.')}</div>
-    <button class="btn btn-outline" onclick="openAddMatiere('${cl.id}')">➕ ${t('Proposer une matière','Suggest a subject')}</button>
+    <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">${t('Vous gérez librement les matières de votre classe, dans votre langue. La Direction en est informée. Une matière retirée conserve ses notes, mais celles-ci cessent d\'entrer dans la moyenne.','You manage your class subjects in your own language. Management is notified. A removed subject keeps its grades, but they stop counting towards the average.')}</div>
+    <button class="btn btn-primary" onclick="openAddMatiere('${cl.id}')">➕ ${t('Ajouter une matière','Add a subject')}</button>
   </div>`;
 };
 
 window.openAddMatiere = cid => {
   const mc=getMyClass();
-  openM('➕ Proposer une matière',`
+  openM(t('➕ Ajouter une matière','➕ Add a subject'),`
   <div class="form-group"><label class="form-label">Nom de la matière</label><input class="form-input" id="matName" placeholder="Ex: Informatique"></div>
   <div class="form-row">
     <div class="form-group" style="flex:2"><label class="form-label">Langue</label>
@@ -13575,26 +13596,97 @@ window.openAddMatiere = cid => {
     💡 Coeff 3 = matière principale (Maths, Français) · Coeff 2 = matière secondaire · Coeff 1 = option
   </div>`,
   `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-  <button class="btn btn-primary" onclick="submitMatiere('${cid}')">Soumettre</button>`);
+  <button class="btn btn-primary" onclick="ajouterMatiere('${cid}')">${t('Ajouter','Add')}</button>`);
 };
 
-window.submitMatiere = cid => {
+// L'enseignant crée désormais sa matière directement. Passer par une
+// approbation pour une option de sa propre classe faisait attendre des jours
+// une décision que personne ne contestait — et les notes de cette matière
+// ne pouvaient pas être saisies entre-temps. La Direction en est informée.
+window.ajouterMatiere = cid => {
   if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
-  const name=($('matName')?.value||'').trim();
-  const lang=$('matLang')?.value;
-  const coeff=Number($('matCoeff')?.value||1);
-  if(!name){toast('Nom obligatoire','error');return;}
-  const apr={id:_uid('apr_'),type:'matiere',status:'pending',
-    content:`Ajout matière: ${name} (${lang}, coeff ${coeff}) pour ${gc(cid)?.name||''}`,
-    data:{cid,name,lang,coeff},date:today(),by:S.user.id};
-  (DB.approbations=DB.approbations||[]).push(apr);
-  pushSync('approbations','post',apr);
-  DB.users.filter(u=>u.role==='direction'||u.role==='direction2').forEach(u=>{
-    const n={id:_uid('n_'),uid:u.id,msg:`📐 Demande matière — "${name}" (${lang}) pour ${gc(cid)?.name||'?'} par ${S.user.name}`,time:nowTime(),date:today(),read:false,type:'approval'};
-    DB.notifs.unshift(n); pushSync('notifs','post',n);
+  const mc = getMyClass();
+  if(!mc.cl || mc.cl.id !== cid){toast('Cette classe n\'est pas la vôtre','error');return;}
+
+  const name  = ($('matName')?.value||'').trim().slice(0,60);
+  const lang  = $('matLang')?.value || mc.lang;
+  const coeff = Math.min(5, Math.max(1, Number($('matCoeff')?.value||1)));
+  if(!name){markFieldError('matName','Nom obligatoire');return;}
+
+  // Un enseignant ne touche qu'à sa langue, ou au tronc commun. Autrement il
+  // modifierait le programme de son co-titulaire.
+  if(lang !== 'commun' && lang !== mc.lang){toast('Vous ne gérez que les matières en '+(mc.lang==='fr'?'français':'anglais'),'error');return;}
+
+  // Le nom fait foi : c'est par lui que les notes sont rattachées. Deux
+  // matières homonymes rendraient les moyennes indéchiffrables.
+  const _norm = x => (x||'').trim().toLowerCase().replace(/\s+/g,' ')
+                       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(getClassMatieres(cid).some(m => _norm(m.name) === _norm(name))){
+    markFieldError('matName', `« ${name} » existe déjà dans cette classe`);return;
+  }
+
+  // Rendre le programme explicite AVANT d'y ajouter : sinon cette seule
+  // ligne ferait disparaître toutes les matières par défaut de sa langue.
+  const _mat = window._materialiserMatieres(cid, lang);
+
+  const nm = {id:_uid('mat_'), cid, name, lang, coeff, active:true};
+  (DB.matieres = DB.matieres||[]).push(nm);
+  pushSync('matieres','post',nm);
+
+  (DB.users||[]).filter(u=>['direction','direction2'].includes(u.role)).forEach(u=>{
+    const n={id:_uid('n_'),uid:u.id,
+      msg:`📐 ${S.user.name} a ajouté la matière « ${name} » (${lang}) en ${gc(cid)?.name||'?'}`,
+      time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+    (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
   });
-  toast('Demande soumise à la Direction ✅','success');
+  logAudit('matiere_add', `${name} (${lang}, coeff ${coeff}) — ${gc(cid)?.name||''}`, nm.id);
+  toast(`✅ ${name} ajoutée`+(_mat?` — programme de la classe fixé (${_mat} matières)`:''),'success');
   saveToCrypt(); closeModal(); render();
+};
+
+// Retirer une matière est lourd de conséquences : les notes déjà saisies
+// cessent d'entrer dans la moyenne sans être effacées. On le dit avec le
+// compte exact plutôt que de laisser découvrir la surprise au bulletin.
+window.supprimerMatiere = (cid, nom) => {
+  if(!S.user||S.user.role!=='enseignant'){toast('Accès non autorisé','error');return;}
+  const mc = getMyClass();
+  if(!mc.cl || mc.cl.id !== cid){toast('Cette classe n\'est pas la vôtre','error');return;}
+
+  const mat = getClassMatieres(cid).find(m => m.name === nom);
+  if(!mat){toast('Matière introuvable','error');return;}
+  if(mat.lang !== 'commun' && mat.lang !== mc.lang){
+    toast('Cette matière est gérée par votre co-titulaire','error');return;
+  }
+
+  const sids = new Set((DB.students||[]).filter(s=>s.cid===cid).map(s=>s.id));
+  const notes = (DB.grades||[]).filter(g => g.matiere === nom && sids.has(g.sid)).length;
+  const avert = notes
+    ? `<div style="background:#fee2e2;border-radius:10px;padding:10px 12px;font-size:13px;color:#991b1b;margin-top:10px">
+         <strong>${notes} note(s)</strong> ont déjà été saisies dans cette matière.
+         Elles ne seront pas effacées, mais cesseront d'entrer dans la moyenne
+         des élèves — les bulletins changeront.
+       </div>`
+    : '';
+
+  showC(`Retirer « ${nom} » ?`,
+    `Cette matière n'apparaîtra plus dans ${mc.cl.name}.${avert ? ' ' : ''}`.trim(), () => {
+    // Rendre le programme explicite d'abord : sans ligne réelle, il n'y a
+    // rien à retirer — la matière reviendrait au prochain rendu.
+    window._materialiserMatieres(cid, mat.lang);
+    const ligne = (DB.matieres||[]).find(m => m.cid===cid && m.name===nom && m.active!==false);
+    if(!ligne){toast('Matière introuvable après mise à jour','error');return;}
+    DB.matieres = (DB.matieres||[]).filter(m => m.id !== ligne.id);
+    pushSync('matieres','delete',{},'id=eq.'+ligne.id);
+    logAudit('matiere_del', `${nom} — ${mc.cl.name}${notes?` (${notes} note(s) détachée(s))`:''}`, ligne.id);
+    (DB.users||[]).filter(u=>['direction','direction2'].includes(u.role)).forEach(u=>{
+      const n={id:_uid('n_'),uid:u.id,
+        msg:`📐 ${S.user.name} a retiré la matière « ${nom} » en ${mc.cl.name}${notes?` — ${notes} note(s) concernée(s)`:''}`,
+        time:nowTime(),date:today(),read:false,type:'info',school_id:window._currentSchoolId||null};
+      (DB.notifs=DB.notifs||[]).unshift(n); pushSync('notifs','post',n);
+    });
+    toast(`${nom} retirée`,'info');
+    saveToCrypt(); render();
+  });
 };
 
 // ═══════════════════════════════════════════

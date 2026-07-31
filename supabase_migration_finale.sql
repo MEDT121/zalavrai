@@ -5,7 +5,7 @@
 --  Remplace supabase_fix_columns_v2.sql ET supabase_fix_columns_v3.sql.
 --  Inutile de les lancer séparément : ce fichier contient les deux.
 --
---  78 colonnes sur 23 tables · 1 changement de type · 2 droits
+--  79 colonnes sur 24 tables · 1 changement de type · 2 droits
 --  d'accès · 2 index · 2 reprises de données.
 --
 --  Sans dommage à relancer autant de fois qu'on veut : chaque opération
@@ -157,6 +157,11 @@ BEGIN
 
       -- advances : une avance sur salaire appartient à une école.
       ('advances','school_id','TEXT'),
+
+      -- matieres : le coefficient était demandé à l'enseignant puis jeté,
+      --   faute de colonne. Toute matière personnalisée valait donc 1,
+      --   quel que soit le choix fait à l'écran.
+      ('matieres','coeff','NUMERIC DEFAULT 1'),
 
       ('cantine_menus','school_id','TEXT'),
 
@@ -362,6 +367,7 @@ WITH attendu(tbl, col) AS (
     ('absences','school_id'),
     ('activites','school_id'),
     ('advances','school_id'),
+    ('matieres','coeff'),
     ('cantine_menus','school_id'),
     ('teacher_absences','motif'),
     ('teacher_absences','duree'),
@@ -455,6 +461,7 @@ WITH attendu(tbl, col) AS (
     ('absences','school_id'),
     ('activites','school_id'),
     ('advances','school_id'),
+    ('matieres','coeff'),
     ('cantine_menus','school_id'),
     ('teacher_absences','motif'),
     ('teacher_absences','duree'),
