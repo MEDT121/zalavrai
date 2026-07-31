@@ -1259,6 +1259,10 @@ body.dark{background:radial-gradient(circle at 20% 0%,#162155 0%,#0a1130 55%,#06
       <h1 class="topbar-title" id="TT">Tableau de bord</h1>
       <div class="topbar-right">
         <span class="topbar-date" id="TD"></span>
+        <button id="BTN_SEARCH" onclick="openGlobalSearch()" title="Rechercher un élève, un parent, un compte" data-staff-only"
+          style="background:none;border:none;cursor:pointer;color:var(--text);padding:4px;display:flex;align-items:center">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        </button>
         <button id="SYNC_IND" onclick="forceSyncDB()" title="Synchronisation automatique — cliquer pour la déclencher tout de suite" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .3s;border:none;line-height:1.4"></button>
         <button class="topbar-notif-btn" onclick="go('notifications')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="notif-badge"></span></button>
         <button id="TOPAVATAR" onclick="goToMyProfile()" title="Mon profil / Déconnexion" style="width:32px;height:32px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"></button>
@@ -1542,7 +1546,7 @@ window._fitProfile = (img, profile) => {
 };
 
 // Poids réel d'une image encodée en base64, en kilooctets.
-window._dataURLKo = (d) => !d ? 0 : Math.round((String(d).length - (String(d).indexOf(',') + 1)) * 3 / 4 / 1024);
+// _dataURLKo retirée : mesure de taille sans appelant
 
 window.compressImage = (file, maxW, maxH, quality, cb, maxKo) => {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -4379,6 +4383,9 @@ window.buildUI = () => {
   // User photo
   if (S.user.photo_url) { const safeUrl = /^(https?:|data:image\/)/.test(S.user.photo_url||'') ? S.user.photo_url : ''; if(safeUrl) $('SA').innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`; }
   // SchoolSafe brand always fixed — school logo only
+  // La recherche globale parcourt toute l'école : réservée au personnel.
+  const _bs=$('BTN_SEARCH');
+  if(_bs) _bs.style.display = S.user.role==='parent' ? 'none' : 'flex';
   const _sbn=document.querySelector('.sidebar-brand-name');
   if(_sbn) _sbn.textContent=DB.settings?.school?.name||ECOLE_NOM;
   const _sl=$('sidebarLogo');
@@ -10139,46 +10146,8 @@ window.validateAbs = (id, status) => {
   saveToCrypt(); render();
 };
 
-window.approveDevoir = (did, status) => {
-  // approuver un devoir engage l'école auprès des familles
-  if(!S.user||!['direction', 'direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
-  const d = (DB.devoirs||[]).find(x=>x.id===did); if(!d) return;
-  d.status = status==='approved' ? 'published' : 'refused';
-  pushSync('devoirs','patch',{status:d.status},'id=eq.'+did);
-  const teacher=gu(d.teacher_id);
-  const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
-  const cm=catMeta[d.category]||catMeta.devoir;
-  if(status==='approved'){
-    const kids=DB.students.filter(s=>s.cid===d.cid);
-    let notifiedCount=0;
-    kids.forEach(k=>{
-      const hasPaid=(DB.payments||[]).some(p=>p.sid===k.id&&p.paid);
-      if(k.pid&&hasPaid){
-        const dateStr=d.deadline?new Date(d.deadline).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'}):'';
-        const n={id:_uid('n_'),uid:k.pid,
-          msg:`${cm.icon} ${cm.notif} — ${k.name} · ${d.matiere} · ${d.title}${dateStr?' le '+dateStr:''}`,
-          time:nowTime(),date:today(),read:false,type:'academic'};
-        DB.notifs.unshift(n); pushSync('notifs','post',n); notifiedCount++;
-      }
-    });
-    if(teacher){
-      const n={id:_uid('n_'),uid:teacher.id,
-        msg:`Votre ${cm.notif} "${d.title}" approuvé — ${notifiedCount} parent(s) notifié(s)`,
-        time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(n); pushSync('notifs','post',n);
-    }
-    toast(`✅ Approuvé — ${notifiedCount} parent(s) notifié(s) (frais payés)`,'success');
-  } else {
-    if(teacher){
-      const n={id:_uid('n_'),uid:teacher.id,
-        msg:`Votre publication "${d.title}" a été refusée par la Direction`,
-        time:nowTime(),date:today(),read:false,type:'info'};
-      DB.notifs.unshift(n); pushSync('notifs','post',n);
-    }
-    toast('❌ Publication refusée','info');
-  }
-  saveToCrypt(); render();
-};
+// approveDevoir retirée : les devoirs se publient directement, sans approbation
+
 
 window.validateDailyReport = (rid) => {
   if(!S.user||S.user.role!=='direction') return;
@@ -10594,32 +10563,8 @@ R.payments = () => {
 window._payFilterClass='';
 window._payFilterStatus='';
 
-window.togglePay = (sid, t) => {
-  if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
-  const p=(DB.payments||[]).find(x=>x.sid===sid&&x.t===t); if(!p) return;
-  p.paid=!p.paid;
-  pushSync('payments','patch',{paid:p.paid},'sid=eq.'+sid+'&t=eq.'+t);
-  const s=DB.students.find(x=>x.id===sid);
-  logAudit('payment_toggle', `${s?s.name:sid} — T${t} ${p.paid?'payé':'impayé'}`, sid);
-  toast(p.paid?`T${t} activé`:`T${t} désactivé`, p.paid?'success':'info');
-  // Auto-activation accès parent quand tous les frais sont payés
-  if (s) {
-    const pays = (DB.payments||[]).filter(x=>x.sid===sid);
-    const allPaid = pays.length > 0 && pays.every(x=>x.paid);
-    if (allPaid && !s.access_parent) {
-      s.access_parent = true;
-      pushSync('students','patch',{access_parent:true},'id=eq.'+sid);
-      if (s.pid) {
-        const n={id:_uid('n_'),uid:s.pid,
-          msg:`Frais complets — accès aux bulletins et devoirs activé pour ${s.name}.`,
-          time:nowTime(),date:today(),read:false,type:'info',by:S.user.id};
-        DB.notifs.unshift(n); pushSync('notifs','post',n);
-      }
-      toast(`Frais complets — accès bulletins activé pour ${s.name}`,'success');
-    }
-  }
-  saveToCrypt(); render();
-};
+// togglePay retirée : elle marquait un paiement sans reçu ni écriture en caisse — la porte dérobée que _enregistrerMouvement referme
+
 
 window.toggleStudentAccess = sid => {
   if(!S.user||S.user.role!=='direction'){toast('Accès non autorisé','error');return;}
@@ -17540,20 +17485,8 @@ ${_officialFooter(v.by_name||v.by,'Caisse')}
   dlPDF(html, `Recu-${(v.recu_no||'').replace(/[^a-z0-9]/gi,'_')}.pdf`);
 };
 
-window.sendCaisseReceipt = async (student, rec) => {
-  if(!S.user||S.user.role!=='direction3'){toast('Accès non autorisé','error');return;}
-  const cl=gc(student.cid);
-  const receiptNum='REC-'+Date.now().toString().slice(-6);
-  const triLabel=rec.trimestre?` · ${rec.trimestre}`:'';
-  const msg=`🧾 Bordereau #${receiptNum} — ${rec.type_label}${triLabel} · ${_cur()}${rec.amount}\n👶 ${student.name} · ${cl?cl.name:'?'}\n💵 Reçu par : ${S.user.name}\n📅 ${new Date().toLocaleDateString('fr-FR')} à ${rec.time}`;
-  const notif={id:_uid('n_'),uid:student.pid,msg,time:rec.time,date:today(),read:false,type:'receipt',
-    receipt:{num:receiptNum,student:student.name,mat:student.mat,classe:cl?cl.name:'',
-      type_label:rec.type_label,trimestre:rec.trimestre||null,amount:rec.amount,
-      note:rec.note||null,by:S.user.name,date:today(),time:rec.time}};
-  DB.notifs.unshift(notif);
-  pushSync('notifs','post',notif);
-  saveToCrypt();
-};
+// sendCaisseReceipt retirée : doublon de printVersementRecu
+
 
 window.viewReceipt = (nid) => {
   const n=(DB.notifs||[]).find(x=>x.id===nid); if(!n||!n.receipt) return;
@@ -20769,6 +20702,27 @@ R.year_mgmt = () => {
       }).join('')}
     </div>
   </div>
+  <div class="premium-section" style="border-left:4px solid ${s.feesControl&&s.feesControl.active?'#dc2626':'var(--border)'}">
+    <div class="premium-section-title">🚪 Contrôle des frais au portail</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+      Une fois activé, un élève dont les frais du trimestre choisi ne sont pas réglés est
+      <strong>refusé à l'entrée</strong>. La Direction et le parent en sont avertis à chaque refus.
+      Les gardiens reçoivent une notification à l'activation comme à l'arrêt.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="form-select" id="fcTrim" style="width:auto;min-width:110px;flex:0">
+        ${['T1','T2','T3'].map(tr=>`<option value="${tr}"${(s.feesControl&&s.feesControl.trimestre)===tr?' selected':''}>${tr}</option>`).join('')}
+      </select>
+      <button class="btn ${s.feesControl&&s.feesControl.active?'btn-danger':'btn-outline'}" style="flex:1;min-width:170px"
+        onclick="toggleFeesControl()">
+        ${s.feesControl&&s.feesControl.active?'🔴 Arrêter le contrôle':'Activer le contrôle des frais'}
+      </button>
+    </div>
+    ${s.feesControl&&s.feesControl.active?`<div style="margin-top:10px;font-size:12px;color:#991b1b;background:#fee2e2;border-radius:9px;padding:8px 11px">
+      Contrôle actif sur ${esc(s.feesControl.trimestre||'—')} — les élèves non à jour sont refusés au portail.
+    </div>`:''}
+  </div>
+
   <div class="premium-section">
     <div class="premium-section-title">🔒 Verrouillage des trimestres</div>
     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Un trimestre verrouillé empêche toute modification des notes par les enseignants.</div>
@@ -20973,7 +20927,7 @@ window.confirmNewYear = () => {
 };
 
 // ── ÉTAPE 8 — EXPORT DONNÉES ──
-window.autoCleanup = () => { runAutoCleanup(true).then(()=>render('export')); };
+// autoCleanup retirée : le nettoyage manuel est déjà branché sur son propre bouton, qui appelle runAutoCleanup(true)
 window.getDbSizeMb = () => { try{return(new Blob([JSON.stringify(DB)]).size/(1024*1024)).toFixed(2);}catch(e){return'0.00';} };
 window.getDbBreakdown = () => {
   const kb=o=>{try{return Math.round(new Blob([JSON.stringify(o)]).size/1024);}catch(e){return 0;}};
@@ -22456,9 +22410,8 @@ window.saveSessionTimeout = (val) => {
 // central retiré. La fonction reste appelée par deux boutons ; la garder
 // honnête coûte moins que de traquer chaque appel, et elle dit clairement
 // pourquoi rien ne part.
-window.publishAnnFromApp = async () => {
-  toast('Publication d\'actualités retirée avec le service central', 'info');
-};
+// publishAnnFromApp retirée : la publication d'actualités est partie avec le projet central
+
 
 
 // ── SANCTIONS DISCIPLINAIRES ──
@@ -24972,7 +24925,7 @@ const _saveProfileCore = (prefix, phoneId) => {
 };
 window.saveDir1Profile = () => _saveProfileCore('dir_','dir1_phone');
 window.saveDir2Profile = () => _saveProfileCore('dir2_','dir2_phone');
-window.saveDirProfile  = (inputId) => inputId.startsWith('dir2_') ? saveDir2Profile() : saveDir1Profile();
+// saveDirProfile retirée : enveloppe sans appelant — les deux profils appellent directement saveDir1Profile ou saveDir2Profile
 
 window.archiverAnnee = () => {
   if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
@@ -25381,6 +25334,9 @@ window.resetParentPin = async (uid) => {
 
 // ── RECHERCHE GLOBALE ──
 window.openGlobalSearch = () => {
+  if(!S.user||!['direction','direction2','direction3','enseignant','gardien'].includes(S.user.role)){
+    toast('Accès non autorisé','error');return;
+  }
   openM('🔍 Recherche globale',`
   <input class="form-input" id="gSearch" placeholder="Nom, matricule, téléphone..." oninput="clearTimeout(window._dT);window._dT=setTimeout(renderGSearch,300)" autofocus style="margin-bottom:10px">
   <div id="gSearchResults" style="max-height:60vh;overflow-y:auto"></div>`,
@@ -25438,22 +25394,8 @@ window.confirmConvocationParent = (cid) => {
 };
 
 // ── MESSAGE PARENT → PROF (via Direction) ──
-window.messageTeacher = (uid, kidId) => {
-  const teacher=gu(uid); const kid=DB.students.find(x=>x.id===kidId);
-  if(!teacher){toast('Professeur introuvable','error');return;}
-  openM(`📨 Message à ${teacher.name}`,`
-  <div style="background:#fdeccd;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:14px">
-    ℹ️ Votre message sera transmis à la <strong>Direction</strong> qui le relayera au professeur après validation.
-  </div>
-  <div style="background:#dbeafe;border-radius:10px;padding:10px 14px;font-size:13px;color:#205fae;margin-bottom:14px">
-    À : <strong>${esc(teacher.name)}</strong>${kid?' · Concernant : '+esc(kid.name):''}
-  </div>
-  <div class="form-group"><label class="form-label">Votre message *</label>
-    <textarea class="form-input" id="msgToTeacher" rows="5" placeholder="Bonjour, je voulais vous contacter au sujet de..."></textarea>
-  </div>`,
-  `<button class="btn btn-outline" onclick="closeModal()">Annuler</button>
-   <button class="btn btn-primary" onclick="sendMessageToTeacher('${uid}','${kidId||''}')">Envoyer</button>`);
-};
+// messageTeacher retirée : doublon de sendMessageToTeacher, seul chemin branché
+
 
 window.sendMessageToTeacher = async (uid, kidId) => {
   if(!S.user||S.user.role!=='parent'){toast('Accès non autorisé','error');return;}

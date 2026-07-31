@@ -127,7 +127,8 @@ Tous les profils partagent : header gradient animé · `.pt-tabbar` · `#profile
 Profil Parent : couche additive de classes `pp-*` (`pp-bt`, `pp-card`, `pp-btn`, `kid-tile`, CSS lignes 206-213/851-853) pour les cartes enfant/podium/anneau de paiement — vient compléter, pas remplacer, le système pt-.
 
 Fonctions save profil :
-- `saveDir1Profile()` / `saveDir2Profile()` (+ wrapper `saveDirProfile(inputId)`) → ligne 15955
+- `saveDir1Profile()` / `saveDir2Profile()` — appelées directement ; l'enveloppe
+  `saveDirProfile` a été retirée, plus aucun écran ne s'en servait
 - `saveTeacherProfile()` → ligne 14621
 - `saveParentProfile()` → ligne 15051
 - `saveGardienProfile()` → ligne 15419
