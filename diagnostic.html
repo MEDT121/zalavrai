@@ -53,7 +53,7 @@
 <p class="sub">Teste chaque couche séparément pour situer d'où vient une panne.
 La clé n'est utilisée que dans ce navigateur — rien n'est envoyé ailleurs.
 La sonde d'écriture supprime sa propre ligne.</p>
-<p class="sub" style="margin-top:6px">Page <strong>v13</strong> · 7 tests · école unique
+<p class="sub" style="margin-top:6px">Page <strong>v14</strong> · 8 tests · école unique
 <span id="jsok" style="color:var(--bad)">— script non démarré</span></p>
 <div id="fatal" style="display:none;margin-top:14px;padding:12px 14px;border-radius:10px;
      background:rgba(248,113,113,.12);border:1px solid var(--bad);color:var(--bad);
@@ -333,6 +333,45 @@ document.getElementById('run').onclick = async () => {
     t7('warn', 'non vérifiable', String(e.message),
        'Ouvre cette page depuis le même dossier que <code>index.html</code>.');
   }
+
+  // ── 8. Saisies en attente sur cet appareil ──────────────────────────────
+  const t8 = card('8. Saisies en attente sur cet appareil');
+  try {
+    const lire = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } };
+    const file  = lire('schoolsafe_sync_queue');
+    const cote  = lire('schoolsafe_sync_parked');
+    const refus = lire('_syncConflictLog').filter(function (r) { return r && r.motif; });
+
+    const coinces = file.filter(function (i) { return (i.retries || 0) >= 2; });
+    const parTable = {};
+    file.forEach(function (i) { parTable[i.table] = (parTable[i.table] || 0) + 1; });
+    const detail = Object.keys(parTable).sort(function (a, b) { return parTable[b] - parTable[a]; })
+      .slice(0, 8).map(function (t) { return '  ' + t + ' x ' + parTable[t]; }).join('\n');
+
+    const corps = 'En file          : ' + file.length +
+                  (coinces.length ? '  (dont ' + coinces.length + ' en echec repete)' : '') +
+                  '\nMises de cote    : ' + cote.length +
+                  '\nRefus consignes  : ' + refus.length +
+                  (detail ? '\n\nPar table :\n' + detail : '') +
+                  (refus.length ? '\n\nDernier motif :\n  ' + String(refus[refus.length - 1].motif).slice(0, 220) : '');
+
+    if (!file.length && !cote.length) {
+      t8('ok', 'rien en attente', corps);
+    } else if (cote.length) {
+      t8('bad', cote.length + ' mise(s) de côté', corps,
+        'Ces saisies ont épuisé leurs tentatives. Elles ne sont pas perdues : ouvre la file ' +
+        'dans l\'application et appuie sur <strong>Remettre en file</strong>. Si elles échouent ' +
+        'encore, le motif ci-dessus dit pourquoi.');
+    } else if (coinces.length) {
+      t8('warn', coinces.length + ' en échec répété', corps,
+        'Le serveur refuse ces écritures. « column … does not exist » → lance ' +
+        '<code>supabase_migration_finale.sql</code> · « row-level security » → un droit manque · ' +
+        'sinon c\'est le réseau.');
+    } else {
+      t8('warn', file.length + ' en attente', corps,
+         'Normal si tu viens de saisir ou si le réseau est lent — elles partiront seules.');
+    }
+  } catch (e) { t8('warn', 'non lisible', String(e.message)); }
 
   btn.disabled = false; btn.textContent = 'Relancer le diagnostic';
 };

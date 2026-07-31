@@ -1759,7 +1759,7 @@ window.DB = {
   users: [], classes: [], students: [], payments: [],
   attendance: [], scan_log: [], conduct: [], grades: [],
   absences: [], notifs: [], events: [], messages: [], aps: [],
-  daily_records: [], daily_expenses: [], daily_reports: [],
+  daily_records: [], daily_expenses: [], daily_reports: [], exetat: [],
   devoirs: [], cahier_texte: [], matieres: [], rattrapages: [],
   convocations: [], timetables: [], approbations: [],
   teacher_notes: [], audit_log: [], teacher_absences: [],
@@ -2713,8 +2713,16 @@ window.pushSync = async (table, op, data, query) => {
     // donc quelque chose qui ne se réglera pas tout seul.
     if (!window._writeFailAlerted && window.DB_ONLINE) {
       window._writeFailAlerted = true;
-      toast('⚠️ Le serveur refuse les enregistrements — vos saisies sont retenues sur l\'appareil', 'warning');
-      console.warn('[SYNC] premier refus serveur :', table, op);
+      // Nommer la cause quand le serveur l'a donnée : « le serveur refuse »
+      // n'apprend rien, « il manque une colonne » se corrige.
+      const m = String(window._dernierRefus || '');
+      const cause = /does not exist|schema cache|PGRST20[0-9]/i.test(m) ? ' — une colonne manque en base'
+                  : /row-level security|permission denied|42501/i.test(m)  ? ' — un droit manque en base'
+                  : /duplicate key|23505/i.test(m)                          ? ' — cet enregistrement existe déjà'
+                  : /violates foreign key|23503/i.test(m)                   ? ' — une référence liée est absente'
+                  : '';
+      toast('⚠️ Le serveur refuse les enregistrements' + cause + ' — vos saisies sont retenues sur l\'appareil', 'warning');
+      console.warn('[SYNC] premier refus serveur :', table, op, m);
     }
   } else if (window._writeFailAlerted) {
     // Le serveur accepte de nouveau : l'alerte pourra reparaître si cela
@@ -25440,8 +25448,9 @@ window.openExetatRecord = (sid) => {
 window.saveExetatRecord = (sid) => {
   if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   if(!DB.exetat) DB.exetat=[];
+  if(!Array.isArray(DB.exetat)) DB.exetat=[];
   const idx=DB.exetat.findIndex(t=>t.sid===sid);
-  const obj={id:idx>=0?DB.exetat[idx].id:'ext'+Date.now(),sid,exetat_code:$('ext_code')?.value?.trim()||null,result:$('ext_result')?.value||'',score:$('ext_score')?.value?parseFloat($('ext_score').value):null,option:$('ext_option')?.value||null,registration_num:$('ext_num')?.value||null,notes:$('ext_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
+  const obj={id:idx>=0?DB.exetat[idx].id:_uid('ext_'),sid,exetat_code:$('ext_code')?.value?.trim()||null,result:$('ext_result')?.value||'',score:$('ext_score')?.value?parseFloat($('ext_score').value):null,option:$('ext_option')?.value||null,registration_num:$('ext_num')?.value||null,notes:$('ext_notes')?.value||null,year:DB.settings.year,registered:true,updated:today()};
   if(idx>=0)DB.exetat[idx]=obj;else DB.exetat.push(obj);
   pushSync('exetat','upsert',obj);saveToCrypt();
   toast('Enregistré','success');closeModal();render();
