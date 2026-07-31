@@ -7270,65 +7270,12 @@ window.connectSupabaseFromSetup = async () => {
 
 async function checkLicense() { return {valid:true}; }
 
-function showLicenseActivate(reason) {
-  const el = document.getElementById('licenseActivate');
-  if(!el) return;
-  const msg = document.getElementById('la_msg');
-  const err = document.getElementById('la_error');
-  if(err) err.textContent = '';
-  if(msg){
-    if(reason==='invalid_key') msg.textContent = 'La clé saisie n\'est pas reconnue. Vérifiez et réessayez, ou contactez votre opérateur.';
-    else if(reason==='offline') msg.textContent = 'Connexion au serveur de licences impossible. Entrez votre clé pour vérifier.';
-    else msg.textContent = 'Entrez la clé de licence fournie par votre opérateur SchoolSafe pour activer l\'application.';
-  }
-  const inp = document.getElementById('la_key_input');
-  if(inp && DB.settings?.license_key) inp.value = DB.settings.license_key;
-  el.style.display = 'flex';
-  $('LS').style.display = 'none';
-}
+// L'activation par clé de licence a été retirée avec le projet central :
+// il n'y a plus de service pour valider une clé, et l'application sert une
+// école unique dont la base est configurée dans le code. Les fonctions qui
+// s'y rapportaient n'étaient plus appelées par rien.
 
-window.activateLicense = async () => {
-  const inp = document.getElementById('la_key_input');
-  const err = document.getElementById('la_error');
-  const key = (inp?.value||'').trim();
-  if(!key){ if(err) err.textContent = 'Entrez une clé de licence.'; return; }
-  if(err) err.textContent = '';
-  const btn = document.querySelector('#licenseActivate button');
-  if(btn){ btn.textContent = '⏳ Vérification...'; btn.disabled = true; }
-  if(!DB.settings) DB.settings = {};
-  DB.settings.license_key = key;
-  const lic = await checkLicense();
-  if(btn){ btn.textContent = '✅ Activer SchoolSafe'; btn.disabled = false; }
-  if(lic.valid){
-    const prevSupaUrl = localStorage.getItem('_school_supa_url')||'';
-    const schoolChanged = lic.supabaseUrl && prevSupaUrl && lic.supabaseUrl !== prevSupaUrl;
-    localStorage.setItem('_active_license_key', key);
-    if(schoolChanged) {
-      // Autre école détectée — effacer les données locales et recharger
-      localStorage.removeItem('schoolsafe_db_v4');
-      localStorage.removeItem('schoolsafe_crypt_key');
-      localStorage.removeItem('schoolsafe_db_ts');
-      localStorage.removeItem('schoolsafe_sync_queue');
-      document.getElementById('licenseActivate').style.display = 'none';
-      toast('🔄 Changement d\'école — rechargement en cours…','info');
-      setTimeout(()=>location.reload(), 1800);
-      return;
-    }
-    pushSync('settings','upsert',DB.settings);
-    saveToCrypt();
-    document.getElementById('licenseActivate').style.display = 'none';
-    toast('✅ Licence activée — Bienvenue !','success');
-    $('APP').classList.add('active');
-    buildUI(); updateSyncIndicator();
-    history.pushState({page:'dashboard'},'','');
-    checkRattrapageReminders(); window._startIdleTimer();
-  } else if(lic.reason==='suspended'||lic.reason==='expired'){
-    document.getElementById('licenseActivate').style.display = 'none';
-    showLicenseBlock(lic.reason, lic.expiry);
-  } else {
-    if(err) err.textContent = lic.reason==='invalid_key' ? '❌ Clé non reconnue. Vérifiez auprès de votre opérateur.' : '❌ Impossible de vérifier. Vérifiez votre connexion.';
-  }
-};
+
 
 function showLicenseBlock(reason, expiry) {
   const bl = document.getElementById('licenseBlock');
@@ -8091,6 +8038,8 @@ window._hexDarken = function(hex, amt) {
 };
 
 window.saveClassCardStyle=function(cid,cc,soft,dark,pat){
+  // l'apparence des cartes de classe est un réglage d'établissement
+  if(!S.user||!['direction', 'direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const cl=(DB.classes||[]).find(c=>c.id===cid); if(!cl) return;
   const patch={};
   if(cc){cl.card_color=cc;cl.card_color_soft=soft;cl.card_color_dark=dark;patch.card_color=cc;patch.card_color_soft=soft;patch.card_color_dark=dark;}
@@ -10168,6 +10117,8 @@ window.validateAbs = (id, status) => {
 };
 
 window.approveDevoir = (did, status) => {
+  // approuver un devoir engage l'école auprès des familles
+  if(!S.user||!['direction', 'direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const d = (DB.devoirs||[]).find(x=>x.id===did); if(!d) return;
   d.status = status==='approved' ? 'published' : 'refused';
   pushSync('devoirs','patch',{status:d.status},'id=eq.'+did);
@@ -10395,6 +10346,8 @@ window.getStudentBalance = (sid) => {
 };
 
 // ── Types de frais configurables ──────────────────────────────────────────────
+// Sans garde de rôle, volontairement : amorçage appelé une seule fois au
+// chargement des données, avant même qu'un utilisateur soit connecté.
 window._seedFeeTypes = () => {
   if ((DB.fee_types||[]).length) return; // déjà peuplé (Supabase ou crypt)
   // Verrou d'amorçage. Le garde-fou ci-dessus dépend d'une lecture réussie :
@@ -10424,6 +10377,9 @@ window._seedFeeTypes = () => {
 };
 
 // Numéro de reçu séquentiel — format R-AAAA-NNNN, stocké dans settings
+// Sans garde de rôle, volontairement : appelée uniquement par
+// _enregistrerMouvement, qui contrôle déjà direction/direction3. Un
+// contrôle ici refuserait un numéro de reçu à une opération légitime.
 window.genRecuNo = () => {
   const yr = (DB.settings.year||'').slice(0,4) || new Date().getFullYear();
   const last = DB.settings._last_recu_no || 0;
@@ -10657,6 +10613,10 @@ window.toggleStudentAccess = sid => {
 // par le serveur, qui la rejette — le blocage d'une école entière échouait
 // donc en silence. On procède par tranches.
 window._patchLot = (table, patch, ids, taille) => window._bulkLot(table, 'patch', patch, ids, taille);
+// Sans garde de rôle, volontairement : simple découpage en lots d'une
+// écriture déjà autorisée par son appelant. Vérifié : les quatre appelants
+// — effacement de ses propres notifications, marquage comme lues, blocage
+// et déblocage massifs — portent tous leur contrôle.
 window._bulkLot = (table, op, payload, ids, taille) => {
   const T = taille || 60;
   for (let i = 0; i < ids.length; i += T) {
@@ -10819,6 +10779,8 @@ ${unassigned.length?`<div style="margin-bottom:12px"><div style="font-size:12px;
 };
 
 window.assignTrimestre = (sid) => {
+  // affecter un paiement à un trimestre touche au solde d'un élève
+  if(!S.user||!['direction', 'direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const t=$('assign_t').value;
   const p=(DB.payments||[]).find(x=>x.sid===sid&&x.t===t); if(!p) return;
   p.paid=true;
@@ -17494,6 +17456,8 @@ R.fee_types = () => {
   </div>`;
 };
 window.toggleFeeType = (id) => {
+  // l'écran des types de frais est réservé à la Direction et à la Caisse
+  if(!S.user||!['direction', 'direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const f=(DB.fee_types||[]).find(x=>x.id===id); if(!f) return;
   f.active = f.active===false;
   pushSync('fee_types','upsert',f);
@@ -17516,6 +17480,8 @@ window.resetFeeTypeForm = () => {
   const t=document.getElementById('ft_form_title');if(t)t.textContent='➕ Nouveau type de frais';
 };
 window.saveFeeType = () => {
+  // idem — un type de frais détermine ce qui est facturé
+  if(!S.user||!['direction', 'direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const editId=(document.getElementById('ft_edit_id')?.value||'').trim();
   const label=(document.getElementById('ft_label')?.value||'').trim();
   if(!label){toast('Le libellé est obligatoire','error');return;}
@@ -18551,6 +18517,8 @@ window.openBudgetDepensesForm = () => {
      <button class="btn btn-primary" onclick="saveBudgetDepenses()">Enregistrer</button>`);
 };
 window.saveBudgetDepenses = () => {
+  // le budget des dépenses est une donnée financière
+  if(!S.user||!['direction', 'direction3'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const amt = lireMontant($('budg_dep_amt')?.value);
   if(amt===null){toast('Montant invalide','error');return;}
   if(!DB.settings) DB.settings={};
@@ -20518,6 +20486,8 @@ window.openPassageClasse = () => {
 };
 
 window.executePassage = () => {
+  // le passage de classe déplace TOUS les élèves ; l'écran l'exige déjà
+  if(!S.user||!['direction'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   let moved=0, diplomed=0;
   document.querySelectorAll('[data-sid]').forEach(cb=>{
     if(!cb.checked) return;
@@ -21906,6 +21876,12 @@ R.settings = () => {
 // chacune avec son bouton. Réafficher la page entière après en avoir enregistré
 // une seule effaçait ce qui était saisi dans les autres.
 window._saveSettings = async (msg, opts) => {
+  // Seule porte d'entrée des réglages de l'école. Ses appelants sont des
+  // écrans réservés, mais elle vit sur window : le contrôle appartient à la
+  // fonction, pas à ce qui l'appelle.
+  if(!S.user||!['direction','direction2','direction3'].includes(S.user.role)){
+    toast('Accès non autorisé','error');return false;
+  }
   const o = opts || {};
   if (window._settingsBusy) return false;
   window._settingsBusy = true;
@@ -22648,6 +22624,13 @@ R.mes_absences = () => {
 };
 
 window.cancelTeacherAbsence = (id) => {
+  if(!S.user){toast('Accès non autorisé','error');return;}
+  const _a=(DB.teacher_absences||[]).find(x=>x.id===id);
+  if(!_a){toast('Absence introuvable','error');return;}
+  // Sa propre absence, ou n'importe laquelle pour la Direction.
+  if(_a.uid!==S.user.id && !['direction','direction2'].includes(S.user.role)){
+    toast('Accès non autorisé','error');return;
+  }
   showC('Annuler cette absence','Annuler l\'absence déclarée aujourd\'hui ?',()=>{
     DB.teacher_absences=(DB.teacher_absences||[]).filter(x=>x.id!==id);
     pushSync('teacher_absences','delete','','id=eq.'+id);
@@ -23112,6 +23095,14 @@ window.savePrep = (prepId) => {
 };
 
 window.deletePrep = (prepId) => {
+  if(!S.user){toast('Accès non autorisé','error');return;}
+  const _p=(DB.cahier_prep||[]).find(x=>x.id===prepId);
+  if(!_p){toast('Fiche introuvable','error');return;}
+  // Sa propre fiche, ou n'importe laquelle pour la Direction. Sans ce
+  // contrôle, un enseignant pouvait effacer la préparation d'un collègue.
+  if(_p.by!==S.user.id && _p.teacher_id!==S.user.id && !['direction','direction2'].includes(S.user.role)){
+    toast('Accès non autorisé','error');return;
+  }
   showC(t('Supprimer cette fiche ?','Delete this sheet?'),t('Cette action est irréversible.','This action cannot be undone.'),()=>{
     if(!DB.cahier_prep) return;
     DB.cahier_prep=DB.cahier_prep.filter(x=>x.id!==prepId);
@@ -23783,6 +23774,8 @@ window.editTimetableSlotTeacher = (cid, day, period) => {
 };
 
 window.saveTimetableSlot = async (cid, day, period, existingId) => {
+  // l'emploi du temps est du ressort de la pédagogie
+  if(!S.user||!['direction', 'direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const mat=(document.getElementById('edtMat')?.value||'').trim();
   const tid=document.getElementById('edtTeacher')?.value||'';
   if(!mat){if(existingId) await deleteTimetableSlot(existingId); else closeModal(); return;}
@@ -23828,6 +23821,8 @@ window.saveTimetableSlotTeacher = async (cid, day, period, existingId) => {
 };
 
 window.deleteTimetableSlot = async (id) => {
+  // idem
+  if(!S.user||!['direction', 'direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   showC('Supprimer ce créneau ?','Cette action est irréversible.',()=>{
     DB.timetables=DB.timetables.filter(t=>t.id!==id);
     pushSync('timetables','delete',null,'id=eq.'+id);
