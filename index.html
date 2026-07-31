@@ -11871,9 +11871,28 @@ R.palmares = () => {
   let html=`<div class="ww-toolbar">
     <span style="font-size:16px;font-weight:700">🏆 ${t('Palmarès','Rankings')}</span>
     <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap">
+      ${role==='enseignant'&&mc.lang?`<button class="btn btn-sm ${window._palmScope==='mes'?'btn-primary':'btn-outline'}"
+          onclick="window._palmScope=(window._palmScope==='mes'?'tout':'mes');render()"
+          title="${t('Basculer entre le classement du bulletin et vos seules matières','Switch between report-card ranking and your own subjects')}"
+        >${window._palmScope==='mes'?t('📐 Mes matières','📐 My subjects'):t('📋 Bulletin','📋 Report card')}</button>`:''}
       ${['T1','T2','T3','Tous'].map(tr=>`<button class="btn btn-sm ${selTrim===tr?'btn-primary':'btn-outline'}" onclick="window._palmTrim='${tr}';render()">${tr}</button>`).join('')}
     </div>
   </div>`;
+
+  // Dire sur quoi porte le classement affiché. Sans cette phrase,
+  // l'enseignant croit lire le classement officiel et annonce à un élève un
+  // rang que son bulletin démentira.
+  if(role==='enseignant'&&mc.lang){
+    html += window._palmScope==='mes'
+      ? `<div style="font-size:12px;color:#92400e;background:#fef9c3;border-radius:9px;padding:8px 11px;margin-bottom:12px">
+           ${t('Classement sur VOS matières seulement','Ranking on YOUR subjects only')}
+           (${mc.lang==='fr'?t('français + commun','French + common'):t('anglais + commun','English + common')}).
+           ${t('Le bulletin et l\'espace parent affichent un autre rang, calculé sur toutes les matières.','The report card and parent view show a different rank, computed on all subjects.')}
+         </div>`
+      : `<div style="font-size:12px;color:#205fae;background:#dbeafe;border-radius:9px;padding:8px 11px;margin-bottom:12px">
+           ${t('Classement sur toutes les matières — celui qui figure sur le bulletin et que voient les familles.','Ranking on all subjects — the one on the report card, seen by families.')}
+         </div>`;
+  }
 
   let anyContent=false;
   classes.forEach(cl=>{
@@ -11881,8 +11900,12 @@ R.palmares = () => {
     if(!students.length) return;
     anyContent=true;
     const allMatieres=getClassMatieres(cl.id);
-    const matieres=role==='enseignant'&&mc.lang
-      ? allMatieres.filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):mc.lang==='en'?(m.lang==='en'||m.lang==='commun'):true)
+    // Portée du classement. Par défaut : toutes les matières — c'est le
+    // classement qui figure sur le bulletin et que la famille consulte.
+    // L'enseignant peut basculer sur ses seules matières, explicitement.
+    const _surMesMat = role==='enseignant' && mc.lang && window._palmScope==='mes';
+    const matieres = _surMesMat
+      ? allMatieres.filter(m=>mc.lang==='fr'?(m.lang==='fr'||m.lang==='commun'):(m.lang==='en'||m.lang==='commun'))
       : allMatieres;
     const [cc,cbg]=clsColor(cl.name);
     const isTeacher=role==='enseignant';
