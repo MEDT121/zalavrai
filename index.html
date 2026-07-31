@@ -2009,6 +2009,52 @@ let _syncBusy = false, _syncSoonT = null;
  * repartie entièrement, pour ne jamais écraser une écriture en attente.
  * @param {{pull?:boolean, announce?:boolean}} o
  */
+// Rejoue les écritures encore en file par-dessus la base fraîchement tirée.
+// Purement local : rien n'est renvoyé au serveur, la file reste intacte et
+// s'écoulera d'elle-même. On ne fait que rendre à l'écran ce que
+// l'utilisateur a saisi.
+window._reappliquerFile = () => {
+  const q = (window.syncQueue && window.syncQueue.load()) || [];
+  if (!q.length) return 0;
+  let remis = 0;
+
+  // « id=eq.x_123 » → « x_123 ». Les autres formes de filtre ne sont pas
+  // rejouées : mieux vaut ne rien faire que défaire au hasard.
+  const idDeQuery = (query) => {
+    const m = /(?:^|&)id=eq\.([^&]+)/.exec(String(query || ''));
+    return m ? decodeURIComponent(m[1]) : null;
+  };
+
+  for (const item of q) {
+    const t = item && item.table;
+    if (!t || !Array.isArray(DB[t])) continue;
+    try {
+      if (item.op === 'post' || item.op === 'upsert') {
+        const row = item.data;
+        if (!row || !row.id) continue;
+        const i = DB[t].findIndex(x => x && x.id === row.id);
+        if (i >= 0) DB[t][i] = Object.assign({}, DB[t][i], row);
+        else { DB[t].unshift(row); }
+        remis++;
+      } else if (item.op === 'patch') {
+        const id = idDeQuery(item.data && item.data.query);
+        const corps = item.data && item.data.body;
+        if (!id || !corps) continue;
+        const ligne = DB[t].find(x => x && x.id === id);
+        if (ligne) { Object.assign(ligne, corps); remis++; }
+      } else if (item.op === 'delete') {
+        const id = idDeQuery(item.data && item.data.query);
+        if (!id) continue;
+        const avant = DB[t].length;
+        DB[t] = DB[t].filter(x => !x || x.id !== id);
+        if (DB[t].length !== avant) remis++;
+      }
+    } catch (e) { console.warn('[SYNC] réapplication impossible:', t, item.op, e.message); }
+  }
+  if (remis && typeof _rebuildIdx === 'function') { try { _rebuildIdx(); } catch (e) {} }
+  return remis;
+};
+
 window.autoSync = async (o = {}) => {
   const { pull = false, announce = false } = o;
   if (_syncBusy || !S.user || !SUPA_URL) return 0;
@@ -2033,6 +2079,7 @@ window.autoSync = async (o = {}) => {
       const q = syncQueue.load() || [];
       const bloque = q.length > 0 && q.every(i => (i.retries || 0) >= 2);
       if (!q.length || bloque) {
+        // loadFromSupabase réapplique lui-même la file : rien à faire ici.
         if (await loadFromSupabase()) render();
       }
     }
@@ -2423,10 +2470,27 @@ window._supaConfigured = () => !!(SUPA_URL && SUPA_KEY);
 async function _get(t,p=''){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${p}`,{headers:{..._H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());return await r.json();}catch(e){console.warn('[SB]',t,e.message);return null;}}
 // Returns &school_id=eq.X when school context is active — appended to select queries for RLS belt-and-suspenders
 const _sf=()=>window._currentSchoolId?'&school_id=eq.'+encodeURIComponent(window._currentSchoolId):'';
-async function _post(t,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:_H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
-async function _patch(t,q,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{method:'PATCH',headers:_H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
-async function _del(t,q){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{method:'DELETE',headers:_H});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
-async function _upsert(t,b){try{const h={..._H,'Prefer':'resolution=merge-duplicates'};const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:h,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());return true;}catch(e){console.warn('[SB]',t,e.message);return false;}}
+// Motif du dernier refus, lu par pushSync. Le serveur dit toujours pourquoi
+// il refuse ; encore faut-il transporter sa réponse jusqu'à l'utilisateur.
+window._dernierRefus = null;
+
+// PostgREST répond en JSON. On en extrait la phrase utile plutôt que
+// d'afficher un objet brut à quelqu'un qui gère une école.
+window._lireRefus = (txt) => {
+  const brut = String(txt || '').slice(0, 500);
+  try {
+    const j = JSON.parse(brut);
+    const bout = [j.message, j.details, j.hint].filter(Boolean).join(' · ');
+    return bout || brut;
+  } catch (e) { return brut; }
+};
+
+const _echec = (t, e) => { window._dernierRefus = window._lireRefus(e && e.message); console.warn('[SB]', t, window._dernierRefus); return false; };
+
+async function _post(t,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:_H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());window._dernierRefus=null;return true;}catch(e){return _echec(t,e);}}
+async function _patch(t,q,b){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{method:'PATCH',headers:_H,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());window._dernierRefus=null;return true;}catch(e){return _echec(t,e);}}
+async function _del(t,q){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${q}`,{method:'DELETE',headers:_H});if(!r.ok)throw new Error(await r.text());window._dernierRefus=null;return true;}catch(e){return _echec(t,e);}}
+async function _upsert(t,b){try{const h={..._H,'Prefer':'resolution=merge-duplicates'};const r=await fetch(`${SUPA_URL}/rest/v1/${t}`,{method:'POST',headers:h,body:JSON.stringify(b)});if(!r.ok)throw new Error(await r.text());window._dernierRefus=null;return true;}catch(e){return _echec(t,e);}}
 
 // Synchronise l'horloge locale avec le serveur Supabase.
 // Lit le header Date de la réponse HTTP — pas d'endpoint supplémentaire.
@@ -2597,6 +2661,11 @@ window.loadFromSupabase = async () => {
     // secret existe déjà. Tant que ce drapeau est faux, aucun secret n'est
     // fabriqué (voir _keep).
     window._settingsLues = true;
+    // L'instantané du serveur ignore ce qui n'est pas encore parti de cet
+    // appareil. Le rejouer par-dessus est la seule façon qu'une saisie ne
+    // disparaisse jamais de l'écran, quelle que soit la raison du retard.
+    const _remis = window._reappliquerFile ? window._reappliquerFile() : 0;
+    if (_remis) console.info('[SYNC]', _remis, 'saisie(s) en attente réappliquée(s)');
     saveToCrypt();
     return true;
   } catch(e) {
@@ -2625,7 +2694,8 @@ window.pushSync = async (table, op, data, query) => {
   if (!ok) {
     syncQueue.add(table, op, (op==='patch'||op==='delete') ? {query, body:data} : data);
     window._syncConflicts = window._syncConflicts||[];
-    const _cfl={table, op, ts:new Date().toISOString(), id:typeof data==='object'&&data?data.id:null};
+    const _cfl={table, op, ts:new Date().toISOString(), id:typeof data==='object'&&data?data.id:null,
+                motif: window._dernierRefus || 'réseau indisponible'};
     window._syncConflicts.push(_cfl);
     // Un réessai automatique n'est pas un événement digne d'interrompre l'utilisateur.
     try{const _cflStr=JSON.stringify(window._syncConflicts.slice(-50));localStorage.setItem('_syncConflictLog',_cflStr);}catch(_){}
@@ -3117,6 +3187,25 @@ window.showSyncQueueDetail = () => {
         <span style="flex:1;font-family:monospace">${esc(k)}</span>
         <strong>${n}</strong></div>`).join('');
 
+  // Derniers refus du serveur, avec leur motif. Sans eux, « ça ne part pas »
+  // reste indécidable pour qui n'ouvre pas la console d'un navigateur.
+  let refus = [];
+  try { refus = JSON.parse(localStorage.getItem('_syncConflictLog') || '[]'); } catch (e) {}
+  const refusRecents = refus.filter(r => r && r.motif).slice(-4).reverse();
+  const refusBlock = refusRecents.length ? `
+    <div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:#fee2e2;border:1px solid #ef5b5b">
+      <div style="font-weight:800;font-size:12.5px;color:#991b1b;margin-bottom:6px">
+        Pourquoi le serveur a refusé</div>
+      ${refusRecents.map(r => `<div style="font-size:11.5px;color:#7f1d1d;padding:5px 0;border-top:1px solid rgba(239,91,91,.25)">
+        <div><strong>${esc(r.table||'?')}</strong> · ${esc(r.op||'?')} · ${esc(String(r.ts||'').slice(11,16))}</div>
+        <div style="font-family:monospace;font-size:10.5px;opacity:.85;word-break:break-word">${esc(String(r.motif).slice(0,180))}</div>
+      </div>`).join('')}
+      <div style="font-size:11px;color:#991b1b;margin-top:7px">
+        « column … does not exist » → une migration manque.
+        « row-level security » → un droit manque.
+        Sinon, c'est le réseau.</div>
+    </div>` : '';
+
   const parked = syncQueue.parked();
   const parkedBlock = parked.length ? `
     <div style="margin-top:12px;padding:10px 12px;border-radius:9px;background:#fef9c3;border:1px solid #f59e0b">
@@ -3135,7 +3224,7 @@ window.showSyncQueueDetail = () => {
        ${summary}
      </div>
      <div style="max-height:260px;overflow-y:auto;margin:0 -4px;padding:0 4px">${rows}${extra}</div>
-     ${parkedBlock}`,
+     ${refusBlock}${parkedBlock}`,
     `<button class="btn btn-primary" onclick="closeModal();forceSyncDB()" style="flex:1">🔄 Forcer la sync</button>
      <button class="btn btn-danger btn-sm" onclick="showC('Effacer la file d\'attente ?','${queue.length} opération(s) non synchronisée(s) seront perdues définitivement.',()=>{syncQueue.clear();updateSyncIndicator();closeModal();toast('File d\'attente effacée','warning')})">🗑️</button>
      <button class="btn btn-outline" onclick="closeModal()">Fermer</button>`
