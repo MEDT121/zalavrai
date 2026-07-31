@@ -2467,7 +2467,35 @@ window._supaConfigured = () => !!(SUPA_URL && SUPA_KEY);
   } catch (e) {}
 })();
 
-async function _get(t,p=''){try{const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${p}`,{headers:{..._H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());return await r.json();}catch(e){console.warn('[SB]',t,e.message);return null;}}
+// Tables dont la lecture a atteint son plafond : les chiffres qui en
+// dérivent ne portent que sur la fenêtre chargée.
+window._lectureTronquee = {};
+
+async function _get(t,p=''){
+  try{
+    const r=await fetch(`${SUPA_URL}/rest/v1/${t}?${p}`,{headers:{..._H,'Prefer':''}});
+    if(!r.ok)throw new Error(await r.text());
+    const rows=await r.json();
+    const m=/limit=(\d+)/.exec(p);
+    if(m&&Array.isArray(rows)&&rows.length>=Number(m[1])){
+      window._lectureTronquee[t]=rows.length;
+      console.warn('[SB]',t,'lecture plafonnée à',rows.length,'— les totaux plus anciens manquent');
+    } else if(window._lectureTronquee[t]) delete window._lectureTronquee[t];
+    return rows;
+  }catch(e){console.warn('[SB]',t,e.message);return null;}
+}
+
+// Mention à placer près d'un chiffre calculé sur une table plafonnée.
+// Rendre un rapport muet sur ses propres limites, c'est le rendre faux.
+window._mentionTronquee = (table, quoi) => {
+  const n = window._lectureTronquee && window._lectureTronquee[table];
+  if (!n) return '';
+  const dates = (DB[table]||[]).map(x=>x && x.date).filter(Boolean).sort();
+  const depuis = dates.length ? dates[0] : null;
+  return `<div style="font-size:11px;color:#92400e;background:#fef9c3;border-radius:8px;padding:6px 9px;margin-top:8px">
+    ⚠️ ${quoi||'Ces chiffres'} portent sur les ${n} derniers enregistrements chargés${depuis?` (depuis le ${depuis})`:''}, pas sur toute la période.
+  </div>`;
+};
 // Returns &school_id=eq.X when school context is active — appended to select queries for RLS belt-and-suspenders
 const _sf=()=>window._currentSchoolId?'&school_id=eq.'+encodeURIComponent(window._currentSchoolId):'';
 // Motif du dernier refus, lu par pushSync. Le serveur dit toujours pourquoi
@@ -2538,8 +2566,8 @@ window.loadFromSupabase = async () => {
       _get('classes','select=*'+_sf()),
       _get('students','select=*'+_sf()),
       _get('payments','select=*'+_sf()),
-      _get('attendance','select=*&order=date.desc&limit=1000'+_sf()),
-      _get('scan_log','select=*&order=time.desc&limit=500'+_sf()),
+      _get('attendance','select=*&order=date.desc&limit=12000'+_sf()),
+      _get('scan_log','select=*&order=date.desc,time.desc&limit=4000'+_sf()),
       _get('conduct','select=*'+_sf()),
       _get('grades','select=*'+_sf()),
       _get('absences','select=*&order=date.desc'+_sf()),
@@ -19398,7 +19426,7 @@ R.statistiques = () => {
   // Présences par mois
   const presenceByMonth = months.map(m=>{
     const days = allDates.filter(d=>d.startsWith(m));
-    const recs = (DB.attendance||[]).filter(a=>a.date.startsWith(m));
+    const recs = (DB.attendance||[]).filter(a=>a.date&&a.date.startsWith(m));
     const ontime = recs.filter(a=>a.status==='ontime'||a.status==='late').length;
     const total = ts * days.length;
     return {m, pct: total>0?Math.round(ontime/total*100):0, days:days.length};
@@ -19467,7 +19495,7 @@ R.statistiques = () => {
   const barW=(pct,clr)=>`style="width:${pct}%;height:100%;border-radius:6px;transition:width .6s;background:${clr||(pct>=80?'#2fbf8f':pct>=60?'#f59e0b':'#ef5b5b')}"`;
   const ml=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
-  return `
+  return `${_mentionTronquee('attendance','Les taux de présence')}
   <div class="ww-toolbar"><span style="font-size:16px;font-weight:700">📈 Statistiques analytiques — ${yr}</span></div>
 
   <div class="hbento" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
