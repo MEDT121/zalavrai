@@ -790,7 +790,20 @@ tools/audit-invariant.mjs   les trois conditions ci-dessus
 tools/audit-gardes.mjs      mutations `window` sans contrôle de rôle
 tools/audit-mort.mjs        fonctions exposées sans appelant
 tools/verif-coherence.mjs   la chaîne de calcul, EXÉCUTÉE (voir plus bas)
+tools/audit-logo.mjs        l'emblème de l'école sur les 36 documents imprimés
 ```
+
+`audit-schema` avait un angle mort : il exigeait un littéral comme opération,
+donc `pushSync(t, ancien?'patch':'post', obj)` — forme courante — était
+**ignoré en entier**. Dix colonnes du cahier de préparation manquaient au
+schéma sans qu'il dise un mot. Il accepte désormais une expression
+conditionnelle, et **déclare ce qu'il ne sait pas vérifier** au lieu de se
+taire.
+
+Corollaire pour le code : ne pas construire l'objet d'une écriture dans une
+boucle. `{...etapes}` où `etapes` se remplit par `forEach` est illisible pour
+l'analyseur ; les huit rubriques sont donc nommées une à une. **Une écriture
+doit rester vérifiable par l'outil qui la surveille.**
 
 `audit-gardes` signale quatre fonctions : `_seedFeeTypes`, `genRecuNo`,
 `_bulkLot`, `_materialiserMatieres`. Chacune porte en commentaire la raison
@@ -801,6 +814,76 @@ attente : ne pas les « corriger » à la prochaine passe.
 **Une seule implémentation du découpage en lots** : `_bulkLot(table, op,
 payload, ids)` → `id=in.(…)` par tranches de 60, identifiants dangereux
 écartés. `_patchLot` en est l'enveloppe. La clôture d'année s'en sert aussi.
+
+---
+
+## Cahier de préparation : le canevas EPST
+
+Une fiche de préparation n'est pas un bloc de texte libre. L'inspection
+attend l'en-tête républicain, l'identification complète — branche,
+sous-branche, effectif, durée, référence au programme national — l'objectif
+opérationnel énoncé comme tel, la méthode, et le **déroulement en tableau** :
+*Étapes · Durée · Activités de l'enseignant · Activités de l'élève · Points de
+matière*. Au pied, trois visas : l'enseignant, le Chef d'établissement,
+l'Inspecteur.
+
+`PREP_ETAPES` est la seule liste des huit rubriques du déroulement, dans
+l'ordre officiel : révision, motivation, annonce du sujet, analyse, synthèse,
+application, conclusion, devoir. `PREP_METHODES` est fermée — un inspecteur
+attend un de ces mots.
+
+### Un formulaire, pas deux
+
+Deux écrans écrivaient dans `cahier_prep` avec deux vocabulaires nés à des
+époques différentes :
+
+| | écran de navigation | formulaire du profil |
+|---|---|---|
+| auteur | `by` | `teacher_id` |
+| date | `date_prevue` | `date_lesson` |
+| état | `status` | `statut` |
+| contenu | `content` | rubriques structurées |
+
+Les colonnes des deux existaient, donc rien n'était rejeté — **chaque écran ne
+lisait que la moitié de sa table**. Une fiche remplie dans le profil paraissait
+au suivi de la Direction sans titre, sans contenu, datée « Invalid Date », et
+qu'aucun bouton ne pouvait viser. `openPrepForm`/`savePrep` ont été supprimés ;
+`openCahierPrepM(id)` est le seul formulaire, et a hérité du lien à l'emploi
+du temps — seule chose que l'autre savait de plus.
+
+`_prepLire(p)` réconcilie à la lecture ce qui reste en base : `_titre`,
+`_auteur`, `_date`, `_statut`, `_fait`, `_corps`, `_valide`.
+
+---
+
+## L'emblème sur les documents officiels
+
+`node tools/audit-logo.mjs`
+
+Onze documents sur trente-six sortaient sans le logo — les deux fiches de
+paie, les listes ENAFEP et EXÉTAT, la fiche de santé, le kit d'urgence, le
+rapport SECOPE, le palmarès annuel, le rapport mensuel, le reçu de paiement.
+Rien ne le vérifiait.
+
+`_logoImg(taille, bordure)` est l'unique manière d'en poser un ; il rend une
+chaîne vide s'il n'y a pas de logo, plutôt qu'un carré vide.
+
+### Le logo et les coordonnées sont intégrés au fichier
+
+`SCHOOL_LOGO` (512×512, 50 Ko), `ECOLE_ADRESSE`, `ECOLE_TEL`, `ECOLE_EMAIL`
+sont des **replis**, au même titre que `ECOLE_NOM` : un reçu ou une
+convocation imprimés hors ligne, ou avant la première synchronisation, doivent
+déjà porter l'emblème et l'adresse à laquelle une famille peut se présenter.
+
+Le numéro d'agrément DGEP n'y figure pas : il se saisit dans Paramètres, et
+une valeur inventée sur un document officiel serait pire que son absence.
+
+**Les replis s'appliquent CHAMP PAR CHAMP**, dans `_schoolInfo()` comme à la
+fusion des réglages venus du serveur. Remplacer l'objet `school` en bloc
+faisait qu'une ligne enregistrée avec le seul nom effaçait l'adresse, le
+téléphone et l'adresse électronique — et le document suivant partait sans
+indiquer où se présenter. Une valeur vide côté serveur n'écrase rien ; une
+valeur renseignée l'emporte toujours.
 
 ---
 

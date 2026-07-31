@@ -138,8 +138,29 @@ function analyse(ast) {
                : (c.type === 'MemberExpression' && c.property?.type === 'Identifier') ? c.property.name : null;
     const a = node.arguments;
 
-    if (name === 'pushSync' && a.length >= 3 && a[0].type === 'Literal' && a[1].type === 'Literal')
-      writes.push({ table: a[0].value, op: a[1].value, fields: fieldsOf(a[2], chain), line: node.loc?.start.line });
+    // L'opération s'écrit souvent `ancien ? 'patch' : 'post'`. Exiger un
+    // littéral faisait IGNORER l'écriture entière : dix colonnes du cahier de
+    // préparation manquaient au schéma sans que l'outil dise un mot. C'est
+    // pour l'op qu'on est indulgent — la TABLE, elle, doit rester littérale,
+    // sinon on ne sait pas contre quoi comparer.
+    const opsLitteraux = (n) => {
+      if (!n) return [];
+      if (n.type === 'Literal') return [n.value];
+      if (n.type === 'ConditionalExpression')
+        return [...opsLitteraux(n.consequent), ...opsLitteraux(n.alternate)];
+      if (n.type === 'LogicalExpression')
+        return [...opsLitteraux(n.left), ...opsLitteraux(n.right)];
+      return [];
+    };
+
+    if (name === 'pushSync' && a.length >= 3 && a[0].type === 'Literal') {
+      const ops = opsLitteraux(a[1]);
+      if (!ops.length) {
+        console.warn(`  ⚠ ligne ${node.loc?.start.line} : pushSync('${a[0].value}', …) — opération non littérale, écriture non analysée`);
+      }
+      for (const op of ops)
+        writes.push({ table: a[0].value, op, fields: fieldsOf(a[2], chain), line: node.loc?.start.line });
+    }
     else if ((name === '_post' || name === '_upsert') && a.length >= 2 && a[0].type === 'Literal')
       writes.push({ table: a[0].value, op: name === '_post' ? 'post' : 'upsert', fields: fieldsOf(a[1], chain), line: node.loc?.start.line });
     else if (name === '_patch' && a.length >= 3 && a[0].type === 'Literal')
@@ -192,6 +213,11 @@ const writes = analyse(ast);
 const missing = new Map();   // table → Map(colonne → [lignes])
 const noTable = new Set();
 const opsByTable = new Map();
+// Champs que l'analyse n'a pas su résoudre — un objet construit dans une
+// boucle, par exemple. L'outil les taisait : une écriture pouvait ainsi
+// porter des colonnes inconnues sans qu'il dise un mot. Il ne peut pas les
+// vérifier, mais il doit dire qu'il ne les vérifie pas.
+const opaques = new Map();
 
 for (const w of writes) {
   if (only && w.table !== only) continue;
@@ -199,7 +225,10 @@ for (const w of writes) {
   if (!cols.has(w.table)) { noTable.add(w.table); continue; }
   const known = cols.get(w.table);
   for (const f of w.fields) {
-    if (f.startsWith('?')) continue;                 // valeur non résoluble
+    if (f.startsWith('?')) {                         // valeur non résoluble
+      (opaques.get(w.table) || opaques.set(w.table, new Set()).get(w.table)).add(f.slice(1));
+      continue;
+    }
     if (known.has(f.toLowerCase())) continue;
     const m = missing.get(w.table) || new Map();
     (m.get(f) || m.set(f, []).get(f)).push(w.line + offset);
@@ -210,6 +239,14 @@ for (const w of writes) {
 let problems = 0;
 console.log('═══ CONFORMITÉ CODE ↔ SCHÉMA ═══\n');
 console.log(`${writes.length} écritures analysées · ${cols.size} tables déclarées\n`);
+
+if (opaques.size) {
+  console.log('── Non vérifiable : objets construits dynamiquement ──');
+  console.log('   (l\'outil ne peut pas en lire les champs — à contrôler à la main)');
+  for (const [t, vars] of [...opaques].sort())
+    console.log(`   ~ ${t} ← ${[...vars].join(', ')}`);
+  console.log();
+}
 
 if (noTable.size) {
   problems += noTable.size;

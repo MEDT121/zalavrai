@@ -3,7 +3,7 @@
 --  À coller dans un onglet SQL VIDE, sur la base de l'école.
 --
 --  `supabase_migration_finale.sql` a été exécutée et vérifiée. Elle a gagné
---  depuis trois colonnes et une reprise de données. Ce fichier ne contient
+--  depuis treize colonnes et une reprise de données. Ce fichier ne contient
 --  QUE ce complément — il évite de recoller 480 lignes déjà passées.
 --
 --  Le fichier consolidé reste la référence : toute nouvelle colonne s'y
@@ -11,7 +11,7 @@
 --  relancer autant de fois qu'on veut.
 -- ══════════════════════════════════════════════════════════════════════════
 
--- ── 1 — TROIS COLONNES ────────────────────────────────────────────────────
+-- ── 1 — TREIZE COLONNES ────────────────────────────────────────────────────
 --
 --  matieres.coeff      un cours ne pèse pas tous le même poids au bulletin ;
 --                      sans cette colonne le coefficient saisi était rejeté
@@ -29,7 +29,20 @@ BEGIN
     SELECT * FROM (VALUES
       ('matieres','coeff','NUMERIC DEFAULT 1'),
       ('conduct','trimestre','TEXT'),
-      ('conduct','school_id','TEXT')
+      ('conduct','school_id','TEXT'),
+      -- Fiche de preparation au canevas EPST : identification complete et
+      -- deroulement en etapes nommees. Sans ces colonnes, PostgREST rejette
+      -- la ligne ENTIERE : aucune fiche ne serait enregistree.
+      ('cahier_prep','sous_branche','TEXT'),
+      ('cahier_prep','methode','TEXT'),
+      ('cahier_prep','reference','TEXT'),
+      ('cahier_prep','duree','NUMERIC'),
+      ('cahier_prep','effectif','NUMERIC'),
+      ('cahier_prep','revision','TEXT'),
+      ('cahier_prep','motivation','TEXT'),
+      ('cahier_prep','synthese','TEXT'),
+      ('cahier_prep','visa_by','TEXT'),
+      ('cahier_prep','visa_date','TEXT')
     ) AS v(t,c,ty)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM information_schema.tables
@@ -40,7 +53,7 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS %I %s', t, c, ty);
     n := n + 1;
   END LOOP;
-  RAISE NOTICE 'Colonnes traitees : % — tables absentes : %', n,
+  RAISE NOTICE 'Colonnes traitees : % - tables absentes : %', n,
     COALESCE(NULLIF(manquantes,''),'aucune');
 END $$;
 
@@ -72,10 +85,10 @@ UPDATE grades
 --  L'éditeur Supabase n'affiche que le résultat de la DERNIÈRE requête :
 --  celle-ci est donc seule, et se suffit.
 SELECT
-  CASE WHEN cols.n = 3 AND orphelines.n = 0 THEN 'TOUT EST EN PLACE'
-       WHEN cols.n < 3                      THEN 'INCOMPLET : colonnes manquantes'
+  CASE WHEN cols.n = 13 AND orphelines.n = 0 THEN 'TOUT EST EN PLACE'
+       WHEN cols.n < 13                      THEN 'INCOMPLET : colonnes manquantes'
        ELSE 'INCOMPLET : des notes sans annee' END AS verdict,
-  cols.n        AS colonnes_sur_3,
+  cols.n        AS colonnes_sur_13,
   notes.n       AS notes_total,
   rattachees.n  AS notes_avec_annee,
   orphelines.n  AS notes_sans_annee_datees
@@ -83,7 +96,12 @@ FROM
   (SELECT count(*) n FROM information_schema.columns
     WHERE table_schema='public'
       AND (table_name,column_name) IN
-          (('matieres','coeff'),('conduct','trimestre'),('conduct','school_id'))) cols,
+          (('matieres','coeff'),('conduct','trimestre'),('conduct','school_id'),
+           ('cahier_prep','sous_branche'),('cahier_prep','methode'),
+           ('cahier_prep','reference'),('cahier_prep','duree'),
+           ('cahier_prep','effectif'),('cahier_prep','revision'),
+           ('cahier_prep','motivation'),('cahier_prep','synthese'),
+           ('cahier_prep','visa_by'),('cahier_prep','visa_date'))) cols,
   (SELECT count(*) n FROM grades) notes,
   (SELECT count(*) n FROM grades WHERE year IS NOT NULL) rattachees,
   (SELECT count(*) n FROM grades WHERE year IS NULL AND date ~ '^\d{4}-\d{2}') orphelines;
