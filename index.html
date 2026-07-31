@@ -2878,6 +2878,17 @@ async function _decryptMsgs(msgs) {
   }));
 }
 
+// Encode un binaire en base64 sans étaler le tableau en arguments d'appel :
+// `String.fromCharCode(...buf)` dépasse la pile au-delà d'environ 128 Ko, et
+// l'instantané d'une école en pèse plusieurs milliers.
+window._b64 = (buf) => {
+  let bin = '';
+  for (let i = 0; i < buf.length; i += 8192) {
+    bin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+  }
+  return btoa(bin);
+};
+
 // Dérive une clé AES-256 depuis le PIN brut via PBKDF2 — le sel est stocké en clair (inoffensif)
 async function _pbkdf2DeriveKey(rawPin) {
   let salt = localStorage.getItem(CRYPT_SALT_STORE);
@@ -2911,7 +2922,7 @@ window._initAESKeyFromPIN = async (rawPin) => {
           const cipher = await crypto.subtle.encrypt({name:'AES-GCM', iv}, pbKey, plain);
           const out = new Uint8Array(12 + cipher.byteLength);
           out.set(iv); out.set(new Uint8Array(cipher), 12);
-          localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...out)));
+          localStorage.setItem(CRYPT_STORE, window._b64(out));
         }
         localStorage.removeItem(CRYPT_KEY_STORE); // supprimer la clé en clair
       } catch(me) { console.warn('[CRYPT migrate]', me.message); }
@@ -2982,12 +2993,20 @@ window.saveToCrypt = () => {
       const buf = new Uint8Array(12 + cipher.byteLength);
       buf.set(iv); buf.set(new Uint8Array(cipher), 12);
       try {
-        localStorage.setItem(CRYPT_STORE, btoa(String.fromCharCode(...buf)));
+        localStorage.setItem(CRYPT_STORE, window._b64(buf));
+        window._cryptEchec = false;
       } catch(e) {
-        if(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22) {
-          try { toast('⚠️ Stockage local plein — sauvegarde offline impossible. Libérez de l\'espace ou videz le cache.','error'); } catch(_) {}
-          console.error('[CRYPT] QuotaExceededError — localStorage plein');
-        } else { throw e; }
+        window._cryptEchec = true;
+        // Un échec d'écriture du cache prive l'application de tout son mode
+        // hors ligne. Il ne doit pas se contenter d'une ligne de console.
+        const plein = e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22;
+        console.error('[CRYPT]', plein ? 'localStorage plein' : e.message, '— cache hors ligne NON écrit');
+        if (!window._cryptAlerte) {
+          window._cryptAlerte = true;
+          try { toast(plein
+            ? '⚠️ Stockage de l\'appareil plein — le mode hors ligne est désactivé'
+            : '⚠️ Sauvegarde hors ligne impossible — les données restent sur le serveur', 'error'); } catch(_) {}
+        }
       }
       const ts = Date.now();
       localStorage.setItem('schoolsafe_db_ts', ts.toString());
