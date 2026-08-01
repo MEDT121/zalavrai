@@ -768,10 +768,10 @@ La charte compte **quatre** couleurs : gris · blanc · **or** · émeraude.
 
 ```
 --emerald #0b5c42  --emerald-deep #063c2b  --emerald-soft #14785a   fonds sombres
---white   #ffffff  --surface      #f4f6f5  --surface-2    #e8ecea   surfaces claires
+--white   #ffffff  --surface      #f5f5f5  --surface-2    #e9e9e9   gris NEUTRES
 --accent  #0e7a56  --accent-deep  #095c41  --accent-light #83debc   accents émeraude
 --gold    #c09018  --gold-light   #e2b84f  --gold-deep    #7a5a0d   accent précieux
---ink     #14201c  --muted        #5c6a66  --line rgba(20,32,28,.13)
+--ink     #1a1a1a  --muted        #646464  --line rgba(26,26,26,.13)
 ```
 
 ### L'or vient de l'emblème, pas d'un choix
@@ -807,8 +807,9 @@ Contrastes vérifiés : blanc sur émeraude **8,0:1**, accent foncé sur blanc
 sur `--emerald` était à 4,42:1 — sous le seuil AA — d'où `#83debc` et non
 `#6fd3ac`.
 
-Le gris n'est pas neutre pur : une pointe de vert le rattache à l'émeraude,
-sans quoi il paraîtrait sale à son contact.
+**Le gris est NEUTRE** — R = G = B, aucune teinte. Un premier essai le
+verdissait légèrement pour « le rattacher » à l'émeraude ; ce n'était pas
+demandé, et un gris qui tire sur le vert n'est plus un gris.
 
 ### Une seule adresse
 
