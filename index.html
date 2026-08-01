@@ -5447,7 +5447,7 @@ function dashboardEnseignant() {
   const students = cl ? (DB.students?.filter(s=>s.cid===cl.id)||[]) : [];
   const d = today();
   const todayAtt = DB.attendance?.filter(a=>a.date===d&&students.some(s=>s.id===a.sid))||[];
-  const scannedToday = cl ? (DB.scan_log?.filter(l=>l.date===d&&l.type==='entry'&&students.some(s=>s.id===l.sid))||[]) : [];
+  const scannedToday = cl ? (DB.scan_log?.filter(l=>l.date===d&&l.type==='entry'&&!_estIncident(l)&&students.some(s=>s.id===l.sid))||[]) : [];
   const validatedToday = todayAtt.some(a=>a.teacher_validated);
   const present = todayAtt.filter(a=>a.status==='ontime').length;
   const late = todayAtt.filter(a=>a.status==='late').length;
@@ -11377,17 +11377,18 @@ R.attendance = () => {
   const att=(DB.attendance||[]).filter(a=>a.date===today());
   const present=students.filter(s=>att.find(a=>a.sid===s.id&&(a.status==='ontime'||a.status==='late')));
   const late=students.filter(s=>att.find(a=>a.sid===s.id&&a.status==='late'));
-  const absent=students.filter(s=>!att.find(a=>a.sid===s.id));
+  // Un élève portant une ligne `status:'absent'` FIGURE dans `att` : il n'était
+  // donc ni présent ni absent, il disparaissait des deux compteurs.
+  const absent=students.filter(s=>{const a=att.find(x=>x.sid===s.id);return !a||_estAbsence(a);});
   const canModify=role==='enseignant';
   const dirClassFilter=isDir?`<div style="margin-bottom:12px"><select class="form-select" onchange="window._attClassFilter=this.value;render()" style="width:100%"><option value="">Toutes les classes (${DB.students.length} élèves)</option>${DB.classes.map(c=>`<option value="${c.id}" ${window._attClassFilter===c.id?'selected':''}>${esc(c.name)} (${DB.students.filter(s=>s.cid===c.id).length})</option>`).join('')}</select></div>`:'';
 
   // Teacher scan validation block
   let teacherScanBlock='';
   if(role==='enseignant' && myClass){
-    const todayScans=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry');
-    const scannedSids=todayScans.map(l=>l.sid);
-    const myScanned=students.filter(s=>scannedSids.includes(s.id));
-    const notScanned=students.filter(s=>!scannedSids.includes(s.id));
+    const scannedSids=_sidsEntresLe();
+    const myScanned=students.filter(s=>scannedSids.has(s.id));
+    const notScanned=students.filter(s=>!scannedSids.has(s.id));
     const validated=(DB.attendance||[]).some(a=>a.date===today()&&students.some(s=>s.id===a.sid)&&a.teacher_validated);
     teacherScanBlock=`
     <div style="background:linear-gradient(135deg,#eaf3fc,#dbeafe);border:1px solid #93c5fd;border-radius:${window.cssRadius||'16px'};padding:16px;margin-bottom:16px">
@@ -11457,7 +11458,7 @@ R.attendance = () => {
     <div class="ww-section-header"><span class="ww-section-title">Présence du jour${isDir&&window._attClassFilter?(()=>{const cl=DB.classes.find(c=>c.id===window._attClassFilter);return cl?' — '+esc(cl.name):'';})():''}</span></div>
     ${students.map((s,i)=>{
       const c=gc(s.cid);const a=att.find(x=>x.sid===s.id);
-      const scanEntry=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry');
+      const scanEntry=(DB.scan_log||[]).find(l=>l.sid===s.id&&l.date===today()&&l.type==='entry'&&!_estIncident(l));
       const [cc,cbg]=clsColor(c?c.name:'');
       const st=a?(a.status==='ontime'?{b:'#d8f3e6',c:'#065f46',l:t("À l'heure",'On time'),i:''}:a.status==='late'?{b:'#fdeccd',c:'#92400e',l:t('Retard','Late'),i:''}:a.status==='excused'?{b:'#dbeafe',c:'#205fae',l:t('Justifié','Excused'),i:''}:a.status==='sick'?{b:'#fce7f3',c:'#9d174d',l:t('Malade','Sick'),i:''}:{b:'#fee2e2',c:'#991b1b',l:t('Refusé','Refused'),i:''}):{b:'#f6ede0',c:'#5c5346',l:t('Absent','Absent'),i:''};
       return `<div class="ww-item" data-sid="${s.id}" style="animation-delay:${i*.04}s">
@@ -11474,12 +11475,11 @@ R.attendance = () => {
 window.validateScanPresence = () => {
   const mc=getMyClass(); if(!mc.cl) return;
   const students=DB.students.filter(s=>s.cid===mc.cl.id);
-  const todayScans=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry');
-  const scannedSids=todayScans.map(l=>l.sid);
+  const scannedSids=_sidsEntresLe();
   let confirmed=0, absentMarked=0;
   students.forEach(s=>{
     const existing=(DB.attendance||[]).find(a=>a.sid===s.id&&a.date===today());
-    if(scannedSids.includes(s.id)){
+    if(scannedSids.has(s.id)){
       if(existing){ existing.teacher_validated=true; pushSync('attendance','patch',{teacher_validated:true},'id=eq.'+existing.id); }
       confirmed++;
     } else {
@@ -11503,8 +11503,8 @@ window.signalAbsencesToDir = (cid) => {
   const cl=gc(cid); if(!cl) return;
   if(!S.user||S.user.role!=='enseignant'||(cl.teacher_id!==S.user.id&&cl.teacher_id_en!==S.user.id)){toast('Accès non autorisé','error');return;}
   const students=DB.students.filter(s=>s.cid===cid);
-  const scannedSids=(DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
-  const absents=students.filter(s=>!scannedSids.includes(s.id));
+  const scannedSids=_sidsEntresLe();
+  const absents=students.filter(s=>!scannedSids.has(s.id));
   if(!absents.length){toast('Tous les élèves sont présents','info');return;}
   const names=absents.map(s=>s.name).join(', ');
   DB.users.filter(u=>u.role==='direction').forEach(u=>{
@@ -16812,6 +16812,14 @@ window._ATT_ETATS = {
   excused: {l:'Absent(e) — justifié',  c:'#2f7bd6', bg:'#eaf3fc'},
 };
 window._attEtat   = (a) => (a && window._ATT_ETATS[a.status]) || null;
+// Les élèves RÉELLEMENT entrés un jour donné. Un passage refusé au portail —
+// frais impayés, QR inconnu, sanction — porte pourtant `type:'entry'` : la
+// validation des présences le comptait donc comme une arrivée. Un enfant
+// renvoyé à la maison était enregistré présent pour l'année, n'était signalé
+// à personne, et sa famille n'était pas prévenue.
+window._sidsEntresLe = (date) => new Set((DB.scan_log||[])
+  .filter(l => l.date === (date||today()) && l.type === 'entry' && !_estIncident(l))
+  .map(l => l.sid));
 // Une absence, quelle qu'en soit la raison — y compris celle qu'on n'a pas dite.
 window._estAbsence = (a) => !!a && ['absent','sick','excused'].indexOf(a.status) >= 0;
 // Celles qui restent à motiver : `excused` l'est déjà par définition.
@@ -26324,8 +26332,8 @@ window.saveTeacherAbsence = async () => {
 // ── NOTIFICATION ABSENCES → PARENTS ──
 window.notifyAbsentParents = async (cid) => {
   const students = cid ? DB.students.filter(s=>s.cid===cid) : DB.students;
-  const scannedSids = (DB.scan_log||[]).filter(l=>l.date===today()&&l.type==='entry').map(l=>l.sid);
-  const absents = students.filter(s=>!scannedSids.includes(s.id)&&s.pid);
+  const scannedSids = _sidsEntresLe();
+  const absents = students.filter(s=>!scannedSids.has(s.id)&&s.pid);
   if(!absents.length){toast('Tous les élèves présents ou sans parent lié','info');return;}
   const key='abs_notif_'+today();
   if(!DB._absentNotified) DB._absentNotified={};
