@@ -6,6 +6,9 @@
 --  depuis treize colonnes et une reprise de données. Ce fichier ne contient
 --  QUE ce complément — il évite de recoller 480 lignes déjà passées.
 --
+--  Il contient aussi un changement de TYPE : devoirs.duration, NUMERIC alors
+--  que le code y écrit du texte. Sans lui, aucun devoir ne s'enregistre.
+--
 --  Le fichier consolidé reste la référence : toute nouvelle colonne s'y
 --  ajoute. Celui-ci est un raccourci de circonstance, sans dommage à
 --  relancer autant de fois qu'on veut.
@@ -57,7 +60,33 @@ BEGIN
     COALESCE(NULLIF(manquantes,''),'aucune');
 END $$;
 
--- ── 2 — RATTACHER CHAQUE NOTE À SON ANNÉE SCOLAIRE ────────────────────────
+-- ── 2 — LA DURÉE D'UNE INTERRO EST DU TEXTE, PAS UN NOMBRE ───────────────
+--
+--  Le champ demande « 45 minutes », « 1h30 » — du texte libre. La colonne
+--  était NUMERIC. PostgreSQL refuse alors une chaîne, et comme un seul champ
+--  invalide fait rejeter la LIGNE ENTIÈRE, AUCUN DEVOIR n'atteignait le
+--  serveur : l'enseignant le voyait à l'écran, puis il disparaissait à la
+--  synchronisation suivante.
+--
+--  Reproduit sur une réplique :
+--    ERROR: invalid input syntax for type numeric: ""
+--
+--  La sémantique du code exige du texte : c'est la colonne qui s'aligne.
+--  Les durées déjà enregistrées, s'il y en a, sont conservées telles quelles.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+              WHERE table_schema='public' AND table_name='devoirs'
+                AND column_name='duration' AND data_type='numeric') THEN
+    ALTER TABLE devoirs ALTER COLUMN duration DROP DEFAULT;
+    ALTER TABLE devoirs ALTER COLUMN duration TYPE TEXT USING duration::text;
+    RAISE NOTICE 'devoirs.duration : NUMERIC -> TEXT';
+  ELSE
+    RAISE NOTICE 'devoirs.duration : deja en TEXT, rien a faire';
+  END IF;
+END $$;
+
+-- ── 3 — RATTACHER CHAQUE NOTE À SON ANNÉE SCOLAIRE ────────────────────────
 --
 --  `grades.year` existait, mais seul le panneau de notes la renseignait :
 --  une cote saisie en corrigeant un devoir avait `year` à NULL. La clôture
@@ -85,8 +114,9 @@ UPDATE grades
 --  L'éditeur Supabase n'affiche que le résultat de la DERNIÈRE requête :
 --  celle-ci est donc seule, et se suffit.
 SELECT
-  CASE WHEN cols.n = 13 AND orphelines.n = 0 THEN 'TOUT EST EN PLACE'
+  CASE WHEN cols.n = 13 AND duree.n = 1 AND orphelines.n = 0 THEN 'TOUT EST EN PLACE'
        WHEN cols.n < 13                      THEN 'INCOMPLET : colonnes manquantes'
+       WHEN duree.n = 0                      THEN 'INCOMPLET : devoirs.duration encore NUMERIC'
        ELSE 'INCOMPLET : des notes sans annee' END AS verdict,
   cols.n        AS colonnes_sur_13,
   notes.n       AS notes_total,
@@ -102,6 +132,9 @@ FROM
            ('cahier_prep','effectif'),('cahier_prep','revision'),
            ('cahier_prep','motivation'),('cahier_prep','synthese'),
            ('cahier_prep','visa_by'),('cahier_prep','visa_date'))) cols,
+  (SELECT count(*) n FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='devoirs'
+      AND column_name='duration' AND data_type='text') duree,
   (SELECT count(*) n FROM grades) notes,
   (SELECT count(*) n FROM grades WHERE year IS NOT NULL) rattachees,
   (SELECT count(*) n FROM grades WHERE year IS NULL AND date ~ '^\d{4}-\d{2}') orphelines;

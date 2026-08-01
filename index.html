@@ -2800,7 +2800,8 @@ window.pushSync = async (table, op, data, query) => {
       // Nommer la cause quand le serveur l'a donnée : « le serveur refuse »
       // n'apprend rien, « il manque une colonne » se corrige.
       const m = String(window._dernierRefus || '');
-      const cause = /does not exist|schema cache|PGRST20[0-9]/i.test(m) ? ' — une colonne manque en base'
+      const cause = /invalid input syntax|invalid input value|22P02/i.test(m) ? ' — une valeur ne correspond pas au type de sa colonne'
+                  : /does not exist|schema cache|PGRST20[0-9]/i.test(m) ? ' — une colonne manque en base'
                   : /row-level security|permission denied|42501/i.test(m)  ? ' — un droit manque en base'
                   : /duplicate key|23505/i.test(m)                          ? ' — cet enregistrement existe déjà'
                   : /violates foreign key|23503/i.test(m)                   ? ' — une référence liée est absente'
@@ -14855,7 +14856,7 @@ window.saveDevoir = () => {
   const deadline=($('dvDeadline')?.value)||null;
   const catMeta={devoir:{icon:'📚',notif:'Devoir'},interro:{icon:'⚠️',notif:'Interrogation'},examen:{icon:'📝',notif:'Examen'}};
   const cm=catMeta[category]||catMeta.devoir;
-  let type='text', content='', description='', chapters='', duration='';
+  let type='text', content='', description='', chapters='', duration=null;
   if(category==='devoir'){
     const photo=window._devoirPhoto||null;
     const pdf=window._devoirPdf||null;
@@ -14864,7 +14865,12 @@ window.saveDevoir = () => {
     content=photo||pdf||description;
   } else {
     chapters=($('dvChapters')?.value||'').trim();
-    duration=($('dvDuration')?.value||'').trim();
+    // « 45 minutes », « 1h30 » : le champ demande du texte libre, et la
+    // colonne était NUMERIC. Une chaîne vide y était refusée par PostgreSQL,
+    // qui rejette alors la ligne ENTIÈRE : aucun devoir n'atteignait le
+    // serveur. La colonne passe en TEXT ; ici, une durée non renseignée
+    // devient null — une absence, pas une chaîne vide.
+    duration=($('dvDuration')?.value||'').trim()||null;
     if(!chapters){toast('Indiquez les chapitres à réviser','error');return;}
     type='annonce'; content=chapters; description=chapters;
   }

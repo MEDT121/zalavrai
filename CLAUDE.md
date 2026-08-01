@@ -555,6 +555,32 @@ une application en service — le risque dépasse le bénéfice.
 
 ---
 
+## Un type de colonne est une promesse au code
+
+`devoirs.duration` était NUMERIC. Le champ demande pourtant « 45 minutes,
+1h30 » — du texte libre. PostgreSQL refusait la chaîne, et comme un seul
+champ invalide fait rejeter la LIGNE ENTIÈRE, **aucun devoir n'atteignait le
+serveur** : l'enseignant le voyait à l'écran, puis il disparaissait à la
+synchronisation suivante.
+
+```
+ERROR: invalid input syntax for type numeric: ""
+```
+
+Deuxième cas de cette famille après `settings.year_locked`, BOOLEAN qui
+recevait une année. **Quand le code et la colonne se contredisent, c'est la
+colonne qui s'aligne** — la sémantique est dans le code, pas dans le schéma.
+
+Un balayage a comparé les 38 colonnes numériques aux écritures qui les
+alimentent : c'est le seul cas. Tous les montants passent par `lireMontant`.
+
+L'alerte de refus d'écriture nomme désormais cette cause aussi — « une
+valeur ne correspond pas au type de sa colonne » —, aux côtés de la colonne
+absente et du droit manquant. Un message qui dit seulement « le serveur
+refuse » n'apprend rien.
+
+---
+
 ## Diagnostic
 
 `diagnostic.html` — 7 tests indépendants, hors du cache du service worker.
