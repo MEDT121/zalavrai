@@ -3450,7 +3450,13 @@ window.getPendingCount = () => {
   if(S.user&&S.user.role==='parent'){
     const uid=S.user.id;
     const unreadNotifs=(DB.notifs||[]).filter(n=>n.uid===uid&&!n.read).length;
-    const unreadMsgs=(DB.messages||[]).filter(m=>(m.to===uid||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==uid).length;
+    // `_msgPourMoi` est le normaliseur qui sait lire les quatre manières d'adresser
+    // un message. Ce comptage en connaissait deux : un message envoyé À LA CLASSE
+    // d'un enfant n'apparaissait donc dans aucune pastille, alors que la page
+    // Messages l'affichait. La Direction écrivait à la classe, et le parent
+    // n'avait aucune raison d'aller regarder.
+    const _cids=(DB.students||[]).filter(s=>s.pid===uid).map(s=>s.cid);
+    const unreadMsgs=(DB.messages||[]).filter(m=>_msgPourMoi(m,uid,'parent',_cids)&&!m.read&&m.status==='sent'&&m.from!==uid).length;
     const pendingRat=(DB.rattrapages||[]).filter(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
       return s&&s.pid===uid&&r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled;
@@ -6956,7 +6962,9 @@ function dashboardParent() {
   const u = S.user;
   const kids = (DB.students||[]).filter(s=>s.pid===u.id);
   const myNotifs = (DB.notifs||[]).filter(n=>n.uid===u.id&&!n.read);
-  const unreadMsgs = (DB.messages||[]).filter(m=>(m.to===u.id||(m.to_role==='parent'))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  // Même normaliseur que la page Messages et que la pastille — sans quoi les
+  // trois comptaient trois choses différentes.
+  const unreadMsgs = (DB.messages||[]).filter(m=>_msgPourMoi(m,u.id,'parent',kids.map(k=>k.cid))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
   const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
   const d = today();
 
@@ -6978,7 +6986,12 @@ function dashboardParent() {
     const [cc,cbg] = clsColor(cl?.name||'');
     const photo = k.photo||k.photo_url;
     const rank = getRankInClass(k.id);
-    const pays = (DB.payments||[]).filter(p=>p.sid===k.id);
+    // Le solde vient de `getStudentBalance` — la seule formule, celle de la
+    // caisse. Les pastilles se fondaient sur `DB.payments.paid`, drapeau posé
+    // uniquement quand un trimestre est réglé EN ENTIER et que le versement
+    // porte son type de frais. Une famille ayant payé 80 % du T1 voyait donc
+    // exactement la même pastille rouge qu'une famille n'ayant rien versé.
+    const bal = getStudentBalance(k.id);
     const trims = ['T1','T2','T3'];
     return `<div class="dp-section" style="animation:fadeInUp .35s ${ki*.08}s ease both;border-left:5px solid ${k.statClr};background:linear-gradient(135deg,${cbg}66,var(--bg-card))">
       <div style="padding:var(--sp-4)">
@@ -7005,7 +7018,14 @@ function dashboardParent() {
           ${k.access_parent&&(DB.settings?.toggles?.corrections??false)?`<button class="btn btn-sm" style="background:rgba(56,230,165,.1);color:var(--green);border-color:rgba(56,230,165,.2);font-size:11px" onclick="go('devoirs_parent')">Corrections</button>`:''}
           ${k.access_parent&&(DB.settings?.toggles?.bulletin??false)?`<button class="btn btn-sm" style="background:rgba(255,210,78,.1);color:var(--gold);border-color:rgba(255,210,78,.2);font-size:11px" onclick="go('palmares_parent')">Bulletin</button>`:`<span style="font-size:11px;color:var(--text-3);padding:6px 0">Bulletin — contactez la direction</span>`}
           <div style="margin-left:auto;display:flex;gap:4px">
-            ${trims.map(t=>{const p=pays.find(x=>x.t===t);return`<span class="dp-badge" style="background:${p?.paid?'rgba(56,230,165,.12)':'rgba(239,68,68,.1)'};color:${p?.paid?'var(--green)':'var(--pink)'}">${t}</span>`;}).join('')}
+            ${trims.map(t=>{
+              const bt=bal.byTrim[t]||{paid:0,target:0};
+              if(!bt.target) return `<span class="dp-badge" style="background:rgba(255,255,255,.06);color:var(--text-3)">${t}</span>`;
+              const q=bt.paid>=bt.target?'ok':bt.paid>0?'part':'non';
+              const col={ok:'var(--green)',part:'var(--gold)',non:'var(--pink)'}[q];
+              const bg={ok:'rgba(56,230,165,.12)',part:'rgba(255,210,78,.12)',non:'rgba(239,68,68,.1)'}[q];
+              return `<span class="dp-badge" style="background:${bg};color:${col}" title="${_cur()}${bt.paid} / ${_cur()}${bt.target}">${t}${q==='part'?' ·'+Math.round(bt.paid/bt.target*100)+'%':''}</span>`;
+            }).join('')}
           </div>
         </div>
       </div>
@@ -7104,12 +7124,16 @@ function dashboardParent() {
   }) : [];
 
   // Frais restants à payer par enfant
-  const parentFeeAmt = DB.settings?.fees||{T1:0,T2:0,T3:0};
+  // Ce que la famille doit encore, au CENTIME près : `getStudentBalance` compte
+  // les versements partiels, cette page les ignorait et réclamait le trimestre
+  // entier. Un parent ayant versé la moitié du T2 lisait donc, sur l'écran
+  // d'accueil de son propre espace, une dette que la caisse ne lui réclamait pas.
   const parentKidBalances = kids.map(k=>{
-    const kPays=(DB.payments||[]).filter(p=>p.sid===k.id);
-    const unpaidTrims=['T1','T2','T3'].filter(t=>!kPays.find(p=>p.t===t&&p.paid)&&(parentFeeAmt[t]||0)>0);
-    const totalOwed=unpaidTrims.reduce((s,t)=>s+(parentFeeAmt[t]||0),0);
-    return {kid:k,unpaidTrims,totalOwed};
+    const b=getStudentBalance(k.id);
+    const unpaidTrims=['T1','T2','T3'].filter(t=>{
+      const bt=b.byTrim[t]; return bt && bt.target>0 && bt.paid<bt.target;
+    });
+    return {kid:k,unpaidTrims,totalOwed:b.debt};
   }).filter(x=>x.totalOwed>0);
 
   // Grille de présences de la semaine courante — parent
@@ -7141,7 +7165,13 @@ function dashboardParent() {
   // Enfants absents sans justification ce jour
   const pendingJustif = kids.filter(k=>{
     const att=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
-    return att?.status==='sick'&&!(DB.absences||[]).some(a=>a.sid===k.id&&a.dates===d&&a.status!=='refused');
+    // `absences.dates` est du TEXTE LIBRE — « du 28 au 30/04/2025 », « 12 et 13
+    // mai ». La comparer à une date ISO ne réussissait jamais : le bandeau
+    // réclamait une justification déjà envoyée, tous les jours, jusqu'à la
+    // validation. `_datesJustifiees` est le lecteur que la validation emploie
+    // déjà — c'est lui qui doit dire quels jours sont couverts.
+    return att?.status==='sick'&&!(DB.absences||[]).some(a=>
+      a.sid===k.id&&a.status!=='refused'&&(_datesJustifiees(a.dates)||[]).indexOf(d)>=0);
   });
   const justifBanner = pendingJustif.length ? `
   <div style="background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fed7aa;border-radius:16px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;animation:fadeInUp .25s ease both">
@@ -7285,7 +7315,7 @@ function dashboardParent() {
       </div>
       <div class="dp-section-action" onclick="go('payments')" role="button" tabindex="0">Paiements</div>
     </div>
-    ${parentKidBalances.map(({kid,unpaidTrims,totalOwed})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#ef4444;border-radius:50%;overflow:hidden">${(kid.photo||kid.photo_url)?`<img src="${kid.photo||kid.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(kid.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(kid.name)}</div><div class="dp-list-sub">${unpaidTrims.join(', ')} non payé${unpaidTrims.length>1?'s':''}</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:#ef4444">${_cur()}${totalOwed.toLocaleString()}</span></div>`).join('')}
+    ${parentKidBalances.map(({kid,unpaidTrims,totalOwed})=>`<div class="dp-list-item"><div class="dp-list-avatar" style="background:rgba(239,68,68,.1);color:#ef4444;border-radius:50%;overflow:hidden">${(kid.photo||kid.photo_url)?`<img src="${kid.photo||kid.photo_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:ini(kid.name)}</div><div style="flex:1;min-width:0"><div class="dp-list-title">${esc(kid.name)}</div><div class="dp-list-sub">${unpaidTrims.join(', ')} — reste à régler</div></div><span style="padding:3px 10px;border-radius:999px;font-size:var(--text-xs);font-weight:800;background:rgba(239,68,68,.1);color:#ef4444">${_cur()}${totalOwed.toLocaleString()}</span></div>`).join('')}
   </div>` : ''}
 
   ${hasWeekAttData?`
