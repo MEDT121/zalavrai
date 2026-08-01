@@ -1364,3 +1364,68 @@ le corps étant un `flex:1` qui pousse le pied, **le pied sortait de la carte**.
 Tout bloc d'une rangée doit pouvoir rétrécir (`min-width:0`) et toute valeur
 s'abréger — sauf le courriel, qui abrégé ne sert plus à rien : il passe à la
 ligne dans la même rangée, pour ne pas ajouter de hauteur.
+
+---
+
+## Une couleur d'onglet suit le FOND, pas la destination
+
+La barre d'onglets des profils peignait un bouton inactif d'après le mode de
+l'onglet vers lequel il **mène**. Sur un onglet clair, tout bouton menant à un
+onglet sombre était donc blanc à 55 % — **sur fond clair**.
+
+Mesuré : **1,07:1**. Le texte était là, mathématiquement illisible. Dans le
+profil parent, être sur « Mon compte » faisait disparaître « Mes enfants »,
+« École » et « Reçus » d'un coup. Les six profils mélangent les deux modes :
+tous étaient atteints, au rendu initial (`TAB_MODE[id]`, six copies) comme au
+changement d'onglet (`_setProfileTab`).
+
+Après : 5,40:1 sur blanc, 4,77:1 sur carte claire, 8,34:1 sur fond sombre.
+
+**Un état visuel se calcule à partir de ce qui est affiché, jamais à partir de
+ce vers quoi on pourrait aller.**
+
+---
+
+## Recevoir pour 250 familles
+
+`node tools/audit-portee-parent.mjs`
+
+Un parent recevait les **47 tables** de l'école à chaque cycle : 12 000
+présences, 4 000 passages au portail, toutes les cotes, les salaires, le journal
+comptable. À 250 familles et une réception par minute : ~11 750 requêtes/minute,
+et le téléphone d'une famille détenait les résultats de tous les autres enfants.
+
+### On ne retire pas des tables, on restreint des lignes
+
+L'outil part des écrans du parent et suit les appels — y compris ceux posés dans
+les `onclick` des gabarits. Résultat : la fermeture transitive atteint **les 47
+tables**, parce que les écrans PARTAGÉS (Présences, Messages, Calendrier)
+portent aussi la branche de la Direction. Un découpage par table est donc
+indécidable statiquement, et une table oubliée viderait un écran sans rien dire.
+
+Restreindre les **lignes** ne peut vider que ce qu'un parent n'affiche pas. Le
+filtre porte sur la **classe** partout où un rang se calcule — un classement a
+besoin des camarades — et sur l'**élève** ailleurs.
+
+Conséquence assumée : le classement du profil parent porte sur les classes de
+ses enfants, et **son titre le dit**. `PARENT_PORTEE_CLASSE = false` rétablit
+l'ancien comportement, volume et confidentialité compris.
+
+### Trois choses qu'il faut à une cadence pour tenir
+
+1. **Du désaccord.** 250 téléphones ouverts à la sortie des classes repartent
+   ensemble à la seconde près, et un intervalle FIXE conserve indéfiniment cet
+   alignement : 250 réceptions dans la même seconde, rien pendant 59. Un écart
+   aléatoire de ±25 % les disperse dès le deuxième cycle.
+2. **Du recul.** Sans lui, une panne de dix minutes envoie 2 500 requêtes
+   CONTRE un serveur déjà en difficulté. Doubler à chaque échec, jusqu'à dix
+   minutes ; remettre à zéro au premier succès, et l'ignorer au retour à
+   l'écran — là, quelqu'un attend vraiment.
+3. **Du silence quand rien ne change.** `render()` à chaque réception faisait
+   sauter la position de lecture et refermait les menus, toutes les minutes,
+   pour rien la plupart du temps. **C'est cela que l'utilisateur appelle
+   « instable ».** `_empreinteDonnees()` ne parcourt aucune ligne — une somme de
+   `.length` — et suffit à dire si la réception a rapporté quelque chose. Elle
+   ne voit pas la modification d'une ligne à nombre constant : une correction
+   peut attendre le prochain geste. Une correction est rare, la lecture est
+   permanente.
