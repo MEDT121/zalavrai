@@ -3323,55 +3323,110 @@ function _attendreImages(el){
 }
 
 // Génère et télécharge un PDF à partir d'un fragment ou document HTML complet
+// ══════════════════════════════════════════════════════════════════════════
+//  UN DOCUMENT S'IMPRIME — IL NE SE PHOTOGRAPHIE PAS
+//
+//  `dlPDF` passait par html2canvas : il recopie la page dans un cadre
+//  invisible, la PHOTOGRAPHIE, et colle l'image dans un PDF. Trois pièges de
+//  cette voie ont été corrigés un par un — largeur du cadre, coupure de page,
+//  images non décodées — et les documents sortaient TOUJOURS vides.
+//
+//  Le défaut n'est pas dans les réglages : il est dans la méthode. Rastériser
+//  une page dépend du navigateur, de la taille de la fenêtre, du moment où les
+//  images arrivent, de la mémoire disponible sur le téléphone — et quand l'une
+//  de ces conditions manque, on n'obtient pas une erreur, on obtient du BLANC.
+//
+//  Le navigateur, lui, sait imprimer. C'est même la seule chose qu'il fasse
+//  mieux que nous : il rend le texte en vraies polices, sélectionnable et
+//  cherchable, il pagine, et « Enregistrer au format PDF » est offert sur
+//  Android, iOS et ordinateur. Le fichier pèse dix fois moins qu'une image.
+//
+//  C'est déjà la voie de la carte d'élève (`imprimerCarte`), qui n'a jamais
+//  posé de problème.
+//
+//  html2pdf reste en REPLI, pour le seul cas où la fenêtre est refusée.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Un document arrive soit en page complète (`<!DOCTYPE html>…`), soit en
+// fragment. Les deux existent dans le fichier ; on ne les traite pas pareil.
+window._estPageComplete = (h) => /<!DOCTYPE|<html[\s>]/i.test(String(h||''));
+
 function dlPDF(htmlStr, filename){
-  if(typeof html2pdf==='undefined'){ toast(t('Génération PDF indisponible (hors-ligne)','PDF generation unavailable (offline)'),'error'); return; }
+  const titre = String(filename||'document.pdf').replace(/\.pdf$/i,'');
+  let w = null;
+  try { w = window.open('', '_blank'); } catch(_e) { w = null; }
+
+  if (w && w.document) {
+    // `-webkit-print-color-adjust:exact` est indispensable : sans lui, le
+    // navigateur retire les aplats de couleur à l'impression et l'en-tête de
+    // l'école sort en blanc sur blanc.
+    const COMMUN = '@page{size:A4;margin:12mm}'
+      + 'html,body{margin:0;padding:0;background:#fff;'
+      + '-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+      + 'img{max-width:100%}'
+      + '@media print{.no-print{display:none!important}}';
+    // Attendre le chargement ET les images : imprimer trop tôt donnerait
+    // exactement le blanc que l'on cherche à éliminer.
+    const LANCEUR = '<scr'+'ipt>(function(){var f=function(){try{window.focus();window.print();}catch(e){}};'
+      + 'if(document.readyState==="complete")setTimeout(f,350);'
+      + 'else window.addEventListener("load",function(){setTimeout(f,350);});})();</scr'+'ipt>';
+
+    let page;
+    if (window._estPageComplete(htmlStr)) {
+      // Page complète : on n'y touche pas — elle porte ses propres styles
+      // d'impression. On insère seulement le déclencheur avant </body>.
+      const brut = String(htmlStr);
+      page = brut.replace(/<\/body>/i, '<style>'+COMMUN+'</style>'+LANCEUR+'</body>');
+      if (page === brut) {
+        // Certains gabarits omettent la balise fermante : on la referme
+        // proprement plutôt que de compter sur l'indulgence de l'analyseur.
+        const sansFin = brut.replace(/<\/html>\s*$/i, '');
+        page = sansFin + '<style>'+COMMUN+'</style>' + LANCEUR + '</body></html>';
+      }
+    } else {
+      page = '<!DOCTYPE html><html><head><meta charset="utf-8">'
+           + '<meta name="viewport" content="width=794">'
+           + '<title>'+esc(titre)+'</title><style>'+COMMUN
+           + 'body{font-family:Arial,Helvetica,sans-serif}</style></head><body>'
+           + htmlStr + LANCEUR + '</body></html>';
+    }
+    try {
+      w.document.open(); w.document.write(page); w.document.close();
+      toast(t('Fenêtre d\'impression ouverte — choisissez « Enregistrer au format PDF »',
+              'Print window opened — choose "Save as PDF"'), 'info');
+      return Promise.resolve();
+    } catch(_e) { try { w.close(); } catch(_e2) {} }
+  }
+
+  // ── REPLI : la fenêtre a été refusée (bloqueur de fenêtres) ──────────────
+  if(typeof html2pdf==='undefined'){
+    toast(t('Autorisez les fenêtres pour ce site afin d\'imprimer le document',
+            'Allow pop-ups for this site to print the document'),'error');
+    return Promise.resolve();
+  }
   const container=document.createElement('div');
-  container.style.position='fixed'; container.style.left='-9999px'; container.style.top='0';
-  container.style.width='794px';   // largeur A4 à 96 dpi : évite un rendu hors cadre
+  container.style.position='fixed'; container.style.left='0'; container.style.top='-20000px';
+  container.style.width='794px';
   container.style.background='#ffffff';
   container.innerHTML=htmlStr;
   document.body.appendChild(container);
-
   toast(t('⏳ Génération du PDF…','⏳ Generating PDF…'),'info');
-
   return _attendreImages(container).then(function(){
-    // L'échelle décide seule du poids final : à 2×, un document de dix pages
-    // produit un canvas de plusieurs dizaines de mégapixels. On la réduit sur
-    // les documents longs, où la finesse importe moins que le fait d'aboutir.
-    // Mesurée APRÈS les images : avant, un document sans hauteur en paraissait un.
     const h = container.scrollHeight || 1000;
     const scale = h > 6000 ? 1.25 : h > 3000 ? 1.5 : 2;
-
     if(!container.scrollHeight){
       toast(t('Document vide — rien à imprimer','Empty document — nothing to print'),'error');
       return;
     }
-
     return html2pdf().from(container).set({
       filename: filename||'document.pdf',
       margin: 8,
-      // JPEG au lieu du PNG par défaut, et compression Flate côté jsPDF :
-      // à eux deux, ils divisent le poids d'un reçu par trois à cinq.
       image: { type: 'jpeg', quality: 0.82 },
-      html2canvas: {
-        scale, useCORS: true, backgroundColor: '#ffffff', logging: false,
-        // html2canvas recopie la page dans un cadre invisible dont la largeur
-        // vaut, par défaut, celle de la fenêtre. Sur un téléphone, c'est 390 px :
-        // le document mis en page pour 794 px y était recalculé sur 390, et la
-        // zone capturée — 794 de large — sortait donc BLANCHE pour moitié, quand
-        // ce n'est pas en entier. Le PDF se téléchargeait, vide.
-        // Sur un ordinateur la fenêtre est déjà plus large que 794 : c'est
-        // pourquoi le défaut ne se voyait que sur mobile.
-        windowWidth: 794,
-        width: 794,
-        scrollX: 0, scrollY: 0,
-      },
+      // Décalage VERTICAL et non horizontal : c'est le décalage en x qui
+      // faisait sortir la zone capturée du cadre recopié par html2canvas.
+      html2canvas: { scale, useCORS:true, backgroundColor:'#ffffff', logging:false,
+                     windowWidth:794, scrollX:0, scrollY:0 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-      // `avoid-all` posait `page-break-inside:avoid` sur TOUS les éléments, y
-      // compris l'unique bloc qui enveloppe un certificat entier. Dès qu'il
-      // dépassait la hauteur imprimable, il était repoussé à la page suivante
-      // et la PREMIÈRE PAGE sortait blanche. Les documents qui ont besoin de ne
-      // pas être coupés portent déjà leur propre règle CSS ; `css` la respecte.
       pagebreak: { mode: ['css', 'legacy'] }
     }).save();
   }).catch(function(){
