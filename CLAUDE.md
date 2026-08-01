@@ -984,6 +984,28 @@ renderer d'écran** (`R.*`, `dashboard*`) pris dans une zone.
 Contrastes : blanc sur en-tête **8,0:1**, titre sur papier **8,0:1**, texte
 sur aplat clair **6,9:1**, blanc sur carte élève **12,4:1**.
 
+### L'emblème de l'école n'entre PAS dans l'interface
+
+Erreur commise puis corrigée : donner une valeur par défaut à `SCHOOL_LOGO`
+l'a fait paraître dans la barre latérale, l'écran de connexion et « À propos »
+dès le premier lancement — l'application se mettait à porter l'école.
+
+`SCHOOL_LOGO` est le repli **des documents**. L'interface porte
+`logo-schoolsafe.png`, et n'affiche l'emblème de l'école que si la Direction
+l'a elle-même téléversé — donc lu depuis `DB.settings.school.logo`, jamais
+depuis le repli intégré au fichier.
+
+`audit-logo.mjs` vérifie les deux sens : chaque document porte l'emblème, et
+aucun code d'interface ne lit `window.SCHOOL_LOGO`. Éprouvé dans les deux
+sens. Exemptions déclarées : `ssBuildBadge`/`ssBuildCarte` (la carte EST un
+document), `applyCrop` (le téléversement), `_logoImg` (l'assistant).
+
+Reconnaître un document a demandé trois passes : `dlPDF`, mais aussi
+`w.document.write` — le nom de la variable varie — et un Blob téléchargé.
+Et un téléchargement n'est un document que si le fichier est une page :
+`text/html` ou `application/pdf`. Un export CSV, une sauvegarde JSON, un PNG
+de carte n'ont pas d'en-tête à orner.
+
 ### Ce qui ne change PAS
 
 - **L'interface de l'application** garde son bleu. C'est le logiciel.
