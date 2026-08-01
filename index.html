@@ -13066,7 +13066,10 @@ R.recus_parent = () => {
         const fVers=kVers.filter(v=>v.fee_type_id===ft.id);
         if(!fVers.length&&(ft.montant_defaut||0)===0) return '';
         const fPaid=fVers.reduce((s,v)=>s+(Number(v.montant)||0),0);
-        const fTarget=Number(ft.montant_defaut||0);
+        // `_cibleFrais` fait foi : le barème enregistré dans les Paramètres prime
+        // sur `montant_defaut`, qui n'est qu'une valeur de saisie. Cette page
+        // annonçait sinon à la famille une cible que la caisse ne pratiquait pas.
+        const fTarget=_cibleFrais(ft.id, ft.trimestre);
         const fDone=fTarget>0&&fPaid>=fTarget;
         const fPartial=!fDone&&fPaid>0;
         const fPct=fTarget>0?Math.min(100,Math.round(fPaid/fTarget*100)):0;
@@ -13095,6 +13098,38 @@ R.recus_parent = () => {
           </div>`:'<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:8px">Aucun versement enregistré</div>'}
         </div>`;
       }).join('')}
+      ${(()=>{
+        // Un versement encaissé avant que les types de frais existent, ou saisi
+        // par trimestre sans type, n'appartient à aucun bloc ci-dessus — il
+        // n'était donc listé NULLE PART. `getStudentBalance` le comptait pourtant
+        // dans le total vert de l'en-tête : la famille lisait « 300 versés » et
+        // ne retrouvait que 200 en additionnant les lignes. Un reçu qu'on ne
+        // retrouve pas est un reçu qu'on croit perdu.
+        const idsActifs=feeTypes.map(f=>f.id);
+        const orphelins=kVers.filter(v=>!v.fee_type_id||idsActifs.indexOf(v.fee_type_id)<0);
+        if(!orphelins.length) return '';
+        const somme=orphelins.reduce((s,v)=>s+(Number(v.montant)||0),0);
+        return `<div style="border-radius:14px;padding:12px;margin-bottom:10px;background:#f5f5f5;border:1.5px solid #dadee2">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:38px;height:38px;border-radius:10px;background:#e8eaec;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🧾</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px">Autres versements</div>
+              <div style="font-size:11px;color:#5e6c78;font-weight:600">Encaissés hors des types de frais actifs</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0"><div style="font-size:15px;font-weight:800;color:#1f9d6b">${_cur()}${somme}</div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${orphelins.map(v=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06)">
+              <div style="width:32px;height:32px;border-radius:8px;background:#d8f3e6;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">💵</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:700">${_cur()}${v.montant} <span style="font-weight:400;color:var(--text-muted)">· ${v.date||''} ${v.time?String(v.time).slice(0,5):''}</span></div>
+                <div style="font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.motif||v.trimestre||'')} ${v.recu_no?'· N° '+esc(v.recu_no):''}</div>
+              </div>
+              <button onclick="printVersementRecu('${v.id}')" style="flex-shrink:0;padding:5px 10px;border-radius:8px;border:1px solid #1f9d6b;background:#d8f3e6;color:#065f46;font-size:11px;font-weight:700;cursor:pointer">🖨️ Reçu</button>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      })()}
       </div>
     </div>`;
   });
@@ -24305,8 +24340,19 @@ R.scan_history = () => {
       <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(kid.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl?esc(cl.name):''} · 30 derniers jours</span></div>
       ${dates.length?dates.map(date=>{
         const {logs:dl,att:a}=byDate[date];
-        const entry=dl.find(l=>l.type==='entry');
-        const exit=dl.find(l=>l.type==='exit'||l.status==='emergency_exit');
+        // `dl` est trié du plus récent au plus ancien. Un `.find` y donnait donc
+        // la DERNIÈRE entrée du jour : un enfant sorti à midi et revenu à 14 h
+        // voyait son arrivée annoncée à 14 h, alors que la ligne d'à côté le
+        // disait « à l'heure » d'après son vrai passage de 7 h 45.
+        // L'arrivée est le PREMIER passage, le départ le DERNIER.
+        // Et un passage REFUSÉ n'est ni une entrée ni une sortie — l'enfant a
+        // été renvoyé du portail. L'annoncer comme une entrée disait à la
+        // famille le contraire de ce qui s'est produit.
+        const _reg=dl.filter(l=>!_estIncident(l));
+        const _entrees=_reg.filter(l=>l.type==='entry');
+        const entry=_entrees[_entrees.length-1]||null;
+        const exit=_reg.find(l=>l.type==='exit'||l.status==='emergency_exit');
+        const _refus=dl.filter(_estIncident);
         const d=new Date(date);
         const isToday=date===today();
         const sc=a?statusColor[a.status]:'#ef5b5b';
@@ -24322,6 +24368,7 @@ R.scan_history = () => {
             <div style="display:flex;gap:12px;flex-wrap:wrap">
               ${entry?`<span style="font-size:12px;color:#1f9d6b;font-weight:600">Entrée ${entry.time}</span>`:'<span style="font-size:11px;color:#a89c8b">Pas d\'entrée</span>'}
               ${exit?`<span style="font-size:12px;color:#ff7a4d;font-weight:600">Sortie ${exit.time}${exit.status==='emergency_exit'?' (!!)':''}</span>`:''}
+              ${_refus.map(r=>`<span style="font-size:11px;color:#dc2626;font-weight:700">Passage refusé ${esc(r.time||'')}</span>`).join('')}
             </div>
           </div>
           ${a&&a.arr_time&&!entry?`<div style="font-size:10px;color:var(--text-muted);text-align:right;flex-shrink:0">Arr. ${a.arr_time}</div>`:''}
@@ -27342,7 +27389,7 @@ R.activites_parent = () => {
           <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'·'}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:14px;color:${ac}">${esc(act.name)}</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(act.jour||'')} ${esc(act.heure||'')}${act.lieu?' · '+esc(act.lieu):''}</div>
           </div>
           ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">${_cur()}${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
         </div>`;
@@ -27364,7 +27411,7 @@ R.activites_parent = () => {
         <div style="width:44px;height:44px;border-radius:12px;background:${ac};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${act.emoji||'·'}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:14px">${esc(act.name)}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${act.jour||''} ${act.heure||''}${act.lieu?' · '+act.lieu:''}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(act.jour||'')} ${esc(act.heure||'')}${act.lieu?' · '+esc(act.lieu):''}</div>
           ${act.description?`<div style="font-size:11px;color:var(--text-muted);margin-top:3px;font-style:italic">${esc(act.description)}</div>`:''}
         </div>
         ${act.frais?`<div style="text-align:right;flex-shrink:0"><div style="font-weight:800;font-size:15px;color:${ac}">${_cur()}${act.frais}</div><div style="font-size:10px;color:var(--text-muted)">/mois</div></div>`:''}
