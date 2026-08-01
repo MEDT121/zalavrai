@@ -2135,7 +2135,16 @@ window.autoSync = async (o = {}) => {
       const bloque = q.length > 0 && q.every(i => (i.retries || 0) >= 2);
       if (!q.length || bloque) {
         // loadFromSupabase réapplique lui-même la file : rien à faire ici.
-        if (await loadFromSupabase()) render();
+        //
+        // Et l'on ne reconstruit la page QUE si la réception a rapporté quelque
+        // chose. `render()` était rappelé à chaque cycle : sous les doigts d'un
+        // parent en train de lire, la position de lecture sautait, un menu ouvert
+        // se refermait, une photo se rechargeait — toutes les minutes, pour rien
+        // la plupart du temps. C'est ce que l'on ressent comme « instable ».
+        const _av = _empreinteDonnees();
+        if (await loadFromSupabase()) {
+          if (_empreinteDonnees() !== _av) render();
+        }
       }
     }
     updateSyncIndicator();
@@ -2144,6 +2153,24 @@ window.autoSync = async (o = {}) => {
     console.warn('[autoSync]', e.message);
     return 0;
   } finally { _syncBusy = false; }
+};
+
+// Une empreinte des données affichables : la longueur de chaque table, plus le
+// trimestre et les frais courants. Elle ne parcourt AUCUNE ligne — c'est une
+// somme de `.length` — et suffit à répondre à la seule question qui compte :
+// « la réception a-t-elle rapporté quelque chose ? »
+//
+// Elle ne voit pas la modification d'une ligne existante à nombre constant. Le
+// prix est qu'une note corrigée peut attendre le prochain geste de
+// l'utilisateur ; le gain est qu'une page ne se dérobe plus sous ses yeux
+// chaque minute. Une correction est rare, la lecture est permanente.
+window._empreinteDonnees = () => {
+  let e = '';
+  const cles = Object.keys(DB).sort();
+  for (const k of cles) { const v = DB[k]; if (Array.isArray(v)) e += k[0] + v.length + ','; }
+  const st = DB.settings || {};
+  return e + '|' + (st.currentTrimestre || '') + '|' + JSON.stringify(st.fees || {})
+           + '|' + JSON.stringify(st.toggles || {});
 };
 
 /** Regroupe une rafale d'écritures en un seul envoi, peu après la dernière. */
@@ -2195,22 +2222,47 @@ function _scheduleNextPull() {
   if (document.visibilityState !== 'visible') delay = _PULL.repos;   // simple veille du minuteur
   else delay = (Date.now() - window._lastTouch < 300000) ? _PULL.actif : _PULL.repos;
 
+  // ── Trois choses qu'il faut à une cadence pour tenir à 250 appareils ──
+  //
+  // 1. DU DÉSACCORD. Deux cent cinquante téléphones ouverts au même moment —
+  //    la sortie des classes — repartaient tous ensemble à la seconde près, et
+  //    y restaient : un intervalle FIXE conserve indéfiniment l'alignement de
+  //    départ. Le serveur voyait 250 réceptions dans la même seconde, puis rien
+  //    pendant cinquante-neuf. Un écart aléatoire de ±25 % les disperse dès le
+  //    deuxième cycle.
+  //
+  // 2. DU RECUL. Sans lui, une panne de dix minutes, c'est 2 500 requêtes
+  //    lancées CONTRE un serveur déjà en difficulté. Chaque échec consécutif
+  //    double l'attente, jusqu'à dix minutes ; le premier succès la remet à zéro.
+  //
+  // 3. DU SILENCE QUAND RIEN NE CHANGE. `render()` était rappelé à CHAQUE
+  //    réception : la page se reconstruisait sous les doigts du parent, sa
+  //    position de lecture sautait, un menu ouvert se refermait — toutes les
+  //    minutes, pour rien la plupart du temps. Le rendu n'a lieu que si la
+  //    réception a réellement rapporté quelque chose.
+  const secousse = 0.75 + Math.random() * 0.5;
+  const recul = Math.min(600000, delay * Math.pow(2, Math.min(window._pullEchecs || 0, 5)));
   _pullTimer = setTimeout(async () => {
     // En arrière-plan on ne sollicite pas le réseau : le retour à l'écran
     // déclenche une réception immédiate, ce qui est le moment qui compte.
     if (document.visibilityState === 'visible') {
+      const avant = window.DB_ONLINE;
       await window.autoSync({ pull: true });
+      window._pullEchecs = window.DB_ONLINE ? 0 : ((window._pullEchecs || 0) + 1);
+      if (avant && !window.DB_ONLINE) console.warn('[pull] échec', window._pullEchecs);
     }
     _scheduleNextPull();
-  }, delay);
+  }, Math.round(recul * secousse));
 }
 _scheduleNextPull();
 
 // Retour sur l'application : réception immédiate. C'est l'instant où
-// l'utilisateur regarde, donc celui où la fraîcheur compte le plus.
+// l'utilisateur regarde, donc celui où la fraîcheur compte le plus — et le
+// seul moment où l'on ignore le recul, puisque quelqu'un attend vraiment.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     window._lastTouch = Date.now();
+    window._pullEchecs = 0;
     window.autoSync({ pull: true });
     _scheduleNextPull();
   }
@@ -2604,6 +2656,45 @@ window._syncServerClock = async () => {
 // Re-sync automatique toutes les heures
 if(!window._iv_clock) window._iv_clock = setInterval(() => { if (window.DB_ONLINE) window._syncServerClock(); }, 3600000);
 
+// ── LA PORTÉE D'UNE RÉCEPTION ─────────────────────────────────────────────
+// Un parent recevait les 47 tables de l'école à chaque cycle : les 12 000
+// dernières présences, les 4 000 derniers passages au portail, TOUTES les cotes
+// de l'établissement. À 250 familles et une réception par minute, cela fait
+// ~11 750 requêtes et plusieurs mégaoctets par minute — et le téléphone d'une
+// famille détenait les résultats de tous les autres enfants.
+//
+// On ne peut pas retirer des TABLES : les écrans partagés — Présences,
+// Messages, Calendrier — portent aussi la branche de la Direction, et une table
+// oubliée viderait un écran sans rien dire. On restreint donc les LIGNES, ce
+// qui ne peut vider que ce qu'un parent n'affiche pas.
+//
+// Le classement de classe a besoin des camarades : le filtre porte donc sur la
+// CLASSE, pas sur l'enfant, partout où un rang se calcule.
+// Un seul interrupteur, ici, pour revenir en arrière si la Direction le décide.
+// À `false`, un parent reçoit de nouveau toute l'école : le classement du profil
+// redevient celui de l'établissement, au prix du volume et de la confidentialité
+// décrits ci-dessus.
+window.PARENT_PORTEE_CLASSE = true;
+
+window._porteeParent = async () => {
+  if (!S.user || S.user.role !== 'parent' || !window.PARENT_PORTEE_CLASSE) return null;
+  // Les enfants d'abord : tout le reste s'y accroche. Une lecture ratée rend
+  // `null`, et l'appelant retombe alors sur la réception complète — mieux vaut
+  // trop de données qu'un écran vide.
+  const kids = await _get('students', 'select=id,cid&pid=eq.' + encodeURIComponent(S.user.id) + _sf());
+  if (!Array.isArray(kids)) return null;
+  const sids = kids.map(k => k.id).filter(Boolean);
+  const cids = [...new Set(kids.map(k => k.cid).filter(Boolean))];
+  const liste = (v) => v.map(x => '"' + String(x).replace(/"/g, '') + '"').join(',');
+  return {
+    sids, cids,
+    // `in.()` avec une liste vide est refusé par PostgREST : on demande alors
+    // une valeur impossible, ce qui rend un tableau vide sans erreur.
+    parSid : sids.length ? '&sid=in.(' + liste(sids) + ')' : '&sid=eq.__aucun__',
+    parCid : cids.length ? '&cid=in.(' + liste(cids) + ')' : '&cid=eq.__aucun__',
+  };
+};
+
 window.loadFromSupabase = async () => {
   if(!window._supaConfigured()) return false;
   try {
@@ -2611,6 +2702,9 @@ window.loadFromSupabase = async () => {
     const ping = await _get('users','select=id&limit=1');
     if (!ping) throw new Error('no response');
     window.DB_ONLINE = true;
+    const P = await window._porteeParent();
+    const pSid = P ? P.parSid : '';
+    const pCid = P ? P.parCid : '';
     const [users,classes,students,payments,attendance,scan_log,conduct,grades,
            absences,notifs,events,messages,aps,daily_records,daily_expenses,daily_reports,
            devoirs,cahier_texte,matieres,rattrapages,convocations,timetables,settings_rows,
@@ -2621,22 +2715,22 @@ window.loadFromSupabase = async () => {
            inscriptions,cahier_prep,prevision_matiere,fee_types,versements,journal_entries] = await Promise.all([
       _get('users','select=*'+_sf()),
       _get('classes','select=*'+_sf()),
-      _get('students','select=*'+_sf()),
-      _get('payments','select=*'+_sf()),
-      _get('attendance','select=*&order=date.desc&limit=12000'+_sf()),
-      _get('scan_log','select=*&order=date.desc,time.desc&limit=4000'+_sf()),
-      _get('conduct','select=*'+_sf()),
-      _get('grades','select=*'+_sf()),
+      _get('students','select=*'+(P?pCid:'')+_sf()),
+      _get('payments','select=*'+(P?pSid:'')+_sf()),
+      _get('attendance','select=*&order=date.desc&limit='+(P?'900':'12000')+(P?pSid:'')+_sf()),
+      _get('scan_log','select=*&order=date.desc,time.desc&limit='+(P?'400':'4000')+(P?pSid:'')+_sf()),
+      _get('conduct','select=*'+(P?pCid:'')+_sf()),
+      _get('grades','select=*'+(P?pCid:'')+_sf()),
       _get('absences','select=*&order=date.desc'+_sf()),
-      _get('notifs','select=*&order=time.desc&limit=100'+_sf()),
+      _get('notifs','select=*&order=time.desc&limit=100'+(P?'&uid=eq.'+encodeURIComponent(S.user.id):'')+_sf()),
       _get('events','select=*&order=date.asc'+_sf()),
       _get('messages','select=*&order=date.desc&limit=200'+_sf()),
       _get('aps','select=*'+_sf()),
       _get('daily_records','select=*&order=date.desc&limit=500'+_sf()),
       _get('daily_expenses','select=*&order=date.desc&limit=500'+_sf()),
       _get('daily_reports','select=*&order=date.desc&limit=100'+_sf()),
-      _get('devoirs','select=*&order=date.desc&limit=200'+_sf()),
-      _get('cahier_texte','select=*&order=date.desc&limit=200'+_sf()),
+      _get('devoirs','select=*&order=date.desc&limit=200'+(P?pCid:'')+_sf()),
+      _get('cahier_texte','select=*&order=date.desc&limit=200'+(P?pCid:'')+_sf()),
       _get('matieres','select=*'+_sf()),
       _get('rattrapages','select=*&order=date.desc&limit=200'+_sf()),
       _get('convocations','select=*&order=date.desc&limit=200'+_sf()),
@@ -2664,7 +2758,7 @@ window.loadFromSupabase = async () => {
       _get('cahier_prep','select=*&order=date_prevue.desc&limit=500'+_sf()),
       _get('prevision_matiere','select=*'+_sf()),
       _get('fee_types','select=*'+_sf()),
-      _get('versements','select=*&order=date.desc&limit=1000'+_sf()),
+      _get('versements','select=*&order=date.desc&limit=1000'+(P?pSid:'')+_sf()),
       _get('journal_entries','select=*&order=date.desc&limit=500'+_sf()),
     ]);
     // _get() renvoie null quand une lecture ÉCHOUE, et [] quand la table est
@@ -24784,7 +24878,11 @@ R.profil_parent = () => {
     const medals=['🥇','🥈','🥉'];
     if(!top.length) return `<div style="text-align:center;padding:40px;color:#a89c8b"><div style="font-size:42px;margin-bottom:12px">🏆</div>Aucun classement disponible pour ${trim}</div>`;
     const podium=top.slice(0,Math.min(3,top.length));
-    return `${SECTION("Top 10 de l'école — "+trim, '#8255c4')}
+    // Un parent ne reçoit plus que les classes de ses enfants : ce classement
+    // porte donc sur elles. L'annoncer « de l'école » serait faux — un titre
+    // doit dire ce qu'il compte. `PARENT_PORTEE_CLASSE=false` rétablit les deux.
+    const _titreTop = window.PARENT_PORTEE_CLASSE ? "Meilleurs élèves — classes de mes enfants" : "Top 10 de l'école";
+    return `${SECTION(_titreTop+" — "+trim, '#8255c4')}
     ${podium.length>=3?`<div style="display:flex;justify-content:center;align-items:flex-end;gap:10px;margin-bottom:24px">
       ${[1,0,2].map(pos=>{
         const s=podium[pos]; if(!s) return '';
