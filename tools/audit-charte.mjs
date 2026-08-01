@@ -1,8 +1,12 @@
 // ══════════════════════════════════════════════════════════════════════════
 //  audit-charte.mjs — les documents de l'école portent-ils SES couleurs ?
 //
-//  La charte de l'école est gris · blanc · or, relevée sur son emblème :
-//  un cercle sombre, un champ blanc, une étoile dorée.
+//  La charte de l'école est gris · blanc · or.
+//
+//  Son « gris » est un VERT DE GRIS — teinte 136°, saturation 7 % — donné
+//  par la Direction en montrant un pot de peinture : #a9b4ac. Ce n'est pas
+//  un gris neutre, et un contrôle qui exigeait R = G = B rejetait la charte
+//  elle-même. L'or, #c09018, vient de l'étoile de l'emblème.
 //
 //  L'INTERFACE de l'application garde son bleu — c'est SchoolSafe, le
 //  logiciel. Mais tout ce qui s'imprime engage l'école : bulletin, reçu,
@@ -62,9 +66,15 @@ const SEMANTIQUES = new Set([
   // bleu d'information, employé pour un état neutre
   '#eff6ff','#1e40af','#dbeafe',
 ]);
+// Le « gris » de l'école n'est PAS un gris neutre : c'est un vert de gris,
+// teinte 136°, relevé sur le pot de peinture de la Direction (#a9b4ac).
+// Un classement qui exigeait R = G = B rejetait donc toute la charte.
+// On accepte l'écart tant que le vert domine sans excès — au-delà, c'est
+// un vert franc, hors charte.
 const nature = ([r,g,b]) => {
   const e = Math.max(r,g,b) - Math.min(r,g,b);
-  if (e <= 8) return 'gris';
+  if (e <= 6) return 'gris';                                  // gris neutre pur
+  if (g >= r && g >= b && e <= 26 && g - Math.min(r,b) <= 26) return 'gris';  // vert de gris
   if (r > b + 40 && g > b + 20 && r >= g) return 'or';
   return 'hors';
 };

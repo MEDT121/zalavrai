@@ -761,27 +761,25 @@ Pages par `.github/workflows/pages.yml`.
 
 ### La palette de l'école : gris · blanc · or
 
-Ce sont les couleurs de l'**emblème** : un cercle sombre, un champ blanc, une
-étoile dorée. Aucun vert n'y figure. Tout est dans `assets/site.css` ;
-**aucune couleur nouvelle** dans une page ajoutée — une valeur écrite en dur
-échappe au prochain réaccord.
+**Le « gris » de l'école n'est pas un gris neutre.** C'est un VERT DE GRIS —
+teinte 136°, saturation 7 % — donné par la Direction en montrant un pot de
+peinture : `#a9b4ac`, relevé sur l'image. Toute la gamme en dérive : même
+teinte, même nuance, seule la clarté varie.
 
 ```
---ground  #2b2b2b  --ground-deep #1a1a1a  --ground-soft #3d3d3d   fonds sombres
---white   #ffffff  --surface     #f5f5f5  --surface-2   #e9e9e9   gris NEUTRES
+--ground  #2c3a30  --ground-deep #1e2921  --ground-soft #3e5143   fonds sombres
+--sage    #a9b4ac  la teinte de référence — le pot de peinture
+--white   #ffffff  --surface     #eef1ef  --surface-2   #d8dfda   surfaces
 --gold    #c09018  --gold-light  #e2b84f  --gold-deep   #7a5a0d   l'unique accent
---ink     #1a1a1a  --muted       #646464  --line rgba(26,26,26,.13)
+--ink     #1e2921  --muted       #5f6d63  --line rgba(30,41,33,.13)
 ```
 
-**Le gris est neutre** — R = G = B, aucune teinte. Un essai antérieur le
-verdissait « pour l'accorder à l'émeraude » : ni l'un ni l'autre n'était
-demandé.
+Contrastes : blanc sur fond sombre **12,0:1**, or clair dessus **6,4:1**,
+encre sur blanc **15,1:1**, encre sur la teinte de référence **7,0:1**.
 
-**L'or vaut `#c09018`**, teinte relevée sur l'étoile du logo — à deux points
-près le `--brass:#c0962e` d'origine. Il ne porte pas de texte sur blanc
-(2,9:1), d'où `--gold-light` pour écrire sur fond sombre (9,3:1) et
-`--gold-deep` pour écrire sur blanc (6,4:1). Une médaille d'or porte l'encre,
-jamais du blanc.
+**L'or vaut `#c09018`**, relevé sur l'étoile du logo. Il ne porte pas de
+texte sur blanc (2,9:1), d'où `--gold-light` pour écrire sur fond sombre et
+`--gold-deep` sur blanc. Une médaille d'or porte l'encre, jamais du blanc.
 
 Il est **précieux, pas structurel** : étoiles, filets sous les titres, anneau
 de l'emblème, cadre de photo, guillemets, puces ★, médaille du premier. Le
