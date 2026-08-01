@@ -766,16 +766,30 @@ La Direction l'a donné en montrant un mur peint : `#6b7d8b`, relevé sur
 l'image. Toute la gamme en dérive : même teinte, même nuance, seule la
 clarté varie.
 
+**C'est LE FOND du site**, pas un ton d'appoint : bandeaux, hero, sections,
+pied. Un premier essai l'avait déclaré en gardant des fonds presque noirs —
+la couleur donnée n'apparaissait nulle part.
+
 ```
---ground  #2b3740  --ground-deep #1c242c  --ground-soft #3d4b57   fonds sombres
---slate   #6b7d8b  la teinte de référence — le mur
---white   #ffffff  --surface     #f0f1f2  --surface-2   #dadee2   surfaces
---gold    #c09018  --gold-light  #e2b84f  --gold-deep   #7a5a0d   l'unique accent
---ink     #1a2228  --muted       #5e6c78  --line rgba(26,34,40,.13)
+--ground-deep #657786  le mur — fond principal
+--ground      #556777  boutons et pastilles
+--ground-soft #8896a2  éclairci
+--white #ffffff  --surface #f0f1f2  --surface-2 #dadee2   surfaces
+--gold  #c09018  --gold-light #e2b84f  --gold-deep #7a5a0d  --gold-pale #fae6b8
+--ink   #1a2228  --muted #5e6c78  --line rgba(60,73,83,.13)
 ```
 
-Contrastes : blanc sur fond sombre **12,2:1**, or clair dessus **6,5:1**,
-encre sur blanc **16,1:1**, encre sur médaille **5,6:1**.
+Le mur photographié vaut `#6b7d8b` ; `#657786` est **un cheveu plus sombre**,
+le minimum pour que le blanc y atteigne 4,6:1. Sans quoi la couleur serait
+belle et le texte illisible.
+
+**Sur ce fond clair, aucun or ne se lit** — l'or clair y tombe à 2,5:1. D'où
+`--gold-pale` (3,8:1) pour les GRANDS caractères seulement — titres, chiffres
+— le petit texte en blanc, et l'or plein réservé au décor : filets, étoiles,
+anneaux, médailles.
+
+Contrastes : blanc sur le fond **4,6:1**, or pâle sur le fond **3,8:1**
+(grands caractères), encre sur blanc **16,1:1**, encre sur médaille **5,6:1**.
 
 **L'or vaut `#c09018`**, relevé sur l'étoile du logo. Il ne porte pas de
 texte sur blanc (2,9:1), d'où `--gold-light` pour écrire sur fond sombre et
