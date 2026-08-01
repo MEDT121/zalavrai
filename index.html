@@ -24478,8 +24478,7 @@ R.scan_history = () => {
     logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
     att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
     const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).slice(0,30);
-    const statusColor={ontime:'#1f9d6b',late:'#d98a2b',excused:'#2f7bd6',sick:'#ec4899',absent:'#dc2626'};
-    const statusLabel={ontime:'À l\'heure',late:'Retard',excused:'Justifié',sick:'Maladie',absent:'Absent'};
+
     html+=`<div class="ww-section" style="margin-bottom:18px">
       <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(kid.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl?esc(cl.name):''} · 30 derniers jours</span></div>
       ${dates.length?dates.map(date=>{
@@ -24499,8 +24498,11 @@ R.scan_history = () => {
         const _refus=dl.filter(_estIncident);
         const d=new Date(date);
         const isToday=date===today();
-        const sc=a?statusColor[a.status]:'#ef5b5b';
-        const sl=a?statusLabel[a.status]||'❌':'⏳ Absent';
+        // `_ATT_ETATS` nomme les cinq états une seule fois : cette page en
+        // redéclarait quatre, et l'absence simple n'y figurait pas.
+        const _e=_attEtat(a);
+        const sc=_e?_e.c:'#ef5b5b';
+        const sl=_e?_e.l:(a?'—':'⏳ Aucun relevé');
         return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);${isToday?'background:#fff5ea;':''}">
           <div style="text-align:center;min-width:36px;flex-shrink:0">
             <div style="font-size:10px;color:var(--text-muted)">${d.toLocaleDateString('fr-FR',{weekday:'short'})}</div>
