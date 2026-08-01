@@ -14402,7 +14402,13 @@ R.devoirs_parent = () => {
   const condMap={Excellent:4,Bien:3,Moyen:2,Mauvais:1};
   const condColor={Excellent:'#d8f3e6',Bien:'#dbeafe',Moyen:'#fdeccd',Mauvais:'#fee2e2'};
   const condTextColor={Excellent:'#065f46',Bien:'#205fae',Moyen:'#92400e',Mauvais:'#991b1b'};
-  const renderDevoirItem = (d, kidName, kidMat, kidClass, kidId) => {
+  // `canSeeCorr` se déclare DANS la boucle sur les enfants ; cette fonction est
+  // définie au-dessus et n'y a donc aucun accès. Elle le lisait quand même :
+  // ReferenceError à la première interrogation affichée, rendu interrompu, page
+  // BLANCHE. Le parent en concluait qu'aucun devoir ne lui parvenait.
+  // Il se transmet désormais en paramètre — un argument se vérifie, une
+  // capture de portée se suppose.
+  const renderDevoirItem = (d, kidName, kidMat, kidClass, kidId, canSeeCorr) => {
     const deadline=d.deadline?new Date(d.deadline):null;
     const now=new Date();
     const overdue=deadline&&deadline<now;
@@ -14539,7 +14545,7 @@ R.devoirs_parent = () => {
         <div class="premium-section-title" style="margin-bottom:0">Devoirs</div>
         <span style="margin-left:auto;background:#dbeafe;color:#205fae;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${devoirsList.length}</span>
       </div>
-      ${devoirsList.length?devoirsList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
+      ${devoirsList.length?devoirsList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id,canSeeCorr)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun devoir en cours</div>`}
     </div>`;
     // Interrogations section
     html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #f59e0b">
@@ -14548,7 +14554,7 @@ R.devoirs_parent = () => {
         <div class="premium-section-title" style="margin-bottom:0">Interrogations</div>
         <span style="margin-left:auto;background:#fdeccd;color:#92400e;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${interroList.length}</span>
       </div>
-      ${interroList.length?interroList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
+      ${interroList.length?interroList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id,canSeeCorr)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucune interrogation programmée</div>`}
     </div>`;
     // Examens section
     html+=`<div class="premium-section" style="margin-bottom:12px;border-radius:18px;padding:16px;box-shadow:0 3px 14px rgba(0,0,0,.06);border-left:4px solid #9b6fd4">
@@ -14557,7 +14563,7 @@ R.devoirs_parent = () => {
         <div class="premium-section-title" style="margin-bottom:0">Examens</div>
         <span style="margin-left:auto;background:#f0e9fa;color:#6f44ab;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${examenList.length}</span>
       </div>
-      ${examenList.length?examenList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
+      ${examenList.length?examenList.map((d,di)=>`<div style="animation:fadeInUp .3s ease both;animation-delay:calc(${di}*.07s)">${renderDevoirItem(d,k.name,k.mat,cl?cl.name:'',k.id,canSeeCorr)}</div>`).join(''):`<div style="padding:18px;text-align:center;color:var(--text-muted);font-size:13px">Aucun examen programmé</div>`}
     </div>`;
     // Corrections récentes (accès parent + corrections globales requises)
     if(canSeeCorr){
@@ -18607,11 +18613,24 @@ R.etat_financier = () => {
 window.exportEtatFinancierPDF = () => {
   const sc=DB.settings?.school||{}; const school=sc.name||ECOLE_NOM;
   const fees=getFees();
-  const vers=DB.versements||[]; const exps=DB.daily_expenses||[];
+  const exps=DB.daily_expenses||[];
   const feeTypes=(DB.fee_types||[]).filter(f=>f.active!==false);
-  const totalRecettes=vers.reduce((s,v)=>s+(Number(v.montant)||0),0);
-  const totalDepenses=exps.reduce((s,e)=>s+(Number(e.amount)||0),0);
-  const soldeNet=totalRecettes-totalDepenses;
+  // Le PDF est l'IMPRESSION de l'écran qui l'a produit : il doit donc sortir
+  // du même calcul. Il totalisait les versements de TOUTES les années, ignorait
+  // la masse salariale et le solde d'ouverture — un document remis à la
+  // Direction annonçait donc un solde que l'application n'affichait nulle part.
+  const _fin=_soldeCaisse();
+  const vers=_versementsExercice();
+  const totalRecettes=_fin.recettes;
+  const totalDepenses=_fin.depenses;
+  const soldeNet=_fin.solde;
+  // `totalDette` et `_tbm` étaient lus sans exister ici : ReferenceError au
+  // clic, donc AUCUN PDF ne sortait. Ils appartenaient au renderer voisin.
+  const _tbm={}; (DB.students||[]).forEach(st=>{_tbm[st.id]=getStudentBalance(st.id);});
+  const totalDette=(DB.students||[]).reduce((s,st)=>s+(_tbm[st.id]?.debt||0),0);
+  // Le détail listé doit couvrir la même période que le total imprimé au-dessus.
+  const _b=_moisExercice(); const _d0=_b?_b.debut+'-01':null, _d1=_b?_b.fin+'-31':null;
+  const _expsEx=exps.filter(e=>!_d0||!e.date||(e.date>=_d0&&e.date<=_d1));
   const byCat={};
   feeTypes.forEach(ft=>{
     const cat=ft.category||'autre';
@@ -18626,7 +18645,7 @@ window.exportEtatFinancierPDF = () => {
     <div class="kpi"><div class="kpi-cell"><div class="kv" style="color:#1f9d6b">${_cur()}${totalRecettes}</div><div class="kl">Encaissé</div></div><div class="kpi-cell"><div class="kv" style="color:#dc2626">${_cur()}${totalDette}</div><div class="kl">Reste dû</div></div><div class="kpi-cell"><div class="kv" style="color:#b45309">${_cur()}${totalDepenses}</div><div class="kl">Dépenses</div></div><div class="kpi-cell"><div class="kv" style="color:${soldeNet>=0?'#c09018':'#dc2626'}">${_cur()}${soldeNet}</div><div class="kl">Solde net</div></div></div>
     <div class="sec"><h2>📥 Recettes par catégorie</h2>${Object.values(byCat).map(c=>`<div class="row"><span class="lbl">${esc(c.label)}</span><span class="val" style="color:#1f9d6b">${_cur()}${c.total} (${c.count} versement${c.count>1?'s':''})</span></div>`).join('')}</div>
     <div class="sec"><h2>🏫 Recouvrement par classe</h2>${DB.classes.map(cl=>{const studs=DB.students.filter(s=>s.cid===cl.id);const paid=studs.reduce((s,st)=>s+(_tbm[st.id]?.paid||0),0);const total=studs.reduce((s,st)=>s+(_tbm[st.id]?.total||0),0);const pct=total>0?Math.round(paid/total*100):0;return`<div class="row"><span class="lbl">${esc(cl.name)}</span><span class="val">${pct}% · ${_cur()}${paid}/${_cur()}${total}</span></div>`;}).join('')}</div>
-    <div class="sec"><h2>💸 Dépenses</h2>${exps.slice(0,20).map(e=>`<div class="row"><span class="lbl">${esc(e.motif||'?')} · ${e.date||''}</span><span class="val" style="color:#dc2626">${_cur()}${e.amount}</span></div>`).join('') || '<div style="color:#93a0aa;font-size:12px">Aucune dépense</div>'}</div>
+    <div class="sec"><h2>💸 Dépenses</h2>${_expsEx.slice(0,20).map(e=>`<div class="row"><span class="lbl">${esc(e.motif||'?')} · ${e.date||''}</span><span class="val" style="color:#dc2626">${_cur()}${e.amount}</span></div>`).join('') || '<div style="color:#93a0aa;font-size:12px">Aucune dépense</div>'}</div>
     <div class="footer">${esc(school)} · SchoolSafe · ${printDate}</div>
     <button class="pbtn" onclick="window.print()" style="display:block;margin:16px auto;padding:10px 32px;background:#2b3740;color:#fff;border:none;border-radius:8px;cursor:pointer">🖨️ Imprimer</button>
   </div></body></html>`;
