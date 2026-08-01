@@ -955,6 +955,7 @@ tools/audit-mort.mjs        fonctions exposées sans appelant
 tools/verif-coherence.mjs   la chaîne de calcul, EXÉCUTÉE (voir plus bas)
 tools/audit-logo.mjs        l'emblème sur les documents · et son ABSENCE de l'interface
 tools/audit-charte.mjs      gris · blanc · or sur les 43 documents (--detail)
+tools/audit-portee.mjs      un nom lu hors de sa portée, ou avant sa déclaration
 ```
 
 `audit-schema` avait un angle mort : il exigeait un littéral comme opération,
@@ -1237,3 +1238,129 @@ réelle qui l'a révélé, pas la relecture.
 Un fichier de 480 lignes qui vérifie en son milieu ne montre rien d'utile.
 D'où un fichier de vérification séparé — et il faut un **onglet vide** (`+`),
 sinon le nouveau texte se colle à la suite de l'ancien.
+
+---
+
+## `new Function(corps)` ne voit pas une page blanche
+
+`node tools/audit-portee.mjs`
+
+Une faute de portée est du JavaScript parfaitement valide : elle n'existe qu'à
+l'exécution, et elle interrompt le rendu de l'écran entier. L'utilisateur ne
+voit pas d'erreur — il voit une page vide, et en conclut que l'application ne
+lui envoie rien.
+
+C'est exactement ce que décrivait « les parents ne reçoivent pas les devoirs » :
+
+| écran | faute | ce que voyait la famille |
+|---|---|---|
+| Devoirs du parent | `canSeeCorr` déclaré dans la boucle, lu par une fonction déclarée au-dessus | page blanche dès qu'une **interro** existait |
+| Accueil du parent | `parentKidCids` lu dix lignes avant son `const` | page blanche dès le **premier devoir publié** |
+| Accueil Direction 2 | `trimD2` lu sept lignes trop tôt | page blanche dès qu'une classe a élèves **et** matières |
+| État financier | `totalDette`, `_tbm` — la caisse les lisait chez le renderer voisin | **aucun PDF ne sortait** |
+
+Les deux formes se lisent différemment :
+
+- **Hors portée** — le nom n'existe dans aucune portée englobante. L'outil
+  rabat les portées de BLOC sur leur fonction : on perd les fautes de bloc, on
+  ne produit aucun faux positif. Il faut collecter les `window.x = …` de TOUS
+  les blocs `<script>` avant d'analyser : un nom posé au dernier bloc et appelé
+  au premier existe bel et bien.
+- **Zone morte temporelle** — le nom existe, mais plus bas. On ne signale que
+  le cas certain : chaque frontière de fonction franchie doit être un rappel
+  **exécuté sur place**. D'où une liste FERMÉE des méthodes d'itération
+  (`map`, `filter`, `forEach`, …) plutôt qu'une exclusion de
+  `addEventListener`/`setTimeout`/`then`, qui serait toujours incomplète.
+  Trois faux positifs sont tombés à ce seul changement.
+
+L'outil a commis en s'écrivant la faute qu'il traque — son cache déclaré sous
+la fonction qui le lit. C'est dire.
+
+---
+
+## Une seule réponse par question — les normaliseurs de l'audit parent
+
+Même principe que « une seule formule de solde » et `_classer` : quand deux
+écrans répondent à la même question, ils doivent appeler le même code.
+
+```js
+_sortieDuJour(sid, date)   // l'enfant est-il sorti ? le DERNIER passage, refus exclus
+_sidsEntresLe(date)        // qui est ENTRÉ — un passage refusé n'est pas une entrée
+_ATT_ETATS / _attEtat(a)   // les cinq états de présence, nommés une fois
+_estAbsence(a)             // absent | sick | excused
+_aJustifier(a)             // absent | sick — `excused` l'est déjà
+_aVerse(sid)               // a versé quelque chose
+_estSolde(sid)             // ne doit plus rien
+_trimSolde(sid, t)         // ce trimestre est réglé
+_msgLu(m)                  // lu PAR MOI — voir plus bas
+```
+
+### Un statut écrit que personne ne lit
+
+`status:'absent'` est écrit par l'enseignant qui fait l'appel. **Aucun écran du
+parent ne connaissait cette valeur** : ils ne reconnaissaient que `sick` et
+`excused`, c'est-à-dire les absences déjà motivées. Un enfant absent depuis le
+matin s'affichait « pas encore arrivé » toute la journée, n'était compté dans
+aucun total, et ne déclenchait aucune invitation à justifier.
+
+Symétrique exact des « champs morts » : **avant de lire un champ, vérifier
+qu'une écriture le renseigne ; avant d'en écrire un, vérifier qu'une lecture
+s'en sert — et qu'elle en connaît toutes les valeurs.**
+
+### Un passage refusé n'est pas une entrée
+
+`refused_fees`, `refused_access`, `unauthorized` portent tous `type:'entry'`.
+Six chemins les comptaient comme des arrivées : la validation des présences
+enregistrait l'enfant PRÉSENT pour l'année et ne créait pas sa ligne d'absence,
+la Direction n'était pas alertée, la famille n'était pas prévenue, et les
+écrans du parent annonçaient « Présent » à qui venait d'être renvoyé du portail.
+
+### « Avoir payé » n'avait pas de définition
+
+`DB.payments.paid` ne se lève QUE si un trimestre est réglé en entier ET que le
+versement porte son `fee_type_id` et son `trimestre`. Une famille ayant tout
+versé par acomptes comptait donc partout comme n'ayant rien payé — et le
+contrôle des frais du scanner **renvoyait son enfant à la maison**.
+
+`getStudentBalance` sait lire les deux générations d'écriture. Toute question
+de paiement en découle désormais.
+
+### L'état de lecture d'un message collectif appartient au lecteur
+
+Un message adressé à une CLASSE ou à tous les parents est **une seule ligne**.
+`read:true` y était écrit par la première famille qui l'ouvrait : la pastille
+retombait à zéro chez toutes les autres, qui ne voyaient jamais passer
+l'information. Faute d'une table `message_reads`, l'état vit dans
+`localStorage` par appareil (`_msgLu`). La Direction est inchangée : là, qu'un
+directeur marque lu pour tous décrit bien ce qui se passe.
+
+---
+
+## Un PDF vide ne vient jamais du HTML
+
+Vérifié avant de toucher à quoi que ce soit : les générateurs de certificats
+produisent 127 Ko de HTML complet, et le balisage de la page Élèves est
+équilibré. La faute était entièrement dans `dlPDF` — trois causes cumulées :
+
+1. **html2canvas recopie la page dans un cadre dont la largeur vaut, par
+   défaut, celle de la FENÊTRE.** Sur un téléphone c'est 390 px : un document
+   mis en page pour 794 px y est recalculé sur 390, et la zone capturée sort
+   blanche. Sur un ordinateur la fenêtre dépasse déjà 794 px — **c'est pourquoi
+   le défaut ne se voyait que sur mobile**. Imposer `windowWidth` et `width`.
+2. **`pagebreak: avoid-all`** pose `page-break-inside:avoid` sur TOUS les
+   éléments, y compris l'unique bloc qui enveloppe un certificat entier. Dès
+   qu'il dépasse la hauteur imprimable, il part à la page suivante et la
+   première sort blanche. `['css','legacy']` respecte les règles que les
+   documents portent déjà, sans les imposer aux autres.
+3. **La capture partait sans attendre les images** — l'emblème pèse 50 Ko en
+   base64 dans chaque en-tête. Une image non décodée est capturée vide.
+
+Et un document sans hauteur le dit, au lieu d'enregistrer un fichier vide en
+silence.
+
+**Une carte a une largeur FIXE.** Un courriel de 36 caractères et un numéro
+international côte à côte sur la même rangée débordaient les 340 px du badge ;
+le corps étant un `flex:1` qui pousse le pied, **le pied sortait de la carte**.
+Tout bloc d'une rangée doit pouvoir rétrécir (`min-width:0`) et toute valeur
+s'abréger — sauf le courriel, qui abrégé ne sert plus à rien : il passe à la
+ligne dans la même rangée, pour ne pas ajouter de hauteur.
