@@ -7885,7 +7885,17 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
   const showFond=patStyle==='fond'||patStyle==='both';
   const showVig=patStyle==='vignette'||patStyle==='both';
   const sc=window._schoolInfo(), logo=window.SCHOOL_LOGO;
-  const snm=sc.name||"NOM DE L'ÉCOLE", slg=sc.slogan||sc.sub||'', clNm=cl?cl.name:'—';
+  const snm=sc.name||"NOM DE L'ÉCOLE", clNm=cl?cl.name:'—';
+  // L'emblème de l'école porte DÉJÀ ses deux noms, gravés autour de l'étoile :
+  // « COMPLEXE SCOLAIRE LE SAGE » en haut, « THE WISE SCHOOL INTERNATIONAL » en
+  // bas. La ligne sous le nom retombait pourtant sur le nom anglais dès qu'aucune
+  // devise n'était saisie — et `_schoolInfo` garantit que ce repli n'est JAMAIS
+  // vide. Le nom anglais paraissait donc DEUX FOIS sur la même carte, à deux
+  // centimètres d'intervalle : une fois gravé dans l'emblème, une fois écrit
+  // à côté.
+  //
+  // Cette ligne porte la devise. Le nom anglais ne revient que si aucun emblème
+  // ne l'affiche — car alors plus rien ne le porterait.
   const dob=s.dob?s.dob.split('-').reverse().join('/'):'—';
   const tchr=teacher?teacher.name:'—';
   const addr=sc.address||'', phone=sc.phone||'—', email=sc.email||'—', site=sc.website||sc.site||'';
@@ -7898,6 +7908,7 @@ window.ssBuildBadge=function(s,cl,teacher,year,patB,patStyle){
   const n1=pts[0]||'—', n2=pts[1]||'', n3=pts.slice(2).join(' ')||'';
   const sz=snm.length>32?'11px':snm.length>22?'13px':'15.5px';
   const logoH=logo?`<div class="logo-slot" style="border:none;background:transparent;padding:0"><img src="${logo}" alt=""></div>`:'<div class="logo-slot"><span style="font-size:15px">🏫</span><span>LOGO<br>ÉCOLE</span></div>';
+  const slg=sc.motto||sc.slogan||(logo?'':(sc.name_en||sc.sub||''));
   const px=patB.v.startsWith('min-')?'PIERRE PRÉCIEUSE · ':'';
   // Vignette ou fond ou les deux
   const vigEl=showVig?ssPatEl(patB,52,true):'';
@@ -7974,7 +7985,17 @@ window.ssBuildCarte=function(s,cl,teacher,year,patC,patStyle){
   const showFond=patStyle==='fond'||patStyle==='both';
   const showVig=patStyle==='vignette'||patStyle==='both';
   const sc=window._schoolInfo(), logo=window.SCHOOL_LOGO;
-  const snm=sc.name||"NOM DE L'ÉCOLE", slg=sc.slogan||sc.sub||'', clNm=cl?cl.name:'—';
+  const snm=sc.name||"NOM DE L'ÉCOLE", clNm=cl?cl.name:'—';
+  // L'emblème de l'école porte DÉJÀ ses deux noms, gravés autour de l'étoile :
+  // « COMPLEXE SCOLAIRE LE SAGE » en haut, « THE WISE SCHOOL INTERNATIONAL » en
+  // bas. La ligne sous le nom retombait pourtant sur le nom anglais dès qu'aucune
+  // devise n'était saisie — et `_schoolInfo` garantit que ce repli n'est JAMAIS
+  // vide. Le nom anglais paraissait donc DEUX FOIS sur la même carte, à deux
+  // centimètres d'intervalle : une fois gravé dans l'emblème, une fois écrit
+  // à côté.
+  //
+  // Cette ligne porte la devise. Le nom anglais ne revient que si aucun emblème
+  // ne l'affiche — car alors plus rien ne le porterait.
   const addr=sc.address||"Adresse de l'école", phone=sc.phone||'—', email=sc.email||'—', site=sc.website||sc.site||'';
   const dob=s.dob?s.dob.split('-').reverse().join('/'):'—', tchr=teacher?teacher.name:'—', opt=cl?cl.option||'':'';
   const mat=s.mat||s.id||'000';
@@ -7986,6 +8007,7 @@ window.ssBuildCarte=function(s,cl,teacher,year,patC,patStyle){
   const dispNm=pts.slice(0,2).join(' '), fn=pts.slice(2).join(' ')||'';
   const sz=snm.length>32?'11px':snm.length>22?'13px':'17px';
   const logoH=logo?`<div class="logo-slot" style="border:none;background:transparent;padding:0"><img src="${logo}" alt=""></div>`:'<div class="logo-slot"><span style="font-size:15px">🏫</span><span>LOGO<br>ÉCOLE</span></div>';
+  const slg=sc.motto||sc.slogan||(logo?'':(sc.name_en||sc.sub||''));
   const px=patC.v.startsWith('min-')?'PIERRE PRÉCIEUSE · ':'';
   const nmEl=`<div class="pat" style="margin-top:auto;padding:2px 0"><span class="nm2">${esc((px+patC.n).toUpperCase())}</span></div>`;
 
@@ -23055,6 +23077,7 @@ R.settings = () => {
     </div>
     <div class="form-group"><label class="form-label">Nom en anglais / sous-titre</label>
       <input class="form-input" id="cfg_school_name_en" value="${esc(sc.name_en||sc.sub||'')}" placeholder="Ex: The Wise School International">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Le nom complet est celui qui paraît sur les bulletins, les reçus et les cartes — écrivez-le en entier, comme sur l'emblème.</div>
     </div>
     <div class="form-group"><label class="form-label">Adresse physique</label>
       <input class="form-input" id="cfg_school_address" value="${esc(sc.address||'')}" placeholder="Ex: Kinshasa / Barumbu, RDC">
