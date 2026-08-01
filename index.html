@@ -10719,10 +10719,76 @@ window._schoolInfo = () => {
     email:   s.email   || ECOLE_EMAIL,
     motto:   s.motto   || s.slogan || '',
     website: s.website  || s.site   || '',
+    ministere: s.ministere || window.MINISTERE_DEFAUT,
+    province:  s.province  || '',
+    sous_division: s.sous_division || '',
+    code_ecole:    s.code_ecole    || '',
     slogan:  s.motto   || s.slogan || '',   // alias pour les gabarits existants
     sub:     s.name_en || s.sub    || ECOLE_NOM_EN,
     site:    s.website  || s.site   || '',
   });
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+//  L'EN-TÊTE RÉPUBLICAIN — la chaîne administrative d'un document congolais
+//
+//  Un document scolaire, en RDC, se lit de haut en bas comme une chaîne de
+//  responsabilité : la République, le ministère, la province éducationnelle, la
+//  sous-division, enfin l'école. Une administration qui le reçoit remonte cette
+//  chaîne pour savoir à qui s'adresser.
+//
+//  Seule la fiche de préparation la portait — et encore : `province` et
+//  `sous_division` y étaient LUS sans qu'aucun formulaire ne les écrive, si
+//  bien que la ligne ne s'imprimait jamais. Les quatre documents de l'élève
+//  commençaient, eux, par « Document Officiel ».
+//
+//  Le ministère a changé de nom : ce n'est plus l'EPST mais le Ministère de
+//  l'Éducation Nationale et Nouvelle Citoyenneté. C'est pourquoi il est un
+//  RÉGLAGE et non une constante — il changera encore.
+//
+//  Comme `_logoImg` et `_schoolLine`, c'est l'unique manière d'en poser un :
+//  le jour où une mention change, elle change ici et sur tous les documents.
+// ══════════════════════════════════════════════════════════════════════════
+window.MINISTERE_DEFAUT = "Ministère de l'Éducation Nationale et Nouvelle Citoyenneté";
+
+window._enteteRepublique = (opts) => {
+  const o  = opts || {};
+  const sc = o.sc || window._schoolInfo();
+  const ministere = sc.ministere || window.MINISTERE_DEFAUT;
+  const L = [];
+  L.push('<div style="font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#1c242c">République Démocratique du Congo</div>');
+  L.push('<div style="font-size:10.5px;font-weight:700;color:#3c4a57;margin-top:2px">' + esc(ministere) + '</div>');
+  const chaine = [];
+  if (sc.province)      chaine.push('Province éducationnelle de ' + esc(sc.province));
+  if (sc.sous_division) chaine.push('Sous-division de ' + esc(sc.sous_division));
+  if (chaine.length) L.push('<div style="font-size:10px;color:#5e6c78;margin-top:2px">' + chaine.join(' · ') + '</div>');
+
+  // Identification de l'école : code SERNIE et agrément DGEP sont ce qu'une
+  // administration vérifie. Les taire rend le document invérifiable.
+  const ids = [];
+  if (sc.code_ecole) ids.push('Code école : ' + esc(sc.code_ecole));
+  if (sc.dgep)       ids.push('Agrément DGEP : ' + esc(sc.dgep));
+
+  const droite = [];
+  if (o.reference) droite.push('<div style="font-weight:800;color:#1c242c">N° ' + esc(o.reference) + '</div>');
+  if (o.annee)     droite.push('<div>Année scolaire ' + esc(o.annee) + '</div>');
+  if (o.lieu !== false) {
+    const ville = (sc.address || '').split(',').pop().trim() || sc.city || 'Kinshasa';
+    droite.push('<div>' + esc(ville) + ', le ' + new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) + '</div>');
+  }
+
+  return '<div style="border-bottom:3px solid #2b3740;padding-bottom:12px;margin-bottom:18px">'
+       + '<div style="text-align:center;margin-bottom:10px">' + L.join('') + '</div>'
+       + '<div style="display:flex;align-items:center;gap:14px">'
+       +   window._logoImg(58, '#2b3740')
+       +   '<div style="flex:1;min-width:0">'
+       +     '<div style="font-size:17px;font-weight:900;color:#1c242c;line-height:1.15">' + esc(sc.name || ECOLE_NOM) + '</div>'
+       +     (sc.name_en ? '<div style="font-size:11.5px;font-weight:700;color:#5e6c78">' + esc(sc.name_en) + '</div>' : '')
+       +     (sc.address ? '<div style="font-size:10.5px;color:#5e6c78;margin-top:2px">' + esc(sc.address) + '</div>' : '')
+       +     (ids.length ? '<div style="font-size:10.5px;color:#5e6c78">' + ids.join(' · ') + '</div>' : '')
+       +   '</div>'
+       +   (droite.length ? '<div style="text-align:right;font-size:10.5px;color:#5e6c78;line-height:1.7;flex:none">' + droite.join('') + '</div>' : '')
+       + '</div></div>';
 };
 
 window._schoolLine = (sc) => {
@@ -10825,6 +10891,26 @@ window.genRecuNo = () => {
 // Montant attendu pour un type de frais. Pour les trimestres, `settings.fees`
 // fait foi : `montant_defaut` est figé au moment de l'amorçage et ne suit pas
 // une modification des frais dans Paramètres.
+// Le numéro d'ordre d'un document délivré. Même mécanisme que `genRecuNo` :
+// un compteur par année scolaire, dans les réglages.
+//
+// La référence était jusqu'ici calculée depuis l'identifiant interne —
+// « CS-20260801-a3f9 ». Cela ne s'ordonne pas, ne se vérifie pas, et deux
+// tirages du même document portaient le même numéro. Un registre de délivrance
+// se tient par numéro d'ordre : une administration doit pouvoir demander
+// « montrez-moi le n° 42 ».
+//
+// Sans garde de rôle, comme `genRecuNo` : l'appelant est déjà contrôlé, et
+// découper l'autorisation en deux endroits la rendrait plus fragile.
+window.genDocNo = () => {
+  const an = DB.settings.year || '';
+  const last = Number(DB.settings._last_doc_no) || 0;
+  const next = last + 1;
+  DB.settings._last_doc_no = next;
+  pushSync('settings','upsert',DB.settings);
+  return String(next).padStart(3,'0') + (an ? '/' + an : '');
+};
+
 window._recettes = () => (DB.daily_records||[]).filter(r=>!r.annulled);
 
 // Bornes d'un exercice scolaire, en mois « AAAA-MM ». L'année congolaise court
@@ -13216,15 +13302,14 @@ window.downloadCertificatScolarite = (sid) => {
   const dir=DB.users.find(u=>u.role==='direction');
   const parent=s.pid?DB.users.find(u=>u.id===s.pid):null;
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #2b3740">`:'';
-  const refNo='CS-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const refNo=genDocNo();
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1c242c;padding:40px;max-width:700px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #2b3740;padding-bottom:18px;margin-bottom:24px">
-      ${logo}<div style="flex:1">
-        <div style="font-size:11px;font-weight:700;color:#2b3740;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
-        <div style="font-size:22px;font-weight:900;color:#1c242c">Certificat de Scolarité</div>
-        <div style="font-size:12px;color:#5e6c78;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
+    ${window._enteteRepublique({reference:refNo, annee:DB.settings.year||'2025-2026'})}
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="display:inline-block;border:2px solid #2b3740;border-radius:6px;padding:7px 26px">
+        <div style="font-size:19px;font-weight:900;color:#1c242c;letter-spacing:1.5px;text-transform:uppercase">Certificat de Scolarité</div>
       </div>
-      <div style="text-align:right;font-size:11px;color:#5e6c78">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+      ${window._schoolMotto(sc)}
     </div>
     <div style="border:1px solid #dadee2;border-radius:16px;padding:28px;margin-bottom:24px;background:#f7f8f9">
       <p style="font-size:14px;line-height:2;color:#1c242c;text-align:justify">
@@ -13265,15 +13350,14 @@ window.downloadCertificatPassage = (sid) => {
   const moy=moyPct!==null?Math.round(moyPct):null;
   const mention=moy===null?null:moy>=80?{l:'Distinction',c:'#1f9d6b'}:moy>=70?{l:'Grande Satisfaction',c:'#c09018'}:moy>=60?{l:'Satisfaction',c:'#7a5a0d'}:moy>=50?{l:'Passable',c:'#d98a2b'}:{l:'Insuffisant',c:'#dc2626'};
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #2b3740">`:'';
-  const refNo='CP-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const refNo=genDocNo();
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1c242c;padding:40px;max-width:700px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #7a5a0d;padding-bottom:18px;margin-bottom:24px">
-      ${logo}<div style="flex:1">
-        <div style="font-size:11px;font-weight:700;color:#7a5a0d;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
-        <div style="font-size:22px;font-weight:900;color:#1c242c">Certificat de Fin d'Année — Passage</div>
-        <div style="font-size:12px;color:#5e6c78;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
+    ${window._enteteRepublique({reference:refNo, annee:DB.settings.year||'2025-2026'})}
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="display:inline-block;border:2px solid #7a5a0d;border-radius:6px;padding:7px 26px">
+        <div style="font-size:18px;font-weight:900;color:#1c242c;letter-spacing:1.3px;text-transform:uppercase">Attestation de Passage en Classe Supérieure</div>
       </div>
-      <div style="text-align:right;font-size:11px;color:#5e6c78">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+      ${window._schoolMotto(sc)}
     </div>
     <div style="border:1px solid #dadee2;border-radius:16px;padding:28px;margin-bottom:20px;background:#f7f8f9">
       <p style="font-size:14px;line-height:2;color:#1c242c;text-align:justify">
@@ -13312,15 +13396,14 @@ window.downloadCertificatBonneConduite = (sid) => {
   const sanctions=(DB.sanctions||[]).filter(x=>x.sid===sid&&!x.lifted);
   if(sanctions.length){toast('Impossible — sanctions actives non levées','error');return;}
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #2b3740">`:'';
-  const refNo='CBC-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const refNo=genDocNo();
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1c242c;padding:40px;max-width:700px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #2b3740;padding-bottom:18px;margin-bottom:24px">
-      ${logo}<div style="flex:1">
-        <div style="font-size:11px;font-weight:700;color:#2b3740;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Document Officiel</div>
-        <div style="font-size:22px;font-weight:900;color:#1c242c">Certificat de Bonne Conduite</div>
-        <div style="font-size:12px;color:#5e6c78;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
+    ${window._enteteRepublique({reference:refNo, annee:DB.settings.year||'2025-2026'})}
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="display:inline-block;border:2px solid #2b3740;border-radius:6px;padding:7px 26px">
+        <div style="font-size:18px;font-weight:900;color:#1c242c;letter-spacing:1.3px;text-transform:uppercase">Certificat de Bonne Conduite</div>
       </div>
-      <div style="text-align:right;font-size:11px;color:#5e6c78">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+      ${window._schoolMotto(sc)}
     </div>
     <div style="border:1px solid #dadee2;border-radius:16px;padding:28px;margin-bottom:20px;background:#f7f8f9">
       <p style="font-size:14px;line-height:2;color:#1c242c;text-align:justify">
@@ -13357,16 +13440,15 @@ window.printFicheInscription = (sid) => {
   const parent=s.pid?DB.users.find(u=>u.id===s.pid):null;
   const aps=(DB.aps||[]).filter(a=>a.sid===sid&&a.active!==false);
   const logo=window.SCHOOL_LOGO?`<img src="${window.SCHOOL_LOGO}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid #2b3740">`:'';
-  const refNo='FI-'+today().replace(/-/g,'')+'-'+sid.slice(-4).toUpperCase();
+  const refNo=genDocNo();
   const row=(lbl,val)=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #dadee2;font-weight:700;color:#5e6c78;white-space:nowrap;width:42%">${lbl}</td><td style="padding:8px 12px;border-bottom:1px solid #dadee2;font-weight:600">${val||'—'}</td></tr>`;
   const html=`<div style="font-family:Arial,sans-serif;font-size:13px;color:#1c242c;padding:36px;max-width:700px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #2b3740;padding-bottom:16px;margin-bottom:22px">
-      ${logo}<div style="flex:1">
-        <div style="font-size:11px;font-weight:700;color:#2b3740;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Dossier Scolaire</div>
-        <div style="font-size:22px;font-weight:900;color:#1c242c">Fiche d'Inscription Élève</div>
-        <div style="font-size:12px;color:#5e6c78;margin-top:4px">${window._schoolLine(sc)}${window._schoolMotto(sc)}</div>
+    ${window._enteteRepublique({reference:refNo, annee:DB.settings.year||'2025-2026'})}
+    <div style="text-align:center;margin-bottom:22px">
+      <div style="display:inline-block;border:2px solid #2b3740;border-radius:6px;padding:7px 26px">
+        <div style="font-size:18px;font-weight:900;color:#1c242c;letter-spacing:1.3px;text-transform:uppercase">Fiche d'Inscription Élève</div>
       </div>
-      <div style="text-align:right;font-size:11px;color:#5e6c78">Réf : ${esc(refNo)}<br>Année ${DB.settings.year||'2025-2026'}<br>N° DGEP: ${esc(sc.dgep||'—')}</div>
+      ${window._schoolMotto(sc)}
     </div>
     <div style="display:flex;gap:16px;margin-bottom:20px">
       ${s.photo||s.photo_url?`<img src="${s.photo||s.photo_url}" style="width:80px;height:100px;object-fit:cover;border-radius:10px;border:2px solid #dadee2;flex-shrink:0">`:
@@ -23263,6 +23345,24 @@ R.settings = () => {
     <div class="form-group"><label class="form-label">🌍 Pays</label>
       <input class="form-input" id="cfg_school_country" value="${esc(sc.country||'')}" placeholder="Ex: République Démocratique du Congo">
     </div>
+    <div style="font-size:11px;font-weight:800;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">Chaîne administrative — en-tête des documents officiels</div>
+    <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;line-height:1.5">Un document scolaire congolais se lit de haut en bas : la République, le ministère, la province éducationnelle, la sous-division, l'école. C'est cette chaîne qu'une administration remonte. Demandez ces quatre valeurs à votre Sous-division.</div>
+    <div class="form-group"><label class="form-label">🏛️ Ministère de tutelle</label>
+      <input class="form-input" id="cfg_school_ministere" value="${esc(sc.ministere||'')}" placeholder="${esc(window.MINISTERE_DEFAUT)}">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Laissez vide pour employer le libellé en vigueur. Ce champ existe parce que le ministère a déjà changé de nom.</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Province éducationnelle</label>
+        <input class="form-input" id="cfg_school_province" value="${esc(sc.province||'')}" placeholder="Ex: Kinshasa-Est">
+      </div>
+      <div class="form-group"><label class="form-label">Sous-division</label>
+        <input class="form-input" id="cfg_school_sousdiv" value="${esc(sc.sous_division||'')}" placeholder="Ex: Barumbu">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">🔢 Code école (SERNIE)</label>
+      <input class="form-input" id="cfg_school_code" value="${esc(sc.code_ecole||'')}" placeholder="Code attribué par le SERNIE">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Le SERNIE code les écoles et authentifie les titres scolaires. C'est ce code qu'une administration vérifie.</div>
+    </div>
     <div class="form-group"><label class="form-label">💬 Devise / Motto</label>
       <input class="form-input" id="cfg_school_motto" value="${esc(sc.motto||'')}" placeholder="Ex: Apprendre, Réussir, Grandir">
     </div>
@@ -23546,6 +23646,10 @@ window.saveSettingsSchool = async () => {
   DB.settings.school.email=($('cfg_school_email')?.value||'').trim()||null;
   DB.settings.school.dgep=($('cfg_school_dgep')?.value||'').trim()||null;
   DB.settings.school.country=($('cfg_school_country')?.value||'').trim()||null;
+  DB.settings.school.ministere=($('cfg_school_ministere')?.value||'').trim()||null;
+  DB.settings.school.province=($('cfg_school_province')?.value||'').trim()||null;
+  DB.settings.school.sous_division=($('cfg_school_sousdiv')?.value||'').trim()||null;
+  DB.settings.school.code_ecole=($('cfg_school_code')?.value||'').trim()||null;
   DB.settings.school.motto=($('cfg_school_motto')?.value||'').trim()||null;
   DB.settings.school.website=($('cfg_school_website')?.value||'').trim()||null;
   DB.settings.school.devise=$('cfg_school_devise')?.value||'$';
