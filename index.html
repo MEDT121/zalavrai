@@ -16859,11 +16859,20 @@ window._setProfileTab = id => {
     const wrap = document.getElementById('profileScreenWrap');
     if (wrap) { wrap.classList.remove('pt-mode-dark', 'pt-mode-light'); wrap.classList.add('pt-mode-' + activeMode); }
   }
+  // La couleur d'un onglet INACTIF suit le fond RÉELLEMENT AFFICHÉ, jamais le
+  // mode de l'onglet vers lequel il mène.
+  //
+  // Elle suivait la destination : sur un onglet clair, tout bouton menant à un
+  // onglet sombre était peint en blanc à 55 % — SUR FOND CLAIR. Contraste 1,1:1,
+  // c'est-à-dire invisible. Dans le profil parent, être sur « Mon compte »
+  // faisait disparaître « Mes enfants », « École » et « Reçus » d'un coup : le
+  // texte était là, on ne pouvait simplement pas le lire.
+  //
+  // Les six profils mélangent onglets sombres et clairs — tous étaient atteints.
   document.querySelectorAll('[data-ptab-btn]').forEach(btn => {
     const isActive = btn.dataset.ptabBtn === id;
-    const btnMode = btn.dataset.ptabMode;
     btn.style.background = isActive ? (btn.dataset.ptabColor || '#2f7bd6') : 'transparent';
-    btn.style.color = isActive ? '#fff' : (btnMode === 'dark' ? 'rgba(255,255,255,.55)' : btnMode === 'light' ? '#8a93a6' : 'var(--text-secondary)');
+    btn.style.color = isActive ? '#fff' : (activeMode === 'dark' ? 'rgba(255,255,255,.7)' : activeMode === 'light' ? '#5e6c78' : 'var(--text-secondary)');
     btn.style.fontWeight = isActive ? '700' : '500';
   });
 };
@@ -24032,7 +24041,7 @@ R.profil_enseignant = () => {
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['classe',t('Ma classe','My class')],['profil',t('Modifier','Edit')],['finances',t('Finances','Finances')],['prep',t('Prépa','Prep')],['securite',t('Sécurité','Security')]].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 2px;border:none;border-radius:10px;cursor:pointer;font-size:10px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 2px;border:none;border-radius:10px;cursor:pointer;font-size:10px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="classe" data-ptab-mode="dark" style="${tab==='classe'?'':'display:none'}">
@@ -24870,7 +24879,7 @@ R.profil_parent = () => {
     <!-- tabs glassmorphism -->
     <div class="pt-tabbar" style="display:flex;gap:4px;border-radius:18px;padding:5px;margin-bottom:20px">
       ${[['enfants','Mes enfants'],['ecole','École'],['recus','Reçus'],['compte','Mon compte']].map(([id,lbl])=>`
-      <button data-ptab-btn="${id}" data-ptab-color="linear-gradient(135deg,#8255c4,#5b6fd6)" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};font-weight:${tab===id?700:500};font-size:11px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
+      <button data-ptab-btn="${id}" data-ptab-color="linear-gradient(135deg,#8255c4,#5b6fd6)" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')" class="pp-btn" style="flex:1;padding:12px 4px;border:none;border-radius:13px;cursor:pointer;background:${tab===id?'linear-gradient(135deg,#8255c4,#5b6fd6)':'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};font-weight:${tab===id?700:500};font-size:11px;transition:all .2s;text-align:center;box-shadow:${tab===id?'0 4px 16px rgba(109,40,217,.45)':'none'};letter-spacing:-.1px">${lbl}</button>`).join('')}
     </div>
 
     <!-- Mes enfants -->
@@ -25243,7 +25252,7 @@ R.profil_gardien = () => {
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['activite','Activité'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="activite" data-ptab-mode="dark" style="${tab==='activite'?'':'display:none'}">
@@ -25395,7 +25404,7 @@ R.profil_caisse = () => {
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['caisse','Caisse'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="caisse" data-ptab-mode="dark" style="${tab==='caisse'?'':'display:none'}">
@@ -25611,7 +25620,7 @@ R.profil_direction = () => {
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['stats','Stats'],['profil','Modifier'],['donnees','Données'],['securite','Sécurité']].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="stats" data-ptab-mode="dark" style="${tab==='stats'?'':'display:none'}">
@@ -25764,7 +25773,7 @@ R.profil_direction2 = () => {
     <div class="pt-tabbar" style="display:flex;gap:2px;border-radius:14px;padding:4px;margin-bottom:16px">
       ${[['stats','Stats'],['profil','Modifier'],['securite','Sécurité']].map(([id,label])=>`
       <button data-ptab-btn="${id}" data-ptab-color="${clr}" data-ptab-mode="${TAB_MODE[id]}" onclick="window._pTab='${id}';_setProfileTab('${id}')"
-        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[id]==='dark'?'rgba(255,255,255,.55)':'#8a93a6')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
+        style="flex:1;min-width:0;padding:9px 4px;border:none;border-radius:10px;cursor:pointer;font-size:11px;font-weight:${tab===id?'700':'500'};background:${tab===id?clr:'transparent'};color:${tab===id?'#fff':(TAB_MODE[tab]==='dark'?'rgba(255,255,255,.7)':'#5e6c78')};transition:all .2s;white-space:nowrap;text-align:center">${label}</button>`).join('')}
     </div>
 
     <div data-ptab="stats" data-ptab-mode="dark" style="${tab==='stats'?'':'display:none'}">
