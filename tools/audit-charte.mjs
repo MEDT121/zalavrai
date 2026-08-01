@@ -3,8 +3,8 @@
 //
 //  La charte de l'école est gris · blanc · or.
 //
-//  Son « gris » est un VERT DE GRIS — teinte 136°, saturation 7 % — donné
-//  par la Direction en montrant un pot de peinture : #a9b4ac. Ce n'est pas
+//  Son « gris » est un GRIS BLEUTÉ — teinte 207°, saturation 14 % — donné
+//  par la Direction en montrant un mur peint : #6b7d8b. Ce n'est pas
 //  un gris neutre, et un contrôle qui exigeait R = G = B rejetait la charte
 //  elle-même. L'or, #c09018, vient de l'étoile de l'emblème.
 //
@@ -74,7 +74,10 @@ const SEMANTIQUES = new Set([
 const nature = ([r,g,b]) => {
   const e = Math.max(r,g,b) - Math.min(r,g,b);
   if (e <= 6) return 'gris';                                  // gris neutre pur
-  if (g >= r && g >= b && e <= 26 && g - Math.min(r,b) <= 26) return 'gris';  // vert de gris
+  // La teinte de référence #6b7d8b a 32 d'écart : un seuil à 30 rejetait la
+  // couleur même de la charte. 34 laisse passer la gamme sans admettre un
+  // bleu franc, qui dépasse largement.
+  if (b >= g && g >= r && e <= 34) return 'gris';             // gris bleuté de l'école
   if (r > b + 40 && g > b + 20 && r >= g) return 'or';
   return 'hors';
 };

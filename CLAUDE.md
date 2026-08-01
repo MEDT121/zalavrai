@@ -761,25 +761,42 @@ Pages par `.github/workflows/pages.yml`.
 
 ### La palette de l'école : gris · blanc · or
 
-**Le « gris » de l'école n'est pas un gris neutre.** C'est un VERT DE GRIS —
-teinte 136°, saturation 7 % — donné par la Direction en montrant un pot de
-peinture : `#a9b4ac`, relevé sur l'image. Toute la gamme en dérive : même
-teinte, même nuance, seule la clarté varie.
+**Le gris de l'école est un GRIS BLEUTÉ** — teinte 207°, saturation 14 %.
+La Direction l'a donné en montrant un mur peint : `#6b7d8b`, relevé sur
+l'image. Toute la gamme en dérive : même teinte, même nuance, seule la
+clarté varie.
 
 ```
---ground  #2c3a30  --ground-deep #1e2921  --ground-soft #3e5143   fonds sombres
---sage    #a9b4ac  la teinte de référence — le pot de peinture
---white   #ffffff  --surface     #eef1ef  --surface-2   #d8dfda   surfaces
+--ground  #2b3740  --ground-deep #1c242c  --ground-soft #3d4b57   fonds sombres
+--slate   #6b7d8b  la teinte de référence — le mur
+--white   #ffffff  --surface     #f0f1f2  --surface-2   #dadee2   surfaces
 --gold    #c09018  --gold-light  #e2b84f  --gold-deep   #7a5a0d   l'unique accent
---ink     #1e2921  --muted       #5f6d63  --line rgba(30,41,33,.13)
+--ink     #1a2228  --muted       #5e6c78  --line rgba(26,34,40,.13)
 ```
 
-Contrastes : blanc sur fond sombre **12,0:1**, or clair dessus **6,4:1**,
-encre sur blanc **15,1:1**, encre sur la teinte de référence **7,0:1**.
+Contrastes : blanc sur fond sombre **12,2:1**, or clair dessus **6,5:1**,
+encre sur blanc **16,1:1**, encre sur médaille **5,6:1**.
 
 **L'or vaut `#c09018`**, relevé sur l'étoile du logo. Il ne porte pas de
 texte sur blanc (2,9:1), d'où `--gold-light` pour écrire sur fond sombre et
 `--gold-deep` sur blanc. Une médaille d'or porte l'encre, jamais du blanc.
+
+### Trois essais avant la bonne couleur
+
+| essai | ce que j'avais compris | verdict |
+|---|---|---|
+| émeraude `#0b5c42` | « gris, blanc, émeraude » | trop vert |
+| gris neutre `#f5f5f5` | « grise pas verte » | trop neutre |
+| vert de gris `#a9b4ac` | un pot de peinture montré | pas la bonne teinte |
+| **gris bleuté `#6b7d8b`** | **un mur peint montré** | **la bonne** |
+
+**Une couleur se montre, elle ne se devine pas.** Demander une image dès le
+premier doute aurait épargné trois passes complètes — site, documents,
+cartes.
+
+Corollaire pour l'outil : `audit-charte.mjs` a rejeté deux fois la charte
+elle-même, son classement supposant un gris neutre. Son seuil est à 34 —
+`#6b7d8b` a 32 d'écart entre ses canaux.
 
 Il est **précieux, pas structurel** : étoiles, filets sous les titres, anneau
 de l'emblème, cadre de photo, guillemets, puces ★, médaille du premier. Le
