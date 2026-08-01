@@ -13024,7 +13024,14 @@ window.downloadAttestationPaiement = (sid) => {
 };
 
 window.downloadCertificatScolarite = (sid) => {
+  // Un certificat engage l'école : il se délivre, il ne se télécharge pas.
+  // Ces quatre documents n'avaient AUCUNE garde de rôle et ne laissaient
+  // AUCUNE trace — l'école ne pouvait pas dire ce qu'elle avait émis, ni pour
+  // qui. Les cartes d'élève comptent leurs tirages depuis toujours ; un
+  // certificat de scolarité vaut au moins autant.
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  logAudit('document_emis', 'certificat de scolarité — '+(s.name||'?')+(s.mat?' ('+s.mat+')':''), sid);
   const cl=gc(s.cid);
   const sc=DB.settings?.school||{};
   const dir=DB.users.find(u=>u.role==='direction');
@@ -13062,7 +13069,14 @@ window.downloadCertificatScolarite = (sid) => {
 };
 
 window.downloadCertificatPassage = (sid) => {
+  // Un certificat engage l'école : il se délivre, il ne se télécharge pas.
+  // Ces quatre documents n'avaient AUCUNE garde de rôle et ne laissaient
+  // AUCUNE trace — l'école ne pouvait pas dire ce qu'elle avait émis, ni pour
+  // qui. Les cartes d'élève comptent leurs tirages depuis toujours ; un
+  // certificat de scolarité vaut au moins autant.
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  logAudit('document_emis', 'attestation de passage — '+(s.name||'?')+(s.mat?' ('+s.mat+')':''), sid);
   const cl=gc(s.cid);
   const sc=DB.settings?.school||{};
   const dir=DB.users.find(u=>u.role==='direction');
@@ -13101,7 +13115,14 @@ window.downloadCertificatPassage = (sid) => {
 };
 
 window.downloadCertificatBonneConduite = (sid) => {
+  // Un certificat engage l'école : il se délivre, il ne se télécharge pas.
+  // Ces quatre documents n'avaient AUCUNE garde de rôle et ne laissaient
+  // AUCUNE trace — l'école ne pouvait pas dire ce qu'elle avait émis, ni pour
+  // qui. Les cartes d'élève comptent leurs tirages depuis toujours ; un
+  // certificat de scolarité vaut au moins autant.
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  logAudit('document_emis', 'certificat de bonne conduite — '+(s.name||'?')+(s.mat?' ('+s.mat+')':''), sid);
   const cl=gc(s.cid);
   const sc=DB.settings?.school||{};
   const dir=DB.users.find(u=>u.role==='direction');
@@ -13144,7 +13165,14 @@ window.downloadCertificatBonneConduite = (sid) => {
 };
 
 window.printFicheInscription = (sid) => {
+  // Un certificat engage l'école : il se délivre, il ne se télécharge pas.
+  // Ces quatre documents n'avaient AUCUNE garde de rôle et ne laissaient
+  // AUCUNE trace — l'école ne pouvait pas dire ce qu'elle avait émis, ni pour
+  // qui. Les cartes d'élève comptent leurs tirages depuis toujours ; un
+  // certificat de scolarité vaut au moins autant.
+  if(!S.user||!['direction','direction2'].includes(S.user.role)){toast('Accès non autorisé','error');return;}
   const s=DB.students.find(x=>x.id===sid); if(!s) return;
+  logAudit('document_emis', "fiche d'inscription" + ' — '+(s.name||'?')+(s.mat?' ('+s.mat+')':''), sid);
   const cl=gc(s.cid);
   const sc=DB.settings?.school||{};
   const parent=s.pid?DB.users.find(u=>u.id===s.pid):null;
