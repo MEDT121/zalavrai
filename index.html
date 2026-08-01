@@ -6971,6 +6971,7 @@ function dashboardParent() {
     if(exitScan){statText='Sorti(e) à '+exitScan.time;statClr='var(--primary)';}
     else if(att?.status==='ontime'){statText="À l'école depuis "+(att.arr_time||'');statClr='var(--green)';pulse=true;}
     else if(att?.status==='late'){statText='Retard — '+(att.arr_time||'');statClr='var(--gold)';}
+    else if(att?.status==='absent'){statText='Absent(e)';statClr='var(--pink)';}
     else if(att?.status==='sick'){statText='Absent(e) — maladie';statClr='var(--pink)';}
     else if(att?.status==='excused'){statText='Absent(e) — justifié';statClr='var(--primary)';}
     else{statText='Pas encore arrivé(e)';statClr='var(--text-3)';}
@@ -7147,7 +7148,7 @@ function dashboardParent() {
   const moisParent = d.slice(0,7);
   const kidMonthlyAbs = kids.map(k=>{
     const kAtt=(DB.attendance||[]).filter(a=>a.sid===k.id&&a.date&&a.date.startsWith(moisParent));
-    const absCount=kAtt.filter(a=>a.status==='sick'||a.status==='excused').length;
+    const absCount=kAtt.filter(_estAbsence).length;
     const lateCount=kAtt.filter(a=>a.status==='late').length;
     return {kid:k,absCount,lateCount};
   }).filter(x=>x.absCount>0||x.lateCount>0);
@@ -7166,7 +7167,7 @@ function dashboardParent() {
     // réclamait une justification déjà envoyée, tous les jours, jusqu'à la
     // validation. `_datesJustifiees` est le lecteur que la validation emploie
     // déjà — c'est lui qui doit dire quels jours sont couverts.
-    return att?.status==='sick'&&!(DB.absences||[]).some(a=>
+    return _aJustifier(att)&&!(DB.absences||[]).some(a=>
       a.sid===k.id&&a.status!=='refused'&&(_datesJustifiees(a.dates)||[]).indexOf(d)>=0);
   });
   const justifBanner = pendingJustif.length ? `
@@ -11003,6 +11004,7 @@ R.children = () => {
     if(exitScan){statText=`Sorti(e) à ${exitScan.time}`;statClr='#2f7bd6';statBg='#eaf3fc';}
     else if(ta&&ta.status==='ontime'){statText=`À l'école depuis ${ta.arr_time||''}`;statClr='#1f9d6b';statBg='#f0fdf4';}
     else if(ta&&ta.status==='late'){statText=`Arrivé(e) en retard — ${ta.arr_time||''}`;statClr='#d98a2b';statBg='#fffbeb';}
+    else if(ta&&ta.status==='absent'){statText='Absent(e)';statClr='#dc2626';statBg='#fef2f2';}
     else if(ta&&ta.status==='sick'){statText='Absent(e) pour maladie';statClr='#ec4899';statBg='#fdf2f8';}
     else if(ta&&ta.status==='excused'){statText='Absent(e) — justifié';statClr='#2f7bd6';statBg='#eaf3fc';}
     else{statText="Pas encore arrivé(e)";statClr='#a89c8b';statBg='#fff5ea';}
@@ -16795,6 +16797,25 @@ function showExitDone(color,icon,title,name,sub,time) {
 // Tout statut commençant par « refused » est un incident, quel qu'en soit
 // le motif : refused, refused_fees, refused_access, refused_fake_qr.
 window._estIncident = (l) => !!l && (l.status==='unauthorized' || String(l.status||'').indexOf('refused')===0);
+
+// Les cinq états de présence, nommés une seule fois. `absent` est bien écrit
+// — l'enseignant qui fait l'appel crée la ligne — mais AUCUN écran du parent ne
+// le connaissait : l'enfant marqué absent en classe s'affichait chez lui « pas
+// encore arrivé », n'était compté dans aucun total d'absences du mois, et ne
+// déclenchait aucune invitation à justifier. Seuls `sick` et `excused` étaient
+// reconnus, c'est-à-dire les absences DÉJÀ motivées.
+window._ATT_ETATS = {
+  ontime : {l:"À l'école",             c:'#1f9d6b', bg:'#f0fdf4'},
+  late   : {l:'Retard',                c:'#d98a2b', bg:'#fffbeb'},
+  absent : {l:'Absent(e)',             c:'#dc2626', bg:'#fef2f2'},
+  sick   : {l:'Absent(e) — maladie',   c:'#ec4899', bg:'#fdf2f8'},
+  excused: {l:'Absent(e) — justifié',  c:'#2f7bd6', bg:'#eaf3fc'},
+};
+window._attEtat   = (a) => (a && window._ATT_ETATS[a.status]) || null;
+// Une absence, quelle qu'en soit la raison — y compris celle qu'on n'a pas dite.
+window._estAbsence = (a) => !!a && ['absent','sick','excused'].indexOf(a.status) >= 0;
+// Celles qui restent à motiver : `excused` l'est déjà par définition.
+window._aJustifier = (a) => !!a && ['absent','sick'].indexOf(a.status) >= 0;
 
 // L'enfant est-il sorti, à cet instant ? C'est le DERNIER passage du jour qui
 // le dit : sorti à midi puis rentré à 14 h, il est à l'école. Et une sortie
@@ -24334,8 +24355,8 @@ R.scan_history = () => {
     logs.forEach(l=>{if(!byDate[l.date])byDate[l.date]={logs:[],att:null};byDate[l.date].logs.push(l);});
     att.forEach(a=>{if(!byDate[a.date])byDate[a.date]={logs:[],att:null};byDate[a.date].att=a;});
     const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a)).slice(0,30);
-    const statusColor={ontime:'#1f9d6b',late:'#d98a2b',excused:'#2f7bd6',sick:'#ec4899'};
-    const statusLabel={ontime:'À l\'heure',late:'Retard',excused:'Justifié',sick:'Maladie'};
+    const statusColor={ontime:'#1f9d6b',late:'#d98a2b',excused:'#2f7bd6',sick:'#ec4899',absent:'#dc2626'};
+    const statusLabel={ontime:'À l\'heure',late:'Retard',excused:'Justifié',sick:'Maladie',absent:'Absent'};
     html+=`<div class="ww-section" style="margin-bottom:18px">
       <div class="ww-section-header"><span class="ww-section-title" style="color:${cc}">${esc(kid.name)}</span><span style="font-size:11px;color:var(--text-muted)">${cl?esc(cl.name):''} · 30 derniers jours</span></div>
       ${dates.length?dates.map(date=>{
@@ -24407,14 +24428,17 @@ R.profil_parent = () => {
         const cl=gc(k.cid); const [cc,cbg]=clsColor(cl?.name||'');
         const sel=k.id===kid?.id;
         const photo=k.photo||k.photo_url;
-        const kScans=(DB.scan_log||[]).filter(sc=>sc.sid===k.id&&sc.date===today()).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+        // Un passage REFUSÉ porte `type:'entry'` : la pastille annonçait donc
+        // « Présent » à la famille d'un enfant renvoyé du portail. Les refus
+        // sont écartés, et la sortie passe par `_sortieDuJour` comme partout.
+        const kScans=(DB.scan_log||[]).filter(sc=>sc.sid===k.id&&sc.date===today()&&!_estIncident(sc)).sort((a,b)=>(b.time||'').localeCompare(a.time||''));
         const kAtt=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
         const kLast=kScans[0];
         let dotColor='#a89c8b',dotLabel='—',dotPulse=false;
-        if(kLast?.type==='entry'||kAtt?.status==='ontime'){dotColor='#1f9d6b';dotLabel='Présent';dotPulse=true;}
+        if(_sortieDuJour(k.id)){dotColor='#2f7bd6';dotLabel='Sorti';}
+        else if(kLast?.type==='entry'||kAtt?.status==='ontime'){dotColor='#1f9d6b';dotLabel='Présent';dotPulse=true;}
         else if(kAtt?.status==='late'){dotColor='#d98a2b';dotLabel='Retard';}
-        else if(kAtt?.status==='absent'){dotColor='#dc2626';dotLabel='Absent';}
-        else if(kLast?.type==='exit'){dotColor='#2f7bd6';dotLabel='Sorti';}
+        else if(_estAbsence(kAtt)){dotColor='#dc2626';dotLabel='Absent';}
         return `<div onclick="window._parentKid='${k.id}';render()" class="kid-tile" style="cursor:pointer;border-radius:22px;overflow:hidden;border:${sel?'3px solid '+clr:'2.5px solid #efe3d3'};box-shadow:${sel?'0 10px 32px '+clr+'55,0 0 0 1px '+clr+'22':'0 2px 10px rgba(0,0,0,.06)'};background:#fff;animation:fadeInUp .3s ease both;animation-delay:${ki*.06}s">
           <div style="position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;background:${cbg}">
             ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover" data-bg="${esc(cbg)}" data-cc="${esc(cc)}" data-ini="${esc(ini(k.name))}" onerror="window._imgFallback(this)">`
