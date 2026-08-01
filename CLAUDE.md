@@ -898,7 +898,8 @@ tools/audit-invariant.mjs   les trois conditions ci-dessus
 tools/audit-gardes.mjs      mutations `window` sans contrôle de rôle
 tools/audit-mort.mjs        fonctions exposées sans appelant
 tools/verif-coherence.mjs   la chaîne de calcul, EXÉCUTÉE (voir plus bas)
-tools/audit-logo.mjs        l'emblème de l'école sur les 36 documents imprimés
+tools/audit-logo.mjs        l'emblème sur les documents · et son ABSENCE de l'interface
+tools/audit-charte.mjs      gris · blanc · or sur les 43 documents (--detail)
 ```
 
 `audit-schema` avait un angle mort : il exigeait un littéral comme opération,
@@ -975,7 +976,13 @@ donc les couleurs, gris · blanc · émeraude, et non le bleu de l'interface.
 #0d2b7a → #1a1a1a    #dbeafe → #f2f2f2    #eaf3fc → #f5f5f5
 ```
 
-210 valeurs reprises sur 42 fonctions, **sans toucher un seul écran**.
+**416 valeurs** reprises sur 43 documents, **sans toucher un seul écran**.
+
+Une première passe n'avait repris que le bleu du logiciel — or les documents
+portaient aussi tout un **fond crème** hérité : papier `#fff5ea`, filets
+beiges `#efe3d3`, texte brun `#6f6557`. Plus des gris bleutés, des bleus
+résiduels et des violets décoratifs. `audit-charte.mjs` les a comptés : 415
+valeurs hors charte que l'affirmation « c'est fait » aurait laissées.
 
 ### Comment la frontière a été tracée
 
