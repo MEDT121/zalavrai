@@ -764,12 +764,32 @@ Pages par `.github/workflows/pages.yml`.
 Tout est dans `assets/site.css`. **Aucune couleur nouvelle** dans une page
 ajoutée : une valeur écrite en dur échappe au prochain réaccord.
 
+La charte compte **quatre** couleurs : gris · blanc · **or** · émeraude.
+
 ```
 --emerald #0b5c42  --emerald-deep #063c2b  --emerald-soft #14785a   fonds sombres
 --white   #ffffff  --surface      #f4f6f5  --surface-2    #e8ecea   surfaces claires
---accent  #0e7a56  --accent-deep  #095c41  --accent-light #83debc   accents
+--accent  #0e7a56  --accent-deep  #095c41  --accent-light #83debc   accents émeraude
+--gold    #c09018  --gold-light   #e2b84f  --gold-deep    #7a5a0d   accent précieux
 --ink     #14201c  --muted        #5c6a66  --line rgba(20,32,28,.13)
 ```
+
+### L'or vient de l'emblème, pas d'un choix
+
+`#c09018` est la teinte **relevée sur l'étoile du logo** — à deux points près
+le `--brass:#c0962e` d'origine. La palette dorée du site venait donc de là.
+Je l'avais entièrement retirée en croyant harmoniser : c'était supprimer une
+couleur de l'école.
+
+L'or est un accent **précieux**, pas une surface : étoiles du hero, filet
+sous les titres, anneau autour de l'emblème, cadre de photo, guillemet de
+témoignage, puces ★, médaille du premier au tableau d'honneur. L'émeraude
+reste la couleur de structure — boutons, liens, sur-titres, puces.
+
+**Il ne porte pas de texte à cette valeur** : 2,9:1 sur blanc. D'où deux
+variantes — `--gold-light` pour écrire sur émeraude (6,6:1), `--gold-deep`
+pour écrire sur blanc (6,4:1). Une médaille d'or porte l'encre émeraude,
+jamais du blanc (4,3:1 contre 2,9:1).
 
 Le site était en **laiton doré sur crème**, et sa variable `--emerald` valait
 `#211d17` — un brun sombre, pas un émeraude. Les noms mentaient : `--brass`,
