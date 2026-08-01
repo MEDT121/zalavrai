@@ -759,57 +759,47 @@ Cinq pages statiques — `site.html`, `ecole.html`, `programmes.html`,
 `galerie.html`, `contact.html` — plus `palmares.html`, déployées sur GitHub
 Pages par `.github/workflows/pages.yml`.
 
-### La palette de l'école : gris · blanc · émeraude
+### La palette de l'école : gris · blanc · or
 
-Tout est dans `assets/site.css`. **Aucune couleur nouvelle** dans une page
-ajoutée : une valeur écrite en dur échappe au prochain réaccord.
-
-La charte compte **quatre** couleurs : gris · blanc · **or** · émeraude.
+Ce sont les couleurs de l'**emblème** : un cercle sombre, un champ blanc, une
+étoile dorée. Aucun vert n'y figure. Tout est dans `assets/site.css` ;
+**aucune couleur nouvelle** dans une page ajoutée — une valeur écrite en dur
+échappe au prochain réaccord.
 
 ```
---emerald #0b5c42  --emerald-deep #063c2b  --emerald-soft #14785a   fonds sombres
---white   #ffffff  --surface      #f5f5f5  --surface-2    #e9e9e9   gris NEUTRES
---accent  #0e7a56  --accent-deep  #095c41  --accent-light #83debc   accents émeraude
---gold    #c09018  --gold-light   #e2b84f  --gold-deep    #7a5a0d   accent précieux
---ink     #1a1a1a  --muted        #646464  --line rgba(26,26,26,.13)
+--ground  #2b2b2b  --ground-deep #1a1a1a  --ground-soft #3d3d3d   fonds sombres
+--white   #ffffff  --surface     #f5f5f5  --surface-2   #e9e9e9   gris NEUTRES
+--gold    #c09018  --gold-light  #e2b84f  --gold-deep   #7a5a0d   l'unique accent
+--ink     #1a1a1a  --muted       #646464  --line rgba(26,26,26,.13)
 ```
 
-### L'or vient de l'emblème, pas d'un choix
+**Le gris est neutre** — R = G = B, aucune teinte. Un essai antérieur le
+verdissait « pour l'accorder à l'émeraude » : ni l'un ni l'autre n'était
+demandé.
 
-`#c09018` est la teinte **relevée sur l'étoile du logo** — à deux points près
-le `--brass:#c0962e` d'origine. La palette dorée du site venait donc de là.
-Je l'avais entièrement retirée en croyant harmoniser : c'était supprimer une
-couleur de l'école.
+**L'or vaut `#c09018`**, teinte relevée sur l'étoile du logo — à deux points
+près le `--brass:#c0962e` d'origine. Il ne porte pas de texte sur blanc
+(2,9:1), d'où `--gold-light` pour écrire sur fond sombre (9,3:1) et
+`--gold-deep` pour écrire sur blanc (6,4:1). Une médaille d'or porte l'encre,
+jamais du blanc.
 
-L'or est un accent **précieux**, pas une surface : étoiles du hero, filet
-sous les titres, anneau autour de l'emblème, cadre de photo, guillemet de
-témoignage, puces ★, médaille du premier au tableau d'honneur. L'émeraude
-reste la couleur de structure — boutons, liens, sur-titres, puces.
+Il est **précieux, pas structurel** : étoiles, filets sous les titres, anneau
+de l'emblème, cadre de photo, guillemets, puces ★, médaille du premier. Le
+gris porte, le blanc respire, l'or distingue.
 
-**Il ne porte pas de texte à cette valeur** : 2,9:1 sur blanc. D'où deux
-variantes — `--gold-light` pour écrire sur émeraude (6,6:1), `--gold-deep`
-pour écrire sur blanc (6,4:1). Une médaille d'or porte l'encre émeraude,
-jamais du blanc (4,3:1 contre 2,9:1).
+### Ce que la charte a traversé
 
-Le site était en **laiton doré sur crème**, et sa variable `--emerald` valait
-`#211d17` — un brun sombre, pas un émeraude. Les noms mentaient : `--brass`,
-`--cream`, `--paper` sont devenus `--accent`, `--surface`, `--white`, et les
-classes `.btn-brass`/`.brass-rule` sont `.btn-accent`/`.accent-rule`.
+Trois états successifs, chacun corrigé par la Direction :
 
-**Changer les variables ne suffisait pas** : 57 couleurs chaudes étaient
-écrites en dur dans le CSS et les pages — elles seraient restées dorées.
-La section maternelle avait sa propre palette corail/orange/violet ; elle
-tourne désormais autour de l'émeraude, car une section pour enfants a besoin
-de variété, pas de discordance.
+| | fonds | accent | verdict |
+|---|---|---|---|
+| à l'origine | brun `#211d17` nommé « emerald » | laiton `#c0962e` | noms mensongers |
+| première passe | émeraude `#0b5c42` | émeraude | l'or de l'école supprimé |
+| **aujourd'hui** | **gris `#2b2b2b`** | **or `#c09018`** | les couleurs de l'emblème |
 
-Contrastes vérifiés : blanc sur émeraude **8,0:1**, accent foncé sur blanc
-**8,0:1**, boutons **5,3:1**, texte secondaire **5,7:1**. `--accent-light`
-sur `--emerald` était à 4,42:1 — sous le seuil AA — d'où `#83debc` et non
-`#6fd3ac`.
-
-**Le gris est NEUTRE** — R = G = B, aucune teinte. Un premier essai le
-verdissait légèrement pour « le rattacher » à l'émeraude ; ce n'était pas
-demandé, et un gris qui tire sur le vert n'est plus un gris.
+Leçon : la charte se lit sur l'emblème, pas dans le CSS existant. 57 couleurs
+chaudes puis 22 vertes étaient écrites en dur hors des variables — changer
+les variables seules n'a jamais suffi.
 
 ### Une seule adresse
 
@@ -981,8 +971,8 @@ l'école. **Les documents imprimés représentent l'école** — ils en portent
 donc les couleurs, gris · blanc · émeraude, et non le bleu de l'interface.
 
 ```
-#243a6b → #0b5c42    #205fae → #095c41    #2f7bd6 → #0e7a56
-#0d2b7a → #063c2b    #dbeafe → #dff2ea    #eaf3fc → #eaf5f0
+#243a6b → #2b2b2b    #205fae → #7a5a0d    #2f7bd6 → #c09018
+#0d2b7a → #1a1a1a    #dbeafe → #f2f2f2    #eaf3fc → #f5f5f5
 ```
 
 210 valeurs reprises sur 42 fonctions, **sans toucher un seul écran**.
