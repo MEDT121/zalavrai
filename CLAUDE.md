@@ -1067,6 +1067,33 @@ de carte n'ont pas d'en-tête à orner.
 
 ---
 
+## La signature : deux familles de documents
+
+`_signatureImg(hauteur)` est l'unique manière d'en poser une, comme
+`_logoImg` pour l'emblème. Elle rend une chaîne vide s'il n'y en a pas.
+
+**Elle ne va pas sur tous les documents.** 34 en prévoient une ; 10 la
+portent imprimée.
+
+| | qui signe | documents |
+|---|---|---|
+| **visa imprimé** | la Direction, en nombre | bulletins, certificats, attestation, convocation, communiqué, rapport mensuel, palmarès annuel |
+| **ligne vide** | une personne, au moment de l'acte | reçus de caisse, fiches de paie, sanctions, PV de délibération, listes ENAFEP/EXÉTAT, rapport SECOPE |
+
+**Une signature qui s'imprime toute seule ne signe plus rien.** Un reçu se
+signe devant la famille qui paie ; l'y pré-imprimer donnerait la signature de
+la Direction à quiconque peut générer un reçu. Les listes envoyées au
+ministère attendent une signature manuscrite et un cachet.
+
+`_officialFooter(nom, role, avecSignature)` — le troisième argument n'est
+vrai que pour la première famille.
+
+**Un assistant partagé échappe à la recoloration** : `_officialFooter` n'est
+dans aucun document, il est *appelé* par quatorze d'entre eux. Il avait
+gardé le papier crème quand tous les autres étaient repris.
+
+---
+
 ## L'emblème sur les documents officiels
 
 `node tools/audit-logo.mjs`

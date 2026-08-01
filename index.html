@@ -3193,14 +3193,36 @@ window._logoImg = (taille, bordure) => {
        + (bordure ? `;border:2px solid ${bordure}` : '') + `">`;
 };
 
-function _officialFooter(name, role){
+// Signature officielle de l'école. Comme `_logoImg`, c'est l'unique manière
+// d'en poser une : elle rend une chaîne vide s'il n'y en a pas, plutôt qu'un
+// blanc que rien n'explique.
+//
+// Elle ne va PAS sur tous les documents. Deux familles :
+//   · ce que la Direction émet en nombre — certificats, attestations,
+//     convocations, bulletins, palmarès — porte sa signature imprimée ;
+//   · ce qu'une personne signe au moment de l'acte — reçu de caisse, fiche
+//     de paie, lettre de sanction — garde une ligne vide. Une signature qui
+//     s'imprime toute seule ne signe plus rien, et quiconque peut produire
+//     un reçu disposerait de celle de la Direction.
+window._signatureImg = (hauteur) => {
+  const src = window.SCHOOL_SIGNATURE;
+  if (!src) return '';
+  return `<img src="${src}" alt="" style="height:${hauteur || 46}px;object-fit:contain;`
+       + `display:block;margin:0 auto 4px">`;
+};
+
+// Pied officiel à deux visas. `avecSignature` n'est vrai que pour les
+// documents de la première famille ci-dessus.
+function _officialFooter(name, role, avecSignature){
   const n=esc(name||'');
   const r=esc(role||'');
-  return `<div style="margin-top:28px;padding-top:14px;border-top:2px dashed #efe3d3;display:flex;justify-content:space-between;gap:16px">
-  <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Signature &amp; cachet<br><strong style="font-size:12px;color:#2a2622">${n}</strong><br><span style="font-size:10px">${r}</span></div></div>
-  <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #2a2622;padding-top:7px;font-size:11px;color:#6f6557">Lu et approuvé<br><strong style="font-size:12px;color:#2a2622">……………………………</strong><br><span style="font-size:10px">Bénéficiaire / Destinataire</span></div></div>
+  const sig = avecSignature ? window._signatureImg(44) : '';
+  const creux = sig ? '' : '<div style="height:44px"></div>';
+  return `<div style="margin-top:28px;padding-top:14px;border-top:2px dashed #dadee2;display:flex;justify-content:space-between;gap:16px">
+  <div style="flex:1;text-align:center">${sig}${creux}<div style="border-top:1.5px solid #1a2228;padding-top:7px;font-size:11px;color:#5e6c78">Signature &amp; cachet<br><strong style="font-size:12px;color:#1a2228">${n}</strong><br><span style="font-size:10px">${r}</span></div></div>
+  <div style="flex:1;text-align:center"><div style="height:44px"></div><div style="border-top:1.5px solid #1a2228;padding-top:7px;font-size:11px;color:#5e6c78">Lu et approuvé<br><strong style="font-size:12px;color:#1a2228">……………………………</strong><br><span style="font-size:10px">Bénéficiaire / Destinataire</span></div></div>
   </div>
-  <div style="text-align:center;font-size:10px;color:#a89c8b;margin-top:10px">${(()=>{const _fc=DB.settings?.school||{};const _fp=[esc(_fc.name||ECOLE_NOM)];if(_fc.phone)_fp.push('Tél: '+esc(_fc.phone));if(_fc.email)_fp.push(esc(_fc.email));_fp.push('Document officiel · Généré le '+today());return _fp.join(' · ');})()}</div>`;
+  <div style="text-align:center;font-size:10px;color:#93a0aa;margin-top:10px">${(()=>{const _fc=DB.settings?.school||{};const _fp=[esc(_fc.name||ECOLE_NOM)];if(_fc.phone)_fp.push('Tél: '+esc(_fc.phone));if(_fc.email)_fp.push(esc(_fc.email));_fp.push('Document officiel · Généré le '+today());return _fp.join(' · ');})()}</div>`;
 }
 // Habillage permanent sombre pour une page entière (section "Personnes") — sans bouton bascule
 function _wrapDark(html){ return `<div class="dark role-dark-page" style="animation:fadeInUp .3s ease both">${html}</div>`; }
@@ -12773,7 +12795,7 @@ window.downloadAttestationPaiement = (sid) => {
     <div style="background:#fffbeb;border:1px dashed #d97706;border-radius:12px;padding:14px;font-size:12px;color:#92400e;margin-bottom:20px">
       <strong>Note :</strong> Le présent document atteste que l'élève sus-mentionné ne présente aucun impayé au titre des frais scolaires de l'année académique ${DB.settings.year||'2025-2026'}. Ce document est établi à la demande du bénéficiaire et ne constitue pas un droit d'inscription automatique pour l'année suivante.
     </div>
-    ${_officialFooter(dir?.name||'Direction','Direction Générale')}
+    ${_officialFooter(dir?.name||'Direction','Direction Générale',true)}
   </div>`;
   dlPDF(html,`attestation_paiement_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
@@ -12811,7 +12833,7 @@ window.downloadCertificatScolarite = (sid) => {
     <div style="background:#f7f8f9;border:1px dashed #d97706;border-radius:12px;padding:14px;font-size:12px;color:#92400e;margin-bottom:22px">
       Ce certificat est valable uniquement pour l'année académique ${DB.settings.year||'2025-2026'}. Toute reproduction frauduleuse est punissable par la loi.
     </div>
-    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)',true)}
   </div>`;
   dlPDF(html,`certificat_scolarite_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
@@ -12850,7 +12872,7 @@ window.downloadCertificatPassage = (sid) => {
         a satisfait aux exigences académiques de l'année en cours${moy&&moy>=50?' et est admis(e) à passer en classe supérieure':' — décision du Conseil de Classe à confirmer'}. En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
       </p>
     </div>
-    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)',true)}
   </div>`;
   dlPDF(html,`certificat_passage_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
@@ -12893,7 +12915,7 @@ window.downloadCertificatBonneConduite = (sid) => {
         a fait preuve d'une conduite <strong>${esc(score.toLowerCase())}</strong> au sein de notre établissement durant l'année académique <strong>${DB.settings.year||'2025-2026'}</strong>. Aucune sanction disciplinaire non levée n'est enregistrée à son encontre. En foi de quoi, le présent certificat lui est délivré pour servir et valoir ce que de droit.
       </p>
     </div>
-    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)')}
+    ${_officialFooter(dir?.name||'Direction','Directeur(trice) Général(e)',true)}
   </div>`;
   dlPDF(html,`certificat_bonne_conduite_${s.name.replace(/\s+/g,'_')}.pdf`);
 };
@@ -21037,7 +21059,7 @@ window.downloadConvocationPDF = (cid) => {
     Nous vous remercions de vous présenter muni(e) de ce document.
     En cas d'empêchement, veuillez nous contacter dans les plus brefs délais.
   </p>
-  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale')}
+  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale',true)}
   </body></html>`;
   dlPDF(html,`Convocation-${s?(s.name.replace(/\s+/g,'_')):'eleve'}-${today()}.pdf`);
 };
@@ -21080,7 +21102,7 @@ window.downloadCommuniquePDF = (mid) => {
   <div class="subject">${esc(m.subject||'Communiqué')}</div>
   <div class="meta">📢 Destinataires : ${targetLabel} · Année ${yr}</div>
   <div class="body-text">${esc(m.body||'')}</div>
-  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale')}
+  ${_officialFooter(dirUser?dirUser.name:'Direction','Direction Générale',true)}
   </body></html>`;
   dlPDF(html,`Communique-${(m.subject||'').replace(/[^a-z0-9À-ɏ ]/gi,'_').trim()||today()}.pdf`);
 };
@@ -21664,7 +21686,13 @@ window.genererRapportMensuel = (sid, mois) => {
     <div class="row"><span>Conduite générale</span><span class="badge ${condAvg>=3?'green':condAvg>=2?'orange':'red'}">${condLabel}</span></div>
     ${conduites.slice(-3).map(c=>`<div class="row"><span>${c.date} — ${esc(c.remark||c.score)}</span><span class="badge">${esc(c.score)}</span></div>`).join('')}
   </div>
-  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe · ${esc(DB.settings?.school?.name||'')}</div>
+  <div style="margin-top:24px;text-align:right">
+    ${window._signatureImg(44)}
+    <div style="display:inline-block;border-top:1.5px solid #1a2228;padding-top:6px;min-width:200px;text-align:center;font-size:11px;color:#5e6c78">
+      La Direction<br><strong style="font-size:12px;color:#1a2228">${esc((DB.users||[]).find(u=>u.role==='direction')?.name||'Direction')}</strong>
+    </div>
+  </div>
+  <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe · ${esc(_schoolInfo().name)}</div>
   </body></html>`;
   dlPDF(htmlStr, `Rapport_${s.name.replace(/\s+/g,'_')}_${mois}.pdf`);
 };
@@ -21735,6 +21763,12 @@ window.genererPalmaresAnnuel = () => {
   <h1>🏆 Palmarès Annuel ${yr}</h1>
   <h2>${esc(_schoolInfo().name)}</h2>
   ${classesHtml}
+  <div style="margin-top:30px;text-align:right">
+    ${window._signatureImg(46)}
+    <div style="display:inline-block;border-top:1.5px solid #1a2228;padding-top:6px;min-width:220px;text-align:center;font-size:11px;color:#5e6c78">
+      La Direction<br><strong style="font-size:12px;color:#1a2228">${esc((DB.users||[]).find(u=>u.role==='direction')?.name||'Direction')}</strong>
+    </div>
+  </div>
   <div class="footer">Généré le ${new Date().toLocaleDateString('fr-FR')} par SchoolSafe — ${esc(_schoolInfo().name)}</div>
   </body></html>`;
 
