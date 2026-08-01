@@ -5364,11 +5364,7 @@ window.showStudentInfo = (sid) => {
   // C'est le DERNIER passage du jour qui dit où se trouve l'enfant : sorti à
   // midi puis rentré à 14 h, il est à l'école. Et une sortie refusée n'est pas
   // une sortie — l'enfant est resté.
-  const _passagesJour = (DB.scan_log||[])
-    .filter(e => e.sid === sid && e.date === today())
-    .sort((a,b) => String(b.time||'').localeCompare(String(a.time||'')));
-  const _dernier = _passagesJour[0];
-  const ex = (_dernier && _dernier.type === 'exit' && !_estIncident(_dernier)) ? _dernier : null;
+  const ex = _sortieDuJour(sid);
   const pays = (DB.payments||[]).filter(p => p.sid === sid);
   const allPaid = pays.length > 0 && pays.every(p => p.paid);
   const partPaid = pays.some(p => p.paid) && !allPaid;
@@ -6970,7 +6966,7 @@ function dashboardParent() {
 
   const kidStatus = kids.map(k=>{
     const att = (DB.attendance||[]).find(a=>a.sid===k.id&&a.date===d);
-    const exitScan = (DB.scan_log||[]).find(l=>l.sid===k.id&&l.date===d&&l.type==='exit');
+    const exitScan = _sortieDuJour(k.id, d);
     let statText,statClr,pulse=false;
     if(exitScan){statText='Sorti(e) à '+exitScan.time;statClr='var(--primary)';}
     else if(att?.status==='ontime'){statText="À l'école depuis "+(att.arr_time||'');statClr='var(--green)';pulse=true;}
@@ -10992,14 +10988,17 @@ R.children = () => {
 
   return kids.map((k,i)=>{
     const c=gc(k.cid);
-    const pays=(DB.payments||[]).filter(p=>p.sid===k.id);
     const [cc,cbg]=clsColor(c?c.name:'');
     const fees=DB.settings.fees||{T1:0,T2:0,T3:0};
-    const totalFees=(fees.T1||0)+(fees.T2||0)+(fees.T3||0);
-    const paidAmt=pays.filter(p=>p.paid).reduce((s,p)=>s+(fees[p.t]||0),0);
-    const debt=totalFees-paidAmt;
+    // Même correction qu'à l'accueil : le solde vient de `getStudentBalance`,
+    // la formule de la caisse, et non d'un drapeau qui ne se lève qu'au
+    // trimestre entièrement soldé. Un versement partiel ne disparaît plus.
+    const bal=getStudentBalance(k.id);
+    const totalFees=bal.total;
+    const paidAmt=bal.paid;
+    const debt=bal.debt;
     const ta=(DB.attendance||[]).find(a=>a.sid===k.id&&a.date===today());
-    const exitScan=(DB.scan_log||[]).find(l=>l.sid===k.id&&l.date===today()&&l.type==='exit');
+    const exitScan=_sortieDuJour(k.id);
     let statText,statClr,statBg;
     if(exitScan){statText=`Sorti(e) à ${exitScan.time}`;statClr='#2f7bd6';statBg='#eaf3fc';}
     else if(ta&&ta.status==='ontime'){statText=`À l'école depuis ${ta.arr_time||''}`;statClr='#1f9d6b';statBg='#f0fdf4';}
@@ -11047,12 +11046,16 @@ R.children = () => {
           ${SECTION('Frais scolaires', debt>0?'#ef5b5b':totalFees>0?'#1f9d6b':'#a89c8b')}
           <div style="display:flex;gap:6px;margin-bottom:${totalFees>0||!totalFees?10:0}px">
             ${['T1','T2','T3'].map(t=>{
-              const p=pays.find(x=>x.t===t);
-              const paid=p&&p.paid;
-              return `<div style="flex:1;padding:10px 8px;border-radius:12px;background:${paid?'#dcfce7':'#fee2e2'};text-align:center;border:1.5px solid ${paid?'#86efac':'#fca5a5'}">
-                <div style="font-size:11px;font-weight:800;color:${paid?'#15603f':'#991b1b'};margin-bottom:3px">${t}</div>
-                <div style="font-size:12px;font-weight:700;color:${paid?'#1f9d6b':'#dc2626'}">${paid?'Payé':'Dû'}</div>
-                <div style="font-size:11px;color:#6f6557;margin-top:2px">${fees[t]?_cur()+fees[t]:'—'}</div>
+              const bt=bal.byTrim[t]||{paid:0,target:0};
+              const etat=!bt.target?'nul':bt.paid>=bt.target?'ok':bt.paid>0?'part':'du';
+              const fond={ok:'#dcfce7',part:'#fef3c7',du:'#fee2e2',nul:'#f2f2f2'}[etat];
+              const bord={ok:'#86efac',part:'#fdba74',du:'#fca5a5',nul:'#dadee2'}[etat];
+              const tc  ={ok:'#15603f',part:'#92400e',du:'#991b1b',nul:'#5e6c78'}[etat];
+              const mot ={ok:'Payé',part:'Partiel',du:'Dû',nul:'—'}[etat];
+              return `<div style="flex:1;padding:10px 8px;border-radius:12px;background:${fond};text-align:center;border:1.5px solid ${bord}">
+                <div style="font-size:11px;font-weight:800;color:${tc};margin-bottom:3px">${t}</div>
+                <div style="font-size:12px;font-weight:700;color:${tc}">${mot}</div>
+                <div style="font-size:11px;color:#6f6557;margin-top:2px">${etat==='part'?_cur()+bt.paid+' / '+_cur()+bt.target:(bt.target?_cur()+bt.target:'—')}</div>
               </div>`;
             }).join('')}
           </div>
@@ -16757,6 +16760,24 @@ function showExitDone(color,icon,title,name,sub,time) {
 // Tout statut commençant par « refused » est un incident, quel qu'en soit
 // le motif : refused, refused_fees, refused_access, refused_fake_qr.
 window._estIncident = (l) => !!l && (l.status==='unauthorized' || String(l.status||'').indexOf('refused')===0);
+
+// L'enfant est-il sorti, à cet instant ? C'est le DERNIER passage du jour qui
+// le dit : sorti à midi puis rentré à 14 h, il est à l'école. Et une sortie
+// refusée n'est pas une sortie — l'enfant est resté.
+//
+// Trois écrans répondaient à cette question, chacun à sa façon : la fiche élève
+// correctement, le tableau de bord du parent et « Mes enfants » avec un
+// `.find(type==='exit')` qui retient le PREMIER passage trouvé et ignore les
+// refus. Un enfant sorti puis revenu paraissait donc dehors à sa famille, et
+// une sortie refusée au portail lui était annoncée comme un départ.
+window._sortieDuJour = (sid, date) => {
+  const j = date || today();
+  const passages = (DB.scan_log||[])
+    .filter(e => e.sid === sid && e.date === j)
+    .sort((a,b) => String(b.time||'').localeCompare(String(a.time||'')));
+  const dernier = passages[0];
+  return (dernier && dernier.type === 'exit' && !_estIncident(dernier)) ? dernier : null;
+};
 
 window._ESCORTE_LIB = {seul:'🚶 Venu seul', parent:'👑 Parent', autorisee:'👤 Personne autorisée', autre:'✍️ Autre', inconnu:'🚨 Personne inconnue'};
 
