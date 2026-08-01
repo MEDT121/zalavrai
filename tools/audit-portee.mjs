@@ -178,6 +178,84 @@ for (const bloc of blocs) {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  ZONE MORTE TEMPORELLE — un `const` lu avant sa propre ligne
+//
+//  `dashboardParent` lisait `parentKidCids` dix lignes au-dessus de sa
+//  déclaration, dans le rappel d'un `.filter()`. Tant que `DB.devoirs` était
+//  vide, le rappel ne s'exécutait pas : rien ne paraissait. Au PREMIER devoir
+//  publié, l'accueil du parent s'interrompait.
+//
+//  On ne signale que le cas certain : la lecture est dans un rappel passé
+//  DIRECTEMENT en argument, donc exécuté sur place. Une fonction nommée ou
+//  affectée peut être appelée plus tard — sa lecture est licite, et c'est le
+//  motif le plus courant du fichier.
+// ══════════════════════════════════════════════════════════════════════════
+const SYNCHRONES = new Set(['map','filter','forEach','reduce','reduceRight','some',
+  'every','find','findIndex','findLast','findLastIndex','sort','flatMap','from']);
+const zonesMortes = [];
+const _cacheG = new Map();
+const portéeDeGlobale = (n) => {
+  if (!_cacheG.has(n)) _cacheG.set(n, declaréesDans(n));
+  return _cacheG.get(n);
+};
+for (const bloc of blocs) {
+  // Position de chaque déclaration let/const/class, par portée de fonction.
+  const decls = new Map();   // scopeNode -> Map(nom -> start)
+  walk.ancestor(bloc.ast, {
+    VariableDeclaration(n, _st, anc) {
+      if (n.kind === 'var') return;
+      const scope = [...anc].reverse().find(a => a.type === 'Program' || EST_FN(a.type));
+      if (!scope) return;
+      if (!decls.has(scope)) decls.set(scope, new Map());
+      const noms = []; n.declarations.forEach(d => nomsDuMotif(d.id, noms));
+      noms.forEach(nm => { if (!decls.get(scope).has(nm)) decls.get(scope).set(nm, n.start); });
+    },
+  });
+
+  walk.ancestor(bloc.ast, {
+    Identifier(n, _st, anc) {
+      const parent = anc[anc.length - 2];
+      if (!parent) return;
+      if (parent.type === 'MemberExpression' && parent.property === n && !parent.computed) return;
+      if (parent.type === 'Property' && parent.key === n && !parent.computed) return;
+      if (parent.type === 'VariableDeclarator' && parent.id === n) return;
+
+      // Trouver la portée qui déclare ce nom.
+      let iScope = -1, tardive = false;
+      for (let i = anc.length - 1; i >= 0; i--) {
+        const a = anc[i];
+        if (a.type !== 'Program' && !EST_FN(a.type)) continue;
+        const d = decls.get(a);
+        if (d && d.has(n.name)) { iScope = i; tardive = n.start < d.get(n.name); break; }
+        if (portéeDeGlobale(a).has(n.name)) return;   // déclaré autrement ici
+      }
+      if (iScope < 0 || !tardive) return;
+
+      // La lecture s'exécute-t-elle vraiment avant la déclaration ? Il faut que
+      // CHAQUE frontière de fonction franchie jusqu'à cette portée soit un
+      // rappel passé directement en argument — donc exécuté sur place. Une
+      // fonction affectée à un nom (`R.x = () => …`) est appelée bien plus tard :
+      // elle lit alors un `const` de toute façon initialisé, et c'est le motif
+      // le plus courant du fichier.
+      for (let i = anc.length - 2; i > iScope; i--) {
+        const a = anc[i];
+        if (!EST_FN(a.type)) continue;
+        const sup = anc[i - 1];
+        if (!(sup && sup.type === 'CallExpression' && sup.arguments.includes(a))) return;
+        // Un rappel passé en argument n'est pas forcément exécuté sur place :
+        // `addEventListener`, `setTimeout`, `.then` le gardent pour plus tard.
+        // Seules les méthodes d'itération le sont à coup sûr — d'où une liste
+        // fermée plutôt qu'une exclusion, toujours incomplète.
+        const c = sup.callee;
+        const nom = c && c.type === 'MemberExpression' && !c.computed &&
+                    c.property.type === 'Identifier' ? c.property.name : null;
+        if (!SYNCHRONES.has(nom)) return;
+      }
+      zonesMortes.push({ nom: n.name, ligne: bloc.ligne0 + n.loc.start.line - 1 });
+    },
+  });
+}
 console.log('═══ UN NOM LU HORS DE SA PORTÉE ═══');
 console.log(`    ${refs} références examinées dans ${blocs.length} blocs <script>\n`);
 
@@ -193,4 +271,11 @@ for (const [nom, lignes] of [...parNom].sort((a, b) => a[1][0] - b[1][0])) {
 console.log(trouvés.length
   ? `\n✗ ${parNom.size} nom(s) introuvable(s) — ${trouvés.length} lecture(s)`
   : '\n✓ Tout nom lu est déclaré dans une portée englobante');
-process.exit(trouvés.length ? 1 : 0);
+
+console.log('\n═══ UN NOM LU AVANT SA PROPRE DÉCLARATION ═══');
+for (const z of zonesMortes) console.log(`  ✗ ${z.nom.padEnd(28)} ligne ${z.ligne}`);
+console.log(zonesMortes.length
+  ? `\n✗ ${zonesMortes.length} lecture(s) en zone morte temporelle`
+  : '✓ Aucune lecture avant sa déclaration');
+
+process.exit(trouvés.length + zonesMortes.length ? 1 : 0);

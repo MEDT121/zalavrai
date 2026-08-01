@@ -5996,6 +5996,13 @@ function dashboardDirection2() {
   // Top 3 palmarès pédagogiques
   const top3D2 = DB.settings ? (typeof getSchoolTop10==='function' ? getSchoolTop10().slice(0,3) : []) : [];
 
+  // Le trimestre courant sert aux deux blocs qui suivent : il se déclare avant
+  // le premier. Il était lu sept lignes plus haut que son `const` — zone morte
+  // temporelle, comme au tableau de bord du parent. Le rappel de `.map` s'exécute
+  // sur place : dès qu'une classe avait des élèves ET des matières, le tableau
+  // de bord de la Direction 2 s'interrompait au complet.
+  const trimD2 = DB.settings?.currentTrimestre||'T1';
+
   // Classes sous-performantes — moyenne de classe < 50%
   const weakClassesD2 = (DB.classes||[]).map(clx=>{
     const clSids2=students.filter(s=>s.cid===clx.id).map(s=>s.id);
@@ -6009,7 +6016,6 @@ function dashboardDirection2() {
   }).filter(Boolean).sort((a,b)=>a.clAvg-b.clAvg).slice(0,4);
 
   // Saisie des notes — avancement par classe pour le trimestre courant
-  const trimD2 = DB.settings?.currentTrimestre||'T1';
   const clNotesStatus = (DB.classes||[]).map(cl=>{
     const clSids = students.filter(s=>s.cid===cl.id).map(s=>s.id);
     if(!clSids.length) return null;
@@ -7057,6 +7063,17 @@ function dashboardParent() {
     return {kid:k,cl:kCl,tFR,tEN};
   }).filter(Boolean).filter(x=>x.tFR||x.tEN);
 
+  // Les classes des enfants servent aux devoirs ET aux interros : elles se
+  // déclarent donc AVANT le premier des deux. Le calcul des interros les lisait
+  // dix lignes plus haut que leur `const` — zone morte temporelle. Tant que
+  // `DB.devoirs` était vide la fonction de filtrage ne s'exécutait pas et rien
+  // ne paraissait ; au PREMIER devoir publié, le tableau de bord du parent
+  // s'interrompait :
+  //     ReferenceError: Cannot access 'parentKidCids' before initialization
+  // L'écran d'accueil du parent devenait blanc à l'instant précis où l'école
+  // avait quelque chose à lui dire.
+  const parentKidCids = kids.map(k=>k.cid).filter(Boolean);
+
   // Examens / interros à venir — classes des enfants (7 jours)
   const parentExamIn7 = new Date(); parentExamIn7.setDate(parentExamIn7.getDate()+7);
   const parentUpExams = (DB.devoirs||[]).filter(dv=>parentKidCids.includes(dv.cid)&&(dv.category==='interro'||dv.category==='examen')&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=parentExamIn7).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,4);
@@ -7068,7 +7085,6 @@ function dashboardParent() {
   const parentCalItems = [...parentTodayEvs.map(e=>({...e,isToday:true})), ...parentUpEvs.map(e=>({...e,isToday:false}))];
 
   // Devoirs à venir — classes des enfants, 7 prochains jours
-  const parentKidCids = kids.map(k=>k.cid).filter(Boolean);
   const parentIn7 = new Date(); parentIn7.setDate(parentIn7.getDate()+7);
   const parentUpDevoirs = (DB.devoirs||[]).filter(dv=>parentKidCids.includes(dv.cid)&&dv.status==='published'&&dv.deadline&&new Date(dv.deadline)>=new Date()&&new Date(dv.deadline)<=parentIn7).sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5);
 
