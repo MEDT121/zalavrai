@@ -3456,7 +3456,7 @@ window.getPendingCount = () => {
     // Messages l'affichait. La Direction écrivait à la classe, et le parent
     // n'avait aucune raison d'aller regarder.
     const _cids=(DB.students||[]).filter(s=>s.pid===uid).map(s=>s.cid);
-    const unreadMsgs=(DB.messages||[]).filter(m=>_msgPourMoi(m,uid,'parent',_cids)&&!m.read&&m.status==='sent'&&m.from!==uid).length;
+    const unreadMsgs=(DB.messages||[]).filter(m=>_msgPourMoi(m,uid,'parent',_cids)&&!_msgLu(m)&&m.status==='sent'&&m.from!==uid).length;
     const pendingRat=(DB.rattrapages||[]).filter(r=>{
       const s=DB.students.find(x=>x.id===r.sid);
       return s&&s.pid===uid&&r.status==='pending'&&r.validated_by&&r.amount>0&&!r.payment_signaled;
@@ -6960,7 +6960,7 @@ function dashboardParent() {
   const myNotifs = (DB.notifs||[]).filter(n=>n.uid===u.id&&!n.read);
   // Même normaliseur que la page Messages et que la pastille — sans quoi les
   // trois comptaient trois choses différentes.
-  const unreadMsgs = (DB.messages||[]).filter(m=>_msgPourMoi(m,u.id,'parent',kids.map(k=>k.cid))&&!m.read&&m.status==='sent'&&m.from!==u.id).length;
+  const unreadMsgs = (DB.messages||[]).filter(m=>_msgPourMoi(m,u.id,'parent',kids.map(k=>k.cid))&&!_msgLu(m)&&m.status==='sent'&&m.from!==u.id).length;
   const fees = DB.settings?.fees||{T1:0,T2:0,T3:0};
   const d = today();
 
@@ -15468,9 +15468,14 @@ R.cahier_texte = () => {
     const cl=gc(k.cid); if(!cl) return;
     const entries=(DB.cahier_texte||[]).filter(e=>e.cid===k.cid&&e.status==='published').sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const byDate={}; entries.forEach(e=>{if(!byDate[e.date])byDate[e.date]=[];byDate[e.date].push(e);});
+    // « À venir » doit l'être : une fiche d'octobre jamais cochée « faite »
+    // restait annoncée à venir jusqu'en juin. La date de la leçon décide, et
+    // cinq lignes suffisent — c'est un aperçu, pas le cahier de l'enseignant.
+    const _auj=today();
     const upcoming=(DB.cahier_prep||[]).map(_prepLire).filter(Boolean)
-      .filter(e=>e.cid===k.cid&&!e._fait&&e._valide)
-      .sort((a,b)=>String(a._date||'').localeCompare(String(b._date||'')));
+      .filter(e=>e.cid===k.cid&&!e._fait&&e._valide&&e._date&&String(e._date)>=_auj)
+      .sort((a,b)=>String(a._date||'').localeCompare(String(b._date||'')))
+      .slice(0,5);
     const [cc]=clsColor(cl.name);
     html+=`<div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:${cc}18;border-radius:14px;border-left:4px solid ${cc};margin-bottom:10px">
@@ -15481,8 +15486,8 @@ R.cahier_texte = () => {
         <div class="premium-section-title">📅 À venir</div>
         ${upcoming.map(e=>`<div class="premium-item">
           <div class="pi-icon" style="background:#dbeafe">📅</div>
-          <div style="flex:1"><div class="pi-title">${esc(e.matiere)} <span style="font-size:11px;color:var(--text-muted)">${new Date(e.date_prevue).toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</span></div>
-            <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${esc(e.content)}</div>
+          <div style="flex:1"><div class="pi-title">${esc(e.matiere||e._titre)} <span style="font-size:11px;color:var(--text-muted)">${e._date?new Date(e._date).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):''}</span></div>
+            <div style="font-size:12px;color:var(--text);margin-top:4px;line-height:1.6">${esc(e._corps)}</div>
           </div>
         </div>`).join('')}
       </div>`:''}
@@ -20206,7 +20211,7 @@ R.messages = () => {
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.time||'').localeCompare(a.time||'')):[];
   const pending=isDir?(DB.messages||[]).filter(m=>m.status==='pending'):[];
   const tab=window._msgTab||(isDir?'parents':'inbox');
-  const unreadRec=received.filter(m=>!m.read).length;
+  const unreadRec=received.filter(m=>!_msgLu(m)).length;
   const unreadPar=fromParents.filter(m=>!m.read).length;
 
   const TI={convocation:'📋',annonce:'📣',info:'●',normal:'✉️',question:'❓',rdv:'📅',reclamation:'⚠️',interro:'⚠️',devoir:'📚'};
@@ -20214,7 +20219,7 @@ R.messages = () => {
 
   const card=(m,showReply=false)=>{
     const from=gu(m.from), toU=m.to?gu(m.to):null;
-    const isNew=!m.read&&_msgPourMoi(m,uid,role,myKidCids);
+    const isNew=!_msgLu(m)&&_msgPourMoi(m,uid,role,myKidCids);
     const _clDest=gc(m.to_class_cid||m.to_class||(String(m.to||'').indexOf('class:')===0?String(m.to).slice(6):''));
     const destLabel=toU?toU.name:_clDest?('Parents — '+_clDest.name):m.to_role==='parent'?'Tous les parents':m.to_role==='enseignant'?'Tous les enseignants':m.to_role||'?';
     return `<div style="background:${isNew?'#eaf3fc':'var(--bg)'};border:1px solid ${isNew?'#bfdbfe':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px">
@@ -20603,6 +20608,38 @@ window.approveMsg = (mid, status) => {
   saveToCrypt();render();
 };
 
+// ── LU PAR QUI ? ──────────────────────────────────────────────────────────
+// Un message adressé à une CLASSE ou à TOUS LES PARENTS est UNE SEULE ligne,
+// partagée par toutes les familles destinataires. `read:true` y était écrit par
+// la première qui l'ouvrait : la pastille retombait à zéro chez TOUTES les
+// autres, qui ne voyaient jamais passer l'information de l'école.
+//
+// L'état de lecture d'un message collectif appartient donc au lecteur, et non
+// au message. Faute d'une table `message_reads` en base — elle est demandée —
+// il vit dans `localStorage`, par appareil. C'est une lecture non partagée entre
+// les téléphones d'une même famille, ce qui est sans commune mesure avec le fait
+// de masquer un communiqué à toute une classe.
+//
+// Le comportement de la Direction est INCHANGÉ : là, qu'un directeur marque lu
+// pour tous décrit bien ce qui se passe — la demande a été prise en charge.
+window._MSG_LUS_CLE = '_schoolsafe_msg_lus';
+window._msgCollectif = (m) => !!m && S.user && S.user.role === 'parent' && m.to !== S.user.id;
+window._msgLusLocaux = () => { try { return JSON.parse(localStorage.getItem(window._MSG_LUS_CLE)||'{}'); } catch(e) { return {}; } };
+window._msgLu = (m) => {
+  if (!m) return true;
+  if (!_msgCollectif(m)) return !!m.read;
+  const par = _msgLusLocaux()[S.user.id] || [];
+  return par.indexOf(m.id) >= 0;
+};
+window._marquerLuLocal = (mid) => {
+  const uid = S.user && S.user.id; if (!uid) return;
+  const tout = _msgLusLocaux();
+  const par = tout[uid] || [];
+  if (par.indexOf(mid) < 0) par.push(mid);
+  tout[uid] = par.slice(-500);
+  try { localStorage.setItem(window._MSG_LUS_CLE, JSON.stringify(tout)); } catch(e) {}
+};
+
 window.markMsgRead = (mid) => {
   const m=(DB.messages||[]).find(x=>x.id===mid); if(!m) return;
   // Marquer lu n'appartient qu'au destinataire : la fonction est exposée sur
@@ -20612,6 +20649,7 @@ window.markMsgRead = (mid) => {
     || (S.user.role==='parent'&&m.to_class_cid&&(DB.students||[]).some(s=>s.pid===S.user.id&&s.cid===m.to_class_cid))
     || (['direction','direction2'].includes(S.user.role)&&m.from_role==='parent');
   if(!mien) return;
+  if(_msgCollectif(m)){ _marquerLuLocal(mid); render(); return; }
   m.read=true;
   pushSync('messages','patch',{read:true},'id=eq.'+mid);
   saveToCrypt(); render();
@@ -21091,7 +21129,7 @@ R.convocations = () => {
   const _done=all.filter(c=>c.status==='completed').length;
   const _missed=all.filter(c=>c.status==='missed').length;
   return `
-  <button onclick="go('students')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour aux Élèves</button>
+  ${isDir?`<button onclick="go('students')" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;margin-bottom:12px" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-secondary)'">← Retour aux Élèves</button>`:''}
   <div class="hbento" style="grid-template-columns:repeat(3,1fr);margin-bottom:14px">
     <div class="htile" style="background:linear-gradient(135deg,#2f7bd6,#5b9be8);color:#fff;padding:13px 10px">
       <div style="font-size:19px">📋</div><div class="hbig" style="font-size:24px">${_active}</div><div class="hsub">en cours</div>
