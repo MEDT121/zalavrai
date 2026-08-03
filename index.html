@@ -3347,6 +3347,68 @@ function _attendreImages(el){
 //  html2pdf reste en REPLI, pour le seul cas où la fenêtre est refusée.
 // ══════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════
+//  LA FEUILLE DE STYLE DES DOCUMENTS
+//
+//  Une seule, injectée par `dlPDF` dans TOUT ce qui s'imprime — les quarante-
+//  trois documents en héritent d'un coup, y compris ceux dont la mise en page
+//  n'a jamais été reprise. Les styles en ligne que porte chaque document
+//  gardent la main là où ils existent ; celle-ci pose le socle.
+//
+//  Elle n'était pas possible tant que les documents étaient PHOTOGRAPHIÉS :
+//  html2canvas ignore la pagination, les veuves et orphelines, la répétition
+//  d'un en-tête de tableau. Le navigateur, lui, sait tout cela — c'est le
+//  gain le moins visible et le plus important du passage à l'impression.
+// ══════════════════════════════════════════════════════════════════════════
+window._docStyles = () => [
+  '@page{size:A4;margin:14mm 13mm}',
+  'html,body{margin:0;padding:0;background:#fff;color:#1a2228;',
+    '-webkit-print-color-adjust:exact;print-color-adjust:exact;',
+    'font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;',
+    'font-size:12.5px;line-height:1.55;-webkit-font-smoothing:antialiased}',
+  '*{box-sizing:border-box}',
+  'img{max-width:100%}',
+
+  // Titres : jamais seuls en bas de page.
+  'h1,h2,h3,h4{margin:0 0 6px;line-height:1.22;color:#1a2228;',
+    'page-break-after:avoid;break-after:avoid}',
+  'h1{font-size:19px;font-weight:900;letter-spacing:.3px}',
+  'h2{font-size:15px;font-weight:800}',
+  'h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#3c4a57}',
+  // Deux lignes seules au bord d'une page se lisent mal — trois au minimum.
+  'p{margin:0 0 9px;orphans:3;widows:3;text-align:justify}',
+  'strong,b{font-weight:800}',
+  'ul,ol{margin:0 0 9px 18px;padding:0}',
+  'li{margin-bottom:3px}',
+
+  // Tableaux : l'en-tête se répète en haut de CHAQUE page, et aucune ligne
+  // n'est coupée en deux. C'est ce qui distingue une liste officielle
+  // imprimable d'un tableau tronqué à la page suivante.
+  'table{border-collapse:collapse;width:100%;margin:0 0 12px}',
+  'thead{display:table-header-group}',
+  'tfoot{display:table-footer-group}',
+  'tr,td,th{page-break-inside:avoid;break-inside:avoid}',
+  'th,td{padding:6.5px 9px;text-align:left;vertical-align:top}',
+  'thead th{background:#eef0f2;font-size:10px;font-weight:800;letter-spacing:.7px;',
+    'text-transform:uppercase;color:#3c4a57;border-bottom:1.5px solid #2b3740}',
+  'tbody td{border-bottom:1px solid #e3e7ea}',
+  'tbody tr:nth-child(even) td{background:#fafbfc}',
+  // Les chiffres d'une colonne doivent s'aligner : chasse fixe pour eux seuls.
+  '.num,td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;',
+    'font-feature-settings:"tnum" 1}',
+
+  // Le cartouche du titre, la mention encadrée, le pavé de montant.
+  '.doc-cartouche{text-align:center;margin:0 0 20px}',
+  '.doc-cartouche .t{display:inline-block;border:2px solid #2b3740;border-radius:6px;',
+    'padding:7px 26px;font-size:18px;font-weight:900;letter-spacing:1.3px;text-transform:uppercase}',
+
+  // Les visas ne se coupent JAMAIS entre deux pages : une signature séparée de
+  // son intitulé ne signe plus rien.
+  '.doc-visas{page-break-inside:avoid;break-inside:avoid}',
+
+  '@media print{.no-print{display:none!important}}',
+].join('');
+
 // Un document arrive soit en page complète (`<!DOCTYPE html>…`), soit en
 // fragment. Les deux existent dans le fichier ; on ne les traite pas pareil.
 window._estPageComplete = (h) => /<!DOCTYPE|<html[\s>]/i.test(String(h||''));
@@ -3360,11 +3422,7 @@ function dlPDF(htmlStr, filename){
     // `-webkit-print-color-adjust:exact` est indispensable : sans lui, le
     // navigateur retire les aplats de couleur à l'impression et l'en-tête de
     // l'école sort en blanc sur blanc.
-    const COMMUN = '@page{size:A4;margin:12mm}'
-      + 'html,body{margin:0;padding:0;background:#fff;'
-      + '-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-      + 'img{max-width:100%}'
-      + '@media print{.no-print{display:none!important}}';
+    const COMMUN = window._docStyles();
     // Attendre le chargement ET les images : imprimer trop tôt donnerait
     // exactement le blanc que l'on cherche à éliminer.
     const LANCEUR = '<scr'+'ipt>(function(){var f=function(){try{window.focus();window.print();}catch(e){}};'
